@@ -1,20 +1,6 @@
 <?php
 
 return [
-    'collections' => [
-        // …
-        'heroicon-o' => [
-            'driver' => 'blade-icons',
-            'path'   => base_path('vendor/blade-ui-kit/blade-heroicons/resources/svg/outline'),
-            'prefix' => 'heroicon-o',
-        ],
-
-        'heroicon-s' => [
-            'driver' => 'blade-icons',
-            'path'   => base_path('vendor/blade-ui-kit/blade-heroicons/resources/svg/solid'),
-            'prefix' => 'heroicon-s',
-        ],
-    ],
 
     /*
     |-----------------------------------------------------------------

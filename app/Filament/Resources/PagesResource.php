@@ -10,6 +10,7 @@ use Filament\Forms;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
@@ -23,6 +24,9 @@ use App\Models\Language;
 use Filament\Resources\Concerns\Translatable;
 use Illuminate\Support\Str;
 use Filament\Forms\Set;
+use Mohamedsabil83\FilamentFormsTinyeditor\Components\TinyEditor;
+use Filament\Forms\Components\Tabs;
+use Filament\Forms\Components\Tabs\Tab;
 class PagesResource extends Resource
 {
     use Translatable;
@@ -34,86 +38,86 @@ class PagesResource extends Resource
 
     public static function form(Forms\Form $form): Forms\Form
     {
-        // пытаемся взять из БД, иначе берём из конфига
-        $defaultLocale = Setting::value('default_language_code')
-            ?: config('app.locale');
-      //  dd($defaultLocale);
-        // получаем из БД массив кодов активных языков,
-        // например ['uk','en','ru'] (вместо ['ua',...])
-        $locales = Language::query()
-            ->where('active', true)       // если есть флаг активности
-            ->orderBy('position')         // если нужна сортировка
-            ->pluck('code')               // вытягиваем колонку code
-            ->map(fn($c) => strtolower($c)) // опционально: приводим к lower-case
-            ->toArray();
+        $defaultLocale = Setting::value('default_language_code') ?: config('app.locale');
+        $locales = static::getActiveLocales();
 
         return $form
-            ->schema(array(
+            ->schema([
+                Tabs::make('Контент')
+                    ->columns(1)
+                    ->tabs([
+                        static::getMainTab($locales, $defaultLocale),
+                        static::getSeoTab($locales),
+                    ]),
+            ])->columns(1);
+    }
+    protected static function getMainTab(array $locales, string $defaultLocale): Tab
+    {
+        return Tab::make('Основные')
+            ->schema([
+                Translate::make()
+                    ->locales($locales)
+                    ->prefixLocaleLabel()
+                    ->columns(1)
+                    ->columnSpanFull()
+                    ->schema(fn(string $locale) => [
+                        TextInput::make("title")
+                            ->label('Заголовок')
+                            ->required($locale === $defaultLocale),
+                        RichEditor::make("content")
+                            ->label('Контент')
+                            ->required($locale === $defaultLocale)
+                            ->fileAttachmentsDisk('public')
+                            ->fileAttachmentsDirectory('uploads')
+                            ->fileAttachmentsVisibility('public'),
+                    ]),
                 TextInput::make('slug')
                     ->label('Slug')
                     ->disabledOn('edit')
-                    // требуем только на создании
-
                     ->required()
-                  //  ->unique(Article::class, 'slug', ignoreRecord: true)
                     ->unique(table: Pages::class, column: 'slug', ignorable: fn ($record) => $record)
-                    // отключаем в режиме редактирования
-                  //  ->disabled(fn ($livewire) => $livewire->getRecord() !== null)
-                   ,
-                Translate::make()
-                    // вот эта строка критична — без неё Translate вообще не клонирует поля
-                    ->locales($locales)
-                    // опционально: префиксы/суффиксы языков в метках
-                    ->prefixLocaleLabel()
-                    ->columnSpanFull()
-                    // ->columns(2)
-                    ->schema(fn(string $locale) => array(
-                TextInput::make('title')
-                    ->label('Заголовок')
-                  //  ->reactive()
-                    ->live(onBlur: true)
-
-                    ->afterStateUpdated(fn (Set $set, ?string $state) => $set('slug', Str::slug($state)))
-
-                    // ->translatable()
-                   ->required($locale === $defaultLocale),
-
-                RichEditor::make('content')
-                    ->label('Контент')
-                   // ->translatable()
-                   ->required($locale === $defaultLocale),
-
-                Section::make('SEO')
-                    ->schema(array(
-                        TextInput::make('meta_title')
-                            ->label('Meta Title')
-                         //   ->translatable()
-                            ,
-
-                        TextInput::make('meta_description')
-                            ->label('Meta Description')
-                            //->translatable()
-                        ,
-
-                        TextInput::make('meta_keywords')
-                            ->label('Meta Keywords')
-                            //->translatable()
-                        ,
-                    ))
-                    ->collapsible(),
-                    ))
-                    ->fieldTranslatableLabel(fn($field, $locale) => __($field->getName(), locale: $locale)),
+                    //->unique(table: Pages::class, column: 'slug', ignorable: fn($r) => $r)
+                    ,
                 Select::make('status')
                     ->label('Статус')
-                    ->options(array(
+                    ->options([
                         'draft'     => 'Черновик',
                         'published' => 'Опубликована',
-                    ))
-                    ->default('draft')    // ← вот здесь
-                    ->required()
-            ));
+                    ])
+                    ->default('draft')
+                    ->required(),
+            ])
+            ->columns(1);
     }
 
+    protected static function getSeoTab(array $locales): Tab
+    {
+        return Tab::make('SEO')
+            ->schema([
+                Translate::make()
+                    ->locales($locales)
+                    ->prefixLocaleLabel()
+                    ->columns(1)
+                    ->columnSpanFull()
+                    ->schema(fn(string $locale) => [
+                        TextInput::make("meta_title")
+                            ->label('Meta Title'),
+                        Textarea::make("meta_description")
+                            ->label('Meta Description')
+                            ->rows(3),
+                        TextInput::make("meta_keywords")
+                            ->label('Meta Keywords'),
+                    ]),
+            ]);
+    }
+    protected static function getActiveLocales(): array
+    {
+        return Language::where('active', true)
+            ->orderBy('position')
+            ->pluck('code')
+            ->map(fn($c) => strtolower($c))
+            ->toArray();
+    }
     public static function table(Tables\Table $table): Tables\Table
     {
         return $table

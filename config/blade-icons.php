@@ -12,6 +12,24 @@ return [
     | set and a combination from the options below.
     |
     */
+   // 'default' => 'heroicon-o',
+    'collections' => [
+        'heroicons' => [
+            'driver' => 'blade-icons',
+            'path' => base_path('vendor/blade-ui-kit/blade-heroicons/resources/svg/outline'),
+            'prefix' => 'heroicon-o',
+        ],
+        'heroicons-solid' => [
+            'driver' => 'blade-icons',
+            'path' => base_path('vendor/blade-ui-kit/blade-heroicons/resources/svg/solid'),
+            'prefix' => 'heroicon-s',
+        ],
+        'heroicons-mini' => [
+            'driver' => 'blade-icons',
+            'path' => base_path('vendor/blade-ui-kit/blade-heroicons/resources/svg/24/mini'),
+            'prefix' => 'heroicon-m',
+        ],
+    ],
 
     'sets' => [
 
