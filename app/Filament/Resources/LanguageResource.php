@@ -27,7 +27,7 @@ class LanguageResource extends Resource
     protected static ?string $navigationGroup = 'Настройки';
     protected static ?string $navigationLabel = 'Языки';
     protected static ?string $navigationIcon = 'heroicon-o-globe-alt';
-
+    protected static ?int    $navigationSort  = 3;
     public static function form(Form $form): Form
     {
         return $form

@@ -35,7 +35,7 @@ class PagesResource extends Resource
     protected static ?string $navigationGroup = 'Контент';
     protected static ?string $navigationLabel = 'Страницы';
     protected static ?string $navigationIcon  = 'heroicon-o-document-text';
-
+    protected static ?int    $navigationSort  = 2;
     public static function form(Forms\Form $form): Forms\Form
     {
         $defaultLocale = Setting::value('default_language_code') ?: config('app.locale');

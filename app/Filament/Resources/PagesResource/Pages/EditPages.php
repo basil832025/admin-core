@@ -19,6 +19,12 @@ class EditPages extends EditRecord
           //  SaveAction::make(),
            // $this->getSaveFormAction(),
             // встроенная кнопка "Сохранить"
+            $this->getCancelFormAction()
+                ->label('Отмена')
+                ->color('warning')
+                // можно задать куда вести, по умолчанию вернёт на index-роту
+                ->url($this->getResource()::getUrl('index')),
+
             $this->getSaveFormAction()
                 ->label('Сохранить')
              //   ->icon(Heroicons::class, 'outline-save') // указываем класс Filament\Icons\Heroicons
