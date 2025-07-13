@@ -38,7 +38,9 @@ class BlogCategoryResource extends Resource
     protected static ?string $model = BlogCategory::class;
     protected static ?string $navigationGroup = 'Контент';
     protected static ?string $navigationLabel = 'Категории статей';
+    protected static ?string $modelLabel = 'Категория статей';
     protected static ?string $navigationIcon = 'heroicon-o-book-open';
+    protected static ?string $pluralModelLabel = 'Категории статей';
     // … навигация, иконки и т.д. …
 
     public static function form(Form $form): Form

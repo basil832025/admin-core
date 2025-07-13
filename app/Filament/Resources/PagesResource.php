@@ -64,7 +64,7 @@ class PagesResource extends Resource
                         TextInput::make("title")
                             ->label('Заголовок')
                             ->required($locale === $defaultLocale),
-                        RichEditor::make("content")
+                        TinyEditor::make("content")
                             ->label('Контент')
                             ->required($locale === $defaultLocale)
                             ->fileAttachmentsDisk('public')
