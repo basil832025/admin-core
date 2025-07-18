@@ -6,6 +6,8 @@ use Filament\Clusters\Cluster;
 
 class Characteristics extends Cluster
 {
+
+
     /**
      * Иконка в боковой навигации (Heroicons gear)
      */
@@ -19,10 +21,16 @@ class Characteristics extends Cluster
     /**
      * Порядок сортировки кластера в меню
      */
-    protected static ?int $navigationSort = 20;
-
+ //   protected static ?int $navigationSort = 20;
+   // protected static ?string $cluster = Characteristics::class;
     /**
      * Уникальный slug кластера, под которым ресурсы будут группироваться
      */
     protected static ?string $slug = 'catalog/characteristics';
+    // Здесь перечисляем все ресурсы, которые должны быть внутри этого кластера:
+    /*protected static array $resources = [
+        CharacteristicCategoryResource::class,
+        CharacteristicResource::class,
+        VariationResource::class,
+    ];*/
 }

@@ -53,6 +53,7 @@ class AdminPanelProvider extends PanelProvider
             // Явный порядок групп:
             ->navigationGroups([
                 'Инфопанель',
+                'Каталог',      // <-- добавили
                 'Контент',
                 'Настройки',
             ])

@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Characteristics extends Model
+class CharacteristicValue extends Model
 {
     //
 }

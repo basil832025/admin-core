@@ -18,7 +18,7 @@ return new class extends Migration
                 ->constrained('characteristic_categories')
                 ->onDelete('cascade');
 
-            $table->string('name')->comment('Название характеристики');
+            $table->json('name')->comment('Название характеристики');
             $table->string('slug')->unique()->comment('URL-friendly код');
 
             // Тип ценообразования: 0=Не влияет,1=Надбавка,2=Фиксированная

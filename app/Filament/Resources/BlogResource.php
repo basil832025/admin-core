@@ -192,21 +192,13 @@ class BlogResource extends Resource
 
                 ->getStateUsing(function (Blog $record, TextColumn $column, $livewire) {
                     $locale = $livewire->activeLocale;
-                  //  dd($locale);
-                        // Тут можно делать сколько угодно dd() или других вызовов:
-                        // Debug: какую строку реально отдаёт getRawOriginal()
-                     //   $raw = $record->category?->getRawOriginal('name') ?? '[]';
 
-                        // Декодируем в ассоциативный массив
-                      //  $names = json_decode($raw, true) ?: [];
                         // Возвращаем нужный перевод или дефолт
                         return $record->category
                             // используя Spatie, вытянем нужный перевод:
                             ? $record->category->getTranslation('name', $locale)
                             : '—';
-                      /*  return $names[$defaultLocale]
-                            ?? $names[$defaultLocale]
-                            ?? '—';*/
+
                     })
 
                /*     ->getStateUsing(fn (Blog $record) =>
