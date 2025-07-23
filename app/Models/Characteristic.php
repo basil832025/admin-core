@@ -7,6 +7,8 @@ use Illuminate\Support\Str;
 use Spatie\Translatable\HasTranslations;
 use Illuminate\Support\Arr;
 use App\Models\Setting;
+use App\Models\CharacteristicValue;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 class Characteristic extends Model
 {
@@ -39,6 +41,10 @@ class Characteristic extends Model
         'name',
 
     ];
+    public function values(): HasMany
+    {
+        return $this->hasMany(CharacteristicValue::class, 'characteristic_id');
+    }
     // генерация slug  при создании и для текущего языка по умолчанию
     protected static function booted(): void
     {

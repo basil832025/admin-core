@@ -140,7 +140,12 @@ class CharacteristicResource extends Resource
                     ]),
             ]);
     }
-
+    public static function getRelations(): array
+    {
+        return [
+            RelationManagers\ValuesRelationManager::class,
+        ];
+    }
     public static function table(Table $table): Table
     {
         return $table
@@ -202,12 +207,7 @@ class CharacteristicResource extends Resource
             ]);
     }
 
-    public static function getRelations(): array
-    {
-        return [
-            //
-        ];
-    }
+
     protected static function getActiveLocales(): array
     {
         return Language::where('active', true)

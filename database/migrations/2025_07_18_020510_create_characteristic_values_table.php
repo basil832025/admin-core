@@ -13,6 +13,14 @@ return new class extends Migration
     {
         Schema::create('characteristic_values', function (Blueprint $table) {
             $table->id();
+            // связь с характеристикой
+            $table->foreignId('characteristic_id')
+                ->constrained('characteristics')
+                ->cascadeOnDelete();
+
+            $table->json('value')->comment('Значение характеристики');
+            $table->integer('sort_order')->default(0)->comment('Позиция сортировки');
+            $table->boolean('is_active')->default(true)->comment('Активно');
             $table->timestamps();
         });
     }

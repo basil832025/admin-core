@@ -1,0 +1,135 @@
+<?php
+
+namespace App\Filament\Clusters\Characteristics\Resources;
+
+use App\Filament\Clusters\Characteristics;
+use App\Filament\Clusters\Characteristics\Resources\VariationResource\Pages;
+use App\Filament\Clusters\Characteristics\Resources\VariationResource\RelationManagers;
+use App\Models\Variation;
+use Filament\Forms;
+use Filament\Forms\Components\Grid;
+use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Form;
+use Filament\Resources\Resource;
+use Filament\Tables;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Filament\Pages\SubNavigationPosition;
+use App\Models\Characteristic;
+use App\Models\CharacteristicValue;
+use App\Models\Setting;
+use App\Models\Language;
+class   VariationResource extends Resource
+{
+    protected static ?string $model = Variation::class;
+
+    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationLabel = 'Вариации';
+    protected static ?string $cluster = Characteristics::class;
+    protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
+    protected static ?int $navigationSort = 1;
+    public static function form(Form $form): Form
+    {
+        $defaultLocale = Setting::value('default_language_code') ?: config('app.locale');
+
+        return $form->schema([
+            Grid::make(2)
+                ->schema([
+                    // Левая колонка
+                           TextInput::make('name')
+                                ->label('Название вариации')
+                                ->helperText('Например: 30см / 900г / 3 чел'),
+                            TextInput::make('slug')
+                                ->label('Слаг')
+                                ->helperText('Автоматически создаётся из названия, если не заполнен')
+                                ->unique(ignoreRecord: true)
+                              //  ->required()
+                                ->maxLength(255),
+
+                    // Левая колонка
+                              Repeater::make('variationCharacteristicValues')
+                                ->label('Значения характеристик')
+                                ->relationship('variationCharacteristicValues')
+                                ->schema([
+                                    Select::make('characteristic_id')
+                                        ->label('Характеристика')
+                                        ->options(function () use ($defaultLocale) {
+                                            return \App\Models\Characteristic::all()
+                                                ->mapWithKeys(function ($item) use ($defaultLocale) {
+
+                                                    $label = json_decode($item->getRawOriginal('name'), true)[$defaultLocale]
+                                                        ?? json_decode($item->getRawOriginal('name'), true)[config('app.locale')];
+
+                                                    // принудительно привести к строке, даже если null
+                                                    return [$item->id => (string) $label];
+                                                })
+                                                ->filter(fn ($label) => trim($label) !== '');
+                                        })
+                                        ->reactive(),
+
+                                    Select::make('characteristic_value_id')
+                                        ->label('Значение')
+                                        ->options(fn ($get) => CharacteristicValue::where('characteristic_id', $get('characteristic_id'))->pluck('value', 'id'))
+                                        ->required(),
+                                ])
+                ->columns(2)
+                ->minItems(1)
+                ->maxItems(10)
+                ->columnSpanFull(), // Растянуть на всю ширину
+
+        ])
+        ]);
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->columns([
+                Tables\Columns\TextColumn::make('name')
+                    ->searchable(),
+                TextColumn::make('slug')
+                    ->label('Slug')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('created_at')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('updated_at')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->filters([
+                //
+            ])
+            ->actions([
+                Tables\Actions\EditAction::make(),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make(),
+                ]),
+            ]);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            //
+        ];
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => Pages\ListVariations::route('/'),
+            'create' => Pages\CreateVariation::route('/create'),
+            'edit' => Pages\EditVariation::route('/{record}/edit'),
+        ];
+    }
+}

@@ -12,7 +12,10 @@ class Characteristics extends Cluster
      * Иконка в боковой навигации (Heroicons gear)
      */
     protected static ?string $navigationIcon = 'heroicon-o-cog';
-
+    public static function getNavigationLabel(): string
+    {
+        return __('Характеристики');
+    }
     /**
      * Группа навигации, в которую попадёт кластер
      */

@@ -24,7 +24,10 @@ class BlogCommentResource extends Resource
  //   protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
   //  protected static ?string $navigationGroup = 'Blog';
    // protected static ?int $navigationSort = 2;
-
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
     public static function form(Form $form): Form
     {
         return $form
