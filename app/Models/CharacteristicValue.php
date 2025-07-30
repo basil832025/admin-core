@@ -4,9 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-
+use Spatie\Translatable\HasTranslations;
 class CharacteristicValue extends Model
 {
+    use HasTranslations;
     protected $fillable = [
         'characteristic_id',
         'value',
@@ -22,6 +23,11 @@ class CharacteristicValue extends Model
         'value',
 
     ];
+    public function productValues()
+    {
+        return $this->hasMany(ProductCharacteristicValue::class, 'characteristic_value_id');
+    }
+
     public function characteristic()
     {
         return $this->belongsTo(Characteristic::class);

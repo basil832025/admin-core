@@ -159,6 +159,7 @@ class CharacteristicResource extends Resource
                          ->sortable(),
                      TextColumn::make('category.name')
                          ->label('Категория')
+
                          ->getStateUsing(function (Characteristic $record, TextColumn $column, $livewire) {
                              $locale = $livewire->activeLocale;
 

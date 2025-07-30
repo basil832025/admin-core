@@ -99,6 +99,18 @@ class ProductCategoryResource extends Resource
 
     ]);
     }
+    public function characteristics()
+    {
+        return $this->belongsToMany(
+            \App\Models\Characteristic::class,
+            'category_characteristic',
+            'category_id',
+            'characteristic_id'
+        )
+            ->withPivot(['affects_price', 'is_required', 'expanded']) // если есть
+            ->withTimestamps(); // если используете created_at/updated_at
+    }
+
     protected static function getCharakTab(array $locales): Tab
     {
         $defaultLocale = Setting::value('default_language_code') ?: config('app.locale');

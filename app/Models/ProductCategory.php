@@ -41,15 +41,51 @@ class ProductCategory extends Model
         'description'
 
     ];
-    public function characteristics(): BelongsToMany
+    public function getAllCharacteristicsWithInheritance(): \Illuminate\Support\Collection
     {
-        return $this->belongsToMany(Characteristic::class,
-            'category_characteristic',
-            'category_id',
-            'characteristic_id')
-            ->withPivot('affects_price');
+        // Получаем текущую и родительские категории
+        $categories = collect([$this])->merge($this->getAllParents());
+        $categoryIds = $categories->pluck('id')->all();
+
+        // Загружаем характеристики через отношение categories с pivot
+        return \App\Models\Characteristic::whereHas('categories', function ($query) use ($categoryIds) {
+            $query->whereIn('category_id', $categoryIds);
+        })
+            ->with(['categories' => function ($query) use ($categoryIds) {
+                $query->whereIn('product_categories.id', $categoryIds);
+            }])
+            ->get()
+            ->each(function ($char) use ($categoryIds) {
+                // Ищем первую категорию, для которой есть привязка, и берём её pivot
+                $pivotCategory = $char->categories->first(fn($cat) => in_array($cat->id, $categoryIds));
+
+                if ($pivotCategory && $pivotCategory->pivot) {
+                    $char->setRelation('pivot', $pivotCategory->pivot);
+                }
+            });
     }
 
+
+    public function getAllParents()
+    {
+        $parents = collect();
+        $category = $this;
+        while ($category->parent) {
+            $parents->push($category->parent);
+            $category = $category->parent;
+        }
+        return $parents;
+    }
+
+    public function characteristics()
+    {
+        return $this->belongsToMany(
+            \App\Models\Characteristic::class,
+            'category_characteristic',
+            'category_id',
+            'characteristic_id'
+        )->withPivot(['is_required', 'affects_price']);
+    }
     public function variations(): BelongsToMany
     {
         return $this->belongsToMany(Variation::class, 'category_variation', 'category_id', 'variation_id');

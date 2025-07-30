@@ -33,6 +33,22 @@ class Characteristic extends Model
         'is_required'   => 'boolean',
         'is_active'     => 'boolean',
     ];
+    public function productValues()
+    {
+        return $this->hasMany(ProductCharacteristicValue::class);
+    }
+// App\Models\Characteristic.php
+
+    public function categories()
+    {
+        return $this->belongsToMany(
+            \App\Models\ProductCategory::class,
+            'category_characteristic',
+            'characteristic_id',
+            'category_id'
+        );
+    }
+
     public function category()
     {
         return $this->belongsTo(CharacteristicCategory::class, 'category_id');
@@ -41,6 +57,11 @@ class Characteristic extends Model
         'name',
 
     ];
+    public function products()
+    {
+        return $this->belongsToMany(Product::class, 'product_characteristic_value')
+            ->withTimestamps();
+    }
     public function values(): HasMany
     {
         return $this->hasMany(CharacteristicValue::class, 'characteristic_id');
