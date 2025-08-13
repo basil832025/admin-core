@@ -6,12 +6,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Spatie\Permission\Traits\HasRoles;
+
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
-
+    use HasRoles;
+    protected $guard_name = 'web'; // важно для spatie/laravel-permission
     /**
      * The attributes that are mass assignable.
      *
@@ -21,6 +24,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'position_id',
     ];
 
     /**
@@ -38,6 +42,10 @@ class User extends Authenticatable
      *
      * @return array<string, string>
      */
+    public function position()
+    {
+        return $this->belongsTo(Position::class);
+    }
     protected function casts(): array
     {
         return [

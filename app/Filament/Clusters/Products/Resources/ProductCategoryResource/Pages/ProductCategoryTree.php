@@ -6,6 +6,7 @@ use App\Filament\Clusters\Products;
 use App\Filament\Clusters\Products\Resources\ProductCategoryResource;
 
 use Filament\Forms\Components\TextInput;
+use Illuminate\Support\Str;
 use SolutionForest\FilamentTree\Actions\ViewAction;
 use SolutionForest\FilamentTree\Actions\EditAction;
 use SolutionForest\FilamentTree\Actions\DeleteAction;
@@ -30,16 +31,18 @@ class ProductCategoryTree extends BasePage
     protected static string $resource = ProductCategoryResource::class;
     protected bool $enableTreeTitle = true;
     protected static ?string $cluster = Products::class;
-    protected static string $model = \App\Models\ProductCategory::class;
+    protected static string $model = \App\Models\Shop\ProductCategory::class;
     protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
     protected static ?int $navigationSort = 1;
-// можна вивидити в вспливаючому вікні ті поля які треба
+  //  protected static string $view = 'filament-tree::pages.resource.tree';
+    // можна вивидити в вспливаючому вікні ті поля які треба
    /* protected function getFormSchema(): array
     {
         return [
             TextInput::make('title'),
         ];
     }*/
+
     protected function getActions(): array
     {
         return [
@@ -132,6 +135,11 @@ class ProductCategoryTree extends BasePage
         return false;
     }
 
+
+  /*  public static function shouldRegisterNavigation(): bool
+    {
+        return static::canAccess();
+    }*/
 
 // чтобы не в модальном окне открывалось а как страница
     protected function getTreeActions(): array

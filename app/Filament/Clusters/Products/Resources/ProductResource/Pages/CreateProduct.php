@@ -5,8 +5,8 @@ namespace App\Filament\Clusters\Products\Resources\ProductResource\Pages;
 use App\Filament\Clusters\Products\Resources\ProductResource;
 use Filament\Actions;
 use Filament\Resources\Pages\CreateRecord;
-use App\Models\Product;
-use  App\Models\ProductImage;
+use App\Models\Shop\Product;
+use  App\Models\Shop\ProductImage;
 class CreateProduct extends CreateRecord
 {
     protected static string $resource = ProductResource::class;
@@ -29,7 +29,7 @@ class CreateProduct extends CreateRecord
             // dd($values);
             foreach ($values as $val) {
                 //     dd($characteristicId, $value, $val);
-                \App\Models\ProductCharacteristicValue::create([
+                \App\Models\Shop\ProductCharacteristicValue::create([
                     'product_id' => $record->id,
                     'characteristic_id' => $characteristicId,
                     'characteristic_value_id' => $val,

@@ -5,7 +5,7 @@ namespace App\Filament\Clusters\Characteristics\Resources;
 use App\Filament\Clusters\Characteristics;
 use App\Filament\Clusters\Characteristics\Resources\CharacteristicCategoryResource\Pages;
 use App\Filament\Clusters\Characteristics\Resources\CharacteristicCategoryResource\RelationManagers;
-use App\Models\CharacteristicCategory;
+use App\Models\Shop\CharacteristicCategory;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;

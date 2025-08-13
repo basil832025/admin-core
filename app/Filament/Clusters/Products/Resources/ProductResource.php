@@ -1,15 +1,15 @@
 <?php
 
 namespace App\Filament\Clusters\Products\Resources;
+use Filament\Forms\Components\Placeholder;
 
 use App\Filament\Clusters\Products;
 use App\Filament\Clusters\Products\Resources\ProductResource\Pages;
 use App\Filament\Clusters\Products\Resources\ProductResource\RelationManagers;
-use App\Models\BlogCategory;
 use App\Models\Language;
-use App\Models\Product;
+use App\Models\Shop\Product;
 use App\Models\Setting;
-use App\Models\ProductCategory;
+use App\Models\Shop\ProductCategory;
 use Filament\Forms;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\CheckboxList;
@@ -26,13 +26,11 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Pages\SubNavigationPosition;
 use Filament\Resources\Concerns\Translatable;
 use SolutionForest\FilamentTranslateField\Forms\Component\Translate;
 use Illuminate\Support\Str;
-use  App\Models\ProductImage;
+use  App\Models\Shop\ProductImage;
 use Illuminate\Support\Facades\Storage;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Field;
@@ -43,10 +41,10 @@ use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\MultiSelect;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\Component;
-use App\Models\Characteristic;
+use App\Models\Shop\Characteristic;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Section;
-
+use Filament\Forms\Get;
 class ProductResource extends Resource
 {
     use Translatable;
@@ -70,12 +68,75 @@ class ProductResource extends Resource
                 ->tabs([
                     Tab::make('Основные')->schema(static::mainTab($locales, $defaultLocale))->columns(3),
                     Tab::make('Изображения')->schema(static::imageTab())->columns(1),
-                    Tab::make('Характеристики')->schema(fn (Forms\Get $get, ?\App\Models\Product $record) => static::characteristicTab($get, $record))
-                        ->columns(1),
+                    Tab::make('Характеристики')->schema(fn (Forms\Get $get, ?\App\Models\Shop\Product $record) => static::characteristicTab($get, $record))->columns(1),
+                    Tab::make('Вариации')->schema(fn (Forms\Get $get, ?\App\Models\Shop\Product $record) => static::variationTab($get, $record))->columns(1),
                     Tab::make('SEO')->schema(static::seoTab($locales, $defaultLocale))->columns(1),
                 ])->columns(1)->columnSpanFull(),
         ]);
     }
+    public static function variationTab(Forms\Get $get, ?\App\Models\Shop\Product $record): array
+    {
+        $categoryIds = $get('category_ids') ?? $record?->categories?->pluck('id')->toArray() ?? [];
+
+        if (empty($categoryIds)) {
+            return [
+                Placeholder::make('no_category')
+                    ->content('Сначала выберите категорию'),
+            ];
+        }
+
+        $variations = \App\Models\Shop\CategoryVariation::getVariationsFromManyCategories($categoryIds);
+
+        // Загружаем ранее выбранные вариации с ценами
+        $selected = collect($record?->productVariations ?? [])
+            ->mapWithKeys(fn ($pv) => [$pv->variation_id => $pv->price]);
+        //dd($selected);
+        return [
+            Group::make(
+                $variations->map(function ($var) use ($selected) {
+                    return Grid::make()
+                        ->schema([
+                            Checkbox::make("variation_flags.{$var->id}")
+                                ->label($var->name)
+                                ->reactive()
+                                ->columns(1)
+                                //->default(fn () => $selected->has($var->id)) // для новых записей
+                                ->afterStateHydrated(function (Forms\Set $set) use ($selected, $var) {
+                                  //  dump($selected);
+                                    if ($selected->has($var->id)) {
+                                        $set("variation_flags.{$var->id}", true);
+                                        $set("variation_prices.{$var->id}", $selected->get($var->id));
+                                    }else{
+                                       if ($selected->isEmpty()) {
+                                           $set("variation_flags.{$var->id}", true);
+                                       }
+                                    }
+                                }),
+                             //  ->default(fn () => $selected->has($var->id)), // ✅ сразу проставит
+                               // ->default($selected->has($var->id)), // ✅ вот это работает с коллекцией
+
+                            TextInput::make("variation_prices.{$var->id}")
+                                ->numeric()
+                                ->label(false)
+                                ->placeholder('Цена')
+                                ->dehydrated(true)
+                                ->inputMode('decimal')
+                                ->step('any')
+                                ->columnSpan(1)
+                                ->columns(1)
+                                ->default($selected->get($var->id)) // безопасный доступ
+                            //    ->visible(fn (Get $get) => $get("variation_flags.{$var->id}") === true)
+                            ,
+                        ])
+                        ->columns(3);
+                })->toArray()
+            )
+                ->columns(3)
+                ->label('Вариации')
+                ->reactive()
+        ];
+    }
+
     protected static function mainTab($locales, $defaultLocale): array
     {
         return [
@@ -184,9 +245,9 @@ class ProductResource extends Resource
         ];
     }
 
-    public static function characteristicTab(Forms\Get $get, ?\App\Models\Product $record): array
+    public static function characteristicTab(Forms\Get $get, ?\App\Models\Shop\Product $record): array
     {
-        $category = $record?->categories?->first() ?? \App\Models\ProductCategory::find($get('category_id'));
+        $category = $record?->categories?->first() ?? \App\Models\Shop\ProductCategory::find($get('category_id'));
 
         if (!$category) {
             return [
@@ -250,7 +311,7 @@ class ProductResource extends Resource
             $entries = $record->characteristicValues
                 ->where('characteristic_id', $char->id);
          //   $entry = $entries->first();
-            $entry = \App\Models\ProductCharacteristicValue::where('product_id', $record->id)
+            $entry = \App\Models\Shop\ProductCharacteristicValue::where('product_id', $record->id)
                 ->where('characteristic_id', $char->id)
                 ->first();
 
@@ -279,7 +340,29 @@ class ProductResource extends Resource
 
 
          //   dd($entries);
-            $items = $char->values->map(function ($value) use ($char, $locale, $record) {
+           // dump($char->values);
+            $is_new=true;
+            // пройдем массви по значениям чтобы понять это первый разли заполняются характеристики, чтобы потом можно было птички проставить
+            $items_t = $char->values->map(function ($value) use (&$is_new,$char, $locale, $record) {
+                $id = $value->id; // 👈 теперь переменная $id существует
+                $entries = $record->characteristicValues
+                    // ->where('characteristic_id', $char->id)
+                    ->filter(fn($item) => $item->pivot->characteristic_id === $char->id &&
+                        $item->pivot->product_id === $record->id &&
+                        $item->pivot->characteristic_value_id === $id
+                    )
+                    ->map(fn($item) => [
+                        'characteristic_value_id' => $item->pivot->characteristic_value_id,
+                        'price_modifier' => $item->pivot->price_modifier,
+                    ])
+                    ->filter()
+                    ->values()
+                    ->toArray();
+                if (!empty($entries)) $is_new=false;
+           //     dump($entries);
+            });
+          //  dump($is_new);
+            $items = $char->values->map(function ($value) use (&$is_new,$char, $locale, $record) {
                 $id = $value->id;
 
                 $raw = $value->getAttributes()['value'];
@@ -302,6 +385,7 @@ class ProductResource extends Resource
                     ->filter()
                     ->values()
                     ->toArray();
+              //  dump($entries);
                 $isChecked=false;
                 $price=0;
               //  if ($id==11)                dd($char->id,$entries,$id,$record->id);
@@ -316,7 +400,17 @@ class ProductResource extends Resource
                     Checkbox::make("characteristics.{$char->id}.{$id}")
                         ->label($name)
                       //  ->dehydrated(true)
-                      ->afterStateHydrated(fn ($component) => $component->state((bool) $isChecked))
+                     // ->afterStateHydrated(fn ($component) => $component->state((bool) $isChecked))
+                      ->afterStateHydrated(function ($component) use ($isChecked,$is_new) {
+                       //   dump($is_new);
+                             if ($is_new==true){
+
+                                 $component->state(true);
+                             }
+
+                             else
+                                 $component->state((bool) $isChecked);
+                      })
                         ->columnSpan(3),
 
                   //  TextInput::make("price_modifiers.{$char->id}.{$id}")

@@ -5,9 +5,9 @@ namespace App\Filament\Clusters\Characteristics\Resources;
 use App\Filament\Clusters\Characteristics;
 use App\Filament\Clusters\Characteristics\Resources\CharacteristicResource\Pages;
 use App\Filament\Clusters\Characteristics\Resources\CharacteristicResource\RelationManagers;
-use App\Models\Characteristic;
+use App\Models\Shop\Characteristic;
 
-use App\Models\CharacteristicCategory;
+use App\Models\Shop\CharacteristicCategory;
 use Filament\Forms;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Select;

@@ -5,9 +5,9 @@ namespace App\Filament\Clusters\Products\Resources;
 use App\Filament\Clusters\Products;
 use App\Filament\Clusters\Products\Resources\ProductCategoryResource\Pages;
 use App\Filament\Clusters\Products\Resources\ProductCategoryResource\RelationManagers;
-use App\Models\Characteristic;
-use App\Models\ProductCategory;
-use App\Models\Variation;
+use App\Models\Shop\Characteristic;
+use App\Models\Shop\ProductCategory;
+use App\Models\Shop\Variation;
 use Filament\Forms;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Tabs;
@@ -28,6 +28,7 @@ use Filament\Resources\Concerns\Translatable;
 use SolutionForest\FilamentTree\Pages\TreePage;
 use App\Filament\Clusters\Products\Resources\ProductCategoryResource\Pages\ProductCategoryTree;
 use Filament\Pages\Actions\Action;
+use App\Filament\Clusters\Products\Resources\ProductCategoryResource\RelationManagers\ProductRelationManager;
 
 class ProductCategoryResource extends Resource
 {
@@ -102,7 +103,7 @@ class ProductCategoryResource extends Resource
     public function characteristics()
     {
         return $this->belongsToMany(
-            \App\Models\Characteristic::class,
+            \App\Models\Shop\Characteristic::class,
             'category_characteristic',
             'category_id',
             'characteristic_id'
@@ -178,7 +179,7 @@ class ProductCategoryResource extends Resource
 
     public static function model(): string
     {
-        return \App\Models\ProductCategory::class;
+        return \App\Models\Shop\ProductCategory::class;
     }
 
     protected static function getActiveLocales(): array
@@ -219,7 +220,9 @@ class ProductCategoryResource extends Resource
 
     public static function getRelations(): array
     {
-        return [];
+        return [
+            ProductRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

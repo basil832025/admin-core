@@ -5,7 +5,7 @@ namespace App\Filament\Clusters\Characteristics\Resources;
 use App\Filament\Clusters\Characteristics;
 use App\Filament\Clusters\Characteristics\Resources\VariationResource\Pages;
 use App\Filament\Clusters\Characteristics\Resources\VariationResource\RelationManagers;
-use App\Models\Variation;
+use App\Models\Shop\Variation;
 use Filament\Forms;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Repeater;
@@ -20,8 +20,8 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Pages\SubNavigationPosition;
-use App\Models\Characteristic;
-use App\Models\CharacteristicValue;
+use App\Models\Shop\Characteristic;
+use App\Models\Shop\CharacteristicValue;
 use App\Models\Setting;
 use App\Models\Language;
 class   VariationResource extends Resource
@@ -59,7 +59,7 @@ class   VariationResource extends Resource
                                     Select::make('characteristic_id')
                                         ->label('Характеристика')
                                         ->options(function () use ($defaultLocale) {
-                                            return \App\Models\Characteristic::all()
+                                            return \App\Models\Shop\Characteristic::all()
                                                 ->mapWithKeys(function ($item) use ($defaultLocale) {
 
                                                     $label = json_decode($item->getRawOriginal('name'), true)[$defaultLocale]

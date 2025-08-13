@@ -19,7 +19,7 @@ class Characteristics extends Cluster
     /**
      * Группа навигации, в которую попадёт кластер
      */
-    protected static ?string $navigationGroup = 'Каталог';
+    protected static ?string $navigationGroup = 'Магазин';
 
     /**
      * Порядок сортировки кластера в меню

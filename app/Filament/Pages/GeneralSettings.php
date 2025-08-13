@@ -13,7 +13,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Forms\Components\Section;
-
+use Illuminate\Support\Str;
 class GeneralSettings extends Page implements Forms\Contracts\HasForms
 {
     use Forms\Concerns\InteractsWithForms;
@@ -31,6 +31,31 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
     public $social_links = [];
     public $default_language_code;
     public $admin_color_scheme; // ← вот это надо добавить
+    public static function canAccess(): bool
+    {
+        $user = auth()->user();
+        if (! $user) return false;
+
+        // Две возможные схемы именования у Shield:
+        $keys = [
+            // из slug страницы: "general-settings" -> "page_general_settings"
+            'page_' . Str::of(static::getSlug())->snake(),
+            // из имени класса: "GeneralSettings" -> "page_GeneralSettings"
+            'page_' . class_basename(static::class),
+        ];
+
+        foreach ($keys as $key) {
+            if ($user->can($key)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::canAccess();
+    }
     protected function getActions(): array
     {
         return [
