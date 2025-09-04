@@ -41,30 +41,30 @@ class AdminPanelProvider extends PanelProvider
             'Amber' => Color::Amber,
             'Emerald' => Color::Emerald,
             'Orange' => Color::Orange,
+    ];
+        // --- ЗАЩИТА ОТ ОТСУТСТВИЯ ТАБЛИЦ ПРИ package:discover ---
+        $hasLang     = $this->safeHasTable('languages');
+        $hasSettings = $this->safeHasTable('settings');
+            // Локали (дефолты, если таблиц нет)
+        $ordered = $hasLang
+            ? Language::where('active', true)->orderBy('position')->pluck('code')->map(fn ($c) => strtolower($c))
+            : collect(['uk', 'en', 'ru']);
 
 
-
-
-        ];
-        $ordered = Language::query()
-            ->where('active', true)
-            ->orderBy('position')
-            ->pluck('code')                 // ['uk','en','ru', ...]
-            ->map(fn ($c) => strtolower($c))
-            ->values();
         // Дефолт из настроек (или config('app.locale'))
-        $default = strtolower(Setting::value('default_language_code') ?: config('app.locale'));
-
+      //  $default = strtolower(Setting::value('default_language_code') ?: config('app.locale'));
+        $default = strtolower(
+            $hasSettings ? (Setting::value('default_language_code') ?: config('app.locale'))
+                : config('app.locale')
+        );
         // $locales = Language::activeCodesOrdered(); // порядок из БД
         $locales = $ordered
             ->sortBy(fn ($code) => $code === $default ? 0 : 1)
             ->values()
             ->all();
-        // Берём из БД выбранную схему
-        $scheme = Setting::first()->admin_color_scheme ?? 'primary';
-        // Дефолт из настроек (или config('app.locale'))
-        $default = strtolower(Setting::value('default_language_code') ?: config('app.locale'));
-        //dd()
+        // Цветовая схема (дефолт, если нет settings)
+        $scheme = $hasSettings ? (optional(Setting::first())->admin_color_scheme ?? 'primary') : 'primary';
+
         // Формируем полный массив цветов, где ключи — как выше, а
         // primary (или любой другой) перезаписывает ту роль, что задали
         //  Config::set('filament.dark', false); // если нужно
@@ -74,12 +74,6 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->authGuard('web') // <- явно
             ->brandName('Basil Admin')
-
-          //  ->topNavigation()
-            //->sidebarCollapsibleOnDesktop()
-          //  ->sidebarFullyCollapsibleOnDesktop()
-
-            //     ->plugin(\BezhanSalleh\FilamentShield\FilamentShieldPlugin::make())
             ->login()
             ->colors([
                 'primary' =>  $palettes[$scheme],
@@ -158,29 +152,39 @@ class AdminPanelProvider extends PanelProvider
 
             ]);
         // гамбургер на десктопе
-        if (Setting::admin('sidebar.collapsible_on_desktop', true)) {
+        if ($hasSettings && Setting::admin('sidebar.collapsible_on_desktop', true)) {
             $panel->sidebarFullyCollapsibleOnDesktop();
         }
 
         // полностью сворачиваемая (иконки)
-        if (Setting::admin('sidebar.fully_collapsible_on_desktop', false)) {
+        if ($hasSettings && Setting::admin('sidebar.fully_collapsible_on_desktop', false)) {
             $panel->sidebarFullyCollapsibleOnDesktop();
         }
 
         // тема/режим (пример)
-        if (Setting::admin('theme.dark_mode', true)) {
+        if ($hasSettings && Setting::admin('theme.dark_mode', true)) {
 
             $panel->defaultThemeMode(ThemeMode::Dark);
         }
-        if (Setting::admin('nav.position') === 'top') {
+        if ($hasSettings && Setting::admin('nav.position') === 'top') {
 
             $panel->topNavigation();
         }
 
         // ширина контента (пример)
-        if ($w = Setting::admin('layout.max_content_width')) {
+        if ($hasSettings && ($w = Setting::admin('layout.max_content_width'))) {
             $panel->maxContentWidth($w); // например '7xl' | 'full'
         }
     return $panel;
+    }
+    /** Безопасная проверка наличия таблицы (не падает в package:discover). */
+    private function safeHasTable(string $table): bool
+    {
+        try {
+            return Schema::hasTable($table);
+        } catch (\Throwable $e) {
+            // во время раннего boot/при отсутствии соединения к БД просто возвращаем false
+            return false;
+        }
     }
 }
