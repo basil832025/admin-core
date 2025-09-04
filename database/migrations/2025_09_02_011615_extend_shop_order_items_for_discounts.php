@@ -34,12 +34,22 @@ return new class extends Migration
         // агрегирующие поля на заказе (если ещё не добавлены)
         Schema::table('shop_orders', function (Blueprint $table) {
             if (!Schema::hasColumn('shop_orders', 'subtotal')) {
-                $table->decimal('subtotal', 12, 2)->default(0)->after('status');
-                $table->decimal('discount_total', 12, 2)->default(0)->after('subtotal');
-                $table->decimal('shipping_total', 12, 2)->default(0)->after('discount_total');
-                $table->decimal('tax_total', 12, 2)->default(0)->after('shipping_total');
-                $table->decimal('grand_total', 12, 2)->default(0)->after('tax_total');
-                $table->string('currency', 3)->default('UAH')->after('grand_total');
+                if (! Schema::hasColumn('shop_orders', 'subtotal')) {
+                    $table->decimal('subtotal', 12, 2)->default(0)->after('status');
+                }
+                if (! Schema::hasColumn('shop_orders', 'discount_total')) {
+                    $table->decimal('discount_total', 12, 2)->default(0)->after('subtotal');
+                }
+                if (! Schema::hasColumn('shop_orders', 'shipping_total')) {
+                    $table->decimal('shipping_total', 12, 2)->default(0)->after('discount_total');
+                }
+                if (! Schema::hasColumn('shop_orders', 'tax_total')) {
+                    $table->decimal('tax_total', 12, 2)->default(0)->after('shipping_total');
+                }
+                if (! Schema::hasColumn('shop_orders', 'grand_total')) {
+                    $table->decimal('grand_total', 12, 2)->default(0)->after('tax_total');
+                }
+            //    $table->string('currency', 3)->default('UAH')->after('grand_total');
             }
         });
 
