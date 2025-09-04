@@ -9,13 +9,13 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListProductCategories extends ListRecords
 {
-    use ListRecords\Concerns\Translatable;
+   // use ListRecords\Concerns\Translatable;
     protected static string $resource = ProductCategoryResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
-            Actions\LocaleSwitcher::make(),
+        //    Actions\LocaleSwitcher::make(),
             Actions\CreateAction::make(),
         ];
     }

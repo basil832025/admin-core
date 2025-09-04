@@ -2,13 +2,14 @@
 
 namespace App\Models\Shop;
 
+use Illuminate\Support\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-//use Spatie\Translatable\HasTranslations;
+use Spatie\Translatable\HasTranslations;
 class CategoryVariation extends Model
 {
-   // use HasTranslations;
+    use HasTranslations;
     protected $table = 'category_variation';
     protected $fillable = ['category_id', 'variation_id'];
    // public $translatable = ['name']; // добавь свои переводимые поля
@@ -21,11 +22,11 @@ class CategoryVariation extends Model
     {
         return $this->belongsTo(Variation::class, 'variation_id');
     }
-    public static function getVariationsFromManyCategories(array $categoryIds): \Illuminate\Support\Collection
+    public static function getVariationsFromManyCategories(array $categoryIds): Collection
     {
         $allCategoryIds = collect();
 
-        $categories = \App\Models\Shop\ProductCategory::with('parent')->findMany($categoryIds);
+        $categories = ProductCategory::with('parent')->findMany($categoryIds);
         foreach ($categories as $cat) {
             $allCategoryIds->push($cat->id);
             $allCategoryIds = $allCategoryIds->merge($cat->getAllParents()->pluck('id'));
@@ -37,7 +38,7 @@ class CategoryVariation extends Model
             ->pluck('variation_id')
             ->unique();
 
-        return \App\Models\Shop\Variation::whereIn('id', $variationIds)->get();
+        return Variation::whereIn('id', $variationIds)->get();
     }
 
 }

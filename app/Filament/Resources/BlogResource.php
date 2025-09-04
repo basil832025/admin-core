@@ -9,6 +9,7 @@ use App\Models\BlogCategory;
 use App\Models\Language;
 use App\Models\Setting;
 use Carbon\Carbon;
+
 use Filament\Facades\Filament;
 use Filament\Forms;
 use Filament\Forms\Components\DateTimePicker;
@@ -24,7 +25,11 @@ use Filament\Pages\SubNavigationPosition;
 use Filament\Resources\Pages\Page;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
-use Filament\Tables;
+use  Filament\Tables\Actions;
+use Filament\Tables\Actions\BulkActionGroup;
+use Filament\Tables\Actions\DeleteBulkAction;
+use Filament\Tables\Actions\EditAction;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use SolutionForest\FilamentTranslateField\Forms\Component\Translate;
 use Mohamedsabil83\FilamentFormsTinyeditor\Components\TinyEditor;
@@ -34,6 +39,8 @@ use Filament\Forms\Components\Tabs\Tab;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+
+use Filament\Tables\Columns\ImageColumn;
 
 class BlogResource extends Resource
 {
@@ -85,13 +92,13 @@ class BlogResource extends Resource
                                 'attachFiles',
 
                             ])
-                             ->required($locale === $defaultLocale)
+                            ->required($locale === $defaultLocale)
                             ->fileAttachmentsDisk('public')
                             ->fileAttachmentsDirectory('uploads')
                             ->fileAttachmentsVisibility('public'),
                         TinyEditor::make("content")
                             ->label('полный текст')
-                             ->required($locale === $defaultLocale)
+                            ->required($locale === $defaultLocale)
                             ->fileAttachmentsDisk('public')
                             ->fileAttachmentsDirectory('uploads')
                             ->fileAttachmentsVisibility('public'),
@@ -99,7 +106,7 @@ class BlogResource extends Resource
                 TextInput::make('slug')
                     ->label('Slug')
                     ->disabledOn('edit')
-                 //   ->required()
+                    //   ->required()
                     ->unique(table: Blog::class, column: 'slug', ignorable: fn ($record) => $record)
                 //->unique(table: Pages::class, column: 'slug', ignorable: fn($r) => $r)
                 ,
@@ -108,24 +115,24 @@ class BlogResource extends Resource
                 Section::make('Дополнительно')->schema([
                     Grid::make(3)
                         ->schema([
-                    Select::make('blog_category_id')
-                        ->relationship('category', 'name')
-                        ->label('Категория')
-                     // вернем на языке по умоллчанию название категорий
-                        ->options(function () use ($defaultLocale) {
-                            return BlogCategory::query()
-                                ->where('is_active', 1)
-                                ->get()
-                         ->mapWithKeys(fn($cat) => [
-                             $cat->id => (
-                                 json_decode($cat->getRawOriginal('name'), true)[$defaultLocale]
-                                 ?? json_decode($cat->getRawOriginal('name'), true)[config('app.locale')]
-                             ),
-                         ])
-                                ->toArray();
-                        })
-                        ->required()
-                        ->columnSpan(1),
+                            Select::make('blog_category_id')
+                                ->relationship('category', 'name')
+                                ->label('Категория')
+                                // вернем на языке по умоллчанию название категорий
+                                ->options(function () use ($defaultLocale) {
+                                    return BlogCategory::query()
+                                        ->where('is_active', 1)
+                                        ->get()
+                                        ->mapWithKeys(fn($cat) => [
+                                            $cat->id => (
+                                                json_decode($cat->getRawOriginal('name'), true)[$defaultLocale]
+                                                ?? json_decode($cat->getRawOriginal('name'), true)[config('app.locale')]
+                                            ),
+                                        ])
+                                        ->toArray();
+                                })
+                                ->required()
+                                ->columnSpan(1),
                             Toggle::make('is_published')
                                 ->label('Опубликовано')
                                 ->default(true)
@@ -134,18 +141,18 @@ class BlogResource extends Resource
                                 ->label('Дата публикации')
                                 ->default(Carbon::now())
                                 ->columnSpan(1),
-                    tagsinput::make('tags')->label('Теги')->columnSpan(3),
+                            tagsinput::make('tags')->label('Теги')->columnSpan(3),
 
 
-                    Forms\Components\FileUpload::make('preview_image')->label('Изображение анонса')
-                        ->image()
-                        //->required()
-                        ->directory('articles')->columnSpan(1),
+                            Forms\Components\FileUpload::make('preview_image')->label('Изображение анонса')
+                                ->image()
+                                //->required()
+                                ->directory('articles')->columnSpan(1),
 
-                    Forms\Components\FileUpload::make('detail_image')->label('Детальное изображение')
-                        ->image()
-                        //->required()
-                        ->directory('articles')->columnSpan(1),
+                            Forms\Components\FileUpload::make('detail_image')->label('Детальное изображение')
+                                ->image()
+                                //->required()
+                                ->directory('articles')->columnSpan(1),
                         ]),
                 ])->columns(3),
             ])
@@ -173,25 +180,26 @@ class BlogResource extends Resource
     }
     public static function table(Table $table): Table
     {
-     //   $locale = app()->getLocale();
-     //   $fallback = config('app.fallback_locale');
+        //   $locale = app()->getLocale();
+        //   $fallback = config('app.fallback_locale');
         $defaultLocale = Setting::value('default_language_code') ?: config('app.locale');
         // список активных языков из таблицы languages
         $locales = static::getActiveLocales();
-         $locale = app()->getLocale() ?? $defaultLocale;
-          //  dd(app()->getLocale());
+        $locale = app()->getLocale() ?? $defaultLocale;
+        //  dd(app()->getLocale());
         return $table
             ->columns([
-                Tables\Columns\ImageColumn::make('preview_image')->label('Изображение анонса'),
+                ImageColumn::make('preview_image')->label('Изображение анонса'),
                 TextColumn::make('title')
                     ->label('Название')
+
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('BlogCategory.name')
+                TextColumn::make('BlogCategory.name')
                     ->label('Категория')
 
-                ->getStateUsing(function (Blog $record, TextColumn $column, $livewire) {
-                    $locale = $livewire->activeLocale;
+                    ->getStateUsing(function (Blog $record, TextColumn $column, $livewire) use ($locale) {
+                      //  $locale = $livewire->activeLocale;
 
                         // Возвращаем нужный перевод или дефолт
                         return $record->category
@@ -201,28 +209,28 @@ class BlogResource extends Resource
 
                     })
 
-               /*     ->getStateUsing(fn (Blog $record) =>
-                    ($record->BlogCategory->name[$defaultLocale] ?? $record->BlogCategory->name[$defaultLocale])
-                    )*/
+                    /*     ->getStateUsing(fn (Blog $record) =>
+                         ($record->BlogCategory->name[$defaultLocale] ?? $record->BlogCategory->name[$defaultLocale])
+                         )*/
                     ->numeric()
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('slug')
+               TextColumn::make('slug')
                     ->searchable(),
-                Tables\Columns\IconColumn::make('is_published')->label('Активность')
+                IconColumn::make('is_published')->label('Активность')
                     ->boolean(),
-                Tables\Columns\TextColumn::make('published_at')->label('Опубликовано')
+                TextColumn::make('published_at')->label('Опубликовано')
                     ->dateTime()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('created_at')
+               TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('updated_at')
+                TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('deleted_at')
+                TextColumn::make('deleted_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -231,15 +239,15 @@ class BlogResource extends Resource
                 //
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                EditAction::make(),
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }
-    protected static function getActiveLocales(): array
+    public static function getActiveLocales(): array
     {
         return Language::where('active', true)
             ->orderBy('position')

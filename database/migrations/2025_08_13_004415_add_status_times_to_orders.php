@@ -12,17 +12,15 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('shop_orders', function (Blueprint $table) {
-            //
+            // храним последние отметки времени для каждого статуса
+            $table->json('status_times')->nullable();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::table('shop_orders', function (Blueprint $table) {
-            //
+            $table->dropColumn('status_times');
         });
     }
 };

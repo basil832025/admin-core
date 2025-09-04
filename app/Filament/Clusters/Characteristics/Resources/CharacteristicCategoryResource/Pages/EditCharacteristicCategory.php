@@ -2,6 +2,7 @@
 
 namespace App\Filament\Clusters\Characteristics\Resources\CharacteristicCategoryResource\Pages;
 
+use Filament\Actions\DeleteAction;
 use App\Filament\Clusters\Characteristics\Resources\CharacteristicCategoryResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
@@ -13,7 +14,7 @@ class EditCharacteristicCategory extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            Actions\DeleteAction::make(),
+            DeleteAction::make(),
         ];
     }
     protected function getRedirectUrl(): string

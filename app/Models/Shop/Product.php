@@ -2,17 +2,23 @@
 
 namespace App\Models\Shop;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 use Spatie\Translatable\HasTranslations;
-
+use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\Storage;
 class Product extends Model
 {
     use HasTranslations;
 
     protected $fillable = [
         'title','sku', 'slug', 'description', 'price', 'old_price',
-        'quantity', 'in_stock',
-        'seo_title', 'seo_description', 'seo_keywords'
+        'quantity', 'in_stock','main_image','parent_id','short_name',
+        'seo_title', 'seo_description', 'seo_keywords','category_id','dop_info'
     ];
     protected $casts = [
         'title' => 'array',
@@ -27,8 +33,104 @@ class Product extends Model
         'seo_description',
         'seo_keywords',
     ];
-    // App\Models\Product.php
+    public function calculations()
+    {
+        return $this->hasMany(\App\Models\Shop\ProductCalculation::class);
+    }
 
+    /** Активная на сегодня калькуляция */
+    public function currentCalculation(?\DateTimeInterface $date = null): ?\App\Models\Shop\ProductCalculation
+    {
+        $date = $date ?? now();
+        return $this->calculations
+            ->first(fn($c) => $c->isActiveOn($date));
+    }
+    // главная категория
+    public function mainCategory()
+    {
+        return $this->belongsTo(ProductCategory::class, 'category_id');
+    }
+    public function getMainImageUrlAttribute(): ?string
+    {
+        $path = $this->main_image;
+        if (!$path) return null;
+
+        // если уже абсолютный URL — отдаем как есть
+        if (str_starts_with($path, 'http')) {
+            return $path;
+        }
+
+        // если сохраняете на public-диск (как в FileUpload)
+        return Storage::disk('public')->url($path);
+    }
+
+    // родитель
+    public function parent()
+    {
+        return $this->belongsTo(self::class, 'parent_id');
+    }
+    public function variants(): HasMany
+    {
+        return $this->hasMany(Product::class, 'parent_id');
+    }
+    // варианты (дети)
+    public function children()
+    {
+        return $this->hasMany(self::class, 'parent_id')->orderBy('sort');
+    }
+    public function attributeValues(): BelongsToMany
+    {
+        return $this->characteristicValues();
+    }
+    // Показывать только «родителей» (для списка)
+    public function scopeParents($q)
+    {
+        return $q->whereNull('parent_id');
+    }
+    public function isVariant(): bool
+    {
+        return ! is_null($this->parent_id);
+    }
+    // Удобный аксессор для названия варианта
+    public function getDisplayTitleAttribute(): string
+    {
+        if (!$this->parent_id) return (string)($this->title ?? '');
+        // например: «Пицца Маргарита — 900 г»
+        return trim(($this->parent?->title ?? '') . ' — ' . ($this->title ?? $this->sku ?? ''));
+    }
+    // Генерация уникального slug (если пуст)
+    protected static function booted(): void
+    {
+        static::saving(function ($product) {
+            if ($product->parent_id && ! $product->category_id) {
+                $product->category_id = Product::where('id', $product->parent_id)->value('category_id');
+            }
+        });
+        static::saving(function (Product $m) {
+            if (!filled($m->slug)) {
+                $base = Str::slug($m->title ?? ($m->parent?->title.' '.$m->sku) ?? Str::random(6));
+                $slug = $base;
+                $i = 2;
+                while (static::where('slug', $slug)->when($m->exists, fn($q)=>$q->whereKeyNot($m->getKey()))->exists()) {
+                    $slug = "{$base}-{$i}";
+                    $i++;
+                }
+                $m->slug = $slug;
+            }
+        });
+    }
+/** Характеристики только для главной вкладки */
+    public function mainTabCharacteristics()
+    {
+        // адаптируй под свои связи.
+        // Если is_main_tab в таблице characteristics:
+        return $this->characteristics()->where('is_main_tab', 1);
+        // Если флаг в pivot CategoryCharacteristic — добавь ->wherePivot(...)
+    }
+    public function scopeVariants($query)
+    {
+        return $query->whereNotNull('parent_id');
+    }
     public function categories()
     {
         return $this->belongsToMany(ProductCategory::class, 'product_product_category', 'product_id', 'product_category_id');
@@ -47,10 +149,31 @@ class Product extends Model
         return $this->belongsToMany(Characteristic::class)
             ->withPivot(['affects_price', 'price_modifier', 'modifier_type']); // +10 грн / -5%
     }
+ /*   public function characteristicValues()
+    {
+        return $this->belongsToMany(
+            \App\Models\Shop\CharacteristicValue::class,
+            'product_characteristic_value',   // pivot
+            'product_id',                     // FK текущей модели в pivot
+            'characteristic_value_id',        // FK связанной модели в pivot
+            'id',                             // PK products
+            'id'                              // PK characteristic_values
+        )
+            ->withPivot([
+                'characteristic_id',
+                'characteristic_value_id',
+                'price_modifier',
+                'value_text',
+                'value_number',
+                'value_datetime',
+            ])
+            ->withTimestamps();
+    }*/
     public function characteristicValues()
     {
         return $this->belongsToMany(CharacteristicValue::class, 'product_characteristic_value')
-            ->withPivot(['characteristic_id','price_modifier','product_id', 'value_text', 'value_number', 'value_datetime','characteristic_value_id']);
+            ->withPivot(['characteristic_id','price_modifier','product_id', 'value_text', 'value_number',
+                'value_datetime','characteristic_value_id']);
     }
     public function productVariations()
     {
@@ -99,10 +222,10 @@ class Product extends Model
         }
 
         // 🔄 Обновим характеристики
-        \App\Models\Shop\ProductCharacteristicValue::where('product_id', $this->id)->delete();
-
+        ProductCharacteristicValue::where('product_id', $this->id)->delete();
+     //   dd('tyt');
         foreach ($data['characteristics'] ?? [] as $characteristicId => $value) {
-            $char = \App\Models\Shop\Characteristic::find($characteristicId);
+            $char = Characteristic::find($characteristicId);
             if (! $char) continue;
 
             $values = is_array($value) ? $value : [$value];
@@ -147,7 +270,7 @@ class Product extends Model
                         break;
 
                     case 'datetime':
-                        $entry['value_datetime'] = \Carbon\Carbon::parse($valData);
+                        $entry['value_datetime'] = Carbon::parse($valData);
                         break;
 
                     default:
@@ -159,13 +282,13 @@ class Product extends Model
                     array_key_exists('characteristic_value_id', $entry)
                     && (
                         ! $entry['characteristic_value_id']
-                        || ! \App\Models\Shop\CharacteristicValue::where('id', $entry['characteristic_value_id'])->exists()
+                        || ! CharacteristicValue::where('id', $entry['characteristic_value_id'])->exists()
                     )
                 ) {
                     continue;
                 }
 
-                \App\Models\Shop\ProductCharacteristicValue::updateOrCreate(
+                ProductCharacteristicValue::updateOrCreate(
                     [
                         'product_id' => $entry['product_id'],
                         'characteristic_id' => $entry['characteristic_id'],
@@ -181,5 +304,29 @@ class Product extends Model
             }
         }
     }
+    public function getDisplayNameAttribute(): string
+    {
+        // 1) short_name приоритетно
+        if (!empty($this->short_name)) {
+            return $this->short_name;
+        }
 
+        // 2) title как JSON по локали
+        $arr = $this->title; // из-за casts уже массив или null
+        if (is_array($arr)) {
+            $appLocale     = config('app.locale');
+            $defaultLocale = Setting::value('default_language_code') ?: $appLocale;
+            $name = $arr[$defaultLocale] ?? $arr[$appLocale] ?? reset($arr);
+            if (!empty($name)) {
+                return $name;
+            }
+        }
+
+        // 3) фоллбеки
+        if (!empty($this->name)) return (string) $this->name;
+        if (is_string($this->title) && $this->title !== '') return $this->title;
+        if (!empty($this->slug)) return (string) $this->slug;
+
+        return '—';
+    }
 }

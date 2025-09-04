@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Spatie\Translatable\HasTranslations;
 class CategoryCharacteristic extends Model
 {
-    use HasTranslations;
+   // use HasTranslations;
     protected $table = 'category_characteristic';
     protected $fillable = ['category_id', 'characteristic_id', 'affects_price'];
     public $translatable = ['name']; // добавь свои переводимые поля

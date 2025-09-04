@@ -1,8 +1,12 @@
 <?php
 
 use Illuminate\Foundation\Application;
-use Illuminate\Foundation\Configuration\Exceptions;
-use Illuminate\Foundation\Configuration\Middleware;
+
+use App\Providers\Filament\AdminPanelProvider;
+use Filament\Support\SupportServiceProvider;
+use Filament\FilamentServiceProvider;
+use Filament\Forms\FormsServiceProvider;
+use Filament\Tables\TablesServiceProvider;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -10,9 +14,17 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withMiddleware(function (Middleware $middleware): void {
+    ->withMiddleware(function ($middleware) {
         //
     })
-    ->withExceptions(function (Exceptions $exceptions): void {
+    ->withExceptions(function ($exceptions) {
         //
-    })->create();
+    })
+    ->withProviders([
+        AdminPanelProvider::class,
+        SupportServiceProvider::class,
+        FilamentServiceProvider::class,
+        FormsServiceProvider::class,
+        TablesServiceProvider::class,
+    ])
+    ->create();

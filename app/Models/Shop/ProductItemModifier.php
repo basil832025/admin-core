@@ -2,6 +2,7 @@
 
 namespace App\Models\Shop;
 
+use App\Models\Setting;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 class ProductItemModifier extends Model
@@ -9,6 +10,7 @@ class ProductItemModifier extends Model
     protected $fillable = [
         'order_item_id',
         'type',
+        'product_id',
         'value_id',
         'price_modifier',
     ];
@@ -158,7 +160,7 @@ class ProductItemModifier extends Model
 // App\Models\Shop\ProductItemModifier (или твоя модель модификатора)
 // App/Models/Shop/ProductItemModifier.php (или общий хелпер/трейt)
 
-    protected static function productName(?\App\Models\Shop\Product $p): ?string
+    protected static function productName(?Product $p): ?string
     {
         if (! $p) return null;
 
@@ -167,7 +169,7 @@ class ProductItemModifier extends Model
 
         // кандидаты языков: дефолт из настроек, текущая локаль приложения и т.д.
         $candidates = array_filter([
-            \App\Models\Setting::value('default_language_code') ?? null,
+            Setting::value('default_language_code') ?? null,
             app()->getLocale(),
             config('app.locale'),
         ]);
@@ -197,7 +199,7 @@ class ProductItemModifier extends Model
         }
 
         if ($m->type === 'variation') {
-            $var = \App\Models\Shop\ProductVariation::with('variation')->find($m->value_id);
+            $var = ProductVariation::with('variation')->find($m->value_id);
             if ($var) {
                 // сделай формат как тебе нравится
                 return "{$var->variation->name} • {$var->value} • +" . number_format((float) $m->price_modifier, 2, '.', '');
@@ -205,7 +207,7 @@ class ProductItemModifier extends Model
         }
 
         if ($m->type === 'characteristic') {
-            $cv = \App\Models\Shop\CharacteristicValue::with('characteristic')->find($m->value_id);
+            $cv = CharacteristicValue::with('characteristic')->find($m->value_id);
             if ($cv) {
                 return "{$cv->characteristic->name} • {$cv->value}";
             }
@@ -231,14 +233,14 @@ class ProductItemModifier extends Model
         $valueLabel = null;
 
         if ($mod->type === 'variation') {
-            $pv = \App\Models\Shop\ProductVariation::with('variation')->find($mod->value_id);
+            $pv = ProductVariation::with('variation')->find($mod->value_id);
             // Например: "Размер • 29/900/3 (+125.00)"
             $valueLabel = $pv?->variation?->name;
             if ($pv?->price) {
                 $valueLabel = trim(($valueLabel ? $valueLabel . ' • ' : '') . '+' . $pv->price);
             }
         } elseif ($mod->type === 'characteristic') {
-            $cv = \App\Models\Shop\CharacteristicValue::with('characteristic')->find($mod->value_id);
+            $cv = CharacteristicValue::with('characteristic')->find($mod->value_id);
             // Например: "Тесто — тонкое"
             $valueLabel = $cv ? ($cv->characteristic?->name . ' — ' . $cv->value) : null;
         }

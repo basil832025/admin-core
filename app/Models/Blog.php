@@ -72,7 +72,7 @@ class Blog extends Model
     }
     public function comments()
     {
-        return $this->hasMany(\App\Models\BlogComment::class, 'blog_id', 'id');
+        return $this->hasMany(BlogComment::class, 'blog_id', 'id');
     }
     // Категория
     public function category()

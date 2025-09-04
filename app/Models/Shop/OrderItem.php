@@ -2,6 +2,7 @@
 
 namespace App\Models\Shop;
 
+use App\Models\Setting;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\Activitylog\Traits\LogsActivity;
@@ -19,15 +20,49 @@ class OrderItem extends Model
     protected $fillable = [
         'product_id',
         'qty',
+       // 'modifiers',
         'unit_price',
         'shop_order_id',
+        'sku','unit_price',
+        'unit_price_effective','subtotal','discount_total',
+        'tax_rate','tax_total','total','currency',
+        'product_snapshot','promotion_data',
         // добавь сюда все нужные поля, которые массово заполняются
+    ];
+    protected $casts = [
+        // ... твои касты ...
+        'modifiers' => 'array',  // ← обязательно
+        'product_snapshot' => 'array',
+        'promotion_data'   => 'array',
+        'stage_flags' => 'array',
     ];
     // Связи
     public function order()   { return $this->belongsTo(Order::class, 'shop_order_id'); }
     public function product() { return $this->belongsTo(Product::class, 'product_id'); }
+    public function isStageDone(string $stage): bool
+    {
+        return (bool) data_get($this->stage_flags, $stage, false);
+    }
 
+    public function markStage(string $stage, bool $value = true): void
+    {
+        $flags = (array) ($this->stage_flags ?? []);
+        $flags[$stage] = $value;
+        $this->stage_flags = $flags;
+        $this->save();
+    }
+    public function getStageFlagsAttribute($value): array
+    {
+        $defaults = [
+            'accepted' => false,
+            'filling'  => false,
+            'molding'  => false,
+            'baking'   => false,
+            'ready'    => false,
+        ];
 
+        return array_replace($defaults, (array) json_decode($value ?: '[]', true));
+    }
     /**
      * Добавляем контекст к каждому событию Spatie:
      * - какой заказ
@@ -77,7 +112,7 @@ class OrderItem extends Model
             if (is_array($arr)) {
                 $locale = config('app.locale');
                 // если используешь настройку по умолчанию — подставь её
-                $defaultLocale = \App\Models\Setting::value('default_language_code') ?: $locale;
+                $defaultLocale = Setting::value('default_language_code') ?: $locale;
 
                 $name = $arr[$defaultLocale] ?? $arr[$locale] ?? reset($arr);
                 if (!empty($name)) {

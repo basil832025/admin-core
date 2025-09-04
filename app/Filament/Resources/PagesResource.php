@@ -40,6 +40,7 @@ class PagesResource extends Resource
     {
         $defaultLocale = Setting::value('default_language_code') ?: config('app.locale');
         $locales = static::getActiveLocales();
+    //    dd($locales);
 
         return $form
             ->schema([
@@ -76,8 +77,8 @@ class PagesResource extends Resource
                     ->disabledOn('edit')
                     ->required()
                     ->unique(table: Pages::class, column: 'slug', ignorable: fn ($record) => $record)
-                    //->unique(table: Pages::class, column: 'slug', ignorable: fn($r) => $r)
-                    ,
+                //->unique(table: Pages::class, column: 'slug', ignorable: fn($r) => $r)
+                ,
                 Select::make('status')
                     ->label('Статус')
                     ->options([
@@ -110,7 +111,7 @@ class PagesResource extends Resource
                     ]),
             ]);
     }
-    protected static function getActiveLocales(): array
+    public static function getActiveLocales(): array
     {
         return Language::where('active', true)
             ->orderBy('position')

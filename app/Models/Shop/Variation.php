@@ -48,7 +48,7 @@ class Variation extends Model
     }
     public function variationCharacteristicValues(): HasMany
     {
-        return $this->hasMany(\App\Models\Shop\VariationCharacteristicValue::class);
+        return $this->hasMany(VariationCharacteristicValue::class);
     }
     /**
      * Связь с товарами, в которых используется эта вариация

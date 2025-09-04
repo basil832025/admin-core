@@ -8,6 +8,8 @@ use Filament\Resources\Pages\CreateRecord;
 use Filament\Pages\Actions\CancelAction;
 use Filament\Pages\Actions\SaveAction;
 use Filament\Pages\Actions\CreateAction;
+use App\Models\Setting;
+use Illuminate\Validation\ValidationException;
 class CreatePages extends CreateRecord
 {
     protected static string $resource = PagesResource::class;
@@ -31,5 +33,21 @@ class CreatePages extends CreateRecord
 
             // кнопка "Создать" для страницы создания
     ];
+    }
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        $default = Setting::value('default_language_code') ?: config('app.locale');
+        $raw = $data['content'][$default] ?? '';
+
+        // вычищаем «пустой» HTML: <p></p>, <p><br></p>, NBSP и т.п.
+        $plain = trim(preg_replace('/\xc2\xa0/u', ' ', strip_tags($raw)));
+
+        if ($plain === '') {
+            throw ValidationException::withMessages([
+                "content.$default" => 'Поле Контент обязательно.',
+            ]);
+        }
+
+        return $data;
     }
 }

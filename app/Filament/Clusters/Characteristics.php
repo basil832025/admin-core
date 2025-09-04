@@ -24,8 +24,8 @@ class Characteristics extends Cluster
     /**
      * Порядок сортировки кластера в меню
      */
- //   protected static ?int $navigationSort = 20;
-   // protected static ?string $cluster = Characteristics::class;
+    //   protected static ?int $navigationSort = 20;
+    // protected static ?string $cluster = Characteristics::class;
     /**
      * Уникальный slug кластера, под которым ресурсы будут группироваться
      */

@@ -54,7 +54,18 @@ case Cancelled  = 'cancelled';   // Отменен
         self::Cancelled  => 'danger',
     };
 }
+    function userCanSetStatus(OrderStatus $status): bool
+    {
+        $u = auth()->user();
 
+        // общее право — разрешает все статусы
+        if ($u->can('set_order_status')) {
+            return true;
+        }
+
+        // индивидуальное право по статусу
+        return $u->can('set_order_status_' . $status->value);
+    }
     public function getIcon(): ?string
 {
     return match ($this) {
@@ -70,5 +81,41 @@ case Cancelled  = 'cancelled';   // Отменен
         self::Delivered  => 'heroicon-m-check-badge',
         self::Cancelled  => 'heroicon-m-x-circle',
     };
+}
+    public function rank(): int
+{
+    return match ($this) {
+
+        self::New        => 10,
+        self::OnHold     => 15,
+        self::Processing => 20,
+        self::Filling    => 30,
+        self::Molding    => 40,
+        self::Baking     => 50,
+        self::Prepared   => 60,
+        self::Assembled  => 70,
+        self::Shipped    => 80,
+        self::Delivered  => 90,
+        self::Cancelled  => 100,   // особый случай, пусть будет «вне процесса»
+    };
+}
+    public static function sorted(): array
+{
+    return collect(self::cases())->sortBy(fn ($s) => $s->rank())->all();
+}
+
+    public static function options(): array
+{
+    return collect(self::sorted())->mapWithKeys(fn ($s) => [$s->value => $s->getLabel()])->all();
+}
+
+    public static function iconsMap(): array
+{
+    return collect(self::sorted())->mapWithKeys(fn ($s) => [$s->value => $s->getIcon()])->all();
+}
+
+    public static function colorsMap(): array
+{
+    return collect(self::sorted())->mapWithKeys(fn ($s) => [$s->value => $s->getColor()])->all();
 }
 }

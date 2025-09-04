@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('shop_orders', function (Blueprint $table) {
             $table->id();
             $table->foreignId('clients_id')->nullable()->constrained()->nullOnDelete();
-            $table->string('number', 32)->unique();
+            $table->string('number', 32)->nullable();
             $table->decimal('total_price', 12, 2)->nullable();
             $table->enum('status', ['new', 'processing', 'shipped', 'delivered', 'cancelled'])->default('new');
             $table->string('currency');

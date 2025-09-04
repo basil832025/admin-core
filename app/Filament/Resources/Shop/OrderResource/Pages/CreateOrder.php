@@ -32,13 +32,19 @@ class CreateOrder extends CreateRecord
     {
         $this->record->recalculateTotalPrice();
     }
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        unset($data['id'], $data['number']); // ← гарантированно не передаём в INSERT
+        return $data;
+    }
     protected function getSteps(): array
     {
         return [
             Step::make('Детали заказа')
                 ->schema([
-                    Section::make()->schema(OrderResource::getDetailsFormSchema())->columns(),
-                    Section::make()->schema(OrderResource::getRightFormSchema())->columns(),
+                   // Section::make()->schema(OrderResource::getDetailsFormSchema())->columns(),
+                    Section::make()->schema(OrderResource::getInfoTabSchema())->columns(),
+                //    Section::make()->schema(OrderResource::getRightFormSchema())->columns(),
 
                 ]),
 

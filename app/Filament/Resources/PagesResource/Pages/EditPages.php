@@ -8,10 +8,28 @@ use Filament\Resources\Pages\EditRecord;
 use Filament\Resources\Pages\Actions\SaveAction;
 use Filament\Resources\Pages\Actions\DeleteAction;
 use Filament\Icons\Heroicons;
+use Illuminate\Validation\ValidationException;
+use App\Models\Setting;
 class EditPages extends EditRecord
 {
     protected static string $resource = PagesResource::class;
 
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        $default = Setting::value('default_language_code') ?: config('app.locale');
+        $raw = $data['content'][$default] ?? '';
+        $plain = trim(preg_replace('/\xc2\xa0/u', ' ', strip_tags($raw)));
+
+        if ($plain === '') {
+            // у Resource-страниц Filament v4 state path = 'data'
+            $prefix = 'data';
+            throw ValidationException::withMessages([
+                "{$prefix}.content.{$default}" => 'Поле Контент обязательно.',
+            ]);
+        }
+
+        return $data;
+    }
     protected function getHeaderActions(): array
     {
         return [

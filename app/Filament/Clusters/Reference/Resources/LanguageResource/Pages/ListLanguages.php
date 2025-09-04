@@ -3,6 +3,7 @@
 
 namespace App\Filament\Clusters\Reference\Resources\LanguageResource\Pages;
 
+use Filament\Actions\CreateAction;
 use App\Filament\Clusters\Reference\Resources\LanguageResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
@@ -14,7 +15,7 @@ class ListLanguages extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make(),
+            CreateAction::make(),
         ];
     }
 }

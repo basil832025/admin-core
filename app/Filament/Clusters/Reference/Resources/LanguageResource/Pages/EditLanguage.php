@@ -3,6 +3,7 @@
 
 namespace App\Filament\Clusters\Reference\Resources\LanguageResource\Pages;
 
+use Filament\Actions\DeleteAction;
 use App\Filament\Clusters\Reference\Resources\LanguageResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
@@ -14,7 +15,7 @@ class EditLanguage extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            Actions\DeleteAction::make(),
+            DeleteAction::make(),
         ];
     }
     protected function getRedirectUrl(): string

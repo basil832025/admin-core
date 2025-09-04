@@ -66,6 +66,13 @@ class OrderActivityFormatter
         if (in_array($action, ['modifier_created', 'modifier_updated', 'modifier_deleted'], true)) {
             return self::formatModifierLine($p);   // ← одна функция для всех трёх
         }
+        // 2) откат статуса (или просто смена статуса с причиной)
+        if (
+            $action === 'status_downgraded'
+            || Arr::hasAny($p, ['from', 'to', 'reason'])
+        ) {
+            return self::formatStatusChanged($p);
+        }
        /* if (
             in_array($action, ['modifier_created','modifier_updated','modifier_deleted'], true)
             || Arr::has($p, 'modifier') // ← если action пуст, но модификатор есть
@@ -94,11 +101,11 @@ class OrderActivityFormatter
     }
     /* ====== helpers ====== */
 // OrderActivityFormatter.php
-    public static function operation(\Spatie\Activitylog\Models\Activity $a): string
+    public static function operation(Activity $a): string
     {
         // Модификаторы
         if ($a->log_name === 'order.items') {
-            $act = \Illuminate\Support\Arr::get($a->properties, 'action');
+            $act = Arr::get($a->properties, 'action');
             if (in_array($act, ['modifier_created','modifier_updated','modifier_deleted'], true)) {
                 return [
                     'modifier_created' => 'Добавлен модификатор',
@@ -125,7 +132,25 @@ class OrderActivityFormatter
         }
         return is_array($props) ? $props : null;
     }
+    protected static function formatStatusChanged(array $p): string
+    {
+        $from   = Arr::get($p, 'from');        // код статуса: 'processing' и т.п.
+        $to     = Arr::get($p, 'to');
+        $reason = trim((string) Arr::get($p, 'reason', ''));
 
+        // Человеческие подписи через enum
+        $fromLabel = $from ? OrderStatus::from($from)->getLabel() : '—';
+        $toLabel   = $to   ? OrderStatus::from($to)->getLabel()   : '—';
+
+        $parts = [];
+        $parts[] = 'Статус: ' . self::arrow($fromLabel, $toLabel);
+
+        if ($reason !== '') {
+            $parts[] = 'Причина: ' . $reason;
+        }
+
+        return implode(' • ', $parts);
+    }
     protected static function fieldChanged(array $p, string $field): bool
     {
         return Arr::has($p, "old.$field") || Arr::has($p, "attributes.$field");

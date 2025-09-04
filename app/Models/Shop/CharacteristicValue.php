@@ -23,6 +23,21 @@ class CharacteristicValue extends Model
         'value',
 
     ];
+    public function products(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Product::class,
+            'product_characteristic_value',
+            'characteristic_value_id', // текущая модель -> pivot
+            'product_id'               // целевая модель -> pivot
+        )->withPivot([
+            'characteristic_id',
+            'price_modifier',
+            'value_text',
+            'value_number',
+            'value_datetime',
+        ]);
+    }
     public function productValues()
     {
         return $this->hasMany(ProductCharacteristicValue::class, 'characteristic_value_id');

@@ -3,17 +3,21 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
-
+//use Hexters\HexaLite\HexaLiteRolePermission;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
     use HasRoles;
+    use HasFactory, Notifiable;
+  //  use HexaLiteRolePermission;
+    /** @use HasFactory<UserFactory> */
+    use HasFactory, Notifiable;
+
     protected $guard_name = 'web'; // важно для spatie/laravel-permission
     /**
      * The attributes that are mass assignable.

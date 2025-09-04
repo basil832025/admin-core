@@ -36,25 +36,25 @@ class ClientResource extends Resource
         return $form ->schema([
             Forms\Components\Section::make()
                 ->schema([
-            TextInput::make('name')->required()->label('ФИО'),
-            TextInput::make('phone')->required()->tel(),
-            TextInput::make('email')->email(),
-            DatePicker::make('birthday')->label('Дата рождения'),
-            Select::make('gender')
-                ->options([
-                    'male' => 'Мужчина',
-                    'female' => 'Женщина',
-                ])
-                ->nullable(),
-            TextInput::make('password')
-                ->password()
-                ->label('Пароль')
-                ->dehydrateStateUsing(fn ($state) => filled($state) ? $state : null)
-                ->dehydrated(fn ($state) => filled($state)),
-              //  ->required(fn (string $context): bool => $context === 'create'),
-            FileUpload::make('photo')->image()->directory('clients')->label('Фото'),
-            Textarea::make('note')->label('Примечание'),
-            Toggle::make('is_active')->label('Активен')->default(true),
+                    TextInput::make('name')->required()->label('ФИО'),
+                    TextInput::make('phone')->required()->tel(),
+                    TextInput::make('email')->email(),
+                    DatePicker::make('birthday')->label('Дата рождения'),
+                    Select::make('gender')
+                        ->options([
+                            'male' => 'Мужчина',
+                            'female' => 'Женщина',
+                        ])
+                        ->nullable(),
+                    TextInput::make('password')
+                        ->password()
+                        ->label('Пароль')
+                        ->dehydrateStateUsing(fn ($state) => filled($state) ? $state : null)
+                        ->dehydrated(fn ($state) => filled($state)),
+                    //  ->required(fn (string $context): bool => $context === 'create'),
+                    FileUpload::make('photo')->image()->directory('clients')->label('Фото'),
+                    Textarea::make('note')->label('Примечание'),
+                    Toggle::make('is_active')->label('Активен')->default(true),
                 ])
                 ->columns(2)
                 ->columnSpan(['lg' => fn (?Client $record) => $record === null ? 3 : 2]),

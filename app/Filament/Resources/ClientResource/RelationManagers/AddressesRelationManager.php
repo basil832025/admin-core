@@ -57,23 +57,23 @@ class AddressesRelationManager extends RelationManager
     public  function table(Table $table): Table
     {
         return $table
-        ->columns([
-            TextColumn::make('street')->label('Улица'),
-            TextColumn::make('house')->label('Дом'),
-            TextColumn::make('apartment')->label('Квартира'),
-            TextColumn::make('entrance')->label('Подезд'),
-            TextColumn::make('floor')->label('Этаж'),
-        ])
-        ->headerActions([
-            Tables\Actions\CreateAction::make(),
-        ])
-        ->actions([
-            Tables\Actions\EditAction::make(),
-            Tables\Actions\DetachAction::make(),
-            Tables\Actions\DeleteAction::make(),
-        ])
-        ->bulkActions([
-            Tables\Actions\DeleteBulkAction::make(),
-        ]);
+            ->columns([
+                TextColumn::make('street')->label('Улица'),
+                TextColumn::make('house')->label('Дом'),
+                TextColumn::make('apartment')->label('Квартира'),
+                TextColumn::make('entrance')->label('Подезд'),
+                TextColumn::make('floor')->label('Этаж'),
+            ])
+            ->headerActions([
+                Tables\Actions\CreateAction::make(),
+            ])
+            ->actions([
+                Tables\Actions\EditAction::make(),
+                Tables\Actions\DetachAction::make(),
+                Tables\Actions\DeleteAction::make(),
+            ])
+            ->bulkActions([
+                Tables\Actions\DeleteBulkAction::make(),
+            ]);
     }
 }

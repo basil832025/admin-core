@@ -15,4 +15,14 @@ class Language extends Model
         'active'
 
     ];
+    public static function activeCodesOrdered(): array
+    {
+        return static::query()
+            ->where('active', true)
+            ->orderBy('position')
+            ->pluck('code')                 // ['uk','en','ru', ...]
+            ->map(fn ($c) => strtolower($c))
+            ->values()
+            ->all();
+    }
 }

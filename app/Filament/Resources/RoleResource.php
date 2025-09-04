@@ -24,6 +24,10 @@ class RoleResource extends Resource implements HasShieldPermissions
 {
     use HasShieldFormComponents;
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return true;
+    }
     protected static ?string $recordTitleAttribute = 'name';
     protected static ?string $navigationGroup = 'Настройки';
     protected static bool $shouldRegisterNavigation = true;
@@ -43,6 +47,7 @@ class RoleResource extends Resource implements HasShieldPermissions
         $allow = [
             'access_admin',
             'set_order_status*',   // все статусы
+            'order_status_downgrade'
         ];
 
         $translations = [
@@ -59,6 +64,7 @@ class RoleResource extends Resource implements HasShieldPermissions
             'set_order_status_prepared' => 'Статус: Приготовлен',
             'set_order_status_processing' => 'Статус: В обработке',
             'set_order_status_shipped' => 'Статус: Отправлен',
+            'order_status_downgrade' => 'Статус: Возврат статуса назад',
         ];
 
         return FilamentShield::getCustomPermissions()
@@ -204,17 +210,14 @@ class RoleResource extends Resource implements HasShieldPermissions
 
 
 
-    public static function shouldRegisterNavigation(): bool
-    {
-        return true; // форсируем показ в меню
-    }
 
-   /* public static function getNavigationGroup(): ?string
-    {
-        return Utils::isResourceNavigationGroupEnabled()
-            ? __('filament-shield::filament-shield.nav.group')
-            : '';
-    }*/
+
+    /* public static function getNavigationGroup(): ?string
+     {
+         return Utils::isResourceNavigationGroupEnabled()
+             ? __('filament-shield::filament-shield.nav.group')
+             : '';
+     }*/
 
     public static function getNavigationLabel(): string
     {

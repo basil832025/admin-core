@@ -2,20 +2,23 @@
 
 namespace App\Filament\Clusters\Characteristics\Resources\CharacteristicResource\Pages;
 
+//use LaraZeus\SpatieTranslatable\Resources\Pages\ListRecords\Concerns\Translatable;
+//use LaraZeus\SpatieTranslatable\Actions\LocaleSwitcher;
+use Filament\Actions\CreateAction;
 use App\Filament\Clusters\Characteristics\Resources\CharacteristicResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 
 class ListCharacteristics extends ListRecords
 {
-    use ListRecords\Concerns\Translatable;
+   // use Translatable;
     protected static string $resource = CharacteristicResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
-            Actions\LocaleSwitcher::make(),
-            Actions\CreateAction::make(),
+        //    LocaleSwitcher::make(),
+            CreateAction::make(),
         ];
     }
 }

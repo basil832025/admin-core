@@ -13,7 +13,7 @@ use Filament\Tables\Columns\TextColumn;
 
 class ProductRelationManager  extends RelationManager
 {
-protected static string $relationship = 'products'; // 👈 название метода-связи в модели Category
+    protected static string $relationship = 'products'; // 👈 название метода-связи в модели Category
     public function form(Form $form): Form
     {
         return ProductResource::form($form);

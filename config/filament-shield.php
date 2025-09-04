@@ -1,12 +1,12 @@
 <?php
-use App\Filament\Resources\RoleResource;
+
 return [
     'shield_resource' => [
-        'should_register_navigation' => false,
+        'should_register_navigation' => true,
         'slug' => 'shield/roles',
         'navigation_sort' => -1,
         'navigation_badge' => true,
-        'navigation_group' => 'Настройки',
+        'navigation_group' => true,
         'sub_navigation_position' => null,
         'is_globally_searchable' => false,
         'show_model_path' => true,
@@ -76,13 +76,13 @@ return [
             'AccountWidget', 'FilamentInfoWidget',
         ],
 
-        'resources' => [RoleResource::class,],
+        'resources' => [],
     ],
 
     'discovery' => [
-        'discover_all_resources' => true,
-        'discover_all_widgets'   => true,   // опционально
-        'discover_all_pages'     => true,   // опционально
+        'discover_all_resources' => false,
+        'discover_all_widgets' => false,
+        'discover_all_pages' => false,
     ],
 
     'register_role_policy' => [

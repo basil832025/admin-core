@@ -24,7 +24,7 @@ class CurrencyResource extends Resource
     protected static ?string $modelLabel = 'Валюты';
     protected static ?string $navigationLabel = 'Валюты';
     protected static ?string $pluralModelLabel = 'Валюты';
-     protected static ?int    $navigationSort  = 3;
+    protected static ?int    $navigationSort  = 3;
     protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
 
 

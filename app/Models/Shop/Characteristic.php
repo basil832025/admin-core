@@ -18,10 +18,12 @@ class Characteristic extends Model
         'name',
         'slug',
         'pricing_type',
+        'is_main_tab',
         'sort_order',
         'expand_values',
         'is_required',
         'field_type',
+        'is_main_tab',
         'is_active',
     ];
     protected $casts = [
@@ -29,7 +31,9 @@ class Characteristic extends Model
         'pricing_type'  => 'integer',
         'sort_order'    => 'integer',
         'expand_values' => 'boolean',
+        'is_main_tab'  => 'bool',
         'is_required'   => 'boolean',
+        'is_main_tab'   => 'boolean',
         'is_active'     => 'boolean',
     ];
     public function productValues()
@@ -41,11 +45,12 @@ class Characteristic extends Model
     public function categories()
     {
         return $this->belongsToMany(
-            \App\Models\Shop\ProductCategory::class,
+            ProductCategory::class,
             'category_characteristic',
             'characteristic_id',
             'category_id'
-        );
+        ) ->withPivot(['is_required'])   // ← обязательно
+        ->withTimestamps();;
     }
 
     public function category()
@@ -100,4 +105,8 @@ class Characteristic extends Model
             }
         });
     }
+    /** Скоупы */
+    public function scopeActive($q)      { return $q->where('is_active', true); }
+    public function scopeMainTab($q)     { return $q->where('is_main_tab', true); }
+    public function scopeSorted($q)      { return $q->orderBy('sort_order'); }
 }

@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Admin;
 
+use Filament\Actions\Contracts\HasActions;
+use Filament\Actions\Concerns\InteractsWithActions;
 use App\Models\Shop\Order;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -13,8 +15,9 @@ use Illuminate\Database\Eloquent\Builder;
 use Livewire\Component;
 use Spatie\Activitylog\Models\Activity;
 
-class OrderActivityTable extends Component implements HasTable, HasForms
+class OrderActivityTable extends Component implements HasTable, HasForms, HasActions
 {
+    use InteractsWithActions;
     use InteractsWithTable;
     use InteractsWithForms;
 

@@ -20,28 +20,30 @@ use SolutionForest\FilamentTree\Resources\Pages\TreePage as BasePage;
 use SolutionForest\FilamentTree\Support\Utils;
 use Illuminate\Database\Eloquent\Model;
 use Filament\Pages\Actions\Action;
-use SolutionForest\FilamentTree\Concern\TreeRecords\Translatable;
+use App\Models\Setting;
+use Illuminate\Support\Arr;
 //use SolutionForest\FilamentTree\Widgets\LocaleSwitcher;
+use SolutionForest\FilamentTree\Concern\TreeRecords\Translatable;
 use Filament\Actions\LocaleSwitcher;
 use Filament\Pages\SubNavigationPosition;
 class ProductCategoryTree extends BasePage
 {
-    use Translatable;
-  //  use ListRecords\Concerns\Translatable;
+  //  use Translatable;
+    //  use ListRecords\Concerns\Translatable;
     protected static string $resource = ProductCategoryResource::class;
     protected bool $enableTreeTitle = true;
     protected static ?string $cluster = Products::class;
     protected static string $model = \App\Models\Shop\ProductCategory::class;
     protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
     protected static ?int $navigationSort = 1;
-  //  protected static string $view = 'filament-tree::pages.resource.tree';
+    //  protected static string $view = 'filament-tree::pages.resource.tree';
     // можна вивидити в вспливаючому вікні ті поля які треба
-   /* protected function getFormSchema(): array
-    {
-        return [
-            TextInput::make('title'),
-        ];
-    }*/
+    /* protected function getFormSchema(): array
+     {
+         return [
+             TextInput::make('title'),
+         ];
+     }*/
 
     protected function getActions(): array
     {
@@ -95,21 +97,29 @@ class ProductCategoryTree extends BasePage
     }
     // вывод в дереве или tittle или доп кнокпок
     public function getTreeRecordTitle(?Model $record = null): string
-
     {
-        //  dd($record);
-        if (! $record) {
-            return '';
+        if (! $record) return '';
+
+        $locale = \App\Models\Setting::value('default_language_code') ?: app()->getLocale();
+        $column = method_exists($record, 'determineTitleColumnName') ? $record->determineTitleColumnName() : 'title';
+
+        $raw = $record->{$column};
+
+        // вытаскиваем строку из переводимого поля
+        if (is_array($raw)) {
+            $title = $raw[$locale] ?? reset($raw) ?? '-';
+        } else {
+            // если есть метод getTranslation — используем его, иначе берём как есть
+            $title = method_exists($record, 'getTranslation')
+                ? ($record->getTranslation($column, $locale) ?? (string) $raw ?? '-')
+                : ((string) ($raw ?? '-'));
         }
-        $id = $record->getKey();
-        $title = $record->{(method_exists($record, 'determineTitleColumnName') ? $record->determineTitleColumnName() : 'title')};
+
         $status = $record->is_visible ? '✅' : '❌';
-        $Slug = $record->slug;
-        return "{$title} |  {$status} ";
-        //  return Arr::get($record->title, app()->getLocale(), '—');
-        // return $record->getTranslation('title', $local) ?? '—';
-        //   return 'title'; // или 'name', если поле так называется
+
+        return "{$title} | {$status}";
     }
+
 
     public static function shouldRegisterNavigation(): bool
     {
@@ -136,22 +146,22 @@ class ProductCategoryTree extends BasePage
     }
 
 
-  /*  public static function shouldRegisterNavigation(): bool
-    {
-        return static::canAccess();
-    }*/
+    /*  public static function shouldRegisterNavigation(): bool
+      {
+          return static::canAccess();
+      }*/
 
 // чтобы не в модальном окне открывалось а как страница
     protected function getTreeActions(): array
     {
         return [
-         //   ViewAction::make(),
+            //   ViewAction::make(),
             EditAction::make()
                 ->url(fn ($record) => ProductCategoryResource::getUrl('edit', ['record' => $record]))
                 ->openUrlInNewTab(false) // можно поставить true — если хочешь в новой вкладке
                 ->label('Редактировать')
                 ->icon('heroicon-m-pencil-square'),
-         //   DeleteAction::make(),
+            //   DeleteAction::make(),
         ];
     }
     protected function getTreeRecordDetailsUsingHtml(): bool

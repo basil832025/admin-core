@@ -97,7 +97,7 @@ class BlogCategoryResource extends Resource
                             ->required($locale === $defaultLocale),
                         RichEditor::make("description")
                             ->label('Описание')
-                           // ->required($locale === $defaultLocale)
+                            // ->required($locale === $defaultLocale)
                             ->fileAttachmentsDisk('public')
                             ->fileAttachmentsDirectory('uploads')
                             ->fileAttachmentsVisibility('public'),
@@ -128,7 +128,7 @@ class BlogCategoryResource extends Resource
             ])
             ->columns(1);
     }
-    protected static function getActiveLocales(): array
+    public static function getActiveLocales(): array
     {
         return Language::where('active', true)
             ->orderBy('position')

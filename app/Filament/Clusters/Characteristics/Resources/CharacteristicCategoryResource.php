@@ -32,9 +32,9 @@ class CharacteristicCategoryResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
     protected static ?string $cluster = Characteristics::class;
-  //  protected static ?string $navigationParentItem = 'Категории характеристик';
-     protected static ?string $navigationLabel = 'Категории характеристик';
- //   protected static ?string $navigationLabel = 'Категории характеристик';
+    //  protected static ?string $navigationParentItem = 'Категории характеристик';
+    protected static ?string $navigationLabel = 'Категории характеристик';
+    //   protected static ?string $navigationLabel = 'Категории характеристик';
     protected static ?string $modelLabel = 'Категория характеристик';
     protected static ?string $pluralModelLabel = 'Категории характеристик';
     protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
@@ -54,14 +54,14 @@ class CharacteristicCategoryResource extends Resource
                     ->columns(1)
                     ->columnSpanFull()
                     ->schema(fn(string $locale) => [
-                TextInput::make('name')
-                    ->label('Название')
-                    ->required($locale === $defaultLocale)
-                    ->maxLength(255),
-                ]),
+                        TextInput::make('name')
+                            ->label('Название')
+                            ->required($locale === $defaultLocale)
+                            ->maxLength(255),
+                    ]),
                 TextInput::make('slug')
                     ->label('Код/slug')
-               //     ->required()
+                    //     ->required()
                     ->unique(ignoreRecord: true)
                     ->maxLength(255),
                 TextInput::make('sort_order')

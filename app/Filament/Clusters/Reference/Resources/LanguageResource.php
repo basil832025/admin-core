@@ -66,16 +66,16 @@ class LanguageResource extends Resource
                     //->options(self::getCountryOptions())
                     ->options(self::getCountryOptionsHtml())
                     ->allowHtml()
-                  //  ->reactive() // чтобы события после обновления срабатывали
+                    //  ->reactive() // чтобы события после обновления срабатывали
                     ->live(onBlur: true)
                     // как только пользователь выбрал страну — обновляем поле code
-                  //  ->afterStateUpdated(function (Set $set, ?string $countryCode ) {
+                    //  ->afterStateUpdated(function (Set $set, ?string $countryCode ) {
                     ->afterStateUpdated(function (Get $get, Set $set) {
                         $cca3 = $get('country_code');
-                       // $meta = self::getCountryMeta();
+                        // $meta = self::getCountryMeta();
                         $meta = self::getCountryIso();
                         $cca3 = mb_strtolower($cca3);
-                       // dd($meta);
+                        // dd($meta);
                         // подставляем трёхбуквенный код (cca3) из вашего массива
                         $set('code', $meta[$cca3] ?? null);
                     })
@@ -119,19 +119,19 @@ class LanguageResource extends Resource
                     ->formatStateUsing(fn($state) => self::getCountryOptionsHtml()[$state] ?? $state)
                     ->html(),
                 TextColumn::make('position')
-                      ->label('Позиция')
-                       ->sortable(),
+                    ->label('Позиция')
+                    ->sortable(),
 
                 IconColumn::make('active')
-                ->label('Активен')
-                ->boolean()
-                ->sortable(),
+                    ->label('Активен')
+                    ->boolean()
+                    ->sortable(),
 
-            TextColumn::make('updated_at')
-                ->label('Изменён')
-                ->dateTime(),
-        ])
-        ->defaultSort('position')
+                TextColumn::make('updated_at')
+                    ->label('Изменён')
+                    ->dateTime(),
+            ])
+            ->defaultSort('position')
 
             ->filters([
                 //
@@ -171,12 +171,12 @@ class LanguageResource extends Resource
                     e($name),
                     e($name),
             );
-              /*  return [
-                    $code2 => [
-                        'html' => $label,
-                        'cca3' => $code,
-                    ],
-                ];*/
+                /*  return [
+                      $code2 => [
+                          'html' => $label,
+                          'cca3' => $code,
+                      ],
+                  ];*/
                 return [$code => $label];
             })
             ->toArray();
@@ -199,25 +199,25 @@ class LanguageResource extends Resource
                 $item['639-2'] => $item['639-1'],
             ])->toArray();
     }
-  /* protected static function getCountryOptions(): array
-    {
-      //  $json = File::get(base_path('countries.json'));
-     //   $countries = json_decode($json, true);
-        $countries = collect(json_decode(
-            file_get_contents(storage_path('app/data/countries.json')),
-            true
-        ));
+    /* protected static function getCountryOptions(): array
+      {
+        //  $json = File::get(base_path('countries.json'));
+       //   $countries = json_decode($json, true);
+          $countries = collect(json_decode(
+              file_get_contents(storage_path('app/data/countries.json')),
+              true
+          ));
 
-        return $countries
-            ->mapWithKeys(function ($item) {
-                $code  = $item['cca2'];
-                $name  = $item['name']['common'];
+          return $countries
+              ->mapWithKeys(function ($item) {
+                  $code  = $item['cca2'];
+                  $name  = $item['name']['common'];
 
 
-                return [$code => $name];
-            })
-            ->toArray();
-    }*/
+                  return [$code => $name];
+              })
+              ->toArray();
+      }*/
     public static function getRelations(): array
     {
         return [

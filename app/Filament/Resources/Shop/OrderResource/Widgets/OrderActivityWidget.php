@@ -26,10 +26,10 @@ class OrderActivityWidget extends BaseWidget
         return $table
             ->query($this->query())
             ->columns([
-                Tables\Columns\TextColumn::make('created_at')
+                TextColumn::make('created_at')
                     ->label('Дата/время')->dateTime('Y-m-d H:i:s')->sortable(),
 
-                Tables\Columns\TextColumn::make('causer.name')
+                TextColumn::make('causer.name')
                     ->label('Пользователь')->default('Система')->toggleable(),
 
                 TextColumn::make('log_name')
@@ -41,9 +41,9 @@ class OrderActivityWidget extends BaseWidget
                     })
                     ->badge(),
 
-                Tables\Columns\TextColumn::make('description')
+                TextColumn::make('description')
                     ->label('Операция')
-                    ->state(fn (\Spatie\Activitylog\Models\Activity $r) => OrderActivityFormatter::operation($r)),
+                    ->state(fn (Activity $r) => OrderActivityFormatter::operation($r)),
 
              /*   Tables\Columns\TextColumn::make('event')
                     ->label('Событие')->badge()->toggleable(),

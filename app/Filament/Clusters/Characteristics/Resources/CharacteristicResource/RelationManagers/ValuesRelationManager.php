@@ -48,8 +48,8 @@ class ValuesRelationManager extends RelationManager
                         ColorPicker::make("value")
                             ->label('Колір')
                             ->required($locale === $defaultLocale)
-                           // ->visible(fn ($get) => $get('field_type') === 'color'),
-                           ->visible(fn () => $this->getOwnerRecord()?->field_type === 'color'),
+                            // ->visible(fn ($get) => $get('field_type') === 'color'),
+                            ->visible(fn () => $this->getOwnerRecord()?->field_type === 'color'),
 
                         // TextInput по умолчанию
                         TextInput::make("value")
@@ -88,8 +88,8 @@ class ValuesRelationManager extends RelationManager
                     ->formatStateUsing(function ($state, $record) use ($locale) {
                         return $record->getTranslation('value', $locale);
                     })
-                 //   ->visible(fn () => $owner?->field_type !== 'color')
-        ,
+                //   ->visible(fn () => $owner?->field_type !== 'color')
+                ,
 
                 TextColumn::make('sort_order')->label('Позиция'),
                 IconColumn::make('is_active')->label('Активно')->boolean(),

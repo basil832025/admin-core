@@ -3,6 +3,8 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Pages\Dashboard;
+use App\Http\Middleware\SetLocaleFromSession;
+use App\Models\Language;
 use App\Models\Setting;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -22,6 +24,10 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 use SolutionForest\FilamentTranslateField\FilamentTranslateFieldPlugin;
 use Filament\SpatieLaravelTranslatablePlugin;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
+use Filament\Navigation\UserMenuItem;
+use Filament\Navigation\NavigationGroup;
+use Filament\Navigation\NavigationItem;
+use Filament\Enums\ThemeMode;
 class AdminPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
@@ -40,19 +46,40 @@ class AdminPanelProvider extends PanelProvider
 
 
         ];
+        $ordered = Language::query()
+            ->where('active', true)
+            ->orderBy('position')
+            ->pluck('code')                 // ['uk','en','ru', ...]
+            ->map(fn ($c) => strtolower($c))
+            ->values();
+        // Дефолт из настроек (или config('app.locale'))
+        $default = strtolower(Setting::value('default_language_code') ?: config('app.locale'));
 
+        // $locales = Language::activeCodesOrdered(); // порядок из БД
+        $locales = $ordered
+            ->sortBy(fn ($code) => $code === $default ? 0 : 1)
+            ->values()
+            ->all();
         // Берём из БД выбранную схему
         $scheme = Setting::first()->admin_color_scheme ?? 'primary';
+        // Дефолт из настроек (или config('app.locale'))
+        $default = strtolower(Setting::value('default_language_code') ?: config('app.locale'));
         //dd()
         // Формируем полный массив цветов, где ключи — как выше, а
         // primary (или любой другой) перезаписывает ту роль, что задали
-      //  Config::set('filament.dark', false); // если нужно
-        return $panel
+        //  Config::set('filament.dark', false); // если нужно
+        $panel = $panel
             ->default()
             ->id('admin')
             ->path('admin')
             ->authGuard('web') // <- явно
-       //     ->plugin(\BezhanSalleh\FilamentShield\FilamentShieldPlugin::make())
+            ->brandName('Basil Admin')
+
+          //  ->topNavigation()
+            //->sidebarCollapsibleOnDesktop()
+          //  ->sidebarFullyCollapsibleOnDesktop()
+
+            //     ->plugin(\BezhanSalleh\FilamentShield\FilamentShieldPlugin::make())
             ->login()
             ->colors([
                 'primary' =>  $palettes[$scheme],
@@ -95,6 +122,8 @@ class AdminPanelProvider extends PanelProvider
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,
                 AuthenticateSession::class,
+                // 👇 ДОЛЖНА идти ПОСЛЕ StartSession
+                SetLocaleFromSession::class,
                 ShareErrorsFromSession::class,
                 VerifyCsrfToken::class,
                 SubstituteBindings::class,
@@ -104,41 +133,54 @@ class AdminPanelProvider extends PanelProvider
             ->authMiddleware([
                 Authenticate::class,
             ])
+            ->userMenuItems([
+                'locale-uk' => UserMenuItem::make()
+                    ->label('Українська')->icon('heroicon-m-language')
+                    ->url(fn () => route('admin.switch-locale', 'uk')),
+
+                'locale-en' => UserMenuItem::make()
+                    ->label('English')->icon('heroicon-m-language')
+                    ->url(fn () => route('admin.switch-locale', 'en')),
+
+                'locale-ru' => UserMenuItem::make()
+                    ->label('Русский')->icon('heroicon-m-language')
+                    ->url(fn () => route('admin.switch-locale', 'ru')),
+            ])
             ->plugins([
                 SpatieLaravelTranslatablePlugin::make()
                     // список локалей — обязателен
-                    ->defaultLocales(['uk', 'en', 'ru']),
-        // включаем переключатель языков
-        //->localeSwitcher()
-        // показывать в шапке (опционально)
-        //->showInHeader(),
+                     ->defaultLocales($locales),
 
-    FilamentTranslateFieldPlugin::make()
-        ->defaultLocales(['ua', 'en', 'ru']),
-
-    FilamentShieldPlugin::make()
-        // опционально:
-     //   ->slim()               // компактные политики
-       // ->generateTenants(false)
-      //  ->resourceCheckboxes() // чекбоксы в UI
-]);
-          /*  ->plugin(
-                SpatieLaravelTranslatablePlugin::make()
-                    // список ваших локалей — обязателен
-                    ->defaultLocales(['uk', 'en', 'ru'])
-                    // включаем сам переключатель языков
-                   // ->localeSwitcher()
-                    // по желанию: показывать в шапке
-                  //  ->showInHeader()
-            )
-            ->plugin(
                 FilamentTranslateFieldPlugin::make()
-                    ->defaultLocales(['ua', 'en', 'ru']),
+                    ->defaultLocales($locales),
+
                 FilamentShieldPlugin::make()
-            // опционально:
-             ->slim()               // компактные политики
-             ->generateTenants(false)
-             ->resourceCheckboxes() // если хочешь чекбоксы в UI
-            )  ;*/
+
+            ]);
+        // гамбургер на десктопе
+        if (Setting::admin('sidebar.collapsible_on_desktop', true)) {
+            $panel->sidebarFullyCollapsibleOnDesktop();
+        }
+
+        // полностью сворачиваемая (иконки)
+        if (Setting::admin('sidebar.fully_collapsible_on_desktop', false)) {
+            $panel->sidebarFullyCollapsibleOnDesktop();
+        }
+
+        // тема/режим (пример)
+        if (Setting::admin('theme.dark_mode', true)) {
+
+            $panel->defaultThemeMode(ThemeMode::Dark);
+        }
+        if (Setting::admin('nav.position') === 'top') {
+
+            $panel->topNavigation();
+        }
+
+        // ширина контента (пример)
+        if ($w = Setting::admin('layout.max_content_width')) {
+            $panel->maxContentWidth($w); // например '7xl' | 'full'
+        }
+    return $panel;
     }
 }

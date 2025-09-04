@@ -31,7 +31,7 @@ class CharacteristicResource extends Resource
 {
     use Translatable;
     protected static ?string $model = Characteristic::class;
- //   protected static ?string $slug = 'catalog/characteristics';
+    //   protected static ?string $slug = 'catalog/characteristics';
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
     protected static ?string $cluster = Characteristics::class;
@@ -71,7 +71,7 @@ class CharacteristicResource extends Resource
                                 TextInput::make('slug')
                                     ->label('Slug')
                                     ->unique(ignoreRecord: true)
-                                  //  ->required()
+                                    //  ->required()
                                     ->maxLength(255),
 
                                 Select::make('category_id')
@@ -114,6 +114,8 @@ class CharacteristicResource extends Resource
 
                                 Toggle::make('is_required')
                                     ->label('Обязательная'),
+                                Toggle::make('is_main_tab')
+                                    ->label('На главной вкладке показать товара'),
                             ]),
 
                         Select::make('field_type')
@@ -148,53 +150,56 @@ class CharacteristicResource extends Resource
     }
     public static function table(Table $table): Table
     {
+        $defaultLocale = Setting::value('default_language_code') ?: config('app.locale');
         return $table
-                 ->columns([
-                     TextColumn::make('name')
-                         ->label('Название')
-                         ->sortable()
-                         ->searchable(),
-                     TextColumn::make('slug')
-                         ->label('Slug')
-                         ->sortable(),
-                     TextColumn::make('category.name')
-                         ->label('Категория')
+            ->columns([
+                TextColumn::make('name')
+                    ->label('Название')
+                    ->sortable()
+                    ->searchable(),
+                TextColumn::make('slug')
+                    ->label('Slug')
+                    ->sortable(),
+                TextColumn::make('category.name')
+                    ->label('Категория')
 
-                         ->getStateUsing(function (Characteristic $record, TextColumn $column, $livewire) {
-                             $locale = $livewire->activeLocale;
+                    ->getStateUsing(function (Characteristic $record, TextColumn $column, $livewire) use($defaultLocale) {
+                        $locale = $defaultLocale;
 
-                             // Возвращаем нужный перевод или дефолт
-                             return $record->category
-                                 // используя Spatie, вытянем нужный перевод:
-                                 ? $record->category->getTranslation('name', $locale)
-                                 : '—';
+                        // Возвращаем нужный перевод или дефолт
+                        return $record->category
+                            // используя Spatie, вытянем нужный перевод:
+                            ? $record->category->getTranslation('name', $locale)
+                            : '—';
 
-                         })
-                         ->sortable(),
+                    })
+                    ->sortable(),
 
-                     TextColumn::make('field_type')
-                         ->label('Тип поля'),
+                TextColumn::make('field_type')
+                    ->label('Тип поля'),
 
-                     TextColumn::make('pricing_type')
-                         ->label('Ценообразование')
-                         ->formatStateUsing(fn (int $state) => match ($state) {
-                             0 => 'Не влияет',
-                             1 => 'Надбавка',
-                             2 => 'Фиксированная',
-                         }),
+                TextColumn::make('pricing_type')
+                    ->label('Ценообразование')
+                    ->formatStateUsing(fn (int $state) => match ($state) {
+                        0 => 'Не влияет',
+                        1 => 'Надбавка',
+                        2 => 'Фиксированная',
+                    }),
 
-                     IconColumn::make('is_required')
-                         ->label('Обязательная')
-                         ->boolean(),
+                IconColumn::make('is_required')
+                    ->label('Обязательная')
+                    ->boolean(),
+                IconColumn::make('is_main_tab')
+                    ->label('На главной')
+                    ->boolean(),
+                IconColumn::make('is_active')
+                    ->label('Активна')
+                    ->boolean(),
 
-                     IconColumn::make('is_active')
-                         ->label('Активна')
-                         ->boolean(),
-
-                     TextColumn::make('sort_order')
-                         ->label('Позиция')
-                         ->sortable(),
-                 ])
+                TextColumn::make('sort_order')
+                    ->label('Позиция')
+                    ->sortable(),
+            ])
             ->filters([
                 //
             ])
