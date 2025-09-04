@@ -1,7 +1,7 @@
 <?php
 
 
-namespace App\Filament\Resources\Kitchen\KitchenTicketResource\Pages;
+namespace App\Filament\Resources\Kitchen\Pages;
 
 use App\Filament\Resources\Kitchen\KitchenTicketResource;
 use Filament\Actions;                           // <—

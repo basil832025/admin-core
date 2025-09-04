@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\Kitchen;
 
 use App\Enums\OrderStatus;
-use App\Filament\Resources\Kitchen\KitchenTicketResource\Pages;
+use App\Filament\Resources\Kitchen\Pages;
 use App\Models\Kitchen\KitchenTicket;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Hidden;

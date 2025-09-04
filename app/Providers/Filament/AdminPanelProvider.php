@@ -28,6 +28,8 @@ use Filament\Navigation\UserMenuItem;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
 use Filament\Enums\ThemeMode;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 class AdminPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
@@ -35,13 +37,20 @@ class AdminPanelProvider extends PanelProvider
         // Определяем все варианты «ключ» => Color::…
 
         $palettes = [
-            'Rose'  => Color::Rose,
+            'primary' => Color::Indigo,
+            'rose'    => Color::Rose,
             'gray'    => Color::Gray,
-            'Blue'    => Color::Blue,
-            'Amber' => Color::Amber,
-            'Emerald' => Color::Emerald,
-            'Orange' => Color::Orange,
-    ];
+            'blue'    => Color::Blue,
+            'amber'   => Color::Amber,
+            'emerald' => Color::Emerald,
+            'orange'  => Color::Orange,
+            'violet'  => Color::Violet,
+            'teal'    => Color::Teal,
+            'indigo'  => Color::Indigo,
+            'cyan'    => Color::Cyan,
+            'lime'    => Color::Lime,
+            'sky'     => Color::Sky,
+        ];
         // --- ЗАЩИТА ОТ ОТСУТСТВИЯ ТАБЛИЦ ПРИ package:discover ---
         $hasLang     = $this->safeHasTable('languages');
         $hasSettings = $this->safeHasTable('settings');
@@ -63,12 +72,10 @@ class AdminPanelProvider extends PanelProvider
             ->values()
             ->all();
         // Цветовая схема (дефолт, если нет settings)
-        $scheme = $hasSettings ? (optional(Setting::first())->admin_color_scheme ?? 'primary') : 'primary';
-
-        // Формируем полный массив цветов, где ключи — как выше, а
-        // primary (или любой другой) перезаписывает ту роль, что задали
-        //  Config::set('filament.dark', false); // если нужно
-        $panel = $panel
+        $scheme = $hasSettings
+            ? (Setting::first())->admin_color_scheme ?? 'primary'            : 'primary';
+     $primaryColor = is_string($scheme) ?  ($palettes[$scheme]) : $palettes['primary']; // фоллбек, если ключа нет
+            $panel = $panel
             ->default()
             ->id('admin')
             ->path('admin')
@@ -76,7 +83,7 @@ class AdminPanelProvider extends PanelProvider
             ->brandName('Basil Admin')
             ->login()
             ->colors([
-                'primary' =>  $palettes[$scheme],
+                'primary' =>  $primaryColor,
                 // токены, которые будем возвращать из enum:
                 'blue'    => Color::Blue,
                 'amber'   => Color::Amber,
@@ -178,13 +185,37 @@ class AdminPanelProvider extends PanelProvider
     return $panel;
     }
     /** Безопасная проверка наличия таблицы (не падает в package:discover). */
+    /**
+     * Безопасная проверка наличия таблицы.
+     *  - НЕ игнорирует $table
+     *  - Пытается через Schema, при ошибке — через information_schema
+     */
     private function safeHasTable(string $table): bool
     {
         try {
-            return Schema::hasTable($table);
+            // иногда в раннюю фазу это может бросить exception — отловим ниже
+            if (Schema::connection(config('database.default'))->hasTable($table)) {
+                return true;
+            }
         } catch (\Throwable $e) {
-            // во время раннего boot/при отсутствии соединения к БД просто возвращаем false
+            // провалимся во 2-й способ
+            dump($e);
+        }
+
+        try {
+            $db = DB::getDatabaseName();
+            if (! $db) return false;
+
+            $row = DB::selectOne(
+                'SELECT COUNT(*) AS c
+                 FROM information_schema.tables
+                 WHERE table_schema = ? AND table_name = ?',
+                [$db, $table]
+            );
+            return ($row && (int) $row->c > 0);
+        } catch (\Throwable $e) {
             return false;
         }
     }
+
 }
