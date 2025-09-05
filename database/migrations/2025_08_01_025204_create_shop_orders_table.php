@@ -20,6 +20,7 @@ return new class extends Migration
             $table->string('currency');
             $table->decimal('shipping_price')->nullable();
             $table->string('shipping_method')->nullable();
+            $table->string('short_name')->nullable();
             $table->text('notes')->nullable();
             $table->timestamps();
             $table->softDeletes();
