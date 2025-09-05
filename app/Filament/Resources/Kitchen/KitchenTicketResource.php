@@ -34,7 +34,7 @@ class KitchenTicketResource extends Resource
 
     protected static ?string $navigationGroup = 'КитченТач';
     protected static ?string $navigationIcon   = 'heroicon-m-fire';
-    protected static ?string $navigationLabel  = 'Кухня';
+    protected static ?string $navigationLabel  = 'КухняТач';
     protected static ?int    $navigationSort   = 10;
 
     public static function getModelLabel(): string
