@@ -23,7 +23,7 @@ return new class extends Migration
             $table->string('entrance')->nullable();
             $table->text('note')->nullable();
             $table->boolean('is_private_house')->default(false);
-            $table->enum('type', ['Дом', 'Работа', 'Друзья'])->nullable();
+            $table->enum('type', ['home','work','friends'])->nullable();
             $table->timestamps();
         });
     }
