@@ -28,7 +28,7 @@ class DumpSeedData extends Command
 
         $defaultExcept = [
             'migrations','jobs','failed_jobs','cache','cache_locks','sessions',
-            'password_reset_tokens','personal_access_tokens',
+            'password_reset_tokens','personal_access_tokens','activity_log'
         ];
         $maybeExcept = ['telescope_entries','horizon_jobs','horizon_supervisors'];
 
