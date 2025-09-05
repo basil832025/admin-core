@@ -15,8 +15,14 @@ return new class extends Migration
             $table->id();
             $table->foreignId('shop_order_id')->nullable()->constrained()->cascadeOnDelete();
             $table->foreignId('product_id')->nullable()->constrained()->cascadeOnDelete();
+            $table->string('sku',64);
+
             $table->integer('qty');
-            $table->string('currency');
+            $table->string('currency',3);
+
+            $table->json('product_snapshot');
+            $table->json('promotion_data');
+
             $table->decimal('unit_price', 10, 2);
             $table->timestamps();
         });
