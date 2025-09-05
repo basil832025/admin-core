@@ -16,6 +16,7 @@ return new class extends Migration
             $table->foreignId('category_id')->constrained('product_categories')->cascadeOnDelete();
             $table->foreignId('characteristic_id')->constrained('characteristics')->cascadeOnDelete();
             $table->boolean('affects_price')->default(false);
+            $table->boolean('is_required')->default(true);
             $table->timestamps();
         });
     }
