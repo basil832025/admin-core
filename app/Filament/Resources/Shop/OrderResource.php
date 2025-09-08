@@ -7,18 +7,20 @@ namespace App\Filament\Resources\Shop;
 use App\Enums\OrderStatus;
 use App\Filament\Clusters\Products\Resources\ProductResource;
 use App\Filament\Resources\Shop\OrderResource\Pages;
-use App\Filament\Resources\Shop\OrderResource\RelationManagers;
 use App\Filament\Resources\Shop\OrderResource\Widgets\OrderStats;
 use App\Forms\Components\AddressForm;
 use App\Models\Setting;
-use App\Models\Shop\CharacteristicValue;
 use App\Models\Shop\ClientAddress;
+use App\Models\Shop\FixedDiscount;
 use App\Models\Shop\Order;
 use App\Models\Shop\Product;
-use App\Models\Shop\ProductCategory;
+use App\Models\Shop\PromoCode;
+use App\Models\Shop\TimeDiscount;
+use App\Models\Shop\VariationValue;
+use App\Models\Currency;
 use Filament\Forms;
 use Filament\Forms\Components\Actions;
-use Filament\Forms\Components\Actions\Action;
+use Filament\Forms\Components\Actions\Action as FormAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Group;
@@ -39,6 +41,7 @@ use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Actions\Action;               // <— для таблицы (модалка «Статусы»)
 use Filament\Tables\Actions\BulkActionGroup;
 use Filament\Tables\Actions\DeleteBulkAction;
 use Filament\Tables\Actions\EditAction;
@@ -47,23 +50,10 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
-use App\Models\Shop\VariationValue;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
-use App\Models\Currency;
 use Illuminate\Support\Carbon;
-use Filament\Forms\Components\Tabs;
-use Filament\Forms\Components\Tabs\Tab;
 use Illuminate\Support\Facades\DB;
-use Spatie\Activitylog\Models\Activity;
-use Filament\Forms\Components\View;
-use App\Models\Shop\PromoCode;     // таблица промокодов
-use App\Models\Shop\OrderAdjustment;
-use App\Models\Shop\FixedDiscount;
-use App\Models\Shop\TimeDiscount;
 use Illuminate\Support\HtmlString;
-
-
 
 class OrderResource extends Resource
 {
@@ -83,12 +73,12 @@ class OrderResource extends Resource
             ->components([
                 Group::make()
                     ->schema([
-                        Tabs::make('order_tabs')
+                        Forms\Components\Tabs::make('order_tabs')
                             ->tabs([
-                                Tab::make('Инфо по заказу')
+                                Forms\Components\Tabs\Tab::make('Инфо по заказу')
                                     ->schema(static::getInfoTabSchema())
                                     ->columns(2),
-                                Tab::make('Товары')
+                                Forms\Components\Tabs\Tab::make('Товары')
                                     ->schema(static::getProductsTabSchema()),
                             ])
                             ->persistTabInQueryString(),
@@ -101,12 +91,52 @@ class OrderResource extends Resource
             ->columns(3);
     }
 
+    // =========================
+    //   Переиспользуемая форма модалки статусов
+    // =========================
+    public static function statusModalForm(): array
+    {
+        return [
+            Hidden::make('current')
+                ->default(fn (?Order $r) => $r?->status?->value),
+
+            ToggleButtons::make('status_ui')
+                ->label('Статус')
+                ->inline()
+                ->required()
+                ->options(fn () => static::allowedStatuses())
+                ->icons(OrderStatus::iconsMap())
+                ->colors(OrderStatus::colorsMap())
+                ->default(fn (?Order $r) => $r?->status?->value ?? OrderStatus::New->value)
+                ->reactive(),
+
+            Textarea::make('downgrade_reason')
+                ->label('Причина отката')
+                ->placeholder('Коротко опишите причину…')
+                ->rows(3)
+                ->visible(function (Get $get) {
+                    $cur = $get('current');
+                    $to  = $get('status_ui');
+                    if (! $cur || ! $to) return false;
+
+                    return OrderStatus::from($to)->rank() < OrderStatus::from($cur)->rank();
+                })
+                ->required(function (Get $get) {
+                    $cur = $get('current');
+                    $to  = $get('status_ui');
+                    if (! $cur || ! $to) return false;
+
+                    return OrderStatus::from($to)->rank() < OrderStatus::from($cur)->rank();
+                }),
+        ];
+    }
+
     public static function getProductsTabSchema(): array
     {
         return [
             Section::make('Товары заказа')
                 ->headerActions([
-                    Action::make('Очистить')
+                    FormAction::make('Очистить')
                         ->modalHeading('Are you sure?')
                         ->modalDescription('All existing items will be removed from the order.')
                         ->requiresConfirmation()
@@ -138,9 +168,9 @@ class OrderResource extends Resource
     public static function getSidebarSchema(): array
     {
         return [
+            // ——— Суммы и скидки ———
             Section::make('Сумма и скидки')
                 ->schema([
-                    // Дублируем сумму заказа (как слева)
                     Placeholder::make('order_total_right')
                         ->label('Сума замовлення')
                         ->content(function (Get $get) {
@@ -160,24 +190,17 @@ class OrderResource extends Resource
                             return number_format($base, 2, ',', ' ') . ' грн';
                         })
                         ->reactive(),
-                    // 1) Фіксована знижка (ручні правила)
+
+                    // 1) Фіксована знижка
                     Select::make('ui_fixed_discount_id')
                         ->label('Фіксована знижка')
                         ->dehydrated(false)
                         ->searchable()
-                        ->nullable()          // ← позволит ставить null
-                      //  ->clearable()         // ← крестик для ручной очистки
+                        ->nullable()
                         ->options(fn () => FixedDiscount::active()->pluck('name', 'id'))
-                        // показываем выбранную ранее скидку, если есть
-                        // ставим значение при гидратации формы (работает и в Edit)
                         ->afterStateHydrated(function (Set $set, ?Order $record) {
                             if (! $record) return;
-
-                            // берём применённую фикс-скидку (если есть) и подставляем её id
-                            $adj = $record->adjustments()
-                                ->where('type', 'fixed')
-                                ->first();
-
+                            $adj = $record->adjustments()->where('type', 'fixed')->first();
                             $set('ui_fixed_discount_id', $adj?->meta['id'] ?? null);
                         })
                         ->reactive()
@@ -185,15 +208,14 @@ class OrderResource extends Resource
                             if (! $record) return;
 
                             app(\App\Services\OrderPricing::class)
-                                ->applyFixedExclusive($record, $state ? (int)$state : null, policy: 'single'); // или 'max'
-                            // в UI гасим конкурентов
+                                ->applyFixedExclusive($record, $state ? (int)$state : null, policy: 'single');
+
                             if ($state) {
                                 $set('ui_time_discount_id', null);
-                                $set('ui_manual_percent', null); // визуально очистить %
+                                $set('ui_manual_percent', null);
                             }
 
                             app(\App\Services\OrderPricing::class)->recalc($record);
-                            // форсим перерисовку плейсхолдеров
                             $set('ui_version', microtime(true));
                         }),
 
@@ -201,12 +223,9 @@ class OrderResource extends Resource
                     Select::make('ui_time_discount_id')
                         ->label('Знижка за часом')
                         ->searchable()
-                        ->nullable()          // важно: чтобы $set(..., null) сработал
-
+                        ->nullable()
                         ->dehydrated(false)
                         ->reactive()
-
-                        // ПОДСТАВИТЬ ранее выбранную при редактировании
                         ->afterStateHydrated(function (Select $component, ?Order $record) {
                             if (! $record) return;
 
@@ -218,7 +237,6 @@ class OrderResource extends Resource
                             $id  = $adj ? (data_get($adj->meta, 'id') ?? data_get($adj->meta, 'time_discount_id')) : null;
 
                             if ($id) {
-                                // если сейчас она не попадает в options — добавим вручную, чтобы отобразить
                                 $opts = $component->getOptions() ?? [];
                                 if (! array_key_exists($id, $opts)) {
                                     if ($name = TimeDiscount::find($id)?->name) {
@@ -229,13 +247,8 @@ class OrderResource extends Resource
                                 $component->state((string) $id);
                             }
                         })
-
-                        // СФОРМИРОВАТЬ options по НУЖНОМУ моменту
                         ->options(function (Get $get) {
-                            // если скидка зависит от времени выполнения — берём delivery_at,
-                            // иначе — ordered_at; если в форме поля разбиты, собираем строку
                             $type = $get('time_type') ?? 'order';
-
                             $momentStr = $type === 'execution'
                                 ? trim(($get('delivery_date') ?? '') . ' ' . ($get('delivery_time') ?? ''))
                                 : trim(($get('ordered_date')  ?? '') . ' ' . ($get('ordered_time')  ?? ''));
@@ -247,12 +260,9 @@ class OrderResource extends Resource
                                 ->pluck('name', 'id')
                                 ->toArray();
                         })
-
-                        // ПРИ ВЫБОРЕ: применяем 'single' + чистим конкурентов
                         ->afterStateUpdated(function ($state, Set $set, Get $get, ?Order $record) {
                             if (! $record) return;
 
-                            // вычисляем ТOТ ЖЕ момент, что и в options()
                             $discountType = TimeDiscount::find($state)?->time_type ?? ($get('time_type') ?? 'order');
                             $momentStr = $discountType === 'execution'
                                 ? trim(($get('delivery_date') ?? '') . ' ' . ($get('delivery_time') ?? ''))
@@ -260,7 +270,6 @@ class OrderResource extends Resource
 
                             $moment = $momentStr ? Carbon::parse($momentStr) : now();
 
-                            // применяем time с политикой single (сносит fixed + manual_percent)
                             app(\App\Services\OrderPricing::class)->applyTimeExclusive(
                                 $record,
                                 $state ? (int) $state : null,
@@ -268,7 +277,6 @@ class OrderResource extends Resource
                                 $moment
                             );
 
-                            // визуально чистим конкурентов
                             if ($state) {
                                 $set('ui_fixed_discount_id', null);
                                 $set('ui_manual_percent', null);
@@ -292,42 +300,34 @@ class OrderResource extends Resource
                             if ($code !== '') $component->state($code);
                         })
                         ->suffixActions([
-                            Action::make('applyPromo')
+                            FormAction::make('applyPromo')
                                 ->icon('heroicon-m-check')
-                                ->action(function (Get $get, Set $set, ?\App\Models\Shop\Order $record) {
+                                ->action(function (Get $get, Set $set, ?Order $record) {
                                     if (! $record) return;
 
                                     $code = trim((string) $get('ui_promo_code'));
                                     if ($code === '') return;
 
                                     $ok = app(\App\Services\OrderPricing::class)->applyPromo($record, $code);
-                                  //  dd($ok);
                                     if ($ok) {
-                                        $set('ui_promo_code', $code); // оставить введённый код
-                                        \Filament\Notifications\Notification::make()
-                                            ->title('Промокод застосовано')->success()->send();
+                                        $set('ui_promo_code', $code);
+                                        Notification::make()->title('Промокод застосовано')->success()->send();
                                     } else {
-                                        \Filament\Notifications\Notification::make()
-                                            ->title('Промокод не дійсний')->danger()->send();
+                                        Notification::make()->title('Промокод не дійсний')->danger()->send();
                                     }
                                 }),
 
-                            // отдельный экшен для удаления промокода
-                            Action::make('clearPromo')
+                            FormAction::make('clearPromo')
                                 ->icon('heroicon-m-x-mark')
                                 ->tooltip('Скасувати промокод')
-                                ->requiresConfirmation() // опционально
+                                ->requiresConfirmation()
                                 ->action(function (Set $set, ?Order $record) {
                                     if (! $record) return;
 
                                     DB::transaction(function () use ($record, $set) {
-                                        // найдём текущий купон в заказе
-                                        $adj = $record->adjustments()
-                                            ->where('type', 'coupon')
-                                            ->first();
+                                        $adj = $record->adjustments()->where('type', 'coupon')->first();
 
                                         if ($adj) {
-                                            // 1) снять usage (идемпотентно)
                                             $promoId = $adj->promo_code_id
                                                 ?? ($adj->meta['promo_id'] ?? null);
 
@@ -337,22 +337,15 @@ class OrderResource extends Resource
                                                     ? PromoCode::where('code', $adj->meta['code'])->first()
                                                     : null);
 
-                                            // удалим usage по этому заказу
                                             $promo?->unmarkUsed($record->id);
-
-                                            // 2) удалить корректировку
                                             $adj->delete();
                                         }
 
-                                        // 3) пересчитать заказ
                                         app(\App\Services\OrderPricing::class)->recalc($record);
-
-                                        // 4) очистить поле в форме
                                         $set('ui_promo_code', null);
                                     });
                                 })
                         ]),
-
 
                     TextInput::make('ui_manual_percent')
                         ->label('Ручна знижка, %')
@@ -361,16 +354,12 @@ class OrderResource extends Resource
                         ->reactive()
                         ->afterStateHydrated(function (TextInput $component, ?Order $record) {
                             if (! $record) return;
-
-                            // чтобы не дергать БД дважды
-                            if (! $record->relationLoaded('adjustments')) {
-                                $record->load('adjustments');
-                            }
+                            if (! $record->relationLoaded('adjustments')) $record->load('adjustments');
 
                             $adj = $record->adjustments->firstWhere('type', 'manual_percent');
                             if ($adj) {
                                 $val = (float) data_get($adj->meta, 'percent', 0);
-                                $component->state($val);   // покажем сохранённый %
+                                $component->state($val);
                             }
                         })
                         ->afterStateUpdated(function ($state, Set $set, Get $get, ?Order $record) {
@@ -379,12 +368,10 @@ class OrderResource extends Resource
                             $val = (float) $state;
 
                             if ($val > 0) {
-                                // визуально и логически снимаем конкурентов
                                 $set('ui_fixed_discount_id', null);
                                 $set('ui_time_discount_id', null);
                             }
 
-                            // применяем эксклюзивную ручную %
                             app(\App\Services\OrderPricing::class)
                                 ->applyManualPercentExclusive($record, $val);
 
@@ -404,7 +391,6 @@ class OrderResource extends Resource
                                 ->latest()
                                 ->first();
 
-                            // сумма может храниться в amount или в meta.amount — берём что найдём
                             $amount = $adj
                                 ? (data_get($adj, 'meta.amount') ?? data_get($adj, 'amount'))
                                 : null;
@@ -416,7 +402,7 @@ class OrderResource extends Resource
                             app(\App\Services\OrderPricing::class)->applyManualFixed($record, (float)$state);
                             app(\App\Services\OrderPricing::class)->recalc($record);
                         }),
-                    // список применённых корректировок
+
                     Placeholder::make('ui_adjustments_list')
                         ->label('Застосовані знижки')
                         ->content(function (?Order $order) {
@@ -442,20 +428,21 @@ class OrderResource extends Resource
 
                             return new HtmlString($out);
                         })->dehydrated(false)->inlineLabel(false)
-                        // ->content(fn (?Order $order) => view('admin.orders._adjustments_list', compact('order')))
                         ->dehydrated(false),
-                    // Итог со скидкой (только отображение)
+
                     Placeholder::make('total_after_discount')
                         ->label('Разом зі знижкою')
                         ->dehydrated(false)
                         ->reactive()
                         ->content(function (?Order $record) {
                             if (! $record) return new HtmlString('—');
-                            $record->refresh(); // подтянуть свежие агрегаты после recalc()
+                            $record->refresh();
                             $val = number_format((float)$record->grand_total, 2, ',', ' ') . ' грн';
                             return new HtmlString('<div class="text-lg font-semibold">'.$val.'</div>');
-                        })
+                        }),
                 ]),
+
+            // ——— Статусы (инлайн блок остаётся на форме редактирования) ———
             Section::make('Статусы')
                 ->reactive()
                 ->schema([
@@ -521,8 +508,9 @@ class OrderResource extends Resource
                             ->required()
                             ->rows(3)
                             ->dehydrated(false),
+
                         Actions::make([
-                            Action::make('confirmDowngradeInline')
+                            FormAction::make('confirmDowngradeInline')
                                 ->label('Подтвердить откат')
                                 ->color('danger')
                                 ->icon('heroicon-m-arrow-uturn-left')
@@ -531,8 +519,7 @@ class OrderResource extends Resource
                                     $reason = (string) $get('downgrade_reason');
                                     if (! $to) return;
 
-                                    if (! \App\Filament\Resources\Shop\OrderResource::canSetStatus($to)
-                                        || ! \App\Filament\Resources\Shop\OrderResource::canDowngrade()) {
+                                    if (! static::canSetStatus($to) || ! static::canDowngrade()) {
                                         Notification::make()->danger()->title('Нет прав')->send();
                                         return;
                                     }
@@ -559,7 +546,7 @@ class OrderResource extends Resource
 
                                     Notification::make()->success()->title('Статус откатан')->send();
                                 }),
-                            Action::make('cancelDowngradeInline')
+                            FormAction::make('cancelDowngradeInline')
                                 ->label('Отмена')
                                 ->color('gray')
                                 ->icon('heroicon-m-x-mark')
@@ -604,11 +591,10 @@ class OrderResource extends Resource
             TextInput::make('number')
                 ->label('Номер заказа')
                 ->disabled()
-                ->dehydrated(false)    // <-- важно
+                ->dehydrated(false)
                 ->placeholder(fn (?Order $r) => $r?->exists ? $r->number : 'Будет присвоен после сохранения'),
 
-
-        Select::make('clients_id')
+            Select::make('clients_id')
                 ->relationship('clients', 'name')
                 ->searchable()
                 ->label('Клиент')
@@ -618,30 +604,24 @@ class OrderResource extends Resource
                     $client = \App\Models\Shop\Client::create($data);
                     return $client->getKey();
                 })
-                ->createOptionAction(function (Action $action) {
+                ->createOptionAction(function (FormAction $action) {
                     return $action->modalHeading('Создание клиента')->modalSubmitActionLabel('Создать клиента')->modalWidth('lg');
                 }),
 
             Hidden::make('client_address_id')->dehydrated(true),
 
-            // ——— Время / дата / оплата ———
             Section::make('Время и оплата')
                 ->schema([
                     Grid::make(12)->schema([
                         DatePicker::make('dat')
                             ->label('Дата создания')
-                            ->default(fn (?Order $record) => $record?->exists ? null : now()) // только на create
+                            ->default(fn (?Order $record) => $record?->exists ? null : now())
                             ->reactive()
                             ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                 if (! $get('date_order')) {
                                     $set('date_order', $state);
                                 }
                             })
-                        /*    ->afterStateHydrated(function ($state, Set $set, Get $get) {
-                                if (! $get('date_order') && $state) {
-                                    $set('date_order', $state);
-                                }
-                            })*/
                             ->columnSpan(3),
 
                         TimePicker::make('time_start')
@@ -660,7 +640,6 @@ class OrderResource extends Resource
                         TimePicker::make('time_order')
                             ->label('Время заказа')
                             ->seconds(false)
-                           // ->hint('Авто: +15 самовывоз, +60 доставка — можно изменить')
                             ->live()
                             ->columnSpan(3),
 
@@ -813,15 +792,12 @@ class OrderResource extends Resource
                 ->columnSpan('full'),
         ];
     }
+
     public static function canSetStatus(string|OrderStatus $status): bool
     {
         $name = $status instanceof OrderStatus ? $status->value : $status;
         $u = auth()->user();
-
-        if (! $u) {
-            return false;
-        }
-
+        if (! $u) return false;
         return $u->can('set_order_status_' . $name);
     }
 
@@ -832,7 +808,7 @@ class OrderResource extends Resource
 
     protected static function allowedStatuses(): array
     {
-          return collect(OrderStatus::sorted())
+        return collect(OrderStatus::sorted())
             ->filter(fn (OrderStatus $s) => static::canSetStatus($s->value))
             ->mapWithKeys(fn (OrderStatus $s) => [$s->value => $s->getLabel()])
             ->all();
@@ -841,124 +817,99 @@ class OrderResource extends Resource
     public static function getItemsRepeater(): Repeater
     {
         $defaultLocale = Setting::value('default_language_code') ?: config('app.locale');
+
         return Repeater::make('items')
             ->relationship()
             ->addActionLabel('Добавить товар')
             ->schema([
-                Grid::make(12)
-                    ->schema([
-                        Select::make('product_id')
-                            ->label('Продкут/товар')
-                            ->options(function () use ($defaultLocale) {
-                                // Берём только нужные поля, чтобы не тянуть всё подряд
-                                return Product::query()
-                                    ->where('in_stock', 1)
-                                    ->get(['id', 'title', 'short_name'])
-                                    ->mapWithKeys(function ($p) use ($defaultLocale) {
-                                        // Универсальный геттер перевода для JSON/строки
-                                        $getTrans = function ($raw, $fallback = null) use ($defaultLocale) {
-                                            if (blank($raw)) return $fallback;
-                                            // raw может быть строкой JSON или plain-строкой
-                                            if (is_string($raw)) {
-                                                $trim = ltrim($raw);
-                                                if (strlen($trim) && ($trim[0] === '{' || $trim[0] === '[')) {
-                                                    $arr = json_decode($raw, true);
-                                                    if (json_last_error() === JSON_ERROR_NONE && is_array($arr)) {
-                                                        return $arr[$defaultLocale]
-                                                            ?? $arr[config('app.locale')]
-                                                            ?? $fallback;
-                                                    }
+                Grid::make(12)->schema([
+                    Select::make('product_id')
+                        ->label('Продкут/товар')
+                        ->options(function () use ($defaultLocale) {
+                            return Product::query()
+                                ->where('in_stock', 1)
+                                ->get(['id', 'title', 'short_name'])
+                                ->mapWithKeys(function ($p) use ($defaultLocale) {
+                                    $getTrans = function ($raw, $fallback = null) use ($defaultLocale) {
+                                        if (blank($raw)) return $fallback;
+                                        if (is_string($raw)) {
+                                            $trim = ltrim($raw);
+                                            if (strlen($trim) && ($trim[0] === '{' || $trim[0] === '[')) {
+                                                $arr = json_decode($raw, true);
+                                                if (json_last_error() === JSON_ERROR_NONE && is_array($arr)) {
+                                                    return $arr[$defaultLocale]
+                                                        ?? $arr[config('app.locale')]
+                                                        ?? $fallback;
                                                 }
-                                                return $raw; // обычная строка
                                             }
-                                            if (is_array($raw)) {
-                                                return $raw[$defaultLocale]
-                                                    ?? $raw[config('app.locale')]
-                                                    ?? $fallback;
-                                            }
-                                            return $fallback;
-                                        };
+                                            return $raw;
+                                        }
+                                        if (is_array($raw)) {
+                                            return $raw[$defaultLocale]
+                                                ?? $raw[config('app.locale')]
+                                                ?? $fallback;
+                                        }
+                                        return $fallback;
+                                    };
 
-                                        $short = $getTrans($p->getRawOriginal('short_name'), $p->short_name);
-                                        $title = $getTrans($p->getRawOriginal('title'), $p->title);
+                                    $short = $getTrans($p->getRawOriginal('short_name'), $p->short_name);
+                                    $title = $getTrans($p->getRawOriginal('title'), $p->title);
+                                    $label = filled($short) ? $short : $title;
 
-                                        $label = filled($short) ? $short : $title;
+                                    return [$p->id => $label];
+                                })
+                                ->toArray();
+                        })
+                        ->required()
+                        ->reactive()
+                        ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                            $set('unit_price', Product::find($state)?->price ?? 0);
+                            $mods = $get('modifiers') ?? [];
+                            foreach ($mods as &$m) {
+                                $m['_product_id']    = $state;
+                                $m['value_id']       = $m['value_id'] ?? null;
+                                $m['price_modifier'] = $m['price_modifier'] ?? 0;
+                            }
+                            $set('modifiers', $mods);
+                            $set('order_total', now());
+                        })
+                        ->distinct()
+                        ->disableOptionsWhenSelectedInSiblingRepeaterItems()
+                        ->columnSpan(6)
+                        ->searchable(),
 
-                                        return [$p->id => $label];
-                                    })
-                                    ->toArray();
-                            })
-                          /*  ->options(function () use ($defaultLocale) {
-                                return Product::query()
-                                    ->where('in_stock', 1)
-                                    ->get()
-                                    ->mapWithKeys(fn($cat) => [
-                                        $cat->id => (
-                                            json_decode($cat->getRawOriginal('title'), true)[$defaultLocale]
-                                            ?? json_decode($cat->getRawOriginal('title'), true)[config('app.locale')]
-                                        ),
-                                    ])
-                                    ->toArray();
-                            })*/
-                            ->required()
-                            ->reactive()
-                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                $set('unit_price', \App\Models\Shop\Product::find($state)?->price ?? 0);
-                                $mods = $get('modifiers') ?? [];
-                                foreach ($mods as &$m) {
-                                    $m['_product_id']    = $state;
-                                    $m['value_id']       = $m['value_id'] ?? null;
-                                    $m['price_modifier'] = $m['price_modifier'] ?? 0;
-                                }
-                                $set('modifiers', $mods);
-                                $set('order_total', now());
-                            })
-                          /*  ->afterStateUpdated(function ($state,Set $set, Get $get) {
-                                $mods = $get('modifiers') ?? [];
-                                foreach ($mods as &$m) {
-                                    $m['_product_id']    = $state;
-                                    $m['value_id']       = $m['value_id'] ?? null;
-                                    $m['price_modifier'] = $m['price_modifier'] ?? 0;
-                                }
-                                $set('modifiers', $mods);
-                            })*/
-                            ->distinct()
-                            ->disableOptionsWhenSelectedInSiblingRepeaterItems()
-                            ->columnSpan(6)
-                            ->searchable(),
+                    TextInput::make('qty')
+                        ->label('Количество')
+                        ->numeric()
+                        ->live(debounce: 250)
+                        ->afterStateUpdated(fn ($state, callable $get, callable $set) => $set('order_total', now()))
+                        ->default(1)
+                        ->columnSpan(2)
+                        ->required(),
 
-                        TextInput::make('qty')
-                            ->label('Количество')
-                            ->numeric()
-                            ->live(debounce: 250)
-                            ->afterStateUpdated(fn ($state, callable $get, callable $set) => $set('order_total', now()))
-                            ->default(1)
-                            ->columnSpan(2)
-                            ->required(),
+                    TextInput::make('unit_price')
+                        ->label('Цена')
+                        ->dehydrated()
+                        ->numeric()
+                        ->live(debounce:500)
+                        ->afterStateUpdated(fn ($state, callable $get, callable $set) => $set('order_total', now()))
+                        ->required()
+                        ->columnSpan(2),
 
-                        TextInput::make('unit_price')
-                            ->label('Цена')
-                            ->dehydrated()
-                            ->numeric()
-                            ->live(debounce:500)
-                            ->afterStateUpdated(fn ($state, callable $get, callable $set) => $set('order_total', now()))
-                            ->required()
-                            ->columnSpan(2),
-
-                        Placeholder::make('item_total')
-                            ->label('Сумма')
-                            ->content(function (callable $get) {
-                                $qty = (float) $get('qty') ?? 0;
-                                $price = (float) $get('unit_price') ?? 0;
-                                $modifiers = $get('modifiers') ?? [];
-                                $modifiers = collect($modifiers)->map(fn($m) => is_array($m) ? $m : (array)$m);
-                                $modifierSum = $modifiers->sum('price_modifier');
-                                $total = $qty * ($price + $modifierSum);
-                                return number_format($total, 2, ',', ' ') . ' грн';
-                            })
-                            ->reactive()
-                            ->columnSpan(2),
-                    ]),
+                    Placeholder::make('item_total')
+                        ->label('Сумма')
+                        ->content(function (callable $get) {
+                            $qty = (float) $get('qty') ?? 0;
+                            $price = (float) $get('unit_price') ?? 0;
+                            $modifiers = $get('modifiers') ?? [];
+                            $modifiers = collect($modifiers)->map(fn($m) => is_array($m) ? $m : (array)$m);
+                            $modifierSum = $modifiers->sum('price_modifier');
+                            $total = $qty * ($price + $modifierSum);
+                            return number_format($total, 2, ',', ' ') . ' грн';
+                        })
+                        ->reactive()
+                        ->columnSpan(2),
+                ]),
 
                 Repeater::make('modifiers')
                     ->label('')
@@ -979,8 +930,8 @@ class OrderResource extends Resource
                         Grid::make(12)->schema([
                             Hidden::make('_product_id')
                                 ->dehydrated(false)
-                                ->default(fn (\Filament\Forms\Get $get) => $get('../../product_id'))
-                                ->afterStateHydrated(function ($state, \Filament\Forms\Set $set, \Filament\Forms\Get $get) {
+                                ->default(fn (Get $get) => $get('../../product_id'))
+                                ->afterStateHydrated(function ($state, Set $set, Get $get) {
                                     if (blank($state)) {
                                         $set('_product_id', $get('../../product_id'));
                                     }
@@ -1042,7 +993,7 @@ class OrderResource extends Resource
             ])
             ->columns(1)
             ->extraItemActions([
-                Action::make('addModifier')
+                FormAction::make('addModifier')
                     ->icon('heroicon-o-plus')
                     ->iconButton()
                     ->tooltip('Добавить характеристику')
@@ -1063,16 +1014,16 @@ class OrderResource extends Resource
                     ->hidden(fn (array $arguments, Repeater $component): bool =>
                     blank(data_get($component->getRawItemState($arguments['item']) ?? [], 'product_id'))
                     ),
-                Action::make('openProduct')
+                FormAction::make('openProduct')
                     ->tooltip('Open product')
                     ->icon('heroicon-m-arrow-top-right-on-square')
                     ->url(function (array $arguments, Repeater $component): ?string {
                         $itemData = $component->getRawItemState($arguments['item']);
-                        $product = Product::find($itemData['product_id']);
+                        $product = Product::find($itemData['product_id'] ?? null);
                         if (! $product) return null;
                         return ProductResource::getUrl('edit', ['record' => $product]);
                     }, shouldOpenInNewTab: true)
-                    ->hidden(fn (array $arguments, Repeater $component): bool => blank($component->getRawItemState($arguments['item'])['product_id'])),
+                    ->hidden(fn (array $arguments, Repeater $component): bool => blank($component->getRawItemState($arguments['item'])['product_id'] ?? null)),
             ])
             ->orderColumn('sort')
             ->defaultItems(1)
@@ -1081,24 +1032,33 @@ class OrderResource extends Resource
             ->required();
     }
 
+    // =========================
+    //   Таблица с модалкой «Статусы»
+    // =========================
     public static function table(Table $table): Table
     {
         return $table
             ->columns([
-                TextColumn::make('number')->label('Номер заказа')->searchable()->sortable(),
+                TextColumn::make('number')
+                    ->label('Номер заказа')
+                    ->searchable()
+                    ->sortable(),
+                  //  ->extraAttributes(['class' => 'cursor-pointer underline']),
+                  //  ->action('statuses'), // клик по номеру откроет модалку статусов
+
                 TextColumn::make('clients.name')->searchable()->label('Клиент')->sortable()->toggleable(),
+
                 TextColumn::make('status')->label('Статус')->badge(),
-             /*   TextColumn::make('currency')
-                    ->label('Валюта')
-                    ->getStateUsing(function ($record){
-                        $string = \App\Models\Currency::where('code', $record->currency)->value('name');
-                        return $string;
-                    })
-                    ->searchable()->sortable()->toggleable(),*/
-                TextColumn::make('total_price')->label('Сумма')->searchable()->sortable()->summarize([Sum::make()->money('UAH')]),
+
+                TextColumn::make('total_price')
+                    ->label('Сумма')
+                    ->searchable()
+                    ->sortable()
+                    ->summarize([Sum::make()->money('UAH')]),
+
                 TextColumn::make('discount_total')
                     ->label('Скидка')
-                    ->formatStateUsing(fn ($state) => // <-- имя параметра должно быть $state
+                    ->formatStateUsing(fn ($state) =>
                     ($state ?? 0) != 0
                         ? number_format(((float) $state), 2, ',', ' ') . ' грн'
                         : '—'
@@ -1106,10 +1066,15 @@ class OrderResource extends Resource
                     ->badge()
                     ->color(fn ($state) => abs((float) ($state ?? 0)) > 0 ? 'success' : 'gray')
                     ->alignRight()
-                    ->toggleable()->summarize([Sum::make()->money('UAH')]),
-                TextColumn::make('grand_total')->label('Сумма со скидкой')->searchable()->sortable()
+                    ->toggleable()
                     ->summarize([Sum::make()->money('UAH')]),
-              //  TextColumn::make('shipping_price')->label('Сумма доставки')->searchable()->sortable()->toggleable()->summarize([Sum::make()->money()]),
+
+                TextColumn::make('grand_total')
+                    ->label('Сумма со скидкой')
+                    ->searchable()
+                    ->sortable()
+                    ->summarize([Sum::make()->money('UAH')]),
+
                 TextColumn::make('created_at')->label('Дата заказа')->date()->toggleable(),
             ])
             ->filters([
@@ -1135,7 +1100,71 @@ class OrderResource extends Resource
                         return $indicators;
                     }),
             ])
-            ->Actions([ EditAction::make() ])
+            ->actions([
+                // МОДАЛЬНОЕ ДЕЙСТВИЕ «Статусы»
+                Action::make('statuses')
+                    ->label('Статусы')
+                    ->icon('heroicon-m-adjustments-horizontal')
+                    ->color('gray')
+                    ->modalHeading(fn (Order $r) => "Статусы: {$r->number}")
+                    ->modalWidth('lg')
+                    ->form(fn (Order $record) => static::statusModalForm())
+                    ->action(function (array $data, Order $record) {
+                        $user = auth()->user();
+
+                        $from = $record->status;
+                        $to   = OrderStatus::from($data['status_ui']);
+
+                        if ($to->value === $from->value) {
+                            Notification::make()->title('Статус не изменился')->info()->send();
+                            return;
+                        }
+
+                        if (! static::canSetStatus($to)) {
+                            Notification::make()->danger()->title('Нет прав на установку этого статуса')->send();
+                            return;
+                        }
+
+                        $oldRank = $from->rank();
+                        $newRank = $to->rank();
+
+                        if ($newRank < $oldRank && ! static::canDowngrade()) {
+                            Notification::make()->danger()->title('Нет прав возвращать статус назад')->send();
+                            return;
+                        }
+
+                        $reason = null;
+                        if ($newRank < $oldRank) {
+                            $reason = trim((string)($data['downgrade_reason'] ?? ''));
+                            if ($reason === '') {
+                                Notification::make()->danger()->title('Укажите причину отката')->send();
+                                return;
+                            }
+                            $record->extra_reason = $reason;
+                        }
+
+                        $record->status = $to;
+                        $record->save();
+
+                        activity('order')
+                            ->performedOn($record)
+                            ->causedBy($user)
+                            ->event($newRank < $oldRank ? 'status_downgraded' : 'status_changed')
+                            ->withProperties([
+                                'action' => $newRank < $oldRank ? 'status_downgraded' : 'status_changed',
+                                'from'   => $from->value,
+                                'to'     => $to->value,
+                                'reason' => $reason,
+                            ])->log($newRank < $oldRank ? 'Статус возвращён назад' : 'Статус изменён');
+
+                        Notification::make()
+                            ->success()
+                            ->title($newRank < $oldRank ? 'Статус откатан' : 'Статус обновлён')
+                            ->send();
+                    }),
+
+                EditAction::make(),
+            ])
             ->groupedBulkActions([
                 DeleteBulkAction::make()->action(function () {
                     Notification::make()->title("Now, now, don't be cheeky, leave some records for others to play with!")
@@ -1152,24 +1181,26 @@ class OrderResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        /** @var class-string<\Illuminate\Database\Eloquent\Model> $modelClass */
         $modelClass = static::$model;
         return (string) $modelClass::where('status', 'new')->count();
     }
 
     public static function getRelations(): array
-    { return [ /* ... */ ]; }
+    {
+        return [ /* ... */ ];
+    }
 
     public static function getWidgets(): array
-    { return [ OrderStats::class ]; }
+    {
+        return [ OrderStats::class ];
+    }
 
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListOrders::route('/'),
+            'index'  => Pages\ListOrders::route('/'),
             'create' => Pages\CreateOrder::route('/create'),
-            'edit' => Pages\EditOrder::route('/{record}/edit'),
+            'edit'   => Pages\EditOrder::route('/{record}/edit'),
         ];
     }
 }
-

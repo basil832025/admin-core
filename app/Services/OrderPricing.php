@@ -150,7 +150,7 @@ class OrderPricing
         if (!$time) return;
 
         $moment = $moment ?? $this->resolveMomentFor($order, $time);
-
+//Проверить, существует ли в таблице time_discounts запись с ID = $time->id, которая активна для момента $moment во временной зоне Europe/Kyiv. Если да — $isActive = true, иначе false.»
         $isActive = TimeDiscount::query()
             ->whereKey($time->id)
             ->activeForMoment($moment, 'Europe/Kyiv')

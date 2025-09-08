@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('sku',64)->nullable();
 
             $table->integer('qty');
-            $table->string('currency',3);
+            $table->string('currency',3)->nullable();
 
             $table->json('product_snapshot')->nullable();
             $table->json('promotion_data')->nullable();
