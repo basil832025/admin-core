@@ -26,9 +26,10 @@ use Illuminate\Support\Arr;
 use SolutionForest\FilamentTree\Concern\TreeRecords\Translatable;
 use Filament\Actions\LocaleSwitcher;
 use Filament\Pages\SubNavigationPosition;
+use Illuminate\Support\Facades\Gate;
 class ProductCategoryTree extends BasePage
 {
-  //  use Translatable;
+    //  use Translatable;
     //  use ListRecords\Concerns\Translatable;
     protected static string $resource = ProductCategoryResource::class;
     protected bool $enableTreeTitle = true;
@@ -145,6 +146,42 @@ class ProductCategoryTree extends BasePage
         return false;
     }
 
+    public static function canAccess(): bool
+    {
+        $u = auth()->user();
+        if (! $u) return false;
+       // dd( auth()->user()?->getAllPermissions()->pluck('name')->sort()->values()->all());
+        // пропускаем “супера” даже если Gate::before не настроен
+        if (method_exists($u, 'hasRole') && $u->hasRole(config('shield.super_admin.name', 'super_admin'))) {
+            return true;
+        }
+        if ($u->can('viewAny', ProductCategory::class)) {
+            return true;
+        }
+        // 2) прямые проверки по слагам (оба варианта + на всякий общий product)
+        return $u->hasAnyPermission([
+            'view_any_product_category',
+            'view_product_category',
+            'view_any_product::category',
+            'view_product::category',
+            // опционально, если хочешь пускать и с этим правом:
+            // 'view_any_product',
+        ]);
+        $resp = Gate::inspect('viewAny', \App\Models\Shop\ProductCategory::class);
+ //dd($resp->allowed(), $resp->message());
+//dd($u,auth()->user()?->can('view_any_category'),auth()->user()->can('viewAny', Category::class),Gate::allows('viewAny', ProductCategory::class),$u->can('view_any_product_category'));
+        // нормальная проверка
+        return Gate::allows('viewAny', ProductCategory::class)
+            || $u->can('view_any_category'); // на случай, если полиси ещё не прогрузилась
+    }
+    protected function authorizeAccess(): void
+    {
+        abort_unless(static::canAccess(), 403);
+    }
+   /* public static function canAccess(): bool
+    {
+        return auth()->check() && Gate::allows('viewAny', ProductCategory::class);
+    }*/
 
     /*  public static function shouldRegisterNavigation(): bool
       {

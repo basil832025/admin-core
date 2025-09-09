@@ -1231,4 +1231,10 @@ class ProductResource extends Resource
                 ->reactive()
         ];
     }
+    public static function shouldRegisterNavigation(): bool
+    {
+
+        // не регистрируем пункт меню, если нет права
+        return static::canViewAny();
+    }
 }

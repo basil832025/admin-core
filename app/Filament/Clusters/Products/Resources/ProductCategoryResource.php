@@ -48,6 +48,7 @@ class ProductCategoryResource extends Resource
 
     protected static function getMainTab(array $locales, string $defaultLocale): Tab
     {
+
         return  Tab::make('Основные')
             ->schema([
                 Forms\Components\Section::make()
@@ -60,7 +61,7 @@ class ProductCategoryResource extends Resource
                                     ->columns(1)
                                     ->columnSpanFull()
                                     ->schema(fn(string $locale) => [
-                                       TextInput::make("title")
+                                        TextInput::make("title")
                                             ->required($locale === $defaultLocale)
                                             ->label('Название')
                                             ->maxLength(255)
@@ -224,10 +225,12 @@ class ProductCategoryResource extends Resource
 
     public static function getRelations(): array
     {
+
         return [
             ProductRelationManager::class,
         ];
     }
+
 
     public static function getPages(): array
     {

@@ -20,6 +20,7 @@ class ProductRelationManager  extends RelationManager
     }
     public function table(Table $table): Table
     {
+
         $defaultLocale = Setting::value('default_language_code') ?: config('app.locale');
         return $table
             ->columns([
