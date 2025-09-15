@@ -54,6 +54,9 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
+use App\Models\Shop\Client;
+use App\Filament\Resources\ClientResource;
+
 
 class OrderResource extends Resource
 {
@@ -571,42 +574,152 @@ class OrderResource extends Resource
         ];
     }
 
-    public static function clientCreateForm(): array
+  /*  public static function clientCreateForm(): array
     {
         return [
             Grid::make(2)->schema([
                 TextInput::make('name')->label('Имя')->required()->maxLength(255),
-                TextInput::make('phone')->label('Телефон')->tel()->required(),
+                Grid::make(['default' => 1, 'lg' => 12])->schema([
+                    TextInput::make('phone')
+                        ->label('Телефон')
+                        ->required()
+                        ->tel()
+                        ->columnSpan(['lg' => 8])
+                        // Маска только для UA (цифра в маске — 9)
+                        ->mask(fn (Get $get) => $get('is_foreign_phone') ? null : '(999) 999-99-99')
+                        ->placeholder(fn (Get $get) => $get('is_foreign_phone')
+                            ? 'Напр.: 491512345678 (лише цифри, 6–15)'
+                            : '(067) 123-45-67')
+                        ->extraAttributes(fn (Get $get) => [
+                            'inputmode'    => 'numeric',
+                            'autocomplete' => 'tel',
+                            'pattern'      => $get('is_foreign_phone')
+                                ? '\+?\d{6,15}'
+                                : '\(0\d{2}\)\s\d{3}-\d{2}-\d{2}',
+                        ])
+                        // Авто-детект “иностранного” номера при редактировании
+                        ->afterStateHydrated(function (TextInput $component, $state, Get $get, Set $set) {
+                            $d = preg_replace('/\D+/', '', (string) $state);
+                            if ($d === '') return;
+
+                            // Если не 0XXXXXXXXX — считаем иностранным и включаем тумблер
+                            if (! preg_match('/^0\d{9}$/', $d)) {
+                                $set('is_foreign_phone', true);          // тумблер “оживит” маску из-за ->live() ниже
+                                $component->state(substr($d, 0, 15));     // отобразим просто цифры
+                                return;
+                            }
+
+                            // Украина — красиво форматируем
+                            if (str_starts_with($d, '380'))      $d = '0' . substr($d, 3);
+                            elseif (str_starts_with($d, '80'))   $d = '0' . substr($d, 2);
+                            elseif (strlen($d) === 9)            $d = '0' . $d;
+
+                            $d = substr($d, 0, 10);
+                            if (preg_match('/^(0\d{2})(\d{3})(\d{2})(\d{2})$/', $d, $m)) {
+                                $component->state(sprintf('(%s) %s-%s-%s', $m[1], $m[2], $m[3], $m[4]));
+                            }
+                        })
+                        // В БД — только цифры (UA: 10; Intl: до 15)
+                        ->dehydrateStateUsing(function ($state, Get $get) {
+                            $d = preg_replace('/\D+/', '', (string) $state);
+
+                            if ($get('is_foreign_phone')) {
+                                return substr($d, 0, 15);
+                            }
+
+                            if (str_starts_with($d, '380'))      $d = '0' . substr($d, 3);
+                            elseif (str_starts_with($d, '80'))   $d = '0' . substr($d, 2);
+                            elseif (strlen($d) === 9)            $d = '0' . $d;
+
+                            return substr($d, 0, 10);
+                        })
+                        // Валидация по режиму
+                        ->rule(fn (Get $get) => $get('is_foreign_phone')
+                            ? 'regex:/^\+?\d{6,15}$/'
+                            : 'regex:/^\(0\d{2}\)\s\d{3}-\d{2}-\d{2}$|^0\d{9}$/')
+                        ->validationAttribute('телефон'),
+
+                    Toggle::make('is_foreign_phone')
+                        ->label('Телефон іншої країни')
+                        ->helperText('Увімкніть, якщо номер не український')
+                        ->inline(true)
+                        ->live()                 // ← это ключ: заставит пересчитаться маска/placeholder у TextInput
+                        ->dehydrated(false)
+                        ->columnSpan(['lg' => 4])
+                        ->extraAttributes(['class' => 'lg:mt-6']),
+                ]),
                 Select::make('gender')->label('Пол')->options(['male' => 'Мужчина','female' => 'Женщина'])->nullable(),
                 TextInput::make('email')->label('Email')->email()->unique(\App\Models\Shop\Client::class, 'email'),
                 Toggle::make('is_active')->label('Активный')->default(true),
             ]),
             Textarea::make('note')->label('Примечание')->columnSpanFull(),
         ];
-    }
+    }*/
 
     public static function getInfoTabSchema(): array
     {
         return [
-            TextInput::make('number')
-                ->label('Номер заказа')
-                ->disabled()
-                ->dehydrated(false)
-                ->placeholder(fn (?Order $r) => $r?->exists ? $r->number : 'Будет присвоен после сохранения'),
+            Grid::make(12)->schema([
 
-            Select::make('clients_id')
-                ->relationship('clients', 'name')
-                ->searchable()
-                ->label('Клиент')
-                ->required()
-                ->createOptionForm(static::clientCreateForm())
-                ->createOptionUsing(function (array $data) {
-                    $client = \App\Models\Shop\Client::create($data);
-                    return $client->getKey();
-                })
-                ->createOptionAction(function (FormAction $action) {
-                    return $action->modalHeading('Создание клиента')->modalSubmitActionLabel('Создать клиента')->modalWidth('lg');
-                }),
+                // 1) Номер заказа — компактное поле
+                TextInput::make('number')
+                    ->label('Номер заказа')
+                    ->disabled()
+                    ->dehydrated(false)
+                    ->placeholder(fn (Order $r) => $r?->exists ? $r->number : 'Будет присвоен после сохранения')
+                    ->columnSpan(3),
+
+                // 2) Клиент — с create/edit в модалках из ClientResource
+                Select::make('clients_id')
+                    ->relationship('clients', 'name')
+                    ->searchable()
+                    ->label('Клиент')
+                    ->required()
+                    ->createOptionForm(fn (Form $form) => ClientResource::form($form))
+                    ->createOptionUsing(function (array $data) { $client = Client::create($data); return $client->getKey(); })
+                    ->createOptionAction(function (FormAction $action) { return $action
+                        ->modalHeading('Создание клиента')
+                        ->modalSubmitActionLabel('Создать клиента')
+                        ->modalWidth('4xl');
+               })
+
+                    ->editOptionForm(fn (Form $form) => ClientResource::form($form))
+                    ->editOptionAction(fn (FormAction $action) => $action
+                        ->modalHeading('Редактирование клиента')
+                        ->modalSubmitActionLabel('Сохранить')
+                        ->modalWidth('4xl') )
+                    ->columnSpan(6),
+
+                // 3) Телефон клиента — read-only + кнопка "копировать"
+                TextInput::make('client_phone_view')
+                    ->label('Телефон')
+                    ->readOnly()            // нельзя редактировать
+                    ->dehydrated(false)     // не сохраняем в модель заказа
+                    ->reactive()            // чтобы перерисовывалось
+                    ->extraAttributes(['x-data' => '{}'])// общий Alpine-контекст
+                    ->extraInputAttributes([
+                        'x-ref'   => 'cpInput',          // ссылка на input
+                        'readonly'=> true,               // ВАЖНО: только для чтения, не disabled
+                        'tabindex'=> 0,                  // можно фокуснуть
+                    ])
+                   // ->dependsOn('clients_id')
+                    ->afterStateHydrated(function (TextInput $component, Get $get) {
+                        $id = $get('clients_id');
+                        $component->state($id ? (Client::find($id)->phone ?? '') : '');
+                    })
+                    ->formatStateUsing(function (Get $get) {
+                        $id = $get('clients_id');
+                        return $id ? (Client::find($id)->phone ?? '') : '';
+                    })
+
+
+
+                    ->columnSpan(3),
+            ]),
+
+               /* ->createOptionAction(function (FormAction $action) {
+                    return $action->modalHeading('Создание клиента')->modalSubmitActionLabel('Создать клиента')->modalWidth('4xl');
+                })*/
 
             Hidden::make('client_address_id')->dehydrated(true),
 
@@ -1047,6 +1160,10 @@ class OrderResource extends Resource
                   //  ->action('statuses'), // клик по номеру откроет модалку статусов
 
                 TextColumn::make('clients.name')->searchable()->label('Клиент')->sortable()->toggleable(),
+                TextColumn::make('clients.phone')->searchable()->label('Телефон')->sortable()->toggleable()
+                    ->copyable()
+                    ->copyMessage('Телефон клиента скопирован')
+                    ->copyMessageDuration(1500),
 
                 TextColumn::make('status')->label('Статус')->badge(),
 
@@ -1075,6 +1192,8 @@ class OrderResource extends Resource
                     ->sortable()
                     ->summarize([Sum::make()->money('UAH')]),
 
+                TextColumn::make('date_order')->label('Дата доставки')->date()->toggleable(),
+                TextColumn::make('time_order')->label('Время доставки')->time('H:i')->toggleable(),
                 TextColumn::make('created_at')->label('Дата заказа')->date()->toggleable(),
             ])
             ->filters([

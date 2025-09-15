@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 class Product extends Model
 {
     use HasTranslations;
@@ -329,4 +330,56 @@ class Product extends Model
 
         return '—';
     }
+    //********************************
+    //*** для фронта**********************
+    // Название с учётом локали (uk по умолчанию)
+    public function displayName(): Attribute
+    {
+        return Attribute::get(function () {
+            $arr = (array) ($this->getRawOriginal('title') ? $this->title : []);
+            $locale = app()->getLocale() ?: 'uk';
+            return $arr[$locale] ?? $arr['uk'] ?? $arr['ru'] ?? $this->attributes['title'] ?? '—';
+        });
+    }
+
+    // Короткое имя, если используешь short_name — иначе берём displayName
+    public function displayShort(): Attribute
+    {
+        return Attribute::get(fn () => $this->short_name ?: $this->display_name);
+    }
+
+    // URL главной картинки
+    protected function imageUrl(): Attribute
+    {
+        return Attribute::make(
+            get: function ($value, $attributes) {
+            $path = $attributes['main_image'] ?? null;
+
+            if (empty($path)) {
+                return asset('storage/images/placeholder.svg');
+            }
+
+            // файлы в storage/app/public/products/main/...
+            return asset('storage/' . ltrim($path, '/'));
+        },
+    );
+    }
+
+    // Числовая цена (подставь реальное имя поля)
+    public function unitPrice(): Attribute
+    {
+        $value = $this->price ?? $this->base_price ?? 0;
+        return Attribute::get(fn () => (float) $value);
+    }
+
+    // Простейший scope "активные" (если есть колонка is_active)
+    public function scopeActive($q): void
+    {
+        if (schema()->hasColumn($this->getTable(), 'is_active')) {
+            $q->where('is_active', true);
+        }
+    }
+}
+if (! function_exists('schema')) {
+    function schema() { return \Illuminate\Support\Facades\Schema::getFacadeRoot(); }
 }

@@ -1,11 +1,97 @@
-@import 'tailwindcss';
+/*каруселб*/
+:root {
+    --swiper-theme-color: #f97316; /* Tailwind orange-500 */
 
-@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../storage/framework/views/*.php';
-@source '../**/*.blade.php';
-@source '../**/*.js';
+}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
+@layer components {
+    /* чтобы уменьшенные слайды не обрезались */
+    .banner-swiper { overflow: visible; }
+    /* Цвет активной точки уже решили: */
+    #banner-pagination { --swiper-theme-color:#f97316; --swiper-pagination-color:#f97316; }
+
+    /* Сдвиг стрелок на 66px — используем переменную Swiper */
+    .banner-swiper { --swiper-navigation-sides-offset: 66px; }
+    .banner-swiper {
+        --swiper-navigation-sides-offset: -66px; /* было 66px внутрь, теперь -66px наружу */
+        overflow: visible; /* чтобы их не обрезало */
+    }
+    /* выключаем дефолтные стрелки Swiper */
+    .banner-swiper .swiper-button-prev::after,
+    .banner-swiper .swiper-button-next::after { content: none !important; }
+
+    /* кнопки 40×40, радиус 12, паддинг 8, фон #E7E7E7 70%, иконка через currentColor */
+    .banner-swiper .banner-arrow{
+        @apply w-10 h-10 p-2 rounded-[12px] grid place-items-center
+        bg-[#E7E7E7]/70 text-gray-700 shadow cursor-pointer;
+    }
+    .banner-swiper .banner-arrow:hover { @apply bg-white/80 text-gray-800 shadow-md; }
+    .banner-swiper .swiper-slide-prev,
+    .banner-swiper .swiper-slide-duplicate-prev { transform-origin: right center; }
+
+    .banner-swiper .swiper-slide-next,
+    .banner-swiper .swiper-slide-duplicate-next { transform-origin: left center; }
+    /* на всякий случай поднимем над слайдом */
+    .banner-swiper .swiper-button-prev,
+    .banner-swiper .swiper-button-next { @apply z-10; }
+
+    /* плавная анимация масштаба */
+    .banner-swiper .swiper-slide {
+        transition: transform .3s ease, filter .3s ease;
+    }
+
+    /* неактивные ~262px (0.82 от 320) */
+    .banner-swiper .swiper-slide:not(.swiper-slide-active) {
+        transform: scale(0.82);
+    }
+
+    /* слегка приглушим соседей (необязательно) */
+    .banner-swiper .swiper-slide-prev,
+    .banner-swiper .swiper-slide-next {
+        filter: brightness(.98) saturate(.95);
+    }
+
+
+    /* пример ховера с изменением цвета иконки */
+    .btn-filter:hover .icon-filter { background-color:#ff8a1a; }
+
+    /* центр + фиксированная ширина по макету; на узких экранах — резиновая */
+    .catalog-wrap {
+        @apply mx-auto w-[1198px] max-w-full px-0 sm:px-4;
+    }
+}
+
+
+
+
+
+/* шрифты */
+@layer base {
+    @font-face {
+        font-family: "Intro";
+        src: url("../fonts/intro/intro_regular.ttf") format("truetype");
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+    }
+    @font-face {
+        font-family: "Intro";
+        src: url("../fonts/intro/intro_bold.ttf") format("truetype");
+        font-weight: 700;
+        font-style: normal;
+        font-display: swap;
+    }
+}
+
+/* базовый шрифт для Tailwind v4 */
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-    'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: "Intro", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* 13/16 */
+@layer utilities {
+    .text-body { font-size: 13px; line-height: 16px; }
 }
