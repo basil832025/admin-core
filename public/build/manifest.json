@@ -1,0 +1,24 @@
+{
+  "resources/css/app.css": {
+    "file": "assets/app-N1oiEwJI.css",
+    "src": "resources/css/app.css",
+    "isEntry": true
+  },
+  "resources/fonts/intro/intro_bold.ttf": {
+    "file": "assets/intro_bold-DUHoma4Q.ttf",
+    "src": "resources/fonts/intro/intro_bold.ttf"
+  },
+  "resources/fonts/intro/intro_regular.ttf": {
+    "file": "assets/intro_regular-Bi5raiqJ.ttf",
+    "src": "resources/fonts/intro/intro_regular.ttf"
+  },
+  "resources/js/app.js": {
+    "file": "assets/app-COg73cEN.js",
+    "name": "app",
+    "src": "resources/js/app.js",
+    "isEntry": true,
+    "css": [
+      "assets/app-DHTUK0JL.css"
+    ]
+  }
+}
