@@ -10,7 +10,7 @@ use Filament\Forms\Components\Wizard\Step;
 use Filament\Forms\Form;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Resources\Pages\CreateRecord\Concerns\HasWizard;
-
+use App\Services\OrderPricing;
 class CreateOrder extends CreateRecord
 {
     use HasWizard;
@@ -30,6 +30,7 @@ class CreateOrder extends CreateRecord
     }
     protected function afterCreate(): void
     {
+        app(OrderPricing::class)->recalc($this->record); // пересчитает и сохранит grand_total
         $this->record->recalculateTotalPrice();
     }
     protected function mutateFormDataBeforeCreate(array $data): array

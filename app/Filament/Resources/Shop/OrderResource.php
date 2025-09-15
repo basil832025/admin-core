@@ -432,17 +432,62 @@ class OrderResource extends Resource
                             return new HtmlString($out);
                         })->dehydrated(false)->inlineLabel(false)
                         ->dehydrated(false),
+                    Hidden::make('ui_version')->dehydrated(false)->reactive(),
+                    Hidden::make('total_price')
+                        ->dehydrated(true)
+                        ->afterStateHydrated(fn ($component) => $component->state(null)) // не мешаем редактированию
+                        ->dehydrateStateUsing(fn (Get $get) => round(static::calcBaseTotalFromGet($get), 2)),
 
+                    Hidden::make('discount_total')
+                        ->dehydrated(true)
+                        ->afterStateHydrated(fn ($component) => $component->state(null))
+                        ->dehydrateStateUsing(function (?Order $record) {
+                            // если записи нет или скидок нет — 0
+                            if (! $record) return 0.0;
+                            return (float) $record->adjustments()->sum('amount'); // скидки у тебя отрицательные
+                        }),
+
+                    Hidden::make('grand_total')
+                        ->dehydrated(true)
+                        ->afterStateHydrated(fn ($component) => $component->state(null))
+                        ->dehydrateStateUsing(function (Get $get, ?Order $record) {
+                            $base = static::calcBaseTotalFromGet($get);
+                            $adj  = $record ? (float) $record->adjustments()->sum('amount') : 0.0;
+                            // если скидок нет — просто база
+                            return round($base + $adj, 2);
+                        }),
                     Placeholder::make('total_after_discount')
                         ->label('Разом зі знижкою')
                         ->dehydrated(false)
                         ->reactive()
-                        ->content(function (?Order $record) {
+                        ->content(function (?Order $record, Get $get) {
+                            // 1) Базовая сумма из текущих позиций формы
+                            $baseTotal = static::calcBaseTotalFromGet($get);
+
+                            // 2) Если заказа ещё нет — просто показываем базу
+                            if (! $record) {
+                                $val = number_format($baseTotal, 2, ',', ' ') . ' грн';
+                                return new \Illuminate\Support\HtmlString('<div class="text-lg font-semibold">'.$val.'</div>');
+                            }
+
+                            // 3) Если заказ есть: если есть применённые скидки — показываем grand_total,
+                            //    иначе — тоже базовую сумму
+                            $hasAdjustments = $record->adjustments()->exists();
+                            $record->refresh();
+
+                            $amount = $hasAdjustments
+                                ? (float) ($record->grand_total ?? 0)
+                                : (float) $baseTotal;
+
+                            $val = number_format($amount, 2, ',', ' ') . ' грн';
+                            return new \Illuminate\Support\HtmlString('<div class="text-lg font-semibold">'.$val.'</div>');
+                        })
+                       /* ->content(function (?Order $record) {
                             if (! $record) return new HtmlString('—');
                             $record->refresh();
                             $val = number_format((float)$record->grand_total, 2, ',', ' ') . ' грн';
                             return new HtmlString('<div class="text-lg font-semibold">'.$val.'</div>');
-                        }),
+                        }),*/
                 ]),
 
             // ——— Статусы (инлайн блок остаётся на форме редактирования) ———
@@ -675,6 +720,24 @@ class OrderResource extends Resource
                     ->searchable()
                     ->label('Клиент')
                     ->required()
+                    ->live()
+                    ->afterStateUpdated(function ($state, Set $set) {
+                        // $state — это выбранный clients_id
+                        $phone = $state
+                            ? Client::query()->whereKey($state)->value('phone')
+                            : null;
+
+                        $set('client_phone_view', $phone ?? '');
+                    })
+                    ->afterStateHydrated(function (Get $get, Set $set) {
+                        // При открытии формы (редактирование/создание) подставим телефон,
+                        // если клиент уже выбран:
+                        $id = $get('clients_id');
+                        $set('client_phone_view', $id
+                            ? Client::query()->whereKey($id)->value('phone')
+                            : ''
+                        );
+                    })
                     ->createOptionForm(fn (Form $form) => ClientResource::form($form))
                     ->createOptionUsing(function (array $data) { $client = Client::create($data); return $client->getKey(); })
                     ->createOptionAction(function (FormAction $action) { return $action
@@ -743,16 +806,24 @@ class OrderResource extends Resource
                             ->default(fn (?Order $record) => $record?->exists ? null : Carbon::now()->format('H:i'))
                             ->live()
                             ->reactive()
-                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                            /*->afterStateUpdated(function ($state, Set $set, Get $get) {
                                 if (! $state) return;
                                 $add = $get('self_pickup') ? 15 : 60;
                                 $set('time_order', Carbon::parse($state)->addMinutes($add)->format('H:i'));
-                            })
+                            })*/
                             ->columnSpan(3),
 
                         TimePicker::make('time_order')
                             ->label('Время заказа')
                             ->seconds(false)
+                            ->default(fn () => Carbon::now(config('app.timezone'))->addMinutes(60)->format('H:i'))
+                            ->afterStateHydrated(function ($component, $state) {
+                                if (blank($state)) {
+                                    $component->state(
+                                        Carbon::now(config('app.timezone'))->addMinutes(60)->format('H:i')
+                                    );
+                                }
+                            })
                             ->live()
                             ->columnSpan(3),
 
@@ -774,12 +845,21 @@ class OrderResource extends Resource
                             ->inline(false)
                             ->live()
                             ->reactive()
-                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                         /*   ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                 $start = $get('time_start');
                                 if (! $start) return;
                                 $add = $state ? 15 : 60;
                                 $set('time_order', Carbon::parse($start)->addMinutes($add)->format('H:i'));
+                            })*/
+                            ->afterStateUpdated(function ($state, Set $set) {
+                                $add = $state ? 15 : 60;
+
+                                $set(
+                                    'time_order',
+                                    Carbon::now()->addMinutes($add)->format('H:i')
+                                );
                             })
+
                             ->columnSpan(3),
 
                         Select::make('payment')
@@ -1321,5 +1401,19 @@ class OrderResource extends Resource
             'create' => Pages\CreateOrder::route('/create'),
             'edit'   => Pages\EditOrder::route('/{record}/edit'),
         ];
+    }
+    protected static function calcBaseTotalFromGet(Get $get): float
+    {
+        $items = collect($get('items') ?? [])
+            ->map(fn ($i) => is_object($i) ? (array) $i : $i);
+
+        return (float) $items->sum(function ($item) {
+            $qty  = (float) ($item['qty'] ?? 0);
+            $price = (float) ($item['unit_price'] ?? 0);
+            $mods  = collect($item['modifiers'] ?? [])
+                ->map(fn ($m) => is_object($m) ? (array) $m : $m);
+            $modsSum = (float) $mods->sum(fn ($m) => (float) ($m['price_modifier'] ?? 0));
+            return $qty * ($price + $modsSum);
+        });
     }
 }

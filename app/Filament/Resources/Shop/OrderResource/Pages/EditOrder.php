@@ -12,7 +12,7 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use App\Enums\OrderStatus;
 use App\Models\Shop\Order;
-
+use App\Services\OrderPricing;
 class EditOrder extends EditRecord
 {
     public ?string $pendingStatus = null;
@@ -105,6 +105,7 @@ class EditOrder extends EditRecord
     protected function afterSave(): void
     {
         $this->record->recalculateTotalPrice();
+        app(OrderPricing::class)->recalc($this->record);
     }
 
 }
