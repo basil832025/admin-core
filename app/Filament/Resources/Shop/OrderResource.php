@@ -854,10 +854,12 @@ class OrderResource extends Resource
                             ->afterStateUpdated(function ($state, Set $set) {
                                 $add = $state ? 15 : 60;
 
-                                $set(
-                                    'time_order',
-                                    Carbon::now()->addMinutes($add)->format('H:i')
-                                );
+                             // Берём текущее время в Киеве
+                             $dt = Carbon::now(config('app.timezone'))->addMinutes($add);
+
+                             // Обновляем оба поля
+                             $set('time_order', $dt->format('H:i'));     // TimePicker
+                             $set('date_order', $dt->toDateString());    // DatePicker ожидает Y-m-d
                             })
 
                             ->columnSpan(3),
