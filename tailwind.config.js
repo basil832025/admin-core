@@ -3,6 +3,7 @@ export default {
         "./resources/**/*.blade.php",
         "./resources/**/*.js",
         "./vendor/filament/**/*.blade.php",
+
     ],
     theme: {
         fontFamily: {

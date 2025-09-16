@@ -82,6 +82,7 @@ class AdminPanelProvider extends PanelProvider
             ->authGuard('web') // <- явно
             ->brandName('Basil Admin')
             ->login()
+           // ->viteTheme('resources/css/filament/admin/theme.css') // подключаем свои стили
             ->colors([
                 'primary' =>  $primaryColor,
                 // токены, которые будем возвращать из enum:

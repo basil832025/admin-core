@@ -1,0 +1,8 @@
+/* 1) Подключаем базовые стили Filament */
+@import '/vendor/filament/filament/resources/css/theme.css';
+
+/* 2) Твои правки */
+.fi-ta-table thead th.th-wrap .fi-ta-header-cell-label{
+    white-space: pre-line !important;
+    line-height: 1.1;
+}

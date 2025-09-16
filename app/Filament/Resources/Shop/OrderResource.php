@@ -1235,7 +1235,20 @@ class OrderResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('number')
-                    ->label('Номер заказа')
+                    ->label('')
+                    ->extraHeaderAttributes([
+
+                        'style' => 'line-height:1.1;min-width:3rem;width:3rem;',
+                        'x-data' => '{}',
+                        // вставляем "родной" лейбл Filament, чтобы стили совпали
+                        'x-html' => json_encode(
+                            '<span class="fi-ta-header-cell-label text-sm font-medium">'
+                            .'Номер<br>заказа'
+                            .'</span>'
+                        ) ])
+                    ->grow(false) // чтобы колонка не ужималась другими
+
+                    ->extraCellAttributes(['style' => 'min-width:3rem;width:3rem;'])
                     ->searchable()
                     ->searchable(isIndividual: true)
                     ->verticalAlignment(VerticalAlignment::Center)
@@ -1244,6 +1257,8 @@ class OrderResource extends Resource
                   //  ->action('statuses'), // клик по номеру откроет модалку статусов
 
                 TextColumn::make('clients.name')->searchable()->label('Клиент')->sortable()->toggleable()->searchable(isIndividual: true)
+                    ->extraHeaderAttributes(['style' => 'min-width:10rem;width:10rem;'])
+                    ->extraCellAttributes(['style' => 'min-width:10rem;width:10rem;'])
                     ->url(fn (Order $record) =>
                     $record->clients_id
                         ? ClientResource::getUrl('edit', ['record' => $record->clients_id])
@@ -1252,6 +1267,9 @@ class OrderResource extends Resource
                     ->openUrlInNewTab(),
                 TextColumn::make('clients.phone')->searchable()->label('Телефон')->sortable()->toggleable()
                     ->searchable(isIndividual: true)
+                    ->grow(false) // чтобы колонка не ужималась другими
+                    ->extraHeaderAttributes(['style' => 'min-width:10rem;width:10rem;'])
+                    ->extraCellAttributes(['style' => 'min-width:10rem;width:10rem;'])
                     ->copyable()
                     ->copyMessage('Телефон клиента скопирован')
                     ->copyMessageDuration(1500),
@@ -1278,13 +1296,44 @@ class OrderResource extends Resource
                     ->summarize([Sum::make()->money('UAH')]),
 
                 TextColumn::make('grand_total')
-                    ->label('Сумма со скидкой')
+                    ->extraHeaderAttributes([
+
+                        'style' => 'line-height:1.1;',
+                        'x-data' => '{}',
+                        // вставляем "родной" лейбл Filament, чтобы стили совпали
+                        'x-html' => json_encode(
+                            '<span class="fi-ta-header-cell-label text-sm font-medium">'
+                            .'Сумма<br>со скидкой'
+                            .'</span>'
+                        ) ])
                     ->searchable()
                     ->sortable()
                     ->summarize([Sum::make()->money('UAH')]),
 
-                TextColumn::make('date_order')->label('Дата доставки')->date()->toggleable(),
-                TextColumn::make('time_order')->label('Время доставки')->time('H:i')->toggleable(),
+                TextColumn::make('date_order')->label('')
+                    ->extraHeaderAttributes([
+                        'class' => 'th-wrap min-w-[10rem]',      // ← класс(ы) на <th>
+                        'x-data' => '{}',
+                        'x-html' => json_encode(
+                            '<span class="fi-ta-header-cell-label text-sm font-medium">'
+                            .'Дата<br>доставки'
+                            .'</span>'
+                        ),
+                        'style'  => 'line-height: 1.1;', // опционально
+                    ])
+                    ->date()->toggleable(),
+                TextColumn::make('time_order')->label('')
+                    ->extraHeaderAttributes([
+                        'x-data' => '{}',
+                        'x-html' => json_encode(
+                            '<span class="fi-ta-header-cell-label text-sm font-medium">'
+                            .'Время<br>доставки'
+                            .'</span>'
+                        ),
+
+                        'style'  => 'line-height: 1.1;', // опционально
+                    ])
+                    ->time('H:i')->toggleable(),
                 TextColumn::make('delivery_info')
                     ->label('Доставка')
                     ->getStateUsing(fn (Order $record) => $record->self_pickup ? 'Самовывоз' : 'Доставка')
@@ -1326,7 +1375,18 @@ class OrderResource extends Resource
                     ->wrap()        // перенос длинных адресов
                     ->toggleable(), // можно спрятать в настройках таблицы
 
-                TextColumn::make('created_at')->label('Дата заказа')->date()->toggleable(),
+                TextColumn::make('created_at')->label('')
+                    ->extraHeaderAttributes([
+                        'x-data' => '{}',
+                        'x-html' => json_encode(
+                            '<span class="fi-ta-header-cell-label text-sm font-medium">'
+                            .'Дата<br>заказа'
+                            .'</span>'
+                        ),
+
+                        'style'  => 'line-height: 1.1;', // опционально
+                    ])
+                    ->date()->toggleable(),
             ])
             ->filters([
                 TrashedFilter::make(),
