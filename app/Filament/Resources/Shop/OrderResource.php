@@ -56,7 +56,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
 use App\Models\Shop\Client;
 use App\Filament\Resources\ClientResource;
-
+use Filament\Support\Enums\VerticalAlignment;
 
 class OrderResource extends Resource
 {
@@ -1237,12 +1237,21 @@ class OrderResource extends Resource
                 TextColumn::make('number')
                     ->label('Номер заказа')
                     ->searchable()
+                    ->searchable(isIndividual: true)
+                    ->verticalAlignment(VerticalAlignment::Center)
                     ->sortable(),
                   //  ->extraAttributes(['class' => 'cursor-pointer underline']),
                   //  ->action('statuses'), // клик по номеру откроет модалку статусов
 
-                TextColumn::make('clients.name')->searchable()->label('Клиент')->sortable()->toggleable(),
+                TextColumn::make('clients.name')->searchable()->label('Клиент')->sortable()->toggleable()->searchable(isIndividual: true)
+                    ->url(fn (Order $record) =>
+                    $record->clients_id
+                        ? ClientResource::getUrl('edit', ['record' => $record->clients_id])
+                        : null
+                    )
+                    ->openUrlInNewTab(),
                 TextColumn::make('clients.phone')->searchable()->label('Телефон')->sortable()->toggleable()
+                    ->searchable(isIndividual: true)
                     ->copyable()
                     ->copyMessage('Телефон клиента скопирован')
                     ->copyMessageDuration(1500),
@@ -1276,6 +1285,47 @@ class OrderResource extends Resource
 
                 TextColumn::make('date_order')->label('Дата доставки')->date()->toggleable(),
                 TextColumn::make('time_order')->label('Время доставки')->time('H:i')->toggleable(),
+                TextColumn::make('delivery_info')
+                    ->label('Доставка')
+                    ->getStateUsing(fn (Order $record) => $record->self_pickup ? 'Самовывоз' : 'Доставка')
+                    ->badge() // красивый бейдж
+                    ->grow(false) // чтобы ширина не “съедалась” другими колонками
+                    ->extraHeaderAttributes(['class' => 'min-w-[22rem] w-[22rem]'])
+                    ->extraCellAttributes(['class' => 'min-w-[22rem] w-[22rem]'])
+                    ->icon(fn ($record) => $record->self_pickup ? 'heroicon-m-shopping-bag' : 'heroicon-m-map-pin')
+                    ->color(fn ($record) => $record->self_pickup ? 'warning' : 'primary') // другой цвет для самовывоза
+                    // Подпись мелким текстом — адрес (только если не самовывоз)
+                    ->description(function (Order $record) {
+                        if ($record->self_pickup) return null;
+
+                        // 1) сначала пробуем привязанный адрес
+                        if ($a = $record->clientAddress) {
+                            $parts = [
+                                $a->street,
+                                $a->house,
+                                $a->apartment ? 'кв. ' . $a->apartment : null,
+                                $a->entrance  ? 'подъезд ' . $a->entrance : null,
+                                $a->floor     ? 'этаж ' . $a->floor : null,
+                            ];
+                            $line = trim(implode(', ', array_filter($parts)));
+                            return $line !== '' ? $line : null;
+                        }
+
+                        // 2) иначе — из JSON поля order.address (если есть)
+                        $addr = (array) ($record->address ?? []);
+                        $parts = [
+                            $addr['street']   ?? null,
+                            $addr['house']    ?? null,
+                            !empty($addr['apartment']) ? 'кв. ' . $addr['apartment'] : null,
+                            !empty($addr['entrance'])  ? 'подъезд ' . $addr['entrance']  : null,
+                            !empty($addr['floor'])     ? 'этаж ' . $addr['floor']       : null,
+                        ];
+                        $line = trim(implode(', ', array_filter($parts)));
+                        return $line !== '' ? $line : '—';
+                    })
+                    ->wrap()        // перенос длинных адресов
+                    ->toggleable(), // можно спрятать в настройках таблицы
+
                 TextColumn::make('created_at')->label('Дата заказа')->date()->toggleable(),
             ])
             ->filters([

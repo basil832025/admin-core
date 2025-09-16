@@ -63,6 +63,7 @@ class Order extends Model
         'sale_prc' => 'decimal:2',
         'sale_sum' => 'decimal:2',
         'total_price_sale' => 'decimal:2',
+        'address'     => 'array',
     ];
 
     /** @return MorphOne<OrderAddress> */
@@ -81,6 +82,10 @@ class Order extends Model
             $times[$status] = ($at ?? now())->format('Y-m-d H:i:s');
             $this->status_times = $times;
         }
+    }
+    public function clientAddress()
+    {
+        return $this->belongsTo(\App\Models\Shop\ClientAddress::class, 'client_address_id');
     }
     public function kitchenTicket()
     {
