@@ -9,15 +9,36 @@
 
 @layer components {
     /* чтобы уменьшенные слайды не обрезались */
-    .banner-swiper { overflow: visible; }
+    .banner-swiper { overflow: hidden; }
     /* Цвет активной точки уже решили: */
     #banner-pagination { --swiper-theme-color:#f97316; --swiper-pagination-color:#f97316; }
 
-    /* Сдвиг стрелок на 66px — используем переменную Swiper */
-    .banner-swiper { --swiper-navigation-sides-offset: 66px; }
-    .banner-swiper {
-        --swiper-navigation-sides-offset: -66px; /* было 66px внутрь, теперь -66px наружу */
-        overflow: visible; /* чтобы их не обрезало */
+    @screen md {
+        .banner-wrap .banner-swiper {
+            @apply w-[674px] rounded-[12px];
+        }
+        /* Сдвиг стрелок на 66px — используем переменную Swiper */
+        .banner-swiper { --swiper-navigation-sides-offset: 46px; }
+        .banner-swiper {
+            --swiper-navigation-sides-offset: 5px; /* было 66px внутрь, теперь -66px наружу */
+            /* overflow: visible;  чтобы их не обрезало */
+        }
+
+    }
+    /* Десктоп: ≥1344 */
+    @screen lg {
+        .banner-swiper { --swiper-navigation-sides-offset: 46px; }
+        .banner-swiper {
+            --swiper-navigation-sides-offset: -45px; /* было 66px внутрь, теперь -66px наружу */
+             overflow: visible; /* чтобы их не обрезало */
+        }
+    }
+    @screen desktop {
+        .banner-swiper { --swiper-navigation-sides-offset: 66px; }
+        .banner-swiper {
+            --swiper-navigation-sides-offset: -66px; /* было 66px внутрь, теперь -66px наружу */
+            overflow: visible; /* чтобы их не обрезало */
+        }
     }
     /* выключаем дефолтные стрелки Swiper */
     .banner-swiper .swiper-button-prev::after,
@@ -57,16 +78,42 @@
 
     /* пример ховера с изменением цвета иконки */
     .btn-filter:hover .icon-filter { background-color:#ff8a1a; }
+    /* Сдвиг стрелок на 66px — используем переменную Swiper */
 
-    /* центр + фиксированная ширина по макету; на узких экранах — резиновая */
-    .catalog-wrap {
-        @apply mx-auto w-[1198px] max-w-full px-0 sm:px-4;
+
+
+    /* на мобилках (375px и т.п.) оставляем резиновый */
+    .banner-wrap .banner-swiper {
+        @apply w-full;
     }
+    /* центр + фиксированная ширина по макету; на узких экранах — резиновая */
+ /*   .catalog-wrap {
+        @apply mx-auto w-[1198px] max-w-full px-0 sm:px-4;
+    }*/
+}
+/* для меню если не помещается то стрелки*/
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+ /* burger-scroll */
+/* кастомный скролл для бургер-меню */
+/* без direction: rtl — скролл будет СПРАВА */
+html.no-scroll,
+body.no-scroll { overflow: hidden !important; height: 100%; }
+.custom-scroll::-webkit-scrollbar { width: 8px; }
+.custom-scroll::-webkit-scrollbar-track { background: transparent; }
+.custom-scroll::-webkit-scrollbar-thumb {
+    background-color: #FF7500;
+    border-radius: 4px;
+}
+.custom-scroll::-webkit-scrollbar-thumb:hover { background-color: #e96300; }
+
+/* Firefox */
+.custom-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #FF7500 transparent;
 }
 
-
-
-
+/**/
 
 /* шрифты */
 @layer base {

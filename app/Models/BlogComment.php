@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class BlogComment extends Model
 {
     use SoftDeletes;
-
+    protected $table = 'bs_blog_comments';
     protected $fillable = [
         'blog_id',
         'user_id',

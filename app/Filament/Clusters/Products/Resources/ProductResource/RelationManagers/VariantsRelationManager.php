@@ -27,6 +27,7 @@ use Filament\Tables\Actions\DeleteAction;
 use Filament\Tables\Actions\DeleteBulkAction;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\TextInputColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -203,7 +204,14 @@ class VariantsRelationManager extends RelationManager
                         return $record->getTranslation('title', $defaultLocale);
 
                     }),
-                Tables\Columns\TextColumn::make('price')->label('Цена')->numeric(2),
+               // Tables\Columns\TextColumn::make('price')->label('Цена')->numeric(2),
+                TextInputColumn::make('price')
+                    ->type('number')   // HTML5 number
+                    ->step('1')
+                    ->rules(['numeric','min:0']) // валидация на сохранение
+                    ->alignRight()
+                    ->label(__('product.columns.price'))
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('quantity')->label('Остаток'),
                 // 👇 РОЗМІР ПИРОГІВ
                 Tables\Columns\TextColumn::make('pie_size')

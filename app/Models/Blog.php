@@ -8,7 +8,9 @@ use Spatie\Translatable\HasTranslations;
 use Illuminate\Support\Str;
 class Blog extends Model
 {
+
     use HasTranslations;
+    protected $table = 'bs_blogs';
     protected $fillable = [
         'blog_category_id',
         'title',

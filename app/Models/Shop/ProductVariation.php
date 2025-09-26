@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 //use Spatie\Translatable\HasTranslations;
 class ProductVariation extends Model
 {
-    protected $table = 'product_variation';
+    protected $table = 'bs_product_variation';
 
     protected $fillable = [
         'product_id',
@@ -25,7 +25,7 @@ class ProductVariation extends Model
     }
     public function products()
     {
-        return $this->belongsToMany(Product::class, 'product_variation')
+        return $this->belongsToMany(Product::class, 'bs_product_variation')
             ->withPivot('price')
             ->withTimestamps();
     }

@@ -57,18 +57,39 @@ use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Illuminate\Support\HtmlString;
 use Illuminate\Database\Eloquent\Builder;
+use Filament\Tables\Filters\TernaryFilter;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Columns\ToggleColumn;
+
+
 class ProductResource extends Resource
 {
     use Translatable;
     protected static ?string $model = Product::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
-    protected static ?string $navigationLabel = 'Товары';
-    protected static ?string $modelLabel = 'Товары';
-    protected static ?string $pluralModelLabel = 'Товары';
+    protected static ?string $navigationLabel   = null;
+    protected static ?string $modelLabel        = null ;
+    protected static ?string $pluralModelLabel  = null;
     protected static ?string $cluster = Products::class;
     protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
     protected static ?int $navigationSort = 1;
+
+    public static function getNavigationLabel(): string
+    {
+        return __('product.nav.navigation_label');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('product.nav.model_label');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('product.nav.plural_model_label');
+    }
     public static function form(Form $form): Form
     {
         $defaultLocale = Setting::value('default_language_code') ?: config('app.locale');
@@ -79,17 +100,29 @@ class ProductResource extends Resource
             Tabs::make()
                 ->columns(1)
                 ->tabs([
-                    Tab::make('Основные')->schema(static::mainTab($locales, $defaultLocale))->columns(3),
-                    Tab::make('Изображения')->schema(static::imageTab())->columns(1),
-                  Tab::make('Характеристики')
+                    Tab::make(__('product.tabs.main'))
+                        ->schema(static::mainTab($locales, $defaultLocale))
+                        ->columns(3),
+
+                    Tab::make(__('product.tabs.images'))
+                        ->schema(static::imageTab())
+                        ->columns(1),
+
+                    Tab::make(__('product.tabs.characteristics'))
                         ->schema(fn (Get $get, ?Product $record) => static::characteristicTab($get, $record))
                         ->columns(1),
-                 //   Tab::make('Вариации')->schema(fn (Get $get, ?Product $record) => static::variationTab($get, $record))->columns(1),
-                    Tab::make('SEO')->schema(static::seoTab($locales, $defaultLocale))->columns(1),
-                    Tab::make('Калькуляція')
+
+                    Tab::make(__('product.tabs.seo'))
+                        ->schema(static::seoTab($locales, $defaultLocale))
+                        ->columns(1),
+
+                    Tab::make(__('product.tabs.calculation'))
                         ->schema(fn (Get $get, ?Product $record) => static::calculationTab($get, $record))
                         ->columns(1),
-                ])->columns(1)->columnSpanFull(),
+                ])
+                ->columns(1)
+                ->columnSpanFull(),
+
         ]);
     }
 
@@ -106,7 +139,7 @@ class ProductResource extends Resource
                         ->columnSpanFull()
                         ->schema(fn(string $locale) => [
             TextInput::make('title')
-                ->label('Название')
+                ->label(__('product.fields.title'))
                 ->required($locale === $defaultLocale)
                 ->maxLength(255)
                 ->live(onBlur: true)
@@ -114,29 +147,29 @@ class ProductResource extends Resource
                 ,
 
             RichEditor::make('description')
-                ->label('Описание')
-                ,
+                ->label(__('product.fields.description')),
                 ]),
 
 
-                    Section::make('Цены')
+                    Section::make(__('product.sections.prices'))
                         ->schema([
-        TextInput::make('price')->label('Цена')->numeric()->required(),
-            TextInput::make('old_price')->label('Старая цена')->numeric()->nullable(),
-            ]) ->columns(2),
-                    Section::make('Склад')
+                            TextInput::make('price')->label(__('product.fields.price'))->numeric()->required(),
+                            TextInput::make('old_price')->label(__('product.fields.old_price'))->numeric()->nullable(),
+
+                        ]) ->columns(2),
+                    Section::make(__('product.sections.stock'))
                         ->schema([
-                            TextInput::make('sku')->label('Артикул'),
-                            TextInput::make('quantity')->label('Остаток')->numeric()->default(0),
-                            ])->columns(2),
-                    Section::make('Дополнительно')
+                            TextInput::make('sku')->label(__('product.fields.sku')),
+                            TextInput::make('quantity')->label(__('product.fields.quantity'))->numeric()->default(0),
+                        ])->columns(2),
+                    Section::make(__('product.sections.extra'))
                         ->schema([
-                            RichEditor::make('dop_info')
-                                ->label('Калькуляция/Доп. информация')
+                            RichEditor::make('dop_info')->label(__('product.fields.dop_info'))->columnSpanFull(),
+                            RichEditor::make('short_desc')->label(__('product.fields.short_desc'))->columnSpanFull()
                             // ТУТ ВЫВОДИМ ХАРАКТЕРИСТИКИ is_main_tab
                                 ->columnSpanFull(),
                         ])->columns(1),
-                    Section::make('Свойства товара')
+                    Section::make(__('product.sections.props'))
                         ->schema(function (Get $get, ?Product $record) {
                            // $locale = app()->getLocale();
 
@@ -161,29 +194,40 @@ class ProductResource extends Resource
           ]) ->columnSpan(['lg' => 2]),
             Group::make()
                 ->schema([
-                    Section::make('Статусы')
+                    Section::make(__('product.sections.statuses'))
                         ->schema([
                             TextInput::make('short_name')
-                                ->label('Короткое название')
+                                ->label(__('product.fields.short_name'))
                                // ->disabled()
                                 ->dehydrated()
                              //   ->required()
                                 ->maxLength(255)
                                 ->unique(Product::class, 'short_name', ignoreRecord: true),
+                            TextInput::make('code2')
+                                ->label(__('product.fields.code2'))
+                                // ->disabled()
+                                ->dehydrated()
+                                //   ->required()
+                                ->maxLength(255)
+                                ->unique(Product::class, 'code2', ignoreRecord: true),
                             TextInput::make('slug')
-                                ->label('Slug')
+                                ->label(__('product.fields.slug'))
                                 ->disabled()
                                 ->dehydrated()
                                 ->required()
                                 ->maxLength(255)
                                 ->unique(Product::class, 'slug', ignoreRecord: true),
-                            Toggle::make('in_stock')->label('Есть в наличии')->default(true),
+                            Toggle::make('in_stock')->label(__('product.fields.in_stock'))->default(true),
+                            Toggle::make('is_new')->label(__('product.fields.is_new'))->default(false),
+                            Toggle::make('is_hit')->label(__('product.fields.is_hit'))->default(false),
+                            Toggle::make('is_home')->label(__('product.fields.is_home'))->default(false),
+
                             ]),
-                    Section::make('Ассоциации')
+                    Section::make(__('product.sections.associations'))
                         ->schema([
                             // 1) Главная категория
                             Select::make('category_id')
-                                ->label('Категория')
+                                ->label(__('product.fields.category_id'))
                                 ->required()
                                 ->dehydrated(true)
                                 ->live() // 👈 важно: чтобы ниже schema(fn $get) пересчитывалась
@@ -219,7 +263,7 @@ class ProductResource extends Resource
 
 // 2) Доп. категории (pivot), НЕобязательные
                             Select::make('categories')
-                                ->label('Доп. категории')
+                                ->label(__('product.fields.categories'))
                                 ->multiple()
                                 ->relationship('categories', 'id') // пусть Filament синкает pivot
                                 ->options(function (Get $get) use ($defaultLocale) {
@@ -238,15 +282,23 @@ class ProductResource extends Resource
                                 })
                                 ->searchable()
                                 ->preload()
-                                ->helperText('Необязательно. Можно выбрать одну или несколько.'),
+                                ->helperText(__('product.fields.categories_helper')),
                             Forms\Components\FileUpload::make('main_image')
-                                ->label('Главное изображение')
+                                ->label(__('product.fields.main_image'))
                                 ->image()
                                 ->directory('products/main') // картинки будут сохраняться сюда
                                 ->maxSize(20048)              // ограничение по размеру (в Кб)
                                 ->imageEditor()
+                                ->disk('public')
                                 ->required(false),
+                            Forms\Components\FileUpload::make('main_image_small')
+                                ->image()
+                                ->disk('public')
+                                ->directory('products/small')
+                                ->preserveFilenames()
+                                ->label(__('product.fields.main_image_small'))
                             ])
+
                     ])->columnSpan(['lg' => 1]),
 
         ];
@@ -256,59 +308,89 @@ class ProductResource extends Resource
         $defaultLocale = Setting::value('default_language_code') ?: config('app.locale');
 
         return [
-            Section::make('Версии калькуляції')
+            Section::make(__('product.sections.calc_versions'))
                 ->description('Склади, що діють з дати. Порожня «по дату» — безстроково.')
                 ->schema([
                     Repeater::make('calculations')
                         ->relationship() // Product::calculations()
-                        ->label('Калькуляції для товару')
+                        ->label(__('product.fields.calculations'))
                         ->defaultItems(0)
                         ->orderable(false)
                         ->columns(12)
                         ->schema([
                             TextInput::make('name')
-                                ->label('Назва/Версія')
+                                ->label(__('product.fields.calc_name'))
                                 ->columnSpan(4),
 
                             DatePicker::make('valid_from')
-                                ->label('З дати')
+                                ->label(__('product.fields.valid_from'))
                                 ->required()
                                 ->default(today())
                                 ->columnSpan(4),
 
                             DatePicker::make('valid_to')
-                                ->label('По дату')
-                                ->helperText('Порожньо — безстроково')
+                                ->label(__('product.fields.valid_to'))
+                                ->helperText(__('product.fields.valid_to_helper'))
                                 ->columnSpan(4),
 
-                            Section::make('Склад (позиції)')
+                            Section::make(__('product.sections.calc_items'))
                                 ->columnSpanFull()
                                 ->schema([
                                     Repeater::make('items')
                                         ->relationship('items') // ProductCalculation->items()
-                                        ->label('Позиції')
+                                        ->label(__('product.fields.calc_items'))
                                         ->defaultItems(0)
                                         ->columns(12)
                                         ->schema([
                                             Select::make('component_product_id')
-                                                ->label('Компонент')
+                                                ->label(__('product.fields.component_product'))
                                                 ->searchable()
                                                 ->preload()
+
                                                 ->options(function () use ($record, $defaultLocale) {
                                                     $currentId = $record?->id;
 
                                                     return \App\Models\Shop\Product::query()
                                                         ->when($currentId, fn($q) => $q->where('id', '!=', $currentId)) // без рекурсії
                                                         ->orderBy('id', 'desc')
-                                                        ->get()
+                                                        ->get(['id', 'title', 'short_name'])
                                                         ->mapWithKeys(function ($p) use ($defaultLocale) {
+                                                            $getTrans = function ($raw, $fallback = null) use ($defaultLocale) {
+                                                                if (blank($raw)) return $fallback;
+                                                                if (is_string($raw)) {
+                                                                    $trim = ltrim($raw);
+                                                                    if (strlen($trim) && ($trim[0] === '{' || $trim[0] === '[')) {
+                                                                        $arr = json_decode($raw, true);
+                                                                        if (json_last_error() === JSON_ERROR_NONE && is_array($arr)) {
+                                                                            return $arr[$defaultLocale]
+                                                                                ?? $arr[config('app.locale')]
+                                                                                ?? $fallback;
+                                                                        }
+                                                                    }
+                                                                    return $raw;
+                                                                }
+                                                                if (is_array($raw)) {
+                                                                    return $raw[$defaultLocale]
+                                                                        ?? $raw[config('app.locale')]
+                                                                        ?? $fallback;
+                                                                }
+                                                                return $fallback;
+                                                            };
+
+                                                            $short = $getTrans($p->getRawOriginal('short_name'), $p->short_name);
+                                                            $title = $getTrans($p->getRawOriginal('title'), $p->title);
+                                                            $label = filled($short) ? $short : $title;
+
+                                                            return [$p->id => $label];
+                                                        })
+                                                      /*  ->mapWithKeys(function ($p) use ($defaultLocale) {
                                                             // у тебя title — переводимое JSON-поле
                                                             $raw = json_decode($p->getRawOriginal('title'), true);
                                                             $label = $raw[$defaultLocale]
                                                                 ?? $raw[config('app.locale')]
                                                                 ?? ($raw['uk'] ?? $raw['ru'] ?? $raw['en'] ?? $p->sku ?? $p->id);
                                                             return [$p->id => $label];
-                                                        })
+                                                        })*/
                                                         ->toArray();
                                                 })
                                                 ->reactive()
@@ -323,7 +405,7 @@ class ProductResource extends Resource
                                                 ->columnSpan(5),
 
                                             TextInput::make('qty')
-                                                ->label('К-сть')
+                                                ->label(__('product.fields.qty'))
                                                 ->numeric()
                                                 ->default(1)
                                                 ->reactive()
@@ -332,7 +414,7 @@ class ProductResource extends Resource
                                                 ->columnSpan(2),
 
                                             TextInput::make('unit_cost')
-                                                ->label('С/б за 1')
+                                                ->label(__('product.fields.unit_cost'))
                                                 ->numeric()
                                                 ->default(0)
                                                 ->reactive()
@@ -341,7 +423,7 @@ class ProductResource extends Resource
                                                 ->columnSpan(2),
 
                                             TextInput::make('row_cost')
-                                                ->label('Сума с/б')
+                                                ->label(__('product.fields.row_cost'))
                                                 ->numeric()
                                                 ->disabled()
                                                 ->dehydrated(true) // сохраняем снимок
@@ -349,10 +431,10 @@ class ProductResource extends Resource
                                         ]),
                                 ]),
 
-                            Section::make('Підсумок')
+                            Section::make(__('product.sections.calc_summary'))
                                 ->schema([
                                     TextInput::make('total_cost')
-                                        ->label('Підсумкова собівартість')
+                                        ->label(__('product.fields.total_cost'))
                                         ->disabled()
                                         ->helperText('Оновиться після збереження або командою перерахунку'),
                                 ])
@@ -1009,6 +1091,11 @@ class ProductResource extends Resource
         $defaultLocale = Setting::value('default_language_code') ?: config('app.locale');
         $locales = static::getActiveLocales();
         return $table
+            // включаем dnd-перетаскивание строк по колонке 'sort'
+            ->reorderable('sort')
+
+            // по умолчанию сортируем по 'sort'
+            ->defaultSort('sort', 'asc')
             ->query(fn () => Product::query()->parents())
             ->columns([
                 Tables\Columns\TextColumn::make('sku')->label('SKU')->sortable(),
@@ -1033,10 +1120,10 @@ class ProductResource extends Resource
                     ),
 
                 ViewColumn::make('title')
-                    ->label('Название')
+                    ->label(__('product.columns.title'))
                     ->view('filament.tables.columns.title-with-preview'),
                 TextColumn::make('category_id')
-                    ->label('Категория')
+                    ->label(__('product.columns.category'))
                     ->sortable(false)       // можно сделать кастомную сортировку позже
                     ->searchable(false)
                     ->formatStateUsing(function ($state,  $record)use ($defaultLocale)   {
@@ -1059,15 +1146,24 @@ class ProductResource extends Resource
                         return '—';
                     }),
 
-                Tables\Columns\TextColumn::make('price')->label('Цена')->money('UAH'),
-                Tables\Columns\IconColumn::make('in_stock')->label('В наличии')->boolean(),
-                Tables\Columns\TextColumn::make('quantity')->label('Остаток'),
-                Tables\Columns\TextColumn::make('updated_at')->label('Обновлено')->dateTime('d.m.Y H:i')
+                Tables\Columns\TextColumn::make('price')->label(__('product.columns.price'))->money('UAH'),
+                Tables\Columns\IconColumn::make('in_stock')->label(__('product.columns.in_stock'))->boolean(),
+                Tables\Columns\TextColumn::make('sort')->label(__('product.columns.sort'))->sortable()->toggleable(),
+                ToggleColumn::make('is_new')->label(__('product.columns.is_new')),
+                ToggleColumn::make('is_hit')->label(__('product.columns.is_hit')),
+                ToggleColumn::make('is_home')->label(__('product.columns.is_home')),
+                Tables\Columns\TextColumn::make('quantity')->label(__('product.columns.quantity')),
+                Tables\Columns\TextColumn::make('updated_at')->label(__('product.columns.updated_at'))->dateTime('d.m.Y H:i')
             ])
-            ->filtersFormColumns(4) // сколько колонок занимают фильтры в строке
+            ->filtersFormColumns(6) // сколько колонок занимают фильтры в строке
+            // 👇 сохранять выбор фильтров между перезагрузками
+            ->persistFiltersInSession()
             ->filters([
                 SelectFilter::make('category')
-                    ->label('Категория')
+                    ->label(__('product.filters.category'))
+                    ->columnSpan(2)
+                    ->placeholder(__('product.filters.category_all'))                         // вместо «Всі»
+                   // ->searchPrompt('Введите текст для поиска…')
                     ->relationship('mainCategory', 'id') // фильтруем по belongsTo 'category'
                     ->getOptionLabelFromRecordUsing(function (ProductCategory $record): string {
                         $locale = Setting::value('default_language_code') ?: app()->getLocale();
@@ -1089,10 +1185,65 @@ class ProductResource extends Resource
 
                         return (string) $label;
                     })
+
                     ->preload()
                     ->searchable(),
+                // Флаги: «Так / Ні / Усі»
+                TernaryFilter::make('is_new')->label(__('product.filters.is_new'))
+                    ->columnSpan(1)
+                    ->nullable(), // покажет «Усі»
+                TernaryFilter::make('is_hit')->label(__('product.filters.is_hit'))
+                    ->columnSpan(1)
+                    ->nullable(),
+                TernaryFilter::make('is_home')->label(__('product.filters.is_home'))
+                    ->columnSpan(1)
+                    ->nullable(),  // Диапазон даты создания
+              /*  Filter::make('created_between')
+                    ->form([
+                        DatePicker::make('from')->label('Створено з'),
+                        DatePicker::make('until')->label('Створено до'),
+                    ])
+                    ->indicateUsing(function (array $data): array {
+                        $i = [];
+                        if ($data['from'] ?? null)  $i[] = 'З: ' . \Carbon\Carbon::parse($data['from'])->format('d.m.Y');
+                        if ($data['until'] ?? null) $i[] = 'До: ' . \Carbon\Carbon::parse($data['until'])->format('d.m.Y');
+                        return $i;
+                    })
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when($data['from'] ?? null, fn ($q, $d) => $q->whereDate('created_at', '>=', $d))
+                            ->when($data['until'] ?? null, fn ($q, $d) => $q->whereDate('created_at', '<=', $d));
+                    }),*/
 
-            ])
+                // Поиск по внешнему коду
+                Filter::make('code2_like')
+                    ->form([
+                        TextInput::make('code2')->label(__('product.filters.code2'))->placeholder('Напр., ABC-123'),
+                    ])
+                    ->query(fn (Builder $q, array $data) =>
+                    $q->when($data['code2'] ?? null, fn ($qq, $v) => $qq->where('code2', 'like', "%{$v}%"))
+                    )
+                    ->indicateUsing(fn (array $data) => ($data['code2'] ?? null) ? ['Код: '.$data['code2']] : []),
+
+                // Диапазон цены (если есть price)
+          /*      Filter::make('price_between')
+                    ->columns(2)
+                    ->form([
+                        TextInput::make('price_min')->label('Ціна від')->numeric(),
+                        TextInput::make('price_max')->label('Ціна до')->numeric(),
+                    ])
+                    ->query(function (Builder $q, array $data): Builder {
+                        return $q
+                            ->when($data['price_min'] ?? null, fn ($qq, $v) => $qq->where('price', '>=', (float) $v))
+                            ->when($data['price_max'] ?? null, fn ($qq, $v) => $qq->where('price', '<=', (float) $v));
+                    })
+                    ->indicateUsing(function (array $data): array {
+                        $i = [];
+                        if ($data['price_min'] ?? null) $i[] = 'Ціна ≥ '.$data['price_min'];
+                        if ($data['price_max'] ?? null) $i[] = 'Ціна ≤ '.$data['price_max'];
+                        return $i;
+                    }),*/
+            ], layout: FiltersLayout::AboveContent)
 
             ->Actions([
                 EditAction::make(),

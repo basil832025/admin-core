@@ -8,6 +8,7 @@ use Spatie\Translatable\HasTranslations;
 class CharacteristicValue extends Model
 {
     use HasTranslations;
+    protected $table = 'bs_characteristic_values';
     protected $fillable = [
         'characteristic_id',
         'value',

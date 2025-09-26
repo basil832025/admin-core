@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ProductCalculation extends Model
 {
-    protected $table = 'product_calculations';
+    protected $table = 'bs_product_calculations';
 
     protected $fillable = [
         'product_id', 'valid_from', 'valid_to', 'name', 'note', 'total_cost',

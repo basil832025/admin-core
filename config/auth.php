@@ -35,9 +35,14 @@ return [
     |
     */
 
+
     'guards' => [
         'web' => [
-            'driver' => 'session',
+            'driver'   => 'session',
+            'provider' => 'clients',
+        ],
+        'admin' => [
+            'driver'   => 'session',
             'provider' => 'users',
         ],
     ],
@@ -60,16 +65,19 @@ return [
     */
 
     'providers' => [
-        'users' => [
+        'clients' => [              // МОДЕЛЬ КЛИЕНТОВ
             'driver' => 'eloquent',
-            'model' => env('AUTH_MODEL', App\Models\User::class),
+            'model'  => App\Models\Client::class,
         ],
-
-        // 'users' => [
-        //     'driver' => 'database',
-        //     'table' => 'users',
-        // ],
+        'users' => [                // МОДЕЛЬ АДМИНОВ (стандартный User)
+            'driver' => 'eloquent',
+            'model'  => App\Models\User::class,
+        ],
+        // Если админов хотите вынести в отдельную таблицу:
+        // 'admins' => ['driver'=>'eloquent', 'model'=>App\Models\Admin::class],
     ],
+
+
 
     /*
     |--------------------------------------------------------------------------
@@ -91,10 +99,16 @@ return [
     */
 
     'passwords' => [
+        'clients' => [
+            'provider' => 'clients',
+            'table'    => 'password_reset_tokens',
+            'expire'   => 60,
+            'throttle' => 60,
+        ],
         'users' => [
             'provider' => 'users',
-            'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
-            'expire' => 60,
+            'table'    => 'password_reset_tokens',
+            'expire'   => 60,
             'throttle' => 60,
         ],
     ],

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 class ProductItemModifier extends Model
 {
+    protected $table = 'bs_product_item_modifiers';
     protected $fillable = [
         'order_item_id',
         'type',

@@ -32,3 +32,23 @@ Route::get('/lang/{locale}', function (string $locale) {
     // опц.: доп. сохранение в cookie, чтобы помнить язык между сессиями
     return back(status: 303)->cookie('locale', $locale, 60 * 24 * 365);
 })->name('lang.switch');
+
+Route::middleware(['web'])->group(function () {
+    Route::redirect('/favorites', '/', 302)->name('favorites.index');
+    Route::redirect('/orders', '/', 302)->name('orders.index');
+    Route::redirect('/bonus', '/', 302)->name('bonus.index');
+    Route::redirect('/profile', '/', 302)->name('profile.show');
+    Route::redirect('/addresses', '/', 302)->name('addresses.index');
+    // ВАЖНО: правильные имена для аутентификации
+    Route::redirect('/login', '/', 302)->name('login');   // если страницы логина пока нет
+    // либо так: Route::view('/login', 'pages.stub')->name('login')->defaults('title','Увійти');
+
+    Route::post('/logout', function () {
+        auth('web')->logout();
+        request()->session()->invalidate();
+        request()->session()->regenerateToken();
+        return redirect('/');
+    })->name('logout');
+
+
+});

@@ -19,17 +19,12 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Pages\SubNavigationPosition;
 use Illuminate\Support\Str;
 use SolutionForest\FilamentTranslateField\Forms\Component\Translate;
 use App\Models\Setting;
 use App\Models\Language;
 use Filament\Resources\Concerns\Translatable;
-use SolutionForest\FilamentTree\Pages\TreePage;
-use App\Filament\Clusters\Products\Resources\ProductCategoryResource\Pages\ProductCategoryTree;
-use Filament\Pages\Actions\Action;
 use App\Filament\Clusters\Products\Resources\ProductCategoryResource\RelationManagers\ProductRelationManager;
 
 class ProductCategoryResource extends Resource
@@ -39,17 +34,38 @@ class ProductCategoryResource extends Resource
     protected static ?string $model = ProductCategory::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
-    protected static ?string $navigationLabel = 'Категории товаров';
-    protected static ?string $modelLabel = 'Категория товаров';
-    protected static ?string $pluralModelLabel = 'Категории товаров';
+
+    // ⚠️ не хардкодим строки — отдадим через методы ниже
+    protected static ?string $navigationLabel = null;
+    protected static ?string $modelLabel = null;
+    protected static ?string $pluralModelLabel = null;
+
     protected static ?string $cluster = Products::class;
     protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
     protected static ?int $navigationSort = 1;
 
+    /** Навигация/лейблы ресурса */
+    public static function getNavigationLabel(): string
+    {
+        return __('category.nav.navigation_label');
+    }
+    public static function getModelLabel(): string
+    {
+        return __('category.nav.model_label');
+    }
+    public static function getPluralModelLabel(): string
+    {
+        return __('category.nav.plural_model_label');
+    }
+    public static function getBreadcrumb(): string
+    {
+        return __('category.nav.navigation_label');
+    }
+
+    /** Вкладка «Основные» */
     protected static function getMainTab(array $locales, string $defaultLocale): Tab
     {
-
-        return  Tab::make('Основные')
+        return Tab::make(__('category.tabs.main'))
             ->schema([
                 Forms\Components\Section::make()
                     ->schema([
@@ -60,16 +76,22 @@ class ProductCategoryResource extends Resource
                                     ->prefixLocaleLabel()
                                     ->columns(1)
                                     ->columnSpanFull()
-                                    ->schema(fn(string $locale) => [
-                                        TextInput::make("title")
+                                    ->schema(fn (string $locale) => [
+                                        TextInput::make('title')
                                             ->required($locale === $defaultLocale)
-                                            ->label('Название')
+                                            ->label(__('category.fields.title'))
                                             ->maxLength(255)
                                             ->live(onBlur: true)
-                                            ->afterStateUpdated(fn (string $operation, $state, Forms\Set $set) => $operation === 'create' ? $set('slug', Str::slug($state)) : null),
-                                        MarkdownEditor::make('description')->label('Описание'),
+                                            ->afterStateUpdated(
+                                                fn (string $operation, $state, Forms\Set $set) =>
+                                                $operation === 'create' ? $set('slug', Str::slug($state)) : null
+                                            ),
+                                        MarkdownEditor::make('description')
+                                            ->label(__('category.fields.description')),
                                     ]),
+
                                 Forms\Components\TextInput::make('slug')
+                                    ->label(__('category.fields.slug'))
                                     ->disabled()
                                     ->dehydrated()
                                     ->required()
@@ -78,7 +100,7 @@ class ProductCategoryResource extends Resource
                             ]),
 
                         Forms\Components\Select::make('parent_id')
-                            ->label('Родительская категория')
+                            ->label(__('category.fields.parent_id'))
                             ->native(false)
                             ->default(-1)
                             ->options(function () use ($defaultLocale) {
@@ -88,89 +110,74 @@ class ProductCategoryResource extends Resource
                                     ->mapWithKeys(function ($cat) use ($locale) {
                                         $title = json_decode($cat->getRawOriginal('title'), true);
                                         return [
-                                            $cat->id => $title[$locale] ?? $title['uk'] ?? 'Без названия',
+                                            $cat->id => $title[$locale] ?? $title['uk'] ?? __('category.misc.untitled'),
                                         ];
                                     })
                                     ->toArray();
-                                return [-1 => 'Корневая категория'] + $options;
+
+                                // «Корневая/Базовая» категория
+                                return [-1 => __('category.fields.parent_root')] + $options;
                             })
                             ->searchable()
-                            ->placeholder('Выберите родительскую категорию'),
+                            ->placeholder(__('category.placeholders.parent_id')),
 
                         Forms\Components\Toggle::make('is_visible')
-                            ->label('Видима пользователям')
+                            ->label(__('category.fields.is_visible'))
                             ->default(true),
                     ]),
-
             ]);
     }
-    public function characteristics()
-    {
-        return $this->belongsToMany(
-            \App\Models\Shop\Characteristic::class,
-            'category_characteristic',
-            'category_id',
-            'characteristic_id'
-        )
-            ->withPivot(['affects_price', 'is_required', 'expanded']) // если есть
-            ->withTimestamps(); // если используете created_at/updated_at
-    }
 
+    /** Вкладка «Характеристики» */
     protected static function getCharakTab(array $locales): Tab
     {
         $defaultLocale = Setting::value('default_language_code') ?: config('app.locale');
-        // список активных языков из таблицы languages
         $locales = static::getActiveLocales();
-        return Tab::make('Характеристики')
+
+        return Tab::make(__('category.tabs.characteristics'))
             ->schema([
                 CheckboxList::make('characteristics')
-                    ->label('Характеристики')
-                    ->relationship('characteristics', 'name') // <== критично важно
-                    ->options(function () use($defaultLocale)  {
-                        $locale = $defaultLocale; // или $livewire->activeLocale если внутри компонента Filament
-                        return Characteristic::all()->
-                        mapWithKeys(function ($item) use ($locale) {
-                            return [$item->id => $item->getTranslation('name', $locale)];
-                        });
+                    ->label(__('category.fields.characteristics'))
+                    ->relationship('characteristics', 'name')
+                    ->options(function () use ($defaultLocale) {
+                        $locale = $defaultLocale;
+                        return Characteristic::all()
+                            ->mapWithKeys(function ($item) use ($locale) {
+                                return [$item->id => $item->getTranslation('name', $locale)];
+                            });
                     })
-                    ->columns(2)
+                    ->columns(2),
             ]);
-        /*   ->mapWithKeys(fn($cat) => [
-           $cat->id => (
-               json_decode($cat->getRawOriginal('name'), true)[$defaultLocale]
-               ?? json_decode($cat->getRawOriginal('name'), true)[config('app.locale')]
-           ),
-       ])*/
-    }  protected static function getVariacTab(array $locales): Tab
-{
-    $defaultLocale = Setting::value('default_language_code') ?: config('app.locale');
-    return  Tab::make('Вариации')
-        ->schema([
-            CheckboxList::make('variations')
-                ->label('Название вариации')
-                ->relationship('variations', 'name') // <== критично важно
-                ->options(function () use($defaultLocale)  {
-                    $locale = $defaultLocale; // или $livewire->activeLocale если внутри компонента Filament
-                    return Variation::all()->
-                    mapWithKeys(function ($item) use ($locale) {
-                        return [$item->id => $item->name];
-                    });
-                })
-                ->columns(2)
+    }
 
+    /** Вкладка «Вариации» */
+    protected static function getVariacTab(array $locales): Tab
+    {
+        $defaultLocale = Setting::value('default_language_code') ?: config('app.locale');
 
-        ])
-        ;
+        return Tab::make(__('category.tabs.variations'))
+            ->schema([
+                CheckboxList::make('variations')
+                    ->label(__('category.fields.variation_name'))
+                    ->relationship('variations', 'name')
+                    ->options(function () use ($defaultLocale) {
+                        $locale = $defaultLocale;
+                        return Variation::all()
+                            ->mapWithKeys(function ($item) use ($locale) {
+                                return [$item->id => $item->name];
+                            });
+                    })
+                    ->columns(2),
+            ]);
+    }
 
-}
     public static function form(Form $form): Form
     {
         $defaultLocale = Setting::value('default_language_code') ?: config('app.locale');
         $locales = static::getActiveLocales();
 
         return $form->schema([
-
-            Tabs::make('Категория')
+            Tabs::make()
                 ->columns(1)
                 ->tabs([
                     static::getMainTab($locales, $defaultLocale),
@@ -178,7 +185,6 @@ class ProductCategoryResource extends Resource
                     static::getVariacTab($locales),
                 ]),
         ])->columns(1);
-
     }
 
     public static function model(): string
@@ -191,26 +197,43 @@ class ProductCategoryResource extends Resource
         return Language::where('active', true)
             ->orderBy('position')
             ->pluck('code')
-            ->map(fn($c) => strtolower($c))
+            ->map(fn ($c) => strtolower($c))
             ->toArray();
     }
 
     public static function table(Table $table): Table
     {
         $defaultLocale = Setting::value('default_language_code') ?: config('app.locale');
+
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('title')->label('Name')->searchable()->sortable(),
-                Tables\Columns\TextColumn::make('slug')->label('slug')->searchable()->sortable(),
+                Tables\Columns\TextColumn::make('title')
+                    ->label(__('category.columns.title'))
+                    ->searchable()
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('slug')
+                    ->label(__('category.columns.slug'))
+                    ->searchable()
+                    ->sortable(),
+
                 Tables\Columns\TextColumn::make('parent.name')
-                    ->label('Родитель')
-                    ->getStateUsing(function (ProductCategory $record, TextColumn $column, $livewire) use ($defaultLocale) {
+                    ->label(__('category.columns.parent'))
+                    ->getStateUsing(function (ProductCategory $record) use ($defaultLocale) {
                         $locale = $defaultLocale;
                         return $record->parent ? $record->parent->getTranslation('name', $locale) : '—';
                     })
-                    ->searchable()->sortable(),
-                Tables\Columns\IconColumn::make('is_visible')->label('Visibility')->sortable(),
-                Tables\Columns\TextColumn::make('updated_at')->label('Updated Date')->date()->sortable(),
+                    ->searchable()
+                    ->sortable(),
+
+                Tables\Columns\IconColumn::make('is_visible')
+                    ->label(__('category.columns.is_visible'))
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('updated_at')
+                    ->label(__('category.columns.updated_at'))
+                    ->date()
+                    ->sortable(),
             ])
             ->filters([])
             ->actions([
@@ -225,12 +248,10 @@ class ProductCategoryResource extends Resource
 
     public static function getRelations(): array
     {
-
         return [
             ProductRelationManager::class,
         ];
     }
-
 
     public static function getPages(): array
     {

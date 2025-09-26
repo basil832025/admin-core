@@ -10,7 +10,7 @@ class FixedDiscount extends Model
 {
 use SoftDeletes;
 
-protected $table = 'shop_fixed_discounts';
+protected $table = 'bs_shop_fixed_discounts';
 
 protected $fillable = [
 'name',

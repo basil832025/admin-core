@@ -15,17 +15,22 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 class Product extends Model
 {
     use HasTranslations;
-
+    protected $table = 'bs_products';
     protected $fillable = [
         'title','sku', 'slug', 'description', 'price', 'old_price',
         'quantity', 'in_stock','main_image','parent_id','short_name',
-        'seo_title', 'seo_description', 'seo_keywords','category_id','dop_info'
+        'seo_title', 'seo_description', 'seo_keywords','category_id','dop_info',
+          'is_new',  'is_hit',  'is_home', 'code2', 'sort','short_desc', 'main_image_small',
     ];
     protected $casts = [
         'title' => 'array',
         'parent_id' => 'int',
         'description' => 'array',
         'is_visible' => 'boolean',
+        'is_new'  => 'boolean',
+        'is_hit'  => 'boolean',
+        'is_home' => 'boolean',
+        'sort'    => 'integer',
     ];
     public $translatable = [
         'title',
@@ -134,7 +139,7 @@ class Product extends Model
     }
     public function categories()
     {
-        return $this->belongsToMany(ProductCategory::class, 'product_product_category', 'product_id', 'product_category_id');
+        return $this->belongsToMany(ProductCategory::class, 'bs_product_product_category', 'product_id', 'product_category_id');
 
     }
 
@@ -172,7 +177,7 @@ class Product extends Model
     }*/
     public function characteristicValues()
     {
-        return $this->belongsToMany(CharacteristicValue::class, 'product_characteristic_value')
+        return $this->belongsToMany(CharacteristicValue::class, 'bs_product_characteristic_value')
             ->withPivot(['characteristic_id','price_modifier','product_id', 'value_text', 'value_number',
                 'value_datetime','characteristic_value_id']);
     }
@@ -183,7 +188,7 @@ class Product extends Model
 
     public function variations()
     {
-        return $this->belongsToMany(Variation::class, 'product_variation')
+        return $this->belongsToMany(Variation::class, 'bs_product_variation')
             ->withPivot('price')
             ->withTimestamps();
     }

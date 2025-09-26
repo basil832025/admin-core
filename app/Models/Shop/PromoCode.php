@@ -12,7 +12,7 @@ class PromoCode extends Model
 {
     use SoftDeletes;
 
-    protected $table = 'shop_promo_codes';
+    protected $table = 'bs_shop_promo_codes';
 
     protected $fillable = [
         'code',
@@ -306,7 +306,7 @@ class PromoCode extends Model
     {
         return $this->belongsToMany(
             CharacteristicValue::class,
-            'shop_promo_code_characteristic_values',
+            'bs_shop_promo_code_characteristic_values',
             'promo_code_id',
             'characteristic_value_id'
         )->withPivot('characteristic_id')->withTimestamps();
@@ -323,7 +323,7 @@ class PromoCode extends Model
     {
         return $this->belongsToMany(
             ProductCategory::class,
-            'shop_promo_code_categories',
+            'bs_shop_promo_code_categories',
             'promo_code_id',
             'category_id'
         )->withTimestamps();
@@ -333,7 +333,7 @@ class PromoCode extends Model
     {
         return $this->belongsToMany(
             Product::class,
-            'shop_promo_code_products',
+            'bs_shop_promo_code_products',
             'promo_code_id',
             'product_id'
         )->withTimestamps();
@@ -343,7 +343,7 @@ class PromoCode extends Model
     {
         return $this->belongsToMany(
             Characteristic::class,
-            'shop_promo_code_characteristics',
+            'bs_shop_promo_code_characteristics',
             'promo_code_id',
             'characteristic_id'
         )->withTimestamps();

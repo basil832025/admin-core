@@ -2,11 +2,20 @@ import { defineConfig } from 'vite';
 import laravel from 'laravel-vite-plugin';
 
 export default defineConfig({
-    base: '/',            // если сайт в корне домена
+   // base: '/',            // если сайт в корне домена
     plugins: [
         laravel({
             input: ['resources/css/app.css', 'resources/js/app.js'],
             refresh: true,
+            buildDirectory: 'build',     // <— обязательно
         }),
+
     ],
+ /*   build: {
+        outDir: 'public/build',
+        assetsDir: 'assets',
+        manifest: true,
+    },*/
+    base: '/build/',                 // <— КЛЮЧЕВОЕ: чтобы внутри CSS стало /build/assets/...
+
 });

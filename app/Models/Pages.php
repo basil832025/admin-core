@@ -7,6 +7,7 @@ use Spatie\Translatable\HasTranslations;
 class Pages extends Model
 {
     use HasTranslations;
+    protected $table = 'bs_pages';
     // Разрешённые для массового заполнения поля
     protected $fillable = [
         'slug',

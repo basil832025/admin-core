@@ -9,7 +9,7 @@ class BlogCategory extends Model
 {
     use HasFactory;
     use HasTranslations;
-
+    protected $table = 'bs_blog_categories';
     protected $fillable = [
         'name',
         'slug',

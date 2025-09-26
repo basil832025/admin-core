@@ -43,7 +43,7 @@ class EditOrder extends EditRecord
     protected function getFooterWidgets(): array
     {
         return [
-            OrderActivityWidget::class,   // покажется над формой
+        //    OrderActivityWidget::class,   // покажется над формой
         ];
     }
     public function syncAddressOnSave(array $data): array

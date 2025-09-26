@@ -10,7 +10,7 @@ use Spatie\Translatable\HasTranslations;
 class CategoryVariation extends Model
 {
     use HasTranslations;
-    protected $table = 'category_variation';
+    protected $table = 'bs_category_variation';
     protected $fillable = ['category_id', 'variation_id'];
    // public $translatable = ['name']; // добавь свои переводимые поля
     public function category(): BelongsTo

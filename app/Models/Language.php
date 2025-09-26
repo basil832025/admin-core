@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Language extends Model
 {
+    protected $table = 'bs_languages';
     // Разрешаем массовое заполнение этих полей
     protected $fillable = [
         'name',

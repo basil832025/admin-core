@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class KitchenTicketItem extends Model
 {
+    protected $table = 'bs_kitchen_ticket_items';
 protected $fillable = [
 'kitchen_ticket_id', 'order_item_id',
 'product_name', 'product_short', 'qty',

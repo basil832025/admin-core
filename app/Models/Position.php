@@ -8,6 +8,7 @@ use Spatie\Permission\Traits\HasPermissions;
 
 class Position extends SpatieRole
 {
+    protected $table = 'bs_positions';
     use HasPermissions;
     protected $fillable = ['name', 'permissions'];
 

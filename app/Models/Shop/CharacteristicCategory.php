@@ -13,7 +13,7 @@ class CharacteristicCategory extends Model
     use HasFactory;
     use HasTranslations;
 
-    protected $table = 'characteristic_categories';
+    protected $table = 'bs_characteristic_categories';
     protected $fillable = [
         'name',
         'slug',

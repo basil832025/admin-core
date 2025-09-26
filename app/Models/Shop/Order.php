@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
 use Illuminate\Support\Carbon;
+use App\Enums\PaymentMethodEnum;
 class Order extends Model
 {
     use HasFactory;
@@ -21,7 +22,7 @@ class Order extends Model
     /**
      * @var string
      */
-    protected $table = 'shop_orders';
+    protected $table = 'bs_shop_orders';
 
     /**
      * @var array<int, string>
@@ -52,6 +53,7 @@ class Order extends Model
     ];
 
     protected $casts = [
+        'payment' => PaymentMethodEnum::class,
         'status'       => OrderStatus::class, // раз ты уже используешь enum
         'status_times' => 'array',
         'dat' => 'date',
@@ -64,6 +66,7 @@ class Order extends Model
         'sale_sum' => 'decimal:2',
         'total_price_sale' => 'decimal:2',
         'address'     => 'array',
+
     ];
 
     /** @return MorphOne<OrderAddress> */

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ClientAddress extends Model
 {
+    protected $table = 'bs_client_addresses';
     protected $fillable = [
         'client_id',
         'city',

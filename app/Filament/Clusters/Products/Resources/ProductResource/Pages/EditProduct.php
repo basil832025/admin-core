@@ -16,17 +16,50 @@ class EditProduct extends EditRecord
     {
         return [
             $this->getCancelFormAction()
-                ->label('Отмена')
+                ->label(__('product.actions.cancel'))
                 ->color('warning')
                 // можно задать куда вести, по умолчанию вернёт на index-роту
                 ->url($this->getResource()::getUrl('index')),
 
             $this->getSaveFormAction()
-                ->label('Сохранить')
+                ->label(__('product.actions.save'))
                 //   ->icon(Heroicons::class, 'outline-save') // указываем класс Filament\Icons\Heroicons
                 ->formId('form'),
             DeleteAction::make(),
         ];
+    }
+    public static function getNavigationLabel(): string
+    {
+        return __('product.nav.navigation_label');
+    }
+
+    public function getTitle(): string
+    {
+        return __('product.pages.edit_title');
+    }
+
+    public function getHeading(): string
+    {
+        return __('product.pages.edit_heading');
+    }
+
+    public function getBreadcrumb(): string
+    {
+        return __('product.pages.edit_breadcrumb');
+    }
+    public function getSaveButtonLabel(): string
+    {
+        return __('product.actions.save');
+    }
+
+    public function getCancelButtonLabel(): string
+    {
+        return __('product.actions.cancel');
+    }
+
+    public function getDeleteButtonLabel(): string
+    {
+        return __('product.actions.delete');
     }
     protected function mutateFormDataBeforeSave(array $data): array
     {

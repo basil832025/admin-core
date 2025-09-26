@@ -20,7 +20,7 @@ class ProductCategory extends Model
     use HasTranslations;
 
    // use TreeModel;
-    protected $table = 'product_categories';
+    protected $table = 'bs_product_categories';
      protected $fillable = [
         'title',
         'slug',
@@ -133,7 +133,7 @@ class ProductCategory extends Model
             )
             // подгружаем категории с их pivot, чтобы потом выбрать «ближайшую»
             ->with(['categories' => fn ($q) =>
-            $q->whereIn('product_categories.id', $categoryIds)
+            $q->whereIn('bs_product_categories.id', $categoryIds)
             ])
             ->get();
        // dd($chars);
@@ -173,14 +173,14 @@ class ProductCategory extends Model
     {
         return $this->belongsToMany(
             Characteristic::class,
-            'category_characteristic',
+            'bs_category_characteristic',
             'category_id',
             'characteristic_id'
         )->withPivot(['is_required', 'affects_price']);
     }
     public function variations(): BelongsToMany
     {
-        return $this->belongsToMany(Variation::class, 'category_variation', 'category_id', 'variation_id');
+        return $this->belongsToMany(Variation::class, 'bs_category_variation', 'category_id', 'variation_id');
     }
     public function parent(): BelongsTo
     {

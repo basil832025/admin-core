@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Hash;
 
 class Client extends Model
 {
+    protected $table = 'bs_clients';
     protected $fillable = [
         'name',
         'phone',
@@ -33,7 +34,17 @@ class Client extends Model
             }
         });
     }
-
+    // Красивый вывод телефона
+    public function getPhonePrettyAttribute(): string
+    {
+        $d = preg_replace('/\D+/', '', (string) $this->phone);
+        // приводим к локальным 10 цифрам (обрежем +38/380/0 в начале)
+        $d = preg_replace('/^(38)?0?/', '', $d);
+        if (strlen($d) !== 10) {
+            return $this->phone ?: '-';
+        }
+        return '+38 (' . substr($d, 0, 2) . ') ' . substr($d, 2, 3) . '-' . substr($d, 5, 2) . '-' . substr($d, 7, 2);
+    }
     public function addresses(): HasMany
     {
         return $this->hasMany(ClientAddress::class);

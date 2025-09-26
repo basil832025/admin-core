@@ -17,6 +17,16 @@ return [
         | Форма
         |--------------------------------------------------------------------------
     */
+    'components' => [
+        'tree' => [
+            'buttons' => [
+                'select_all'   => ['label' => 'Вибрати все'],
+                'deselect_all' => ['label' => 'Зняти вибір'],
+                'expand_all'   => ['label' => 'Розгорнути все'],
+                'collapse_all' => ['label' => 'Згорнути все'],
+            ],
+        ],
+    ],
     'components.tree.buttons.select_all.label' => 'Выбрать всё',
     'components.tree.buttons.deselect_all.label' => 'Снять выбор',
     'components.tree.buttons.expand_all.label' => 'Развернуть всё',

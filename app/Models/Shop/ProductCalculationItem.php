@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ProductCalculationItem extends Model
 {
-    protected $table = 'product_calculation_items';
+    protected $table = 'bs_product_calculation_items';
 
     protected $fillable = [
         'calculation_id', 'component_product_id',

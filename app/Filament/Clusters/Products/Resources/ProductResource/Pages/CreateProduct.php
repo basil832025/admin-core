@@ -45,7 +45,39 @@ class CreateProduct extends CreateRecord
        /* $data['characteristics'] ??= []; // гарантируем существование
         return $data;*/
     }
+    public static function getNavigationLabel(): string
+    {
+        return __('product.nav.navigation_label');
+    }
 
+    public function getTitle(): string
+    {
+        return __('product.pages.edit_title');
+    }
+
+    public function getHeading(): string
+    {
+        return __('product.pages.create_title');
+    }
+
+    public function getBreadcrumb(): string
+    {
+        return __('product.pages.create_breadcrumb');
+    }
+    public function getSaveButtonLabel(): string
+    {
+        return __('product.actions.save');
+    }
+
+    public function getCancelButtonLabel(): string
+    {
+        return __('product.actions.cancel');
+    }
+
+    public function getDeleteButtonLabel(): string
+    {
+        return __('product.actions.delete');
+    }
     protected function afterValidate(): void
     {
 

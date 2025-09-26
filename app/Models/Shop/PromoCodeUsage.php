@@ -9,7 +9,7 @@ class PromoCodeUsage extends Model
 {
     public $timestamps = false; // у нас своё поле used_at
 
-    protected $table = 'shop_promo_code_usages';
+    protected $table = 'bs_shop_promo_code_usages';
 
     protected $fillable = [
         'promo_code_id',

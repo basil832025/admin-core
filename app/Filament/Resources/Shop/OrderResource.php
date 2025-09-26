@@ -35,6 +35,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\TimePicker;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\ToggleButtons;
+use Filament\Forms\Components\View;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
@@ -48,6 +49,7 @@ use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -57,6 +59,7 @@ use Illuminate\Support\HtmlString;
 use App\Models\Shop\Client;
 use App\Filament\Resources\ClientResource;
 use Filament\Support\Enums\VerticalAlignment;
+use App\Enums\PaymentMethodEnum;
 
 class OrderResource extends Resource
 {
@@ -83,7 +86,12 @@ class OrderResource extends Resource
                                     ->columns(2),
                                 Forms\Components\Tabs\Tab::make('Товары')
                                     ->schema(static::getProductsTabSchema()),
-                            ])
+                                Forms\Components\Tabs\Tab::make('Журнал')->schema([
+                                    View::make('filament.orders.journal-tab')
+                                        ->dehydrated(false)
+                                        ->columnSpanFull(),
+                                ]),
+                             ])
                             ->persistTabInQueryString(),
                     ])
                     ->columnSpan(['lg' => fn (?Order $record) => $record === null ? 3 : 2]),
@@ -721,6 +729,36 @@ class OrderResource extends Resource
                     ->label('Клиент')
                     ->required()
                     ->live()
+                    // === ЛЕЙБЛ ПУНКТА (выбранное значение) ===
+                    // Если выбран клиент — показываем "Имя · +38 (...)"
+                    ->getOptionLabelUsing(function ($value) {
+                        if (!$value) return null;
+                        $c = Client::query()->select('id','name','phone')->find($value);
+                        return $c ? ($c->name . ' · ' . $c->phone_pretty) : null;
+                    })
+                    // На всякий случай (когда рисуется из relationship)
+                    ->getOptionLabelFromRecordUsing(fn (Client $c) => $c->name . ' · ' . $c->phone_pretty)
+                    // === ПОИСК ===
+                    ->getSearchResultsUsing(function (string $search) {
+                        $digits = preg_replace('/\D+/', '', $search); // только цифры из запроса
+                        return Client::query()
+                            ->select('id','name','phone')
+                            ->when($search !== '', fn ($q) =>
+                            $q->where('name', 'like', "%{$search}%")
+                                ->orWhere('email', 'like', "%{$search}%")
+                            )
+                            ->when($digits !== '', fn ($q) =>
+                                // MySQL 8+: убираем всё, что не цифры, и ищем подстроку
+                            $q->orWhereRaw("REGEXP_REPLACE(phone, '[^0-9]', '') LIKE ?", ["%{$digits}%"])
+                            )
+                            ->orderBy('name')
+                            ->limit(50)
+                            ->get()
+                            ->mapWithKeys(fn (Client $c) => [
+                                $c->id => $c->name . ' · ' . $c->phone_pretty,
+                            ]);
+                    })
+                    ->optionsLimit(50)
                     ->afterStateUpdated(function ($state, Set $set) {
                         // $state — это выбранный clients_id
                         $phone = $state
@@ -864,15 +902,24 @@ class OrderResource extends Resource
 
                             ->columnSpan(3),
 
-                        Select::make('payment')
+                    /*    Select::make('payment')
                             ->label('Способ оплаты')
                             ->options([
-                                1 => 'Наличкой',
-                                2 => 'Безналичная',
+                                1=> 'Кредитная карта',
+                                2 => 'Наличкой',
                                 3 => 'Клубная карта (кредит/депозит)',
-                                4 => 'Кредитная карта',
+                                4 => 'Безналичная через организацию',
                                 5 => 'Без оплаты',
-                            ])
+                                9 => 'Оплата через POS-термінал',
+                                10 => 'Рахунок-фактура (для корпоративних клієнтів)',
+                                11 => 'LiqPay',
+                            ])*/
+                            Select::make('payment')
+                                ->label(__('Оплата'))
+                                ->options(PaymentMethodEnum::options())
+                                ->required()
+                                ->native(false)
+                                ->searchable()
                             ->default(1)
                             ->live()
                             ->reactive()
@@ -1374,7 +1421,13 @@ class OrderResource extends Resource
                     })
                     ->wrap()        // перенос длинных адресов
                     ->toggleable(), // можно спрятать в настройках таблицы
-
+                TextColumn::make('payment')
+                    ->label(__('Оплата'))
+                    ->badge()
+                    ->sortable()
+                    ->formatStateUsing(
+                        fn (null|PaymentMethodEnum $state) => $state?->label() ?? '—'
+                    ),
                 TextColumn::make('created_at')->label('')
                     ->extraHeaderAttributes([
                         'x-data' => '{}',
@@ -1387,8 +1440,14 @@ class OrderResource extends Resource
                         'style'  => 'line-height: 1.1;', // опционально
                     ])
                     ->date()->toggleable(),
-            ])
+            ])  ->defaultSort('created_at', 'desc') // 👈 сортировка по умолчанию
             ->filters([
+                SelectFilter::make('payment')     // то же имя поля
+                ->label(__('Оплата'))
+                    ->options(PaymentMethodEnum::options())
+                    ->multiple()
+                    ->preload(),
+
                 TrashedFilter::make(),
                 Filter::make('created_at')
                     ->form([
@@ -1411,6 +1470,7 @@ class OrderResource extends Resource
                         return $indicators;
                     }),
             ])
+
             ->actions([
                 // МОДАЛЬНОЕ ДЕЙСТВИЕ «Статусы»
                 Action::make('statuses')
@@ -1483,7 +1543,11 @@ class OrderResource extends Resource
                 }),
             ])
             ->groups([
-                Tables\Grouping\Group::make('created_at')->label('Дата заказа')->date()->collapsible(),
+                Tables\Grouping\Group::make('created_at')->label('Дата заказа')->date()->collapsible()
+                    // 👇 Фикс: принудительно сортируем по дате НОВЫЕ → СТАРЫЕ
+                    ->orderQueryUsing(fn (Builder $query) =>
+                    $query->orderBy('created_at', 'desc')->orderBy('id', 'desc')
+                    ),
             ])
             ->bulkActions([
                 BulkActionGroup::make([ DeleteBulkAction::make(), ]),

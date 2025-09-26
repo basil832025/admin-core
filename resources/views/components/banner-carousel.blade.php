@@ -1,9 +1,9 @@
-<div class="banner-swiper relative h-[320px] rounded-2xl overflow-visible">
+<div class="banner-swiper relative desk:h-[320px] md:h-[197px] rounded-2xl ">
     <div class="swiper-wrapper">
         @for($n=1; $n<=5; $n++)
             <div class="swiper-slide">
                 <img src="{{ asset("images/baner/$n.png") }}"
-                     alt="Банер {{ $n }}" class="w-full h-[320px] object-cover rounded-2xl">
+                     alt="Банер {{ $n }}" class="w-full md:h-[197px] md:w-[674px] desk:w-[1098px] desk:h-[320px]  object-cover rounded-2xl">
             </div>
         @endfor
     </div>

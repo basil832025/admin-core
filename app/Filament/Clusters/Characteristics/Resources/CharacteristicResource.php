@@ -5,9 +5,11 @@ namespace App\Filament\Clusters\Characteristics\Resources;
 use App\Filament\Clusters\Characteristics;
 use App\Filament\Clusters\Characteristics\Resources\CharacteristicResource\Pages;
 use App\Filament\Clusters\Characteristics\Resources\CharacteristicResource\RelationManagers;
+use App\Models\Shop\CategoryCharacteristic;
 use App\Models\Shop\Characteristic;
 
 use App\Models\Shop\CharacteristicCategory;
+
 use Filament\Forms;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Select;
@@ -19,14 +21,17 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Pages\SubNavigationPosition;
+use Illuminate\Support\Arr;
 use SolutionForest\FilamentTranslateField\Forms\Component\Translate;
 use App\Models\Setting;
 use App\Models\Language;
 use Filament\Resources\Concerns\Translatable;
+use Filament\Tables\Enums\FiltersLayout;
 class CharacteristicResource extends Resource
 {
     use Translatable;
@@ -200,9 +205,42 @@ class CharacteristicResource extends Resource
                     ->label('Позиция')
                     ->sortable(),
             ])
+            ->filtersFormColumns(6) // сколько колонок занимают фильтры в строке
+            // 👇 сохранять выбор фильтров между перезагрузками
+            ->persistFiltersInSession()
             ->filters([
-                //
-            ])
+                SelectFilter::make('category')
+                    ->label(__('product.filters.category'))
+                    ->columnSpan(2)
+
+                    ->placeholder(__('product.filters.category_all'))                         // вместо «Всі»
+                    // ->searchPrompt('Введите текст для поиска…')
+                    ->relationship('characteristicCategories', 'id') // фильтруем по belongsTo 'category'
+                    ->getOptionLabelFromRecordUsing(function (CharacteristicCategory $record): string {
+                        $locale = Setting::value('default_language_code') ?: app()->getLocale();
+
+                        // без авто-фолбека, может вернуть null/array
+                        $label = $record->getTranslation('name', $locale, false);
+
+                        if (is_array($label)) {
+                            $label = $label['value'] ?? Arr::first($label, fn($v) => is_string($v) && $v !== '') ?? '';
+                        }
+
+                        if (! is_string($label) || $label === '') {
+                            $all = $record->getTranslations('name'); // ['uk'=>..., 'ru'=>..., ...] либо вложенные
+                            foreach ($all as $v) {
+                                if (is_string($v) && $v !== '') { $label = $v; break; }
+                                if (is_array($v) && is_string($v['value'] ?? null) && $v['value'] !== '') { $label = $v['value']; break; }
+                            }
+                        }
+
+                        return (string) $label;
+                    })
+
+                    ->preload()
+                    ->searchable(),
+
+            ], layout: FiltersLayout::AboveContent)
             ->actions([
                 Tables\Actions\EditAction::make(),
             ])

@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Builder;
 
 class KitchenTicket extends Model
 {
+    protected $table = 'bs_kitchen_tickets';
     protected $fillable = [
         'order_id', 'stage', 'urgent', 'delivery_type',
         'processing_at', 'filling_at', 'molding_at', 'baking_at', 'prepared_at', // или prepared_at, если так в миграции

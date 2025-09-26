@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 class Variation extends Model
 {
+    protected $table = 'bs_variations';
     protected $fillable = [
         'name',
         'slug',
@@ -20,7 +21,7 @@ class Variation extends Model
     {
         return $this->belongsToMany(
             CharacteristicValue::class,
-            'variation_characteristic_value',
+            'bs_variation_characteristic_value',
             'variation_id',
             'characteristic_value_id'
         )->withPivot('characteristic_id');
@@ -44,7 +45,7 @@ class Variation extends Model
     }
     public function categories()
     {
-        return $this->belongsToMany(ProductCategory::class, 'category_variation');
+        return $this->belongsToMany(ProductCategory::class, 'bs_category_variation');
     }
     public function variationCharacteristicValues(): HasMany
     {

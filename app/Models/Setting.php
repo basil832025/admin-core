@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Setting extends Model
 {
+    protected $table = 'bs_settings';
     protected $fillable = [
         'site_name',
         'logo_path',

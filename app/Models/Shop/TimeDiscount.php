@@ -13,7 +13,7 @@ class TimeDiscount extends Model
     use SoftDeletes;
     public const TYPE_ORDER     = 'order';      // по времени заказа
     public const TYPE_EXECUTION = 'execution';  // по времени выполнения (доставка/выдача)
-    protected $table = 'shop_time_discounts';
+    protected $table = 'bs_shop_time_discounts';
 
     protected $fillable = [
         'name',
@@ -221,7 +221,7 @@ class TimeDiscount extends Model
         if ($cache !== null) return $cache;
 
         try {
-            $ids = $this->categories()->pluck('product_categories.id')->all(); // или ->pluck('id')
+            $ids = $this->categories()->pluck('bs_product_categories.id')->all(); // или ->pluck('id')
         } catch (\Throwable $e) {
             $ids = [];
         }
@@ -246,7 +246,7 @@ class TimeDiscount extends Model
 
         // b) если у товара есть связь categories()
         if (method_exists($product, 'categories')) {
-            $pids = $product->categories()->pluck('product_categories.id')->all();
+            $pids = $product->categories()->pluck('bs_product_categories.id')->all();
             return (bool) array_intersect($ids, array_map('intval', $pids));
         }
 
@@ -260,7 +260,7 @@ class TimeDiscount extends Model
         // таблицу зови как у тебя реально: shop_time_discount_products (time_discount_id, product_id)
         return $this->belongsToMany(
             \App\Models\Shop\Product::class,
-            'shop_time_discount_products',
+            'bs_shop_time_discount_products',
             'time_discount_id',
             'product_id'
         )->withTimestamps();
@@ -301,7 +301,7 @@ class TimeDiscount extends Model
         // таблицу зови как у тебя: shop_time_discount_characteristic_values (time_discount_id, characteristic_value_id)
         return $this->belongsToMany(
             \App\Models\Shop\CharacteristicValue::class,
-            'shop_time_discount_characteristic_values',
+            'bs_shop_time_discount_characteristic_values',
             'time_discount_id',
             'characteristic_value_id'
         )->withTimestamps();
@@ -482,7 +482,7 @@ class TimeDiscount extends Model
         // подставь фактическую модель/таблицу категории, если отличается
         return $this->belongsToMany(
             ProductCategory::class,
-            'shop_time_discount_categories',
+            'bs_shop_time_discount_categories',
             'time_discount_id',
             'category_id'
         )->withTimestamps();
@@ -495,7 +495,7 @@ class TimeDiscount extends Model
     {
         return $this->belongsToMany(
             \App\Models\Shop\Characteristic::class,
-            'shop_time_discount_characteristics',
+            'bs_shop_time_discount_characteristics',
             'time_discount_id',
             'characteristic_id'
         )->withTimestamps();

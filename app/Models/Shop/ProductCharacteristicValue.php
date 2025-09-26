@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ProductCharacteristicValue extends Model
 {
-    protected $table = 'product_characteristic_value'; // 👈 Явно указываем имя таблицы
+    protected $table = 'bs_product_characteristic_value'; // 👈 Явно указываем имя таблицы
 
     protected $fillable = [
         'product_id',

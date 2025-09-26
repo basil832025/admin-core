@@ -9,7 +9,7 @@ use Spatie\Translatable\HasTranslations;
 class CategoryCharacteristic extends Model
 {
    // use HasTranslations;
-    protected $table = 'category_characteristic';
+    protected $table = 'bs_category_characteristic';
     protected $fillable = ['category_id', 'characteristic_id', 'affects_price'];
     public $translatable = ['name']; // добавь свои переводимые поля
     public function category(): BelongsTo

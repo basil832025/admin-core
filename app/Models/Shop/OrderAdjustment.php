@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class OrderAdjustment extends Model
 {
-    protected $table = 'shop_order_adjustments';
+    protected $table = 'bs_shop_order_adjustments';
     protected $fillable = [
         'shop_order_id','shop_order_item_id','type','label',
         'amount','promotion_id','promo_code_id','meta',

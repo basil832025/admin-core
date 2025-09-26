@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class VariationCharacteristicValue extends Model
 {
-    protected $table = 'variation_characteristic_value';
+    protected $table = 'bs_variation_characteristic_value';
 
     protected $fillable = [
         'variation_id',

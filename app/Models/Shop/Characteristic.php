@@ -13,6 +13,7 @@ class Characteristic extends Model
 {
     use HasFactory;
     use HasTranslations;
+    protected $table = 'bs_characteristics';
     protected $fillable = [
         'category_id',
         'name',
@@ -46,13 +47,17 @@ class Characteristic extends Model
     {
         return $this->belongsToMany(
             ProductCategory::class,
-            'category_characteristic',
+            'bs_category_characteristic',
             'characteristic_id',
             'category_id'
         ) ->withPivot(['is_required'])   // ← обязательно
         ->withTimestamps();;
     }
 
+    public function characteristicCategories()
+    {
+        return $this->belongsTo(CharacteristicCategory::class, 'category_id');
+    }
     public function category()
     {
         return $this->belongsTo(CharacteristicCategory::class, 'category_id');
@@ -63,7 +68,7 @@ class Characteristic extends Model
     ];
     public function products()
     {
-        return $this->belongsToMany(Product::class, 'product_characteristic_value')
+        return $this->belongsToMany(Product::class, 'bs_product_characteristic_value')
             ->withTimestamps();
     }
     public function values(): HasMany

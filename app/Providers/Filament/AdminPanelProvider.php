@@ -52,8 +52,8 @@ class AdminPanelProvider extends PanelProvider
             'sky'     => Color::Sky,
         ];
         // --- ЗАЩИТА ОТ ОТСУТСТВИЯ ТАБЛИЦ ПРИ package:discover ---
-        $hasLang     = $this->safeHasTable('languages');
-        $hasSettings = $this->safeHasTable('settings');
+        $hasLang     = $this->safeHasTable('bs_languages');
+        $hasSettings = $this->safeHasTable('bs_settings');
             // Локали (дефолты, если таблиц нет)
         $ordered = $hasLang
             ? Language::where('active', true)->orderBy('position')->pluck('code')->map(fn ($c) => strtolower($c))
@@ -79,7 +79,8 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->authGuard('web') // <- явно
+           // ->authGuard('web') // <- явно
+            ->authGuard('admin') // <- явно
             ->brandName('Basil Admin')
             ->login()
            // ->viteTheme('resources/css/filament/admin/theme.css') // подключаем свои стили

@@ -52,8 +52,8 @@ class KitchenTicketResource extends Resource
         $scope = request()->get('scope', 'current'); // current|archived
 
         return KitchenTicket::query()
-            ->leftJoin('shop_orders as so', 'so.id', '=', 'kitchen_tickets.order_id')
-            ->select('kitchen_tickets.*')
+            ->leftJoin('bs_shop_orders as so', 'so.id', '=', 'bs_kitchen_tickets.order_id')
+            ->select('bs_kitchen_tickets.*')
             ->selectRaw('CONCAT(so.date_order, " ", TIME(so.time_order)) as order_dt')
             ->when(
                 $scope === 'archived',

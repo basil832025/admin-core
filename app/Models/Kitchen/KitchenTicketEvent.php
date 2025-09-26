@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class KitchenTicketEvent extends Model
 {
+    protected $table = 'bs_kitchen_ticket_events';
     protected $fillable = ['kitchen_ticket_id','from_stage','to_stage','user_id','meta'];
     protected $casts = ['meta' => 'array'];
 
