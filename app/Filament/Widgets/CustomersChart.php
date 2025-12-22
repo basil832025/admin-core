@@ -2,9 +2,13 @@
 
 namespace App\Filament\Widgets;
 
+use App\Models\Shop\Client;
 use Filament\Widgets\ChartWidget;
 use Illuminate\Support\Str;
 use App\Support\Traits\HandlesShieldWidgetAccess;
+use Flowframe\Trend\Trend;
+use Flowframe\Trend\TrendValue;
+
 class CustomersChart extends ChartWidget
 {
     use HandlesShieldWidgetAccess;
@@ -37,6 +41,7 @@ class CustomersChart extends ChartWidget
     {
         return static::canAccess();
     }
+    
     protected function getType(): string
     {
         return 'line';
@@ -44,15 +49,41 @@ class CustomersChart extends ChartWidget
 
     protected function getData(): array
     {
+        // Получаем данные по месяцам за текущий год
+        $customerData = Trend::model(Client::class)
+            ->between(
+                start: now()->startOfYear(),
+                end: now()->endOfYear(),
+            )
+            ->perMonth()
+            ->count();
+
+        // Вычисляем накопительную сумму (всего клиентов на конец каждого месяца)
+        $cumulativeData = [];
+        $total = 0;
+        
+        // Сначала получаем общее количество клиентов до начала года
+        $totalBeforeYear = Client::where('created_at', '<', now()->startOfYear())->count();
+        $total = $totalBeforeYear;
+        
+        foreach ($customerData as $value) {
+            $total += (int) $value->aggregate;
+            $cumulativeData[] = $total;
+        }
+
+        $labels = $customerData->map(fn (TrendValue $value) => 
+            \Carbon\Carbon::parse($value->date)->translatedFormat('M')
+        )->toArray();
+
         return [
             'datasets' => [
                 [
                     'label' => 'Клиенты',
-                    'data' => [4344, 5676, 6798, 7890, 8987, 9388, 10343, 10524, 13664, 14345, 15753, 17332],
+                    'data' => $cumulativeData,
                     'fill' => 'start',
                 ],
             ],
-            'labels' => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+            'labels' => $labels,
         ];
     }
 }

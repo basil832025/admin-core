@@ -2,11 +2,14 @@
 
 namespace App\Filament\Widgets;
 
+use App\Models\Shop\Client;
+use App\Models\Shop\Order;
 use App\Support\Traits\HandlesShieldWidgetAccess;
 use Carbon\Carbon;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Flowframe\Trend\Trend;
 use Illuminate\Support\Number;
 
 class StatsOverviewWidget extends BaseWidget
@@ -17,27 +20,101 @@ class StatsOverviewWidget extends BaseWidget
 
     protected function getStats(): array
     {
-
         $startDate = ! is_null($this->pageFilters['startDate'] ?? null) ?
             Carbon::parse($this->pageFilters['startDate']) :
-            null;
+            now()->subMonth(); // По умолчанию последний месяц
 
         $endDate = ! is_null($this->pageFilters['endDate'] ?? null) ?
             Carbon::parse($this->pageFilters['endDate']) :
             now();
 
         $isBusinessCustomersOnly = $this->pageFilters['businessCustomersOnly'] ?? null;
-        $businessCustomerMultiplier = match (true) {
-            boolval($isBusinessCustomersOnly) => 2 / 3,
-            blank($isBusinessCustomersOnly) => 1,
-            default => 1 / 3,
-        };
 
-        $diffInDays = $startDate ? $startDate->diffInDays($endDate) : 0;
+        // Запросы к БД
+        $ordersQuery = Order::query()
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->where('status', '!=', \App\Enums\OrderStatus::Cart->value);
 
-        $revenue = (int) (($startDate ? ($diffInDays * 137) : 192100) * $businessCustomerMultiplier);
-        $newCustomers = (int) (($startDate ? ($diffInDays * 7) : 1340) * $businessCustomerMultiplier);
-        $newOrders = (int) (($startDate ? ($diffInDays * 13) : 3543) * $businessCustomerMultiplier);
+        $clientsQuery = Client::query()
+            ->whereBetween('created_at', [$startDate, $endDate]);
+
+        // Если выбраны только корпоративные клиенты
+        if (boolval($isBusinessCustomersOnly)) {
+            // Предполагаем, что корпоративные клиенты имеют какое-то поле или связь
+            // Если такого поля нет, можно убрать этот фильтр
+            // $clientsQuery->where('is_business', true);
+        }
+
+        // Доход (сумма всех заказов)
+        $revenue = (int) round($ordersQuery->sum('total_price') ?? 0);
+
+        // Новые клиенты
+        $newCustomers = $clientsQuery->count();
+
+        // Новые заказы
+        $newOrders = $ordersQuery->count();
+
+        // Данные для сравнения с предыдущим периодом
+        $previousStartDate = $startDate->copy()->sub($startDate->diffInDays($endDate) + 1, 'days');
+        $previousEndDate = $startDate->copy()->subDay();
+
+        $previousRevenue = (int) round(Order::query()
+            ->whereBetween('created_at', [$previousStartDate, $previousEndDate])
+            ->where('status', '!=', \App\Enums\OrderStatus::Cart->value)
+            ->sum('total_price') ?? 0);
+
+        $previousCustomers = Client::query()
+            ->whereBetween('created_at', [$previousStartDate, $previousEndDate])
+            ->count();
+
+        $previousOrders = Order::query()
+            ->whereBetween('created_at', [$previousStartDate, $previousEndDate])
+            ->where('status', '!=', \App\Enums\OrderStatus::Cart->value)
+            ->count();
+
+        // Расчет изменений
+        $revenueChange = $previousRevenue > 0 
+            ? round((($revenue - $previousRevenue) / $previousRevenue) * 100, 1)
+            : ($revenue > 0 ? 100 : 0);
+        
+        $customersChange = $previousCustomers > 0
+            ? round((($newCustomers - $previousCustomers) / $previousCustomers) * 100, 1)
+            : ($newCustomers > 0 ? 100 : 0);
+        
+        $ordersChange = $previousOrders > 0
+            ? round((($newOrders - $previousOrders) / $previousOrders) * 100, 1)
+            : ($newOrders > 0 ? 100 : 0);
+
+        // Данные для графиков (последние 7 дней)
+        $chartData = Trend::model(Order::class)
+            ->between(
+                start: now()->subDays(7),
+                end: now(),
+            )
+            ->perDay()
+            ->sum('total_price');
+
+        $revenueChart = $chartData->map(fn ($value) => (int) ($value->aggregate ?? 0))->toArray();
+
+        $customersChart = Trend::model(Client::class)
+            ->between(
+                start: now()->subDays(7),
+                end: now(),
+            )
+            ->perDay()
+            ->count();
+
+        $customersChartData = $customersChart->map(fn ($value) => (int) ($value->aggregate ?? 0))->toArray();
+
+        $ordersChart = Trend::model(Order::class)
+            ->between(
+                start: now()->subDays(7),
+                end: now(),
+            )
+            ->perDay()
+            ->count();
+
+        $ordersChartData = $ordersChart->map(fn ($value) => (int) ($value->aggregate ?? 0))->toArray();
 
         $formatNumber = function (int $number): string {
             if ($number < 1000) {
@@ -51,25 +128,42 @@ class StatsOverviewWidget extends BaseWidget
             return Number::format($number / 1000000, 2) . 'm';
         };
 
+        $formatRevenue = function (int|float $number): string {
+            // Форматируем как валюту (total_price уже в основной валюте)
+            return Number::currency($number, 'UAH', 'ru');
+        };
+
         return [
-            Stat::make('Revenue', '$' . $formatNumber($revenue))
-                ->description('увеличение на 32k')
+            Stat::make('Revenue', $formatRevenue($revenue))
+                ->description(
+                    $revenueChange >= 0 
+                        ? 'увеличение на ' . $formatNumber(abs($revenue - $previousRevenue))
+                        : 'падение на ' . $formatNumber(abs($revenue - $previousRevenue))
+                )
                 ->label('Доход')
-                ->descriptionIcon('heroicon-m-arrow-trending-up')
-                ->chart([7, 2, 10, 3, 15, 4, 17])
-                ->color('success'),
+                ->descriptionIcon($revenueChange >= 0 ? 'heroicon-m-arrow-trending-up' : 'heroicon-m-arrow-trending-down')
+                ->chart($revenueChart)
+                ->color($revenueChange >= 0 ? 'success' : 'danger'),
             Stat::make('New customers', $formatNumber($newCustomers))
-                ->description('падение на 3%')
+                ->description(
+                    $customersChange >= 0
+                        ? 'увеличение на ' . abs($customersChange) . '%'
+                        : 'падение на ' . abs($customersChange) . '%'
+                )
                 ->label('Новые клиенты')
-                ->descriptionIcon('heroicon-m-arrow-trending-down')
-                ->chart([17, 16, 14, 15, 14, 13, 12])
-                ->color('danger'),
+                ->descriptionIcon($customersChange >= 0 ? 'heroicon-m-arrow-trending-up' : 'heroicon-m-arrow-trending-down')
+                ->chart($customersChartData)
+                ->color($customersChange >= 0 ? 'success' : 'danger'),
             Stat::make('New orders', $formatNumber($newOrders))
-                ->description('увеличение на 7%')
+                ->description(
+                    $ordersChange >= 0
+                        ? 'увеличение на ' . abs($ordersChange) . '%'
+                        : 'падение на ' . abs($ordersChange) . '%'
+                )
                 ->label('Новые заказы')
-                ->descriptionIcon('heroicon-m-arrow-trending-up')
-                ->chart([15, 4, 10, 2, 12, 4, 12])
-                ->color('success'),
+                ->descriptionIcon($ordersChange >= 0 ? 'heroicon-m-arrow-trending-up' : 'heroicon-m-arrow-trending-down')
+                ->chart($ordersChartData)
+                ->color($ordersChange >= 0 ? 'success' : 'danger'),
         ];
     }
 }

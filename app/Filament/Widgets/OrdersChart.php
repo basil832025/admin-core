@@ -2,8 +2,11 @@
 
 namespace App\Filament\Widgets;
 
+use App\Models\Shop\Order;
 use App\Support\Traits\HandlesShieldWidgetAccess;
 use Filament\Widgets\ChartWidget;
+use Flowframe\Trend\Trend;
+use Flowframe\Trend\TrendValue;
 
 class OrdersChart extends ChartWidget
 {
@@ -19,15 +22,28 @@ class OrdersChart extends ChartWidget
 
     protected function getData(): array
     {
+        $orderData = Trend::model(Order::class)
+            ->between(
+                start: now()->startOfYear(),
+                end: now()->endOfYear(),
+            )
+            ->perMonth()
+            ->count();
+
+        $data = $orderData->map(fn (TrendValue $value) => (int) $value->aggregate)->toArray();
+        $labels = $orderData->map(fn (TrendValue $value) => 
+            \Carbon\Carbon::parse($value->date)->translatedFormat('M')
+        )->toArray();
+
         return [
             'datasets' => [
                 [
                     'label' => 'Заказы',
-                    'data' => [2433, 3454, 4566, 3300, 5545, 5765, 6787, 8767, 7565, 8576, 9686, 8996],
+                    'data' => $data,
                     'fill' => 'start',
                 ],
             ],
-            'labels' => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+            'labels' => $labels,
         ];
     }
 }

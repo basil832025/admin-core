@@ -36,12 +36,18 @@ class DumpSeedData extends Command
 
         // Список таблиц без Doctrine
         $tables = collect($this->getAllTableNames())
-            ->reject(function ($t) use ($except, $only) {
-                if ($only) return !in_array($t, $only, true);
-                if (in_array($t, $except, true)) return true;
-                return Str::startsWith($t, ['temp_', 'tmp_', 'failed_', 'logs_', 'horizon_', 'telescope_']);
+            ->filter(function ($t) use ($only) {
+
+                // если указан --only, работаем строго по нему
+                if ($only) {
+                    return in_array($t, $only, true);
+                }
+
+                // разрешаем ТОЛЬКО bs_* и users
+                return Str::startsWith($t, 'bs_') || $t === 'users';
             })
             ->values();
+
 
         $outDir = database_path('seeders/dumps');
         File::ensureDirectoryExists($outDir);
