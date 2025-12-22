@@ -40,5 +40,13 @@ class Setting extends Model
         $row->admin_settings = $data;
         $row->save();
     }
+    public static function getActiveLocales(): array
+    {
+        return Language::where('active', true)
+            ->orderBy('position')
+            ->pluck('code')
+            ->map(fn($c) => strtolower($c))
+            ->toArray();
+    }
 
 }

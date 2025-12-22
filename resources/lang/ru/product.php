@@ -1,12 +1,16 @@
 <?php
 
 return [
+    // Навигация и названия моделей
     'nav' => [
+        'cluster'            => 'Продукты',
+        'group'              => 'Магазин',
         'navigation_label'   => 'Товары',
         'model_label'        => 'Товар',
         'plural_model_label' => 'Товары',
     ],
 
+    // Вкладки формы
     'tabs' => [
         'main'           => 'Основные',
         'images'         => 'Изображения',
@@ -15,7 +19,24 @@ return [
         'calculation'    => 'Калькуляция',
         'variations'     => 'Вариации',
     ],
-
+    
+    'pages' => [
+        'list_title'       => 'Список товаров',
+        'create_title'     => 'Создать товар',
+        'edit_title'       => 'Редактировать товар',
+        'edit_heading'     => 'Редактировать товар',
+        'edit_breadcrumb'  => 'Редактировать',
+        'create_breadcrumb'  => 'Создать',
+    ],
+    'actions' => [
+        'save'   => 'Сохранить',
+        'cancel' => 'Отменить',
+        'delete' => 'Удалить',
+        'create' => 'Создать',
+        'create_another' => 'Создать и создать следующее',
+    ],
+    
+    // Секции формы
     'sections' => [
         'prices'        => 'Цены',
         'stock'         => 'Склад',
@@ -29,6 +50,7 @@ return [
         'calc_summary'  => 'Итог',
     ],
 
+    // Поля формы
     'fields' => [
         'title'             => 'Название',
         'description'       => 'Описание',
@@ -47,9 +69,9 @@ return [
         'categories'        => 'Доп. категории',
         'categories_helper' => 'Необязательно. Можно выбрать одну или несколько.',
         'main_image'        => 'Главное изображение',
-        'main_image_small'        => 'Миниатюра',
-        'code2' => 'Код з програми',
+        'main_image_small'  => 'Миниатюра',
         'images'            => 'Галерея',
+        'code2'             => 'Внешний код',
         // Calculation
         'calculations'      => 'Калькуляции для товара',
         'calc_name'         => 'Название/Версия',
@@ -58,21 +80,22 @@ return [
         'valid_to_helper'   => 'Пусто — бессрочно',
         'component_product' => 'Компонент',
         'qty'               => 'Кол-во',
-        'short_desc'               => 'Краткое описание',
+        'short_desc'        => 'Краткое описание',
         'unit_cost'         => 'С/с за 1',
         'row_cost'          => 'Сумма с/с',
         'total_cost'        => 'Итоговая себестоимость',
         'price_for_value'   => 'Цена: :value',
-        'calc_items'   => 'Позиции',
-
+        'calc_items'        => 'Позиции',
     ],
 
+    // Плейсхолдеры/сообщения
     'placeholders' => [
         'no_category_label'   => 'Нет категории',
         'no_category_content' => 'Сначала выберите категорию',
         'code2_placeholder'   => 'Напр., ABC-123',
     ],
 
+    // Колонки таблицы
     'columns' => [
         'title'     => 'Название',
         'category'  => 'Категория',
@@ -83,9 +106,11 @@ return [
         'is_hit'    => 'Хит',
         'is_home'   => 'На главной',
         'quantity'  => 'Остаток',
+        'sku'       => 'SKU',
         'updated_at'=> 'Обновлено',
     ],
 
+    // Фильтры таблицы
     'filters' => [
         'category'      => 'Категория',
         'category_all'  => 'Все категории',

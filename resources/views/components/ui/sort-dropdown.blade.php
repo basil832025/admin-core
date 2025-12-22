@@ -1,12 +1,12 @@
 @props([
 // подписи
 'labels' => [
-'popular'       => 'Популярні',
-'new'           => 'Новинки',
-'price_asc'     => 'Ціна: зростання',
-'price_desc'    => 'Ціна: спадання',
-'discount_asc'  => 'Знижка: зростання',
-'discount_desc' => 'Знижка: спадання',
+'popular'       => st('catalog.sort.popular',        'Популярні'),
+'new'           => st('catalog.sort.new',            'Новинки'),
+'price_asc'     => st('catalog.sort.price_asc',      'Ціна: зростання'),
+'price_desc'    => st('catalog.sort.price_desc',     'Ціна: спадання'),
+'discount_asc'  => st('catalog.sort.discount_asc',   'Знижка: зростання'),
+'discount_desc' => st('catalog.sort.discount_desc',  'Знижка: спадання'),
 ],
 // имя параметра в query string
 'param' => 'sort',
@@ -25,9 +25,9 @@
     <button type="button" @click="open = !open"
             class="w-full h-10 rounded-[12px] border border-[#E5E7EB] bg-white
                  px-3 flex items-center justify-between">
-    <span class="font-bold text-[16px] leading-none text-[#19191A]">
-      {{ $labels[$current] ?? 'Сортувати' }}
-    </span>
+        <span class="font-bold text-[16px] leading-none text-[#19191A]">
+            {{ $labels[$current] ?? st('catalog.sort.default', 'Сортувати') }}
+        </span>
         <svg class="w-5 h-5 text-[#19191A] transition-transform"
              :class="open ? 'rotate-180' : ''" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>

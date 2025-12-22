@@ -20,12 +20,27 @@ class CurrencyResource extends Resource
     protected static ?string $model = Currency::class;
     protected static ?string $cluster = Reference::class;
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
-    protected static ?string $navigationGroup = 'Валюты';
-    protected static ?string $modelLabel = 'Валюты';
-    protected static ?string $navigationLabel = 'Валюты';
-    protected static ?string $pluralModelLabel = 'Валюты';
+    protected static ?string $navigationGroup = null;
+    protected static ?string $modelLabel = null;
+    protected static ?string $navigationLabel = null;
+    protected static ?string $pluralModelLabel = null;
     protected static ?int    $navigationSort  = 3;
     protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
+
+    public static function getNavigationLabel(): string
+    {
+        return __('currency.nav.navigation_label');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('currency.nav.model_label');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('currency.nav.plural_model_label');
+    }
 
 
 
@@ -40,17 +55,17 @@ class CurrencyResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('name')->label('Название валюты')
+                Forms\Components\TextInput::make('name')->label(__('currency.fields.name'))
                     ->required()
                     ->maxLength(255),
-                Forms\Components\TextInput::make('code')->label('Код валюты')
+                Forms\Components\TextInput::make('code')->label(__('currency.fields.code'))
                     ->required()
                     ->maxLength(5),
-                Forms\Components\TextInput::make('position')->label('Позиция для сортировки')
+                Forms\Components\TextInput::make('position')->label(__('currency.fields.position'))
                     ->required()
                     ->numeric()
                     ->default(0),
-                Forms\Components\Toggle::make('active')->label('Активность')->default(true)
+                Forms\Components\Toggle::make('active')->label(__('currency.fields.active'))->default(true)
                     ->required(),
             ]);
     }
@@ -59,20 +74,20 @@ class CurrencyResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('name')->label('Название валюты')
+                Tables\Columns\TextColumn::make('name')->label(__('currency.columns.name'))
                     ->searchable(),
-                Tables\Columns\TextColumn::make('code')->label('Код валюты')
+                Tables\Columns\TextColumn::make('code')->label(__('currency.columns.code'))
                     ->searchable(),
-                Tables\Columns\TextColumn::make('position')->label('Позиция для сортировки')
+                Tables\Columns\TextColumn::make('position')->label(__('currency.columns.position'))
                     ->numeric()
                     ->sortable(),
-                Tables\Columns\IconColumn::make('active')->label('Активность')
+                Tables\Columns\IconColumn::make('active')->label(__('currency.columns.active'))
                     ->boolean(),
-                Tables\Columns\TextColumn::make('created_at')->label('Создано')
+                Tables\Columns\TextColumn::make('created_at')->label(__('currency.columns.created_at'))
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('updated_at')->label('Модификация')
+                Tables\Columns\TextColumn::make('updated_at')->label(__('currency.columns.updated_at'))
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),

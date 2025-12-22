@@ -32,12 +32,28 @@ class LanguageResource extends Resource
 {
     protected static ?string $model = Language::class;
     protected static ?string $cluster = Reference::class;
-    protected static ?string $navigationGroup = 'Языки';
-    protected static ?string $navigationLabel = 'Языки';
-    protected static ?string $modelLabel = 'Языки';
+    protected static ?string $navigationGroup = null;
+    protected static ?string $navigationLabel = null;
+    protected static ?string $modelLabel = null;
+    protected static ?string $pluralModelLabel = null;
     protected static ?string $navigationIcon = 'heroicon-o-globe-alt';
     protected static ?int    $navigationSort  = 1;
     protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
+
+    public static function getNavigationLabel(): string
+    {
+        return __('language.nav.navigation_label');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('language.nav.model_label');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('language.nav.plural_model_label');
+    }
     public static function getNavigationIcon(): string
     {
         return 'heroicon-o-globe-alt'; // или любая иконка
@@ -47,11 +63,11 @@ class LanguageResource extends Resource
         return $form
             ->schema([
                 TextInput::make('name')
-                    ->label('Название языка')
+                    ->label(__('language.fields.name'))
                     ->required(),
 
                 TextInput::make('code')
-                    ->label('Код языка')
+                    ->label(__('language.fields.code'))
                     ->required()
                     ->readonly()  // запретить ручное редактирование
                     ->unique(
@@ -62,7 +78,7 @@ class LanguageResource extends Resource
                     ->maxLength(5),
 
                 Select::make('country_code')
-                    ->label('Страна')
+                    ->label(__('language.fields.country_code'))
                     //->options(self::getCountryOptions())
                     ->options(self::getCountryOptionsHtml())
                     ->allowHtml()
@@ -96,13 +112,13 @@ class LanguageResource extends Resource
                     ->searchable()
                     ->required(),
                 TextInput::make('position')
-                    ->label('Порядок')
+                    ->label(__('language.fields.position'))
                     ->numeric()
                     ->default(0)
-                    ->helperText('Чем меньше — тем выше в списке'),
+                    ->helperText(__('language.helpers.position')),
 
                 Toggle::make('active')
-                    ->label('Активен')
+                    ->label(__('language.fields.active'))
                     ->default(true)
                     ->inline(false),
             ]);
@@ -112,23 +128,23 @@ class LanguageResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('name')->label('Язык'),
-                TextColumn::make('code')->label('Код'),
+                TextColumn::make('name')->label(__('language.columns.name')),
+                TextColumn::make('code')->label(__('language.columns.code')),
                 TextColumn::make('country_code')
-                    ->label('Страна')
+                    ->label(__('language.columns.country_code'))
                     ->formatStateUsing(fn($state) => self::getCountryOptionsHtml()[$state] ?? $state)
                     ->html(),
                 TextColumn::make('position')
-                    ->label('Позиция')
+                    ->label(__('language.columns.position'))
                     ->sortable(),
 
                 IconColumn::make('active')
-                    ->label('Активен')
+                    ->label(__('language.columns.active'))
                     ->boolean()
                     ->sortable(),
 
                 TextColumn::make('updated_at')
-                    ->label('Изменён')
+                    ->label(__('language.columns.updated_at'))
                     ->dateTime(),
             ])
             ->defaultSort('position')

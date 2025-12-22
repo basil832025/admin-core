@@ -1,0 +1,178 @@
+<?php
+
+return [
+    'nav' => [
+        'navigation_label'   => 'Orders',
+        'model_label'        => 'Order',
+        'plural_model_label' => 'Orders',
+    ],
+
+    'tabs' => [
+        'all'       => 'All',
+        'info'      => 'Order info',
+        'products'  => 'Products',
+        'journal'   => 'Journal',
+    ],
+
+    'sections' => [
+        'order_items'       => 'Order items',
+        'amount_discounts'  => 'Amount and discounts',
+        'statuses'          => 'Statuses',
+        'metadata'          => 'Metadata',
+        'time_payment'      => 'Time and payment',
+        'delivery_address'  => 'Delivery address',
+    ],
+
+    'fields' => [
+        'status'                => 'Status',
+        'rollback_reason'       => 'Rollback reason',
+        'order_sum'             => 'Order sum',
+        'fixed_discount'        => 'Fixed discount',
+        'time_discount'          => 'Time discount',
+        'promo_code'            => 'Promo code',
+        'manual_discount_percent' => 'Manual discount, %',
+        'manual_discount_amount'  => 'Manual discount, UAH',
+        'applied_discounts'      => 'Applied discounts',
+        'bonuses_written_off'    => 'Bonuses written off',
+        'total_with_discount'    => 'Total with discount',
+        'order_number'           => 'Order number',
+        'client'                 => 'Client',
+        'phone'                  => 'Phone',
+        'created_at'             => 'Created',
+        'updated_at'             => 'Modified',
+        'created_date'           => 'Created date',
+        'created_time'           => 'Created time',
+        'order_time'             => 'Order time',
+        'order_date'             => 'Order date',
+        'asap'                   => 'As soon as possible',
+        'pickup'                 => 'Pickup',
+        'payment_method'         => 'Payment method',
+        'non_payment_reason'     => 'Non-payment reason',
+        'delivery_address'       => 'Delivery address',
+        'currency'               => 'Currency',
+        'notes'                  => 'Note',
+        'product'                => 'Product',
+        'quantity'               => 'Quantity',
+        'price'                  => 'Price',
+        'sum'                    => 'Sum',
+        'price_modifier'         => 'Price +',
+        'characteristic_value'   => 'Characteristic / value',
+        'address_street_place'   => 'Street (Kyiv)',
+        'address_street'          => 'Street',
+        'address_house'           => 'House',
+        'address_apartment'       => 'Apartment',
+        'address_intercom'        => 'Intercom',
+        'address_floor'           => 'Floor',
+        'address_entrance'        => 'Entrance',
+        'address_city'            => 'City',
+        'address_formatted'       => 'Full address',
+        'address_type'            => 'Address type',
+        'address_private_house'   => 'Private house',
+        'address_note'            => 'Delivery note',
+        'new_address'             => 'New address',
+    ],
+
+    'address_types' => [
+        'home'    => 'Home',
+        'work'    => 'Work',
+        'friends' => 'Friends',
+    ],
+
+    'address_prefixes' => [
+        'apartment' => 'apt.',
+        'entrance' => 'entrance',
+        'floor'    => 'floor',
+        'intercom' => 'intercom',
+    ],
+
+    'actions' => [
+        'confirm_rollback' => 'Confirm rollback',
+        'cancel'            => 'Cancel',
+        'save'              => 'Save',
+        'delete'            => 'Delete',
+        'add_item'          => 'Add item',
+        'clear'              => 'Clear',
+        'clear_promo'        => 'Cancel promo code',
+        'statuses'          => 'Statuses',
+        'statuses_modal_heading' => 'Statuses: :number',
+    ],
+
+    'steps' => [
+        'order_details' => 'Order details',
+        'order_items'   => 'Order items',
+    ],
+
+    'placeholders' => [
+        'rollback_reason'    => 'Briefly describe the reason...',
+        'promo_code'         => 'Enter code',
+        'select_address'     => 'Select address',
+        'select_variant'     => 'Select variant',
+        'reason_short'       => 'Briefly…',
+        'number_auto'        => 'Will be assigned after saving',
+    ],
+
+    'modals' => [
+        'clear_heading'     => 'Are you sure?',
+        'clear_description' => 'All existing items will be removed from the order.',
+    ],
+
+    'notifications' => [
+        'phone_copied'      => 'Client phone copied',
+        'status_not_changed' => 'Status has not changed',
+    ],
+
+    'columns' => [
+        'order_number'  => 'Order number',
+        'client'        => 'Client',
+        'phone'         => 'Phone',
+        'status'        => 'Status',
+        'total_price'   => 'Amount',
+        'discount'      => 'Discount',
+        'created_at'    => 'Created',
+    ],
+
+    'journal' => [
+        'heading'              => 'Operation log',
+        'empty_message'        => 'The log will appear after saving the order.',
+        'columns' => [
+            'datetime'         => 'Date/time',
+            'user'             => 'User',
+            'source'           => 'Source',
+            'operation'        => 'Operation',
+            'additional_info'  => 'Additional info',
+        ],
+        'sources' => [
+            'order'       => 'Order',
+            'order.items' => 'Order items',
+        ],
+        'operations' => [
+            'created'          => 'Created',
+            'updated'          => 'Updated',
+            'deleted'          => 'Deleted',
+            'modifier_created' => 'Modifier added',
+            'modifier_updated' => 'Modifier updated',
+            'modifier_deleted' => 'Modifier deleted',
+        ],
+        'system'              => 'System',
+        'labels' => [
+            'status'           => 'Status',
+            'client'           => 'Client',
+            'product'          => 'Product',
+            'quantity'        => 'Qty',
+            'price'            => 'Price',
+            'price_plus'      => 'Price +',
+            'reason'           => 'Reason',
+            'delivery_address' => 'Delivery address',
+            'note'             => 'Note',
+            'variation'        => 'Variation',
+            'characteristic'  => 'Characteristic',
+            'deleted'          => 'Deleted',
+            'modifier_deleted' => 'Modifier deleted',
+        ],
+        'yes'                 => 'yes',
+        'no'                  => 'no',
+        'status_rollback'     => 'Status rolled back',
+        'status_changed'      => 'Status changed',
+    ],
+];
+

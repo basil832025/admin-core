@@ -4,11 +4,52 @@ namespace App\Http\Controllers\Front;
 
 use App\Http\Controllers\Controller;
 use App\Models\Shop\Product;
+use App\Models\Shop\ProductCategory;
+use App\Models\Shop\ProductReview;
+use App\Support\Presenters\ProductCardPresenter;
 
 class ProductController extends Controller
 {
-    public function show(Product $product)
+    public function show(string $categorySlug, string $productSlug)
     {
-        return view('product.show', compact('product'));
+        $locale = app()->getLocale();
+        $category = ProductCategory::query()->where('slug', $categorySlug)->firstOrFail();
+
+        $product = Product::withCardRelations()
+            ->cardSelect()
+            ->where('slug', $productSlug)
+            ->firstOrFail();
+        // Список отзывов (только опубликованные)
+        $reviews = ProductReview::query()
+            ->published()
+            ->where('product_id', $product->id)
+            ->latest('created_at')
+            ->paginate(10);
+
+        // Агрегаты за 1 запрос
+        $stats = ProductReview::query()
+            ->published()
+            ->where('product_id', $product->id)
+            ->selectRaw('COUNT(*) as total,
+                     AVG(rating) as avg_rating,
+                     SUM(rating=5) as r5,
+                     SUM(rating=4) as r4,
+                     SUM(rating=3) as r3,
+                     SUM(rating=2) as r2,
+                     SUM(rating=1) as r1')
+            ->first();
+        // выведим хиты для рекомендаций
+        $q = Product::withCardRelations()
+            // ->addSelect('category_id')
+            ->active()->cardSelect()->MainProduct()->hit()
+           ->orderBy('sort');
+        $related = (new ProductCardPresenter($locale))->collection($q->get());
+        $product = (new ProductCardPresenter($locale))->for($product);
+
+
+
+        return view('pages.catalog.product', compact('product', 'category', 'related','reviews','stats'));
     }
 }
+
+

@@ -19,7 +19,7 @@ class ListBlogs extends ListRecords
     protected function getHeaderActions(): array
     {
 
-        $items = collect(static::getResource()::getActiveLocales()) // ['uk','en','ru', ...]
+        $items = collect(\App\Models\Setting::getActiveLocales()) // ['uk','en','ru', ...]
         ->map(function (string $code) {
             $label = Language::where('code', $code)->value('name') ?? strtoupper($code);
 

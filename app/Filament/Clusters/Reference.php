@@ -12,10 +12,16 @@ class Reference extends Cluster
         return 'heroicon-o-book-open'; // или любая иконка из Heroicons или Lucide
     }
     protected static ?string $slug = 'reference/spr';
-    protected static ?string $navigationGroup = 'Настройки';
+    protected static ?string $navigationGroup = null;
+
+    public static function getNavigationGroup(): ?string
+    {
+        return __('reference.nav.navigation_group');
+    }
+
     public static function getNavigationLabel(): string
     {
-        return __('Справочнки');
+        return __('reference.nav.navigation_label');
     }
 
 }

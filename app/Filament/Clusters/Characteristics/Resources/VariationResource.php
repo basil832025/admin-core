@@ -29,8 +29,31 @@ class   VariationResource extends Resource
     protected static ?string $model = Variation::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
-    protected static ?string $navigationLabel = 'Вариации';
+    protected static ?string $navigationLabel = null;
+    protected static ?string $modelLabel = null;
+    protected static ?string $pluralModelLabel = null;
     protected static ?string $cluster = Characteristics::class;
+
+    public static function getNavigationLabel(): string
+    {
+        return __('variation.nav.navigation_label');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('variation.nav.model_label');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('variation.nav.plural_model_label');
+    }
+
+    public static function getBreadcrumb(): string
+    {
+        return __('variation.nav.navigation_label');
+    }
+
     protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
     protected static ?int $navigationSort = 1;
     public static function form(Form $form): Form
@@ -42,22 +65,22 @@ class   VariationResource extends Resource
                 ->schema([
                     // Левая колонка
                     TextInput::make('name')
-                        ->label('Название вариации')
-                        ->helperText('Например: 30см / 900г / 3 чел'),
+                        ->label(__('variation.fields.name'))
+                        ->helperText(__('variation.helpers.name_example')),
                     TextInput::make('slug')
-                        ->label('Слаг')
-                        ->helperText('Автоматически создаётся из названия, если не заполнен')
+                        ->label(__('variation.fields.slug'))
+                        ->helperText(__('variation.helpers.slug_auto'))
                         ->unique(ignoreRecord: true)
                         //  ->required()
                         ->maxLength(255),
 
                     // Левая колонка
                     Repeater::make('variationCharacteristicValues')
-                        ->label('Значения характеристик')
+                        ->label(__('variation.fields.characteristic_values'))
                         ->relationship('variationCharacteristicValues')
                         ->schema([
                             Select::make('characteristic_id')
-                                ->label('Характеристика')
+                                ->label(__('variation.fields.characteristic'))
                                 ->options(function () use ($defaultLocale) {
                                     return \App\Models\Shop\Characteristic::all()
                                         ->mapWithKeys(function ($item) use ($defaultLocale) {
@@ -73,7 +96,7 @@ class   VariationResource extends Resource
                                 ->reactive(),
 
                             Select::make('characteristic_value_id')
-                                ->label('Значение')
+                                ->label(__('variation.fields.value'))
                                 ->options(fn ($get) => CharacteristicValue::where('characteristic_id', $get('characteristic_id'))->pluck('value', 'id'))
                                 ->required(),
                         ])
@@ -91,15 +114,18 @@ class   VariationResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')
+                    ->label(__('variation.columns.name'))
                     ->searchable(),
                 TextColumn::make('slug')
-                    ->label('Slug')
+                    ->label(__('variation.columns.slug'))
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
+                    ->label(__('variation.columns.created_at'))
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('updated_at')
+                    ->label(__('variation.columns.updated_at'))
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),

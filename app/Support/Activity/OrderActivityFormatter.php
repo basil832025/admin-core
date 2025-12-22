@@ -108,18 +108,18 @@ class OrderActivityFormatter
             $act = Arr::get($a->properties, 'action');
             if (in_array($act, ['modifier_created','modifier_updated','modifier_deleted'], true)) {
                 return [
-                    'modifier_created' => 'Добавлен модификатор',
-                    'modifier_updated' => 'Изменён модификатор',
-                    'modifier_deleted' => 'Удалён модификатор',
+                    'modifier_created' => __('order.journal.operations.modifier_created'),
+                    'modifier_updated' => __('order.journal.operations.modifier_updated'),
+                    'modifier_deleted' => __('order.journal.operations.modifier_deleted'),
                 ][$act];
             }
         }
 
         // По событию Spatie
         return [
-                'created' => 'Создан',
-                'updated' => 'Изменён',
-                'deleted' => 'Удалён',
+                'created' => __('order.journal.operations.created'),
+                'updated' => __('order.journal.operations.updated'),
+                'deleted' => __('order.journal.operations.deleted'),
             ][$a->event] ?? ($a->description ?? '');
     }
 
@@ -143,10 +143,10 @@ class OrderActivityFormatter
         $toLabel   = $to   ? OrderStatus::from($to)->getLabel()   : '—';
 
         $parts = [];
-        $parts[] = 'Статус: ' . self::arrow($fromLabel, $toLabel);
+        $parts[] = __('order.journal.labels.status') . ': ' . self::arrow($fromLabel, $toLabel);
 
         if ($reason !== '') {
-            $parts[] = 'Причина: ' . $reason;
+            $parts[] = __('order.journal.labels.reason') . ': ' . $reason;
         }
 
         return implode(' • ', $parts);
@@ -159,7 +159,7 @@ class OrderActivityFormatter
     protected static function v(mixed $val): string
     {
         if ($val === null || $val === '') return '—';
-        if (is_bool($val)) return $val ? 'да' : 'нет';
+        if (is_bool($val)) return $val ? __('order.journal.yes') : __('order.journal.no');
         return (string) $val;
     }
 
@@ -191,9 +191,9 @@ class OrderActivityFormatter
         $noteFrom = Arr::get($p, 'address_from.note');
         $noteTo   = Arr::get($p, 'address_to.note');
 
-        $out = ['Адрес доставки: ' . self::arrow($from ?: '—', $to ?: '—')];
+        $out = [__('order.journal.labels.delivery_address') . ': ' . self::arrow($from ?: '—', $to ?: '—')];
         if ($noteFrom !== null || $noteTo !== null) {
-            $out[] = 'Примечание: ' . self::arrow($noteFrom, $noteTo);
+            $out[] = __('order.journal.labels.note') . ': ' . self::arrow($noteFrom, $noteTo);
         }
 
         return implode(' • ', $out);
@@ -203,7 +203,7 @@ class OrderActivityFormatter
     {
         // через old/attributes (id)
         if (self::fieldChanged($p, 'clients_id')) {
-            return 'Клиент: ' . self::arrow(
+            return __('order.journal.labels.client') . ': ' . self::arrow(
                     Arr::get($p, 'old.clients_id'),
                     Arr::get($p, 'attributes.clients_id')
                 );
@@ -211,7 +211,7 @@ class OrderActivityFormatter
 
         // через client_from / client_to (имена)
         if (Arr::hasAny($p, ['client_from','client_to'])) {
-            return 'Клиент: ' . self::arrow(
+            return __('order.journal.labels.client') . ': ' . self::arrow(
                     Arr::get($p, 'client_from'),
                     Arr::get($p, 'client_to')
                 );
@@ -231,13 +231,13 @@ class OrderActivityFormatter
 
         $parts = [];
         if ($fs !== null || $ts !== null) {
-            $parts[] = 'Статус: ' . self::arrowText(
+            $parts[] = __('order.journal.labels.status') . ': ' . self::arrowText(
                     self::statusLabel($fromStatus),
                     self::statusLabel($toStatus),
 );
         }
         if ($fn !== null || $tn !== null) {
-            $parts[] = 'Примечание: ' . self::arrow($fn, $tn);
+            $parts[] = __('order.journal.labels.note') . ': ' . self::arrow($fn, $tn);
         }
 
         return $parts ? implode(' • ', $parts) : null;
@@ -245,28 +245,28 @@ class OrderActivityFormatter
 
     protected static function formatOrderItem(array $p, string $action): string
     {
-        $prodName = Arr::get($p, 'product.name') ?: ('товар #' . (Arr::get($p, 'product.id') ?? '—'));
-        $prefix   = 'Товар: ' . $prodName;
+        $prodName = Arr::get($p, 'product.name') ?: (__('order.journal.labels.product') . ' #' . (Arr::get($p, 'product.id') ?? '—'));
+        $prefix   = __('order.journal.labels.product') . ': ' . $prodName;
 
         if ($action === 'item_created') {
             $qty   = Arr::get($p, 'attributes.qty');
             $price = Arr::get($p, 'attributes.unit_price');
-            $out = [$prefix, 'Кол-во: ' . self::v($qty)];
-            if ($price !== null) $out[] = 'Цена: ' . self::v($price);
+            $out = [$prefix, __('order.journal.labels.quantity') . ': ' . self::v($qty)];
+            if ($price !== null) $out[] = __('order.journal.labels.price') . ': ' . self::v($price);
             return implode(' • ', $out);
         }
 
         if ($action === 'item_deleted') {
             $qty   = Arr::get($p, 'snapshot.qty');
             $price = Arr::get($p, 'snapshot.unit_price');
-            $out = [$prefix, 'Удалён', 'Кол-во: ' . self::v($qty)];
-            if ($price !== null) $out[] = 'Цена: ' . self::v($price);
+            $out = [$prefix, __('order.journal.labels.deleted'), __('order.journal.labels.quantity') . ': ' . self::v($qty)];
+            if ($price !== null) $out[] = __('order.journal.labels.price') . ': ' . self::v($price);
             return implode(' • ', $out);
         }
 
         // updated
         $out = [$prefix];
-        foreach (['qty' => 'Кол-во', 'unit_price' => 'Цена'] as $k => $label) {
+        foreach (['qty' => __('order.journal.labels.quantity'), 'unit_price' => __('order.journal.labels.price')] as $k => $label) {
             $old = Arr::get($p, "old.$k");
             $new = Arr::get($p, "attributes.$k");
             if ($old !== null || $new !== null) {
@@ -278,20 +278,20 @@ class OrderActivityFormatter
 
     protected static function formatModifier(array $p, string $action): string
     {
-        $prodName  = Arr::get($p, 'product.name') ?: ('товар #' . (Arr::get($p, 'product.id') ?? '—'));
+        $prodName  = Arr::get($p, 'product.name') ?: (__('order.journal.labels.product') . ' #' . (Arr::get($p, 'product.id') ?? '—'));
         $type      = Arr::get($p, 'modifier.type');
         $typeLabel = $type === 'variation'
-            ? 'Вариация'
-            : ($type === 'characteristic' ? 'Характеристика' : 'Модификатор');
+            ? __('order.journal.labels.variation')
+            : ($type === 'characteristic' ? __('order.journal.labels.characteristic') : __('order.journal.labels.characteristic'));
 
         $label    = Arr::get($p, 'modifier.value_label') ?? ('#' . Arr::get($p, 'modifier.value_id'));
         $priceMod = Arr::get($p, 'modifier.price_modifier');
 
-        $head = "Товар: {$prodName} • {$typeLabel}: {$label}";
+        $head = __('order.journal.labels.product') . ": {$prodName} • {$typeLabel}: {$label}";
 
         if ($action === 'modifier_created') {
             $out = [$head];
-            if ($priceMod !== null) $out[] = 'Цена +: ' . self::v($priceMod);
+            if ($priceMod !== null) $out[] = __('order.journal.labels.price_plus') . ': ' . self::v($priceMod);
             return implode(' • ', $out);
         }
 
@@ -299,8 +299,8 @@ class OrderActivityFormatter
             $snap = Arr::get($p, 'snapshot', []);
             $lbl  = Arr::get($snap, 'value_label', $label);
             $pm   = Arr::get($snap, 'price_modifier', $priceMod);
-            $out  = ["Удалён модификатор • {$typeLabel}: {$lbl}"];
-            if ($pm !== null) $out[] = 'Цена +: ' . self::v($pm);
+            $out  = [__('order.journal.labels.modifier_deleted') . " • {$typeLabel}: {$lbl}"];
+            if ($pm !== null) $out[] = __('order.journal.labels.price_plus') . ': ' . self::v($pm);
             return implode(' • ', $out);
         }
 
@@ -308,7 +308,7 @@ class OrderActivityFormatter
         $out = [$head];
         foreach ([
                      'value_label'    => $typeLabel,
-                     'price_modifier' => 'Цена +',
+                     'price_modifier' => __('order.journal.labels.price_plus'),
                  ] as $k => $lbl) {
             $old = Arr::get($p, "old.$k");
             $new = Arr::get($p, "attributes.$k");
@@ -325,7 +325,7 @@ class OrderActivityFormatter
 
         // тип может лежать как в modifier, так и в snapshot (при delete)
         $type = Arr::get($props, 'modifier.type') ?? Arr::get($props, 'snapshot.type');
-        $kind = $type === 'variation' ? 'Вариация' : 'Характеристика';
+        $kind = $type === 'variation' ? __('order.journal.labels.variation') : __('order.journal.labels.characteristic');
 
         $action = Arr::get($props, 'action');
 
@@ -343,7 +343,7 @@ class OrderActivityFormatter
 
         $parts = [];
         if ($productName) {
-            $parts[] = "Товар: {$productName}";
+            $parts[] = __('order.journal.labels.product') . ": {$productName}";
         }
 
         // Заголовок модификатора
@@ -355,9 +355,9 @@ class OrderActivityFormatter
 
         // Цена + (стрелка для updated, одно значение для created/deleted)
         if ($action === 'modifier_updated' && ($oldPrice !== null || $newPrice !== null)) {
-            $parts[] = 'Цена +: ' . self::arrowMoney($oldPrice, $newPrice);
+            $parts[] = __('order.journal.labels.price_plus') . ': ' . self::arrowMoney($oldPrice, $newPrice);
         } elseif ($curPrice !== null && $curPrice !== '') {
-            $parts[] = 'Цена +: ' . self::money($curPrice);
+            $parts[] = __('order.journal.labels.price_plus') . ': ' . self::money($curPrice);
         }
 
         return implode(' • ', array_filter($parts));

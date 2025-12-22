@@ -8,6 +8,7 @@ use Filament\Resources\Pages\EditRecord;
 use Filament\Resources\Pages\Actions\SaveAction;
 use Filament\Resources\Pages\Actions\DeleteAction;
 use Filament\Icons\Heroicons;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use App\Models\Setting;
 class EditPages extends EditRecord
@@ -17,19 +18,32 @@ class EditPages extends EditRecord
     protected function mutateFormDataBeforeSave(array $data): array
     {
         $default = Setting::value('default_language_code') ?: config('app.locale');
-        $raw = $data['content'][$default] ?? '';
-        $plain = trim(preg_replace('/\xc2\xa0/u', ' ', strip_tags($raw)));
+       // $data['slug'] = Str::slug($data['slug'] ?? ($data['title']['uk'] ?? $data['title'] ?? ''));
 
-        if ($plain === '') {
-            // у Resource-страниц Filament v4 state path = 'data'
-            $prefix = 'data';
-            throw ValidationException::withMessages([
-                "{$prefix}.content.{$default}" => 'Поле Контент обязательно.',
-            ]);
+        // По желанию: чистим «пустые» HTML-переводы, чтобы не хранить <p><br></p>
+    /*    if (isset($data['content']) && is_array($data['content'])) {
+            foreach ($data['content'] as $loc => $val) {
+                $plain = trim(preg_replace('/\x{00A0}/u', ' ', strip_tags($val ?? '')));
+                if ($plain === '') {
+                    $data['content'][$loc] = null; // или unset($data['content'][$loc]);
+                }
+            }
+        }*/
+        $seen = [];
+        foreach ($data['fields'] ?? [] as $b) {
+            $slug = $b['data']['slug'] ?? null;
+            if (!$slug) continue;
+            if (isset($seen[$slug])) {
+                throw \Filament\Support\Exceptions\Halt::make()
+                    ->withMessage("Слаг «{$slug}» повторяется в блоках.");
+            }
+            $seen[$slug] = true;
         }
-
         return $data;
     }
+
+
+
     protected function getHeaderActions(): array
     {
         return [
@@ -53,10 +67,10 @@ class EditPages extends EditRecord
             Actions\DeleteAction::make(),
         ];
     }
-    protected function getRedirectUrl(): string
+ /*   protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('index');
-    }
+    }*/
 
     public static function getResource(): string
     {

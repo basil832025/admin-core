@@ -13,6 +13,7 @@ use App\Models\Language;
 use SolutionForest\FilamentTree\Concern\ModelTree;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Collection;
+
 class ProductCategory extends Model
 {
 
@@ -51,6 +52,7 @@ class ProductCategory extends Model
     {
         $locale = Setting::value('default_language_code') ?: app()->getLocale();
         return $this->getTranslation('title', $locale) ?? '';
+
     }
    /* public function getNameAttribute(): string
     {
@@ -196,33 +198,47 @@ class ProductCategory extends Model
         return $this->hasMany(self::class, 'parent_id');
     }
 
-    // генерация slug  при создании и для текущего языка по умолчанию
-  /*  protected static function booted(): void
+    public static function flatMenu(?int $limit = null): Collection
     {
-        static::saving(function (ProductCategory $post) {
+        $locale = app()->getLocale();
 
-            // проверяем, что slug ещё пустой и есть title
-            if ($post->slug) {
-                return;
+        // Берём все корневые и их потомков (глубоко), только видимые
+        $roots = self::query()
+            ->where('is_visible', 1)
+            ->whereNull('parent_id')
+            ->orderBy('order')
+            ->with([
+                'children' => function ($q) {
+                    $q->where('is_visible', 1)
+                        ->orderBy('order')
+                        ->with(['children' => function ($q) {
+                            $q->where('is_visible', 1)->orderBy('order')->with('children');
+                        }]);
+                },
+            ])
+            ->get();
+
+        // Рекурсивно «сплющиваем» в одну коллекцию
+        $flat = collect();
+        $walk = function ($nodes) use (&$walk, &$flat, $locale) {
+            foreach ($nodes as $n) {
+                $flat->push([
+                    'id'    => $n->id,
+                    'title' => $n->getTranslation('title', $locale) ?: $n->title, // на текущем языке
+                    'slug'  => $n->slug,
+                    'url'   =>  $n->slug,
+                    'order' => $n->order ?? 0,
+                ]);
+
+                if ($n->relationLoaded('children') && $n->children->isNotEmpty()) {
+                    $walk($n->children);
+                }
             }
+        };
+        $walk($roots);
 
+        $flat = $flat->unique('id')->sortBy('order')->values();
 
-            // Берём «сырое» значение JSON
-            //   getAttribute('name')
-            $raw = $post->getAttributes() ?? '{}';
-            //dd($raw);
-            // Декодируем в массив
-            $names = json_decode($raw['name'], true);
-            //  dd($names);
-            // выбираем строку из массива по локали
-            $locale = $defaultLocale;
-            // Берём по ключу локали или первый непустой
-            $titleForSlug = Arr::get($names, $locale)
-                ?: Arr::first($names, fn($value) => ! empty($value));
-            //   dd($titleForSlug);
-            if ($titleForSlug) {
-                $post->slug = Str::slug($titleForSlug);
-            }
-        });
-    }*/
+        return $limit ? $flat->take($limit) : $flat;
+    }
 }

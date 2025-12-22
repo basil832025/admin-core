@@ -8,6 +8,7 @@ use Filament\Support\Contracts\HasLabel;
 
 enum OrderStatus: string implements HasColor, HasIcon, HasLabel
 {
+case Cart       = 'cart';
 case New        = 'new';         // Новый
 case Processing = 'processing';  // В обработке
 case OnHold     = 'on_hold';     // Отложен
@@ -23,17 +24,18 @@ case Cancelled  = 'cancelled';   // Отменен
     public function getLabel(): string
 {
     return match ($this) {
-        self::New        => 'Новый',
-        self::Processing => 'В обработке',
-        self::OnHold     => 'Отложен',
-        self::Filling    => 'Начинка',
-        self::Molding    => 'Лепка',
-        self::Baking     => 'Печь',
-        self::Prepared   => 'Приготовлен',
-        self::Assembled  => 'Собран',
-        self::Shipped   => 'Доставка',
-        self::Delivered  => 'Доставлен',
-        self::Cancelled  => 'Отменен',
+        self::Cart       => __('order_status.cart'),
+        self::New        => __('order_status.new'),
+        self::Processing => __('order_status.processing'),
+        self::OnHold     => __('order_status.on_hold'),
+        self::Filling    => __('order_status.filling'),
+        self::Molding    => __('order_status.molding'),
+        self::Baking     => __('order_status.baking'),
+        self::Prepared   => __('order_status.prepared'),
+        self::Assembled  => __('order_status.assembled'),
+        self::Shipped   => __('order_status.shipped'),
+        self::Delivered  => __('order_status.delivered'),
+        self::Cancelled  => __('order_status.cancelled'),
     };
 }
 
@@ -41,6 +43,7 @@ case Cancelled  = 'cancelled';   // Отменен
 {
     // названия должны совпадать с токенами из ->colors() панели
     return match ($this) {
+        self::Cart       => 'gray',
         self::New        => 'violet',
         self::Processing => 'amber',
         self::OnHold     => 'gray',
@@ -69,6 +72,7 @@ case Cancelled  = 'cancelled';   // Отменен
     public function getIcon(): ?string
 {
     return match ($this) {
+        self::Cart       => 'heroicon-m-shopping-cart',
         self::New        => 'heroicon-m-sparkles',
         self::Processing => 'heroicon-m-arrow-path',
         self::OnHold     => 'heroicon-m-pause-circle',
@@ -85,7 +89,7 @@ case Cancelled  = 'cancelled';   // Отменен
     public function rank(): int
 {
     return match ($this) {
-
+        self::Cart       => 5,
         self::New        => 10,
         self::OnHold     => 15,
         self::Processing => 20,

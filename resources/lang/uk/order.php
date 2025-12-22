@@ -1,0 +1,178 @@
+<?php
+
+return [
+    'nav' => [
+        'navigation_label'   => 'Замовлення',
+        'model_label'        => 'Замовлення',
+        'plural_model_label' => 'Замовлення',
+    ],
+
+    'tabs' => [
+        'all'       => 'Всі',
+        'info'      => 'Інфо по замовленню',
+        'products'  => 'Товари',
+        'journal'   => 'Журнал',
+    ],
+
+    'sections' => [
+        'order_items'       => 'Товари замовлення',
+        'amount_discounts'  => 'Сума та знижки',
+        'statuses'          => 'Статуси',
+        'metadata'          => 'Службова інформація',
+        'time_payment'      => 'Час та оплата',
+        'delivery_address'  => 'Адреса доставки',
+    ],
+
+    'fields' => [
+        'status'                => 'Статус',
+        'rollback_reason'       => 'Причина відкату',
+        'order_sum'             => 'Сума замовлення',
+        'fixed_discount'        => 'Фіксована знижка',
+        'time_discount'          => 'Знижка за часом',
+        'promo_code'            => 'Промокод',
+        'manual_discount_percent' => 'Ручна знижка, %',
+        'manual_discount_amount'  => 'Ручна знижка, грн',
+        'applied_discounts'      => 'Застосовані знижки',
+        'bonuses_written_off'    => 'Списані бонуси',
+        'total_with_discount'    => 'Разом зі знижкою',
+        'order_number'           => 'Номер замовлення',
+        'client'                 => 'Клієнт',
+        'phone'                  => 'Телефон',
+        'created_at'             => 'Створено',
+        'updated_at'             => 'Змінено',
+        'created_date'           => 'Дата створення',
+        'created_time'           => 'Час створення',
+        'order_time'             => 'Час замовлення',
+        'order_date'             => 'Дата замовлення',
+        'asap'                   => 'Як можна швидше',
+        'pickup'                 => 'Самовивіз',
+        'payment_method'         => 'Спосіб оплати',
+        'non_payment_reason'     => 'Причина неоплати',
+        'delivery_address'       => 'Адреса доставки',
+        'currency'               => 'Валюта',
+        'notes'                  => 'Примітка',
+        'product'                => 'Продукт/товар',
+        'quantity'               => 'Кількість',
+        'price'                  => 'Ціна',
+        'price_modifier'         => 'Ціна +',
+        'sum'                    => 'Сума',
+        'characteristic_value'   => 'Характеристика / значення',
+        'address_street_place'   => 'Вулиця (Київ)',
+        'address_street'          => 'Вулиця',
+        'address_house'           => 'Дім',
+        'address_apartment'       => 'Квартира',
+        'address_intercom'        => 'Домофон',
+        'address_floor'           => 'Поверх',
+        'address_entrance'        => 'Під\'їзд',
+        'address_city'            => 'Місто',
+        'address_formatted'       => 'Повна адреса',
+        'address_type'            => 'Тип адреси',
+        'address_private_house'   => 'Приватний будинок',
+        'address_note'            => 'Примітка по доставці',
+        'new_address'             => 'Новий адрес',
+    ],
+
+    'address_types' => [
+        'home'    => 'Дім',
+        'work'    => 'Робота',
+        'friends' => 'Друзі',
+    ],
+
+    'address_prefixes' => [
+        'apartment' => 'кв.',
+        'entrance' => 'під\'їзд',
+        'floor'    => 'поверх',
+        'intercom' => 'домофон',
+    ],
+
+    'actions' => [
+        'confirm_rollback' => 'Підтвердити відкат',
+        'cancel'            => 'Скасування',
+        'save'              => 'Зберегти',
+        'delete'            => 'Видалити',
+        'add_item'          => 'Додати товар',
+        'clear'              => 'Очистити',
+        'clear_promo'        => 'Скасувати промокод',
+        'statuses'          => 'Статуси',
+        'statuses_modal_heading' => 'Статуси: :number',
+    ],
+
+    'steps' => [
+        'order_details' => 'Деталі замовлення',
+        'order_items'   => 'Товари замовлення',
+    ],
+
+    'placeholders' => [
+        'rollback_reason'    => 'Коротко опишіть причину...',
+        'promo_code'         => 'Введіть код',
+        'select_address'     => 'Виберіть адресу',
+        'select_variant'     => 'Обрати варіант',
+        'reason_short'       => 'Коротко…',
+        'number_auto'        => 'Буде присвоєно після збереження',
+    ],
+
+    'modals' => [
+        'clear_heading'     => 'Ви впевнені?',
+        'clear_description' => 'Всі існуючі позиції будуть видалені з замовлення.',
+    ],
+
+    'notifications' => [
+        'phone_copied'      => 'Телефон клієнта скопійовано',
+        'status_not_changed' => 'Статус не змінився',
+    ],
+
+    'columns' => [
+        'order_number'  => 'Номер замовлення',
+        'client'        => 'Клієнт',
+        'phone'         => 'Телефон',
+        'status'        => 'Статус',
+        'total_price'   => 'Сума',
+        'discount'      => 'Знижка',
+        'created_at'    => 'Створено',
+    ],
+
+    'journal' => [
+        'heading'              => 'Журнал операцій',
+        'empty_message'        => 'Журнал з\'явиться після збереження замовлення.',
+        'columns' => [
+            'datetime'         => 'Дата/час',
+            'user'            => 'Користувач',
+            'source'          => 'Джерело',
+            'operation'       => 'Операція',
+            'additional_info' => 'Дод. інфо',
+        ],
+        'sources' => [
+            'order'       => 'Замовлення',
+            'order.items' => 'Товари замовлення',
+        ],
+        'operations' => [
+            'created'          => 'Створено',
+            'updated'          => 'Змінено',
+            'deleted'          => 'Видалено',
+            'modifier_created' => 'Додано модифікатор',
+            'modifier_updated' => 'Змінено модифікатор',
+            'modifier_deleted' => 'Видалено модифікатор',
+        ],
+        'system'              => 'Система',
+        'labels' => [
+            'status'           => 'Статус',
+            'client'           => 'Клієнт',
+            'product'          => 'Товар',
+            'quantity'         => 'Кількість',
+            'price'            => 'Ціна',
+            'price_plus'       => 'Ціна +',
+            'reason'           => 'Причина',
+            'delivery_address' => 'Адреса доставки',
+            'note'             => 'Примітка',
+            'variation'        => 'Варіація',
+            'characteristic'  => 'Характеристика',
+            'deleted'          => 'Видалено',
+            'modifier_deleted' => 'Видалено модифікатор',
+        ],
+        'yes'                 => 'так',
+        'no'                  => 'ні',
+        'status_rollback'     => 'Статус повернуто назад',
+        'status_changed'      => 'Статус змінено',
+    ],
+];
+

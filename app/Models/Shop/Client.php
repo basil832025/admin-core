@@ -2,12 +2,16 @@
 
 namespace App\Models\Shop;
 
-use Illuminate\Database\Eloquent\Model;
+//use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Hash;
 
-class Client extends Model
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+
+class Client extends Authenticatable
 {
+    use Notifiable;
     protected $table = 'bs_clients';
     protected $fillable = [
         'name',
@@ -20,7 +24,7 @@ class Client extends Model
         'password',
         'photo',
     ];
-
+    protected $hidden = ['password','remember_token'];
     protected $casts = [
         'birthday' => 'date',
         'is_active' => 'boolean',
@@ -33,6 +37,45 @@ class Client extends Model
                 $client->password = Hash::make($client->password);
             }
         });
+    }
+    // Возврат полной ссылки на аватар
+    public function getAvatarUrlAttribute(): string
+    {
+        // Если фото загружено — формируем публичный URL из storage
+        if (!empty($this->photo)) {
+            // Если уже абсолютная ссылка (например, с https://)
+            if (str_starts_with($this->photo, 'http')) {
+                return $this->photo;
+            }
+
+            // Если файл есть в public storage
+            return asset('storage/' . ltrim($this->photo, '/'));
+        }
+
+        // 🔹 Путь к дефолтной иконке (например, “пустой аватар”)
+        return asset('images/avatar-empty.svg');
+    }
+
+    public function favorites()
+    {
+        return $this->belongsToMany(
+            \App\Models\Shop\Product::class,
+            'bs_favorites',
+            'client_id',
+            'product_id'
+        )->withTimestamps();
+    }
+    public function setPhoneAttribute($value)
+    {
+        $d = preg_replace('/\D+/', '', (string)$value);
+        if (str_starts_with($d,'0')) $d = '38'.$d;
+        if (strlen($d) === 9)        $d = '380'.$d;
+        $this->attributes['phone'] = $d;
+    }
+
+    public function hasFavorite($productId)
+    {
+        return $this->favorites()->where('product_id', $productId)->exists();
     }
     // Красивый вывод телефона
     public function getPhonePrettyAttribute(): string

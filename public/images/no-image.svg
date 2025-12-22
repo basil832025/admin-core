@@ -1,0 +1,18 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="No image">
+    <title>No image</title>
+    <!-- Background with rounded corners and subtle dashed border -->
+    <rect x="8" y="8" width="496" height="496" rx="28" fill="#F7F7F7" stroke="#E5E7EB" stroke-width="4" stroke-dasharray="14 12"/>
+
+    <!-- Simple landscape icon -->
+    <g>
+        <!-- Sun -->
+        <circle cx="360" cy="172" r="28" fill="#E5E7EB"/>
+        <!-- Mountains -->
+        <path d="M152 360L232 248L288 328L320 280L424 360H152Z" fill="#E5E7EB"/>
+        <!-- Ground line -->
+        <rect x="120" y="360" width="272" height="4" rx="2" fill="#E5E7EB"/>
+    </g>
+
+    <!-- Corner notch detail -->
+    <path d="M456 72H392c-4.418 0-8 3.582-8 8v48" stroke="#E5E7EB" stroke-width="4" stroke-linecap="round"/>
+</svg>

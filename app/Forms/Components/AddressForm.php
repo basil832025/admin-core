@@ -2,7 +2,6 @@
 // app/Forms/Components/AddressForm.php
 namespace App\Forms\Components;
 
-
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Group;
 use Filament\Forms\Components\Hidden;
@@ -10,8 +9,8 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
-
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 final class AddressForm
@@ -23,81 +22,201 @@ final class AddressForm
             ->schema([
                 Grid::make(2)->schema([
                     Select::make('street_place_id')
-                        ->label('Улица (Київ)')
+                        ->label(__('order.fields.address_street_place'))
                         ->live()
                         ->searchable()
-                    //    ->default(null) // ключ существует до маунта
                         ->getSearchResultsUsing(function (Select $c, string $search): array {
-                            if (mb_strlen($search) < 2) return [];
+                            if (mb_strlen($search) < 2) {
+                                return [];
+                            }
 
+                            // 1) проверяем ключ
+                            $key = config('services.google_maps.key');
+                            if (! $key) {
+                                Log::error('GPlaces autocomplete: google_maps.key is empty', [
+                                    'search' => $search,
+                                    'env'    => app()->environment(),
+                                ]);
+                                return [];
+                            }
+
+                            // сессионный токен
                             $token = session('gplaces_token')
                                 ?? tap((string) Str::uuid(), fn ($t) => session(['gplaces_token' => $t]));
 
-                            $resp = Http::timeout(8)->acceptJson()->get(
-                                'https://maps.googleapis.com/maps/api/place/autocomplete/json',
-                                [
-                                    'input'        => $search,
-                                    'types'        => 'address',
-                                    'language'     => 'uk',
-                                    'components'   => 'country:ua',
-                                    'location'     => '50.4501,30.5234',
-                                    'radius'       => 30000,
-                                    'sessiontoken' => $token,
-                                    'key'          => config('services.google_maps.key'),
-                                ]
-                            );
+                            try {
+                                $resp = Http::timeout(8)->acceptJson()->get(
+                                    'https://maps.googleapis.com/maps/api/place/autocomplete/json',
+                                    [
+                                        'input'        => $search,
+                                        'types'        => 'address',
+                                        'language'     => 'uk',
+                                        'components'   => 'country:ua',
+                                        'location'     => '50.4501,30.5234',
+                                        'radius'       => 30000,
+                                        'sessiontoken' => $token,
+                                        'key'          => $key,
+                                    ]
+                                );
+                            } catch (\Throwable $e) {
+                                Log::error('GPlaces autocomplete HTTP exception', [
+                                    'search'  => $search,
+                                    'message' => $e->getMessage(),
+                                ]);
+                                return [];
+                            }
+
+                            if (! $resp->ok()) {
+                                Log::error('GPlaces autocomplete HTTP error', [
+                                    'search' => $search,
+                                    'status' => $resp->status(),
+                                    'body'   => $resp->body(),
+                                ]);
+                                return [];
+                            }
+
+                            $apiStatus = $resp->json('status');
+                            if ($apiStatus !== 'OK') {
+                                Log::error('GPlaces autocomplete API error', [
+                                    'search' => $search,
+                                    'status' => $apiStatus,
+                                    'error'  => $resp->json('error_message'),
+                                ]);
+                                return [];
+                            }
 
                             $predictions = $resp->json('predictions') ?? [];
 
                             return collect($predictions)
                                 ->filter(function ($p) {
-                                    $types = $p['types'] ?? [];
+                                    $types    = $p['types'] ?? [];
                                     $isStreet = in_array('route', $types) || in_array('geocode', $types);
-                                    $d = mb_strtolower($p['description'] ?? '');
-                                    $inKyiv = str_contains($d, 'київ') || str_contains($d, 'киев') || str_contains($d, 'kyiv')
-                                        || str_contains($d, 'kyiv oblast') || str_contains($d, 'київська');
+                                    $d        = mb_strtolower($p['description'] ?? '');
+                                    $inKyiv   = str_contains($d, 'київ')
+                                        || str_contains($d, 'киев')
+                                        || str_contains($d, 'kyiv')
+                                        || str_contains($d, 'kyiv oblast')
+                                        || str_contains($d, 'київська');
+
                                     return $isStreet && $inKyiv;
                                 })
                                 ->mapWithKeys(function ($p) {
                                     $main = $p['structured_formatting']['main_text'] ?? '';
                                     $sec  = $p['structured_formatting']['secondary_text'] ?? '';
-                                    return [$p['place_id'] => trim($main . ($sec ? " — $sec" : ''))];
+
+                                    return [
+                                        $p['place_id'] => trim($main . ($sec ? " — $sec" : '')),
+                                    ];
                                 })
                                 ->all();
                         })
                         ->getOptionLabelUsing(function ($value): ?string {
-                            if (! $value) return null;
+                            if (! $value) {
+                                return null;
+                            }
+
+                            $key = config('services.google_maps.key');
+                            if (! $key) {
+                                Log::error('GPlaces optionLabel: google_maps.key is empty', [
+                                    'value' => $value,
+                                ]);
+                                return (string) $value;
+                            }
 
                             $token = session('gplaces_token') ?? null;
-                            $resp = Http::timeout(8)->acceptJson()->get(
-                                'https://maps.googleapis.com/maps/api/place/details/json',
-                                [
-                                    'place_id'     => $value,
-                                    'fields'       => 'formatted_address',
-                                    'language'     => 'uk',
-                                    'sessiontoken' => $token,
-                                    'key'          => config('services.google_maps.key'),
-                                ]
-                            );
+
+                            try {
+                                $resp = Http::timeout(8)->acceptJson()->get(
+                                    'https://maps.googleapis.com/maps/api/place/details/json',
+                                    [
+                                        'place_id'     => $value,
+                                        'fields'       => 'formatted_address',
+                                        'language'     => 'uk',
+                                        'sessiontoken' => $token,
+                                        'key'          => $key,
+                                    ]
+                                );
+                            } catch (\Throwable $e) {
+                                Log::error('GPlaces optionLabel HTTP exception', [
+                                    'value'   => $value,
+                                    'message' => $e->getMessage(),
+                                ]);
+                                return (string) $value;
+                            }
+
+                            if (! $resp->ok()) {
+                                Log::error('GPlaces optionLabel HTTP error', [
+                                    'value'  => $value,
+                                    'status' => $resp->status(),
+                                    'body'   => $resp->body(),
+                                ]);
+                                return (string) $value;
+                            }
+
+                            $apiStatus = $resp->json('status');
+                            if ($apiStatus !== 'OK') {
+                                Log::error('GPlaces optionLabel API error', [
+                                    'value'  => $value,
+                                    'status' => $apiStatus,
+                                    'error'  => $resp->json('error_message'),
+                                ]);
+                                return (string) $value;
+                            }
 
                             return data_get($resp->json(), 'result.formatted_address') ?? (string) $value;
                         })
                         ->afterStateUpdated(function ($state, callable $set) {
-                          //  dump($set,$state);
-                            if (! $state) return;
-                            // ВАЖНО: берём префикс контейнера (например, 'address')
-                       //     $base = $component->getContainer()->getStatePath();
+                            if (! $state) {
+                                return;
+                            }
+
+                            $key = config('services.google_maps.key');
+                            if (! $key) {
+                                Log::error('GPlaces details(afterStateUpdated): google_maps.key is empty', [
+                                    'place_id' => $state,
+                                ]);
+                                return;
+                            }
+
                             $token = session('gplaces_token') ?? null;
-                            $resp = Http::timeout(1)->acceptJson()->get(
-                                'https://maps.googleapis.com/maps/api/place/details/json',
-                                [
-                                    'place_id'     => $state,
-                                    'fields'       => 'address_components,geometry,formatted_address',
-                                    'language'     => 'uk',
-                                    'sessiontoken' => $token,
-                                    'key'          => config('services.google_maps.key'),
-                                ]
-                            );
+
+                            try {
+                                $resp = Http::timeout(1)->acceptJson()->get(
+                                    'https://maps.googleapis.com/maps/api/place/details/json',
+                                    [
+                                        'place_id'     => $state,
+                                        'fields'       => 'address_components,geometry,formatted_address',
+                                        'language'     => 'uk',
+                                        'sessiontoken' => $token,
+                                        'key'          => $key,
+                                    ]
+                                );
+                            } catch (\Throwable $e) {
+                                Log::error('GPlaces details(afterStateUpdated) HTTP exception', [
+                                    'place_id' => $state,
+                                    'message'  => $e->getMessage(),
+                                ]);
+                                return;
+                            }
+
+                            if (! $resp->ok()) {
+                                Log::error('GPlaces details(afterStateUpdated) HTTP error', [
+                                    'place_id' => $state,
+                                    'status'   => $resp->status(),
+                                    'body'     => $resp->body(),
+                                ]);
+                                return;
+                            }
+
+                            $apiStatus = $resp->json('status');
+                            if ($apiStatus !== 'OK') {
+                                Log::error('GPlaces details(afterStateUpdated) API error', [
+                                    'place_id' => $state,
+                                    'status'   => $apiStatus,
+                                    'error'    => $resp->json('error_message'),
+                                ]);
+                                return;
+                            }
 
                             $res   = $resp->json('result') ?? [];
                             $comps = collect($res['address_components'] ?? []);
@@ -109,7 +228,7 @@ final class AddressForm
                                 ?? $comps->first(fn ($c) => in_array('street_address', $c['types'] ?? []));
 
                             $street = data_get($routeComp, 'long_name')
-                                ?: \Illuminate\Support\Str::before($res['formatted_address'] ?? '', ',');
+                                ?: Str::before($res['formatted_address'] ?? '', ',');
 
                             $set('street', $street);
                             $set('formatted_address', $res['formatted_address'] ?? null);
@@ -118,24 +237,27 @@ final class AddressForm
                         })
                         ->columnSpan(2),
 
-                    TextInput::make('street')->label('Улица')->columnSpan(2),
-                    TextInput::make('house')->label('Дом')->required(),
-                    TextInput::make('apartment')->label('Квартира'),
-                    TextInput::make('intercom')->label('Домофон'),
-                    TextInput::make('floor')->label('Этаж'),
-                    TextInput::make('entrance')->label('Подъезд'),
-                    TextInput::make('city')->label('Город')->default('Київ'),
+                    TextInput::make('street')->label(__('order.fields.address_street'))->columnSpan(2),
+                    TextInput::make('house')->label(__('order.fields.address_house'))->required(),
+                    TextInput::make('apartment')->label(__('order.fields.address_apartment')),
+                    TextInput::make('intercom')->label(__('order.fields.address_intercom')),
+                    TextInput::make('floor')->label(__('order.fields.address_floor')),
+                    TextInput::make('entrance')->label(__('order.fields.address_entrance')),
+                    TextInput::make('city')->label(__('order.fields.address_city'))->default('Київ'),
                     Hidden::make('latitude')->dehydrated(),
                     Hidden::make('longitude')->dehydrated(),
-                    TextInput::make('formatted_address')->label('Полный адрес')->dehydrated()->columnSpan(2),
-                    Select::make('type')->label('Тип адреса')->options([
-                        'home' => 'Дом', 'work' => 'Работа', 'friends' => 'Друзья',
+                    TextInput::make('formatted_address')->label(__('order.fields.address_formatted'))->dehydrated()->columnSpan(2),
+                    Select::make('type')->label(__('order.fields.address_type'))->options([
+                        'home'    => __('order.address_types.home'),
+                        'work'    => __('order.address_types.work'),
+                        'friends' => __('order.address_types.friends'),
                     ]),
-                    Toggle::make('is_private_house')->label('Частный дом'),
-                    Textarea::make('note')->label('Примечание по доставке')->columnSpanFull(),
+                    Toggle::make('is_private_house')->label(__('order.fields.address_private_house')),
+                    Textarea::make('note')->label(__('order.fields.address_note'))->columnSpanFull(),
                 ]),
             ]);
     }
+
     public static function defaults(): array
     {
         return [

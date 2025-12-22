@@ -30,7 +30,7 @@ export default function registerFavoriteButton(Alpine) {
             if (this.postUrl && this.id != null) {
                 try {
                     this.loading = true;
-                    await fetch(this.postUrl, {
+                    const res = await fetch(this.postUrl, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -39,6 +39,15 @@ export default function registerFavoriteButton(Alpine) {
                         body: JSON.stringify({ product_id: this.id, favorite: this.active }),
                         credentials: 'same-origin',
                     });
+                    
+                    // После успешного изменения избранного обновляем счетчик
+                    if (res.ok) {
+                        const data = await res.json().catch(() => ({}));
+                        // Отправляем событие для обновления store с количеством
+                        window.dispatchEvent(new CustomEvent('favorite-updated', { 
+                            detail: { qty: data.qty } 
+                        }));
+                    }
                 } catch (e) {
                     this.active = !this.active;
                     if (this.persist) localStorage.setItem(`fav:${this.id}`, this.active ? '1' : '0');

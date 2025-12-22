@@ -1,0 +1,38 @@
+<?php
+
+namespace App\Http\Controllers\Front;
+
+use App\Http\Controllers\Controller;
+use App\Models\Pages;
+
+class PageController extends Controller
+{
+    /**
+     * Показ страницы, когда модель уже найдена в роуте
+     * (как в твоём коде: app(PageController::class)->show($page))
+     */
+    public function show(Pages $page)
+    {
+        // Пытаемся отрендерить спец-шаблон по слагу, если он есть
+        $view = 'pages.' . $page->slug;   // например resources/views/pages/delivery.blade.php
+
+        if (view()->exists($view)) {
+            return view($view, compact('page'));
+        }
+
+        // Фолбэк – общий шаблон для всех статических страниц
+        return view('pages.show', compact('page')); // resources/views/pages/show.blade.php
+    }
+
+    /**
+     * Альтернативный вариант, если захочешь вызывать по слагу прямо из маршрута:
+     *
+     * Route::get('/{slug}', [PageController::class, 'showBySlug']);
+     */
+    public function showBySlug(string $slug)
+    {
+        $page = Pages::query()->where('slug', $slug)->firstOrFail();
+
+        return $this->show($page);
+    }
+}

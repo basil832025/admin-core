@@ -41,7 +41,7 @@ class CreateOrder extends CreateRecord
     protected function getSteps(): array
     {
         return [
-            Step::make('Детали заказа')
+            Step::make(__('order.steps.order_details'))
                 ->schema([
                    // Section::make()->schema(OrderResource::getDetailsFormSchema())->columns(),
                     Section::make()->schema(OrderResource::getInfoTabSchema())->columns(),
@@ -49,7 +49,7 @@ class CreateOrder extends CreateRecord
 
                 ]),
 
-            Step::make('Товары заказа')
+            Step::make(__('order.steps.order_items'))
                 ->schema([
                     Section::make()->schema([
                         OrderResource::getItemsRepeater(),

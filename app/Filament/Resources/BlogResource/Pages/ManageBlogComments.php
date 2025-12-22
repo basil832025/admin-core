@@ -7,6 +7,7 @@ use Filament\Resources\Pages\ManageRelatedRecords;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Tables;
+use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\IconColumn;
@@ -35,8 +36,8 @@ class ManageBlogComments extends ManageRelatedRecords
                     ->required(),
                 Forms\Components\TextInput::make('author_email')
                     ->label('Author Email')
-                    ->email()
-                    ->required(),
+                    ->email()//->required()
+                    ,
                 Forms\Components\Textarea::make('content')
                     ->label('Comment')
                     ->rows(4)
@@ -65,9 +66,10 @@ class ManageBlogComments extends ManageRelatedRecords
                     ->label('Comment')
                     ->limit(50)
                     ->wrap(),
-                IconColumn::make('is_approved')
+                ToggleColumn::make('is_approved')->label(__('Разрешить')),
+              /*  IconColumn::make('is_approved')
                     ->label('Approved')
-                    ->boolean(),
+                    ->boolean(),*/
                 TextColumn::make('created_at')
                     ->label('Created')
                     ->dateTime(),

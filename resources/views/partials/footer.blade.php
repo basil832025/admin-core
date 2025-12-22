@@ -1,4 +1,11 @@
-<footer class="bg-white text-[#929292] mt-[120px]">
+@php
+    $footer_left_menu = \App\Support\Menus::bySlug('footer-left');
+    $footer_center_menu = \App\Support\Menus::bySlug('footer-center');
+    $footer_right_menu = \App\Support\Menus::bySlug('footer-right');
+
+
+@endphp
+<footer class="bg-white text-[#929292] xl:mt-[80px] mt-[40px]">
     <div class="max-w-screen-xl mx-auto px-4 md:px-6">
         {{-- линия-разделитель --}}
         <div class="border-t border-black/10"></div>
@@ -8,60 +15,93 @@
 
             {{-- Три пирога --}}
             <div>
-                <h3 class="text-lg font-semibold text-black">Три пирога</h3>
+                <h3 class="text-lg font-semibold text-black"> {{ st('all.try-pyroha','Три пирога') }}</h3>
+                @if($footer_left_menu)
+
                 <ul class="mt-4 space-y-2 text-[14px] text-[#929292] font-bold">
-                    <li><a class="hover:text-black" href="#">Про нас</a></li>
-                    <li><a class="hover:text-black" href="#">Відгуки клієнтів</a></li>
-                    <li><a class="hover:text-black" href="#">Акції</a></li>
-                    <li><a class="hover:text-black" href="#">Бонусна програма лояности</a></li>
-                    <li><a class="hover:text-black" href="#">Блог</a></li>
+                    @foreach ($footer_left_menu as $it)
+
+                    <li><a class="hover:text-black" href="{{ $it['href'] ?: '#' }}">{{$it['label']}}</a></li>
+                    @endforeach
+
                 </ul>
+                @endif
             </div>
 
             {{-- Юридична інформація --}}
             <div>
-                <h3 class="text-lg font-semibold text-black">Юридична інформація</h3>
+                <h3 class="text-lg font-semibold text-black">{{ st('all.iurydychna-informatsiia','Юридична інформація') }}</h3>
+                @if($footer_center_menu)
                 <ul class="mt-4 space-y-2 text-[14px] text-[#929292] font-bold">
-                    <li><a class="hover:text-black" href="#">Публічна оферта</a></li>
-                    <li><a class="hover:text-black" href="#">Політика конфіденційності</a></li>
-                </ul>
+                    @foreach ($footer_center_menu as $it)
+
+                        <li><a class="hover:text-black" href="{{ $it['href'] ?: '#' }}">{{$it['label']}}</a></li>
+                    @endforeach
+                        </ul>
+                @endif
             </div>
 
             {{-- Доставка і ресторани --}}
             <div>
-                <h3 class="text-lg font-semibold text-black">Доставка і ресторани</h3>
+                <h3 class="text-lg font-semibold text-black">{{ st('all.dostavka-and-restorany','Доставка і ресторани') }}</h3>
+                @if($footer_center_menu)
                 <ul class="mt-4 space-y-2 text-[14px] text-[#929292] font-bold">
-                    <li><a class="hover:text-black" href="#">Доставка та самовивіз</a></li>
-                    <li><a class="hover:text-black" href="#">Наші ресторани</a></li>
-                </ul>
+                    @foreach ($footer_right_menu as $it)
+
+                        <li><a class="hover:text-black" href="{{ $it['href'] ?: '#' }}">{{$it['label']}}</a></li>
+                    @endforeach
+                     </ul>
+                @endif
             </div>
 
             {{-- Контакти --}}
             <div class="md:col-span-3 lg:col-span-1">
-                <h3 class="text-lg font-semibold text-black">Контакти</h3>
+                <h3 class="text-lg font-semibold text-black">{{ st('all.contacts','Контакти') }}</h3>
 
-                {{-- внутри: md = 3 колонки, lg = 1 колонка --}}
+                @php
+                    // phones from HeaderContacts composer
+                    $phones = collect($headerPhones ?? []);
+                    $phoneCols = $phones->chunk(2); // по 2 номера в колонку
+
+                    // email/address — берем из location, если есть (подстрой ключи под свою модель Location)
+                    $email   = data_get($headerLocation, 'email')
+                            ?? data_get($headerLocation, 'contact_email')
+                            ?? config('site.email', 'info@3piroga.ua');
+
+                    $address = data_get($headerLocation, 'address')
+                            ?? data_get($headerLocation, 'address_text')
+                            ?? '';
+                @endphp
+
                 <div class="mt-4 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-1 gap-6 text-[14px] font-bold">
-                    <ul class="space-y-2 text-[#272828]">
-                        <li>(044) 453-33-33</li>
-                        <li>(093) 288-43-33</li>
-                    </ul>
+                    {{-- телефоны --}}
+                    @foreach ($phoneCols as $col)
+                        <ul class="space-y-2 text-[#272828]">
+                            @foreach ($col as $p)
+                                <li>
+                                    <a href="tel:{{ $p['tel'] }}" class="hover:text-black">
+                                        {{ $p['display'] }}
+                                    </a>
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endforeach
 
-                    <ul class="space-y-2 text-[#272828]">
-                        <li>(097) 898-43-33</li>
-                        <li>(066) 078-43-33</li>
-                    </ul>
-
+                    {{-- email + address --}}
                     <ul class="space-y-2">
                         <li class="font-bold">
-                            <a href="mailto:info@3piroga.ua" class="hover:text-black">info@3piroga.ua</a>
+                            <a href="mailto:{{ $email }}" class="hover:text-black">{{ $email }}</a>
                         </li>
-                        <li class="text-[#929292] font-normal">
-                            Київ, бул. Лесі Українки, 24
-                        </li>
+
+                        @if($address)
+                            <li class="text-[#929292] font-normal">
+                                {{ $address }}
+                            </li>
+                        @endif
                     </ul>
                 </div>
             </div>
+
 
         </div>
 

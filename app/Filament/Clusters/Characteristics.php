@@ -14,12 +14,23 @@ class Characteristics extends Cluster
     protected static ?string $navigationIcon = 'heroicon-o-cog';
     public static function getNavigationLabel(): string
     {
-        return __('Характеристики');
+        return __('characteristic.nav.navigation_label');
     }
+
+    public static function getClusterBreadcrumb(): string
+    {
+        return __('characteristic.nav.navigation_label');
+    }
+
     /**
      * Группа навигации, в которую попадёт кластер
      */
-    protected static ?string $navigationGroup = 'Магазин';
+    protected static ?string $navigationGroup = null;
+
+    public static function getNavigationGroup(): ?string
+    {
+        return __('characteristic.nav.navigation_group');
+    }
 
     /**
      * Порядок сортировки кластера в меню

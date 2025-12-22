@@ -1,6 +1,7 @@
 <?php
 namespace App\Models\Shop;
 
+use App\Models\SvgImage;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use Spatie\Translatable\HasTranslations;
@@ -26,6 +27,7 @@ class Characteristic extends Model
         'field_type',
         'is_main_tab',
         'is_active',
+        'svg_image_id',
     ];
     protected $casts = [
         'name'          => 'array',
@@ -37,6 +39,10 @@ class Characteristic extends Model
         'is_main_tab'   => 'boolean',
         'is_active'     => 'boolean',
     ];
+    public function svgImage()
+    {
+        return $this->belongsTo(SvgImage::class, 'svg_image_id');
+    }
     public function productValues()
     {
         return $this->hasMany(ProductCharacteristicValue::class);

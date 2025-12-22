@@ -21,23 +21,40 @@ class UserResource extends Resource
     // protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
     protected static ?string $navigationGroup = 'Настройки';
     protected static ?string $navigationIcon = 'heroicon-o-user-group';
-    protected static ?string $navigationLabel = 'Пользователи';
+    protected static ?string $navigationLabel = null;
+    protected static ?string $modelLabel = null;
+    protected static ?string $pluralModelLabel = null;
+
+    public static function getNavigationLabel(): string
+    {
+        return __('user.nav.navigation_label');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('user.nav.model_label');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('user.nav.plural_model_label');
+    }
     public static function form(Form $form): Form
     {
         return $form->schema([
             Forms\Components\TextInput::make('name')
-                ->label('Имя')
+                ->label(__('user.fields.name'))
                 ->required()
                 ->maxLength(255),
 
             Forms\Components\TextInput::make('email')
-                ->label('Email')
+                ->label(__('user.fields.email'))
                 ->email()
                 ->required()
                 ->unique(ignoreRecord: true),
 
             Forms\Components\TextInput::make('password')
-                ->label('Пароль')
+                ->label(__('user.fields.password'))
                 ->password()
                 ->dehydrateStateUsing(fn ($state) => filled($state) ? bcrypt($state) : null)
                 ->dehydrated(fn ($state) => filled($state)) // 👈 добавляем это
@@ -46,7 +63,7 @@ class UserResource extends Resource
 
             // выбор ролей
             Forms\Components\Select::make('roles')
-                ->label('Роли')
+                ->label(__('user.fields.roles'))
                 ->multiple()
                 ->relationship('roles', 'name')
                 ->preload()
@@ -58,10 +75,10 @@ class UserResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('name')->label('Имя')->sortable()->searchable(),
-                Tables\Columns\TextColumn::make('email')->label('Email')->sortable()->searchable(),
-                Tables\Columns\TagsColumn::make('roles.name')->label('Роли'),
-                Tables\Columns\TextColumn::make('created_at')->label('Создан')->dateTime(),
+                Tables\Columns\TextColumn::make('name')->label(__('user.columns.name'))->sortable()->searchable(),
+                Tables\Columns\TextColumn::make('email')->label(__('user.columns.email'))->sortable()->searchable(),
+                Tables\Columns\TagsColumn::make('roles.name')->label(__('user.columns.roles')),
+                Tables\Columns\TextColumn::make('created_at')->label(__('user.columns.created_at'))->dateTime(),
             ])
             ->filters([])
             ->actions([

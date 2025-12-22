@@ -14,6 +14,11 @@ use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
 use Illuminate\Support\Carbon;
 use App\Enums\PaymentMethodEnum;
+use App\Services\LoyaltyService;
+use App\Models\Shop\LoyaltyTransaction;
+use App\Models\Shop\LiqPayLog;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+
 class Order extends Model
 {
     use HasFactory;
@@ -86,6 +91,23 @@ class Order extends Model
             $this->status_times = $times;
         }
     }
+    public function clientOrders(): HasMany
+    {
+        // все заказы того же клиента (включая текущий — исключим его в менеджере)
+        return $this->hasMany(self::class, 'clients_id', 'clients_id');
+    }
+    /**
+     * Бонусные операции, связанные с этим заказом.
+     */
+
+    public function paymentLogs()
+    {
+        return $this->hasMany(\App\Models\Shop\LiqPayLog::class, 'shop_order_id');
+    }
+    public function loyaltyTransactions(): HasMany
+    {
+        return $this->hasMany(LoyaltyTransaction::class, 'order_id');
+    }
     public function clientAddress()
     {
         return $this->belongsTo(\App\Models\Shop\ClientAddress::class, 'client_address_id');
@@ -99,7 +121,16 @@ class Order extends Model
     {
         return $this->hasMany(\App\Models\Shop\OrderAdjustment::class, 'shop_order_id');
     }
+    public function liqpayLogs(): HasMany
+    {
+        return $this->hasMany(LiqPayLog::class, 'shop_order_id');
+    }
 
+    public function lastLiqpayLog(): HasOne
+    {
+        // последний лог по этому заказу
+        return $this->hasOne(LiqPayLog::class, 'shop_order_id')->latestOfMany();
+    }
     // Что логировать
     public function getActivitylogOptions(): LogOptions
     {
@@ -180,6 +211,33 @@ class Order extends Model
                 $times[$status->value] = now()->toDateTimeString();
                 $order->status_times = $times;
             }
+            $originalStatus = $order->getOriginal('status');
+            $newStatus      = $order->status;
+
+            // приводим к строкам (на случай enum / строки)
+            $oldCode = $originalStatus instanceof OrderStatus ? $originalStatus->value : $originalStatus;
+            $newCode = $newStatus      instanceof OrderStatus ? $newStatus->value      : $newStatus;
+
+            // интересует только первый переход В "delivered"
+            if ($newCode !== OrderStatus::Delivered->value || $oldCode === OrderStatus::Delivered->value) {
+                return;
+            }
+
+        // если paid_at ещё пустой — считаем, что оплата произошла сейчас
+        if (empty($order->paid_at)) {
+            $order->paid_at = now();
+            // saveQuietly — без повторного срабатывания событий, чтобы не зациклиться
+            $order->saveQuietly();
+        }
+
+        /** @var LoyaltyService $loyalty */
+        $loyalty = app(LoyaltyService::class);
+
+        // начисление X% от чека
+        $loyalty->accrueOnPaidOrder($order);
+
+        // приветственный бонус за первый заказ
+        $loyalty->grantWelcomeBonusIfNeeded($order);
         });
         static::saving(function (self $order) {
             // базовая сумма из items (если связь подгружена)

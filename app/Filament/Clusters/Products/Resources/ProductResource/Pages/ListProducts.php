@@ -18,10 +18,17 @@ class ListProducts extends ListRecords
 
     protected function getHeaderActions(): array
     {
+        // Кэшируем список языков на 1 час для оптимизации
+        $languages = cache()->remember('active_languages_map', 3600, function () {
+            return Language::where('active', true)
+                ->pluck('name', 'code')
+                ->mapWithKeys(fn ($name, $code) => [strtolower($code) => $name])
+                ->toArray();
+        });
 
         $items = collect(static::getResource()::getActiveLocales()) // ['uk','en','ru', ...]
-        ->map(function (string $code) {
-            $label = Language::where('code', $code)->value('name') ?? strtoupper($code);
+        ->map(function (string $code) use ($languages) {
+            $label = $languages[$code] ?? strtoupper($code);
 
             return Actions\Action::make("locale-$code")
                 ->label($label)

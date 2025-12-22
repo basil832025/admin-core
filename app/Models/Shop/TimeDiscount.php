@@ -8,9 +8,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Collection;
+use Spatie\Translatable\HasTranslations;
+
 class TimeDiscount extends Model
 {
     use SoftDeletes;
+    use HasTranslations;
     public const TYPE_ORDER     = 'order';      // по времени заказа
     public const TYPE_EXECUTION = 'execution';  // по времени выполнения (доставка/выдача)
     protected $table = 'bs_shop_time_discounts';
@@ -28,7 +32,9 @@ class TimeDiscount extends Model
         'ends_at',
         'note',
     ];
-
+    public $translatable = [
+        'name',
+    ];
     protected $casts = [
         'days'      => 'array',     // JSON <-> array
         'percent'   => 'decimal:2',
@@ -49,6 +55,72 @@ class TimeDiscount extends Model
             ->where(function ($q) use ($now) {
                 $q->whereNull('ends_at')->orWhere('ends_at', '>=', $now);
             });
+    }
+    /**
+     * Сколько скидки (положительное число) дать с указанной суммы.
+     * Упрощённая версия для живого пересчёта на checkout.
+     */
+    public function calculateForTotal(float $sum): float
+    {
+        if ($sum <= 0) {
+            return 0.0;
+        }
+
+        $percent = (float) ($this->percent ?? 0);
+        if ($percent > 0) {
+            return round($sum * $percent / 100, 2);
+        }
+
+        $amount = (float) ($this->amount ?? 0);
+        if ($amount > 0) {
+            return round(min($amount, $sum), 2);
+        }
+
+        return 0.0;
+    }
+
+    /**
+     * Есть ли в корзине хоть один товар, на который реально распространяется акция
+     * (по группам/товарам). Характеристики при желании можно тоже учесть.
+     */
+    public function hasEligibleProducts(Collection $productIds): bool
+    {
+        $ids = $productIds->filter()->unique()->values();
+        if ($ids->isEmpty()) {
+            return false;
+        }
+
+        $hasCats  = $this->categories()->exists();
+        $hasProds = $this->products()->exists();
+
+        // если не задано ни категорий, ни товаров — значит акция без ограничений по ассортименту
+        if (! $hasCats && ! $hasProds) {
+            return true;
+        }
+
+        // матч по конкретным товарам
+        if ($hasProds && $this->products()
+                ->whereIn('bs_shop_products.id', $ids)
+                ->exists()
+        ) {
+            return true;
+        }
+
+        // матч по категориям (через товары категории)
+        if ($hasCats && $this->categories()
+                ->whereHas('products', function ($q) use ($ids) {
+                    // пусть Eloquent сам подставит нужную таблицу
+                    $table = $q->getModel()->getTable();   // например, 'bs_products'
+                    $q->whereIn($table . '.id', $ids);
+                    // либо даже просто: $q->whereIn('id', $ids);
+                })
+                ->exists()
+        ) {
+            return true;
+        }
+
+
+        return false;
     }
     /*проверяет, действует ли скидка в конкретный момент времени и учитывает:
 день недели (days или days_mask),

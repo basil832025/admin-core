@@ -10,6 +10,8 @@ use Filament\Pages\Actions\SaveAction;
 use Filament\Pages\Actions\CreateAction;
 use App\Models\Setting;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Str;
+
 class CreatePages extends CreateRecord
 {
     protected static string $resource = PagesResource::class;
@@ -36,16 +38,30 @@ class CreatePages extends CreateRecord
     }
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        $default = Setting::value('default_language_code') ?: config('app.locale');
-        $raw = $data['content'][$default] ?? '';
+        // Нормализуем slug (если нужно)
+        $data['slug'] = Str::slug($data['slug'] ?? ($data['title']['uk'] ?? $data['title'] ?? ''));
 
-        // вычищаем «пустой» HTML: <p></p>, <p><br></p>, NBSP и т.п.
-        $plain = trim(preg_replace('/\xc2\xa0/u', ' ', strip_tags($raw)));
+        // По желанию: чистим «пустые» HTML-переводы, чтобы не хранить <p><br></p>
+        if (isset($data['content']) && is_array($data['content'])) {
+            foreach ($data['content'] as $loc => $val) {
+                $plain = trim(preg_replace('/\x{00A0}/u', ' ', strip_tags($val ?? '')));
+                if ($plain === '') {
+                    $data['content'][$loc] = null; // или unset($data['content'][$loc]);
+                }
+            }
+        }
 
-        if ($plain === '') {
-            throw ValidationException::withMessages([
-                "content.$default" => 'Поле Контент обязательно.',
-            ]);
+        // Проверка дублей slug в блоках
+        $seen = [];
+        foreach ($data['fields'] ?? [] as $b) {
+            $slug = data_get($b, 'data.slug');
+            if (!$slug) continue;
+            if (isset($seen[$slug])) {
+                throw ValidationException::withMessages([
+                    'fields' => "Слаг «{$slug}» повторяется в блоках.",
+                ]);
+            }
+            $seen[$slug] = true;
         }
 
         return $data;

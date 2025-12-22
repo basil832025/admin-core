@@ -28,5 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
         FilamentServiceProvider::class,
         FormsServiceProvider::class,
         TablesServiceProvider::class,
+        // меню для сайта
+        App\Providers\ViewServiceProvider::class,
     ])
     ->create();

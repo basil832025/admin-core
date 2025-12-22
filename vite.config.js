@@ -5,7 +5,10 @@ export default defineConfig({
    // base: '/',            // если сайт в корне домена
     plugins: [
         laravel({
-            input: ['resources/css/app.css', 'resources/js/app.js'],
+            input: ['resources/css/app.css',
+                'resources/js/app.js',
+                'resources/js/map-cart.js',
+                'resources/css/filament/admin/theme.css',],
             refresh: true,
             buildDirectory: 'build',     // <— обязательно
         }),

@@ -6,48 +6,35 @@
 'overlayClass' => '',                 // доп. классы для затемнения
 ])
 @php
-/*
-   $aboutMenu = [
-      ['key'=>'about',     'label'=>'Про нас',                 'href'=>route('about'),     'activeWhen'=>'about*'],
-      ['key'=>'reviews',   'label'=>'Відгуки клієнтів',        'href'=>route('reviews'),   'activeWhen'=>'reviews*'],
-      ['key'=>'sales',     'label'=>'Акції',                   'href'=>route('sales'),     'activeWhen'=>'sales*'],
-      ['key'=>'bonus',     'label'=>'Бонуси',                  'href'=>route('bonus'),     'activeWhen'=>'bonus*'],
-      ['key'=>'blog',      'label'=>'Блог',                    'href'=>route('blog.index'),'activeWhen'=>'blog*'],
-      ['key'=>'delivery',  'label'=>'Доставка і самовивіз',    'href'=>route('delivery'),  'activeWhen'=>'delivery*'],
-      ['key'=>'restaurants','label'=>'Наші ресторани',         'href'=>route('restaurants'),'activeWhen'=>'restaurants*'],
-    ];
- */
-    $aboutMenu = [
-      ['key'=>'about',     'label'=>'Про нас',                 'href'=>'#',     'activeWhen'=>'about*'],
-      ['key'=>'reviews',   'label'=>'Відгуки клієнтів',        'href'=>'#',   'activeWhen'=>'reviews*'],
-      ['key'=>'sales',     'label'=>'Акції',                   'href'=>'#',     'activeWhen'=>'sales*'],
-      ['key'=>'bonus',     'label'=>'Бонуси',                  'href'=>'#',     'activeWhen'=>'bonus*'],
-      ['key'=>'blog',      'label'=>'Блог',                    'href'=>'#','activeWhen'=>'blog*'],
-      ['key'=>'delivery',  'label'=>'Доставка і самовивіз',    'href'=>'#',  'activeWhen'=>'delivery*'],
-      ['key'=>'restaurants','label'=>'Наші ресторани',         'href'=>'#','activeWhen'=>'restaurants*'],
-    ];
+                     // phones from HeaderContacts composer
+                     $phones = collect($headerPhones ?? []);
+                     $phoneCols = $phones->chunk(2); // по 2 номера в колонку
 
-       $catalogMenu = [
-            ['key'=>'all',     'label'=>'Всі пироги', 'href'=>'#', 'activeWhen'=>'category.all'],
-            ['key'=>'hits',    'label'=>'Хіти',       'href'=>'#','activeWhen'=>'category.hits'],
-            ['key'=>'news',    'label'=>'Новинки',       'href'=>'#','activeWhen'=>'category.news'],
-            ['key'=>'cheese',    'label'=>'Сырные',       'href'=>'#','activeWhen'=>'category.cheese'],
-            ['key'=>'meat',    'label'=>'Мясные',       'href'=>'#','activeWhen'=>'category.meat'],
-            ['key'=>'postn',    'label'=>'Постные',       'href'=>'#','activeWhen'=>'category.postn'],
-            ['key'=>'sladk',    'label'=>'Сладкие',       'href'=>'#','activeWhen'=>'category.sladk'],
-            ['key'=>'sets',    'label'=>'Сеты',       'href'=>'#','activeWhen'=>'category.sets'],
-            ['key'=>'tort',    'label'=>'Торты',       'href'=>'#','activeWhen'=>'category.tort'],
-            ['key'=>'souse',    'label'=>'Соусы',       'href'=>'#','activeWhen'=>'category.souse'],
-            ['key'=>'napitk',    'label'=>'Напитки',       'href'=>'#','activeWhen'=>'category.napitk'],
+                     // email/address — берем из location, если есть (подстрой ключи под свою модель Location)
+                     $email   = data_get($headerLocation, 'email')
+                             ?? data_get($headerLocation, 'contact_email')
+                             ?? config('site.email', 'info@3piroga.ua');
 
-            ];
-   $accountMenu = [
-    ['key'=>'fav',   'label'=>'Избранное',        'route'=>'favorites.index',  'activeWhen'=>'favorites.*',   'icon'=>'icons.heart'],
-    ['key'=>'orders','label'=>'История заказов',  'route'=>'orders.index',     'activeWhen'=>'orders.*',      'icon'=>'icons.history'],
-    ['key'=>'bonus', 'label'=>'0 Бонусов',        'route'=>'bonus.index',      'activeWhen'=>'bonus.*',       'icon'=>'icons.bonus'],
-    ['key'=>'prof',  'label'=>'Профиль',          'route'=>'profile.show',     'activeWhen'=>'profile.*',     'icon'=>'icons.user'],
-    ['key'=>'addr',  'label'=>'Адреса доставки',  'route'=>'addresses.index',  'activeWhen'=>'addresses.*',   'icon'=>'icons.pin'],
-];
+                     $address = data_get($headerLocation, 'address')
+                             ?? data_get($headerLocation, 'address_text')
+                             ?? '';
+
+
+
+       $burgerCatalogItems = collect($MainMenuItems)->map(function ($it) {
+    return [
+        'key'        => $it['slug'] ?? $it['id'],
+        'label'      => $it['label'],
+        'href'       => $it['url'],
+        'activeWhen' => ltrim($it['url'], '/') . '*',
+    ];
+})->values()->all();
+
+
+
+
+  $accountMenu = \App\Support\Menus::bySlug('profile-menu');
+  $aboutMenu = \App\Support\Menus::bySlug('menu-left-pages');
 @endphp
 <div
     x-data="{ open: false }"
@@ -91,79 +78,76 @@
     >
         <!-- ВНУТРЕННИЙ СКРОЛЛЕР  class="h-full overflow-y-auto pr-3 custom-scroll" -->
         <div >
-        <!-- Шапка меню -->
-        <div class="flex items-center justify-between px-8 py-6 ">
-            <div class="flex items-center gap-2">
-                <img src="{{ asset('images/logo.svg') }}" alt="Три пироги" >
+            <!-- Шапка меню -->
+            <div class="flex items-center justify-between px-8 py-6">
+                <div class="flex items-center gap-3">
+                    <img src="{{ asset('images/logo.svg') }}" alt="Три пироги">
 
+                    {{-- Language switch (как в хидере) --}}
+                    <div class="ml-2">
+                        <x-ui.lang-switch variant="burger" />
+                    </div>
+                </div>
+
+                <button class="p-2 rounded-lg hover:bg-black/5" @click="open=false" aria-label="Закрыть меню">
+                    <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M6 6l12 12M18 6l-12 12"/>
+                    </svg>
+                </button>
             </div>
-            <button class="p-2 rounded-lg hover:bg-black/5" @click="open=false" aria-label="Закрыть меню">
-                <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M6 6l12 12M18 6l-12 12"/>
-                </svg>
-            </button>
-        </div>
 
         <!-- Контент (скролл внутри) -->
         <div class="h-[calc(100%-56px)] overflow-y-auto px-8">
             <!-- разделы -->
             <x-ui.menu-list  :items="$accountMenu" :is_account_menu="true"  />
             <x-ui.menu-list  :items="$aboutMenu" :remember="true" />
-            <!--   <nav class="space-y-1 text-[18px]">
-                   <a href="#" class="block rounded-xl px-3 py-2 bg-[#FFF9ED] text-[#19191A] font-medium">Про нас</a>
-                   <a href="#" class="block rounded-xl px-3 py-2 text-[#929292]">Отзывы клиентов</a>
-                   <a href="#" class="block rounded-xl px-3 py-2 text-[#929292]">Акции</a>
-                   <a href="#" class="block rounded-xl px-3 py-2 text-[#929292]">Бонусы</a>
-                   <a href="#" class="block rounded-xl px-3 py-2 text-[#929292]">Блог</a>
-                   <a href="#" class="block rounded-xl px-3 py-2 text-[#929292]">Доставка и самовывоз</a>
-                   <a href="#" class="block rounded-xl px-3 py-2 text-[#929292]">Наши рестораны</a>
-               </nav>-->
 
 
                <div class="mt-6">
-                   <x-ui.menu-list title="Меню" :items="$catalogMenu" :remember="true" />
-                 <!-- Меню каталога
-                   <h3 class="px-3 text-[18px] font-semibold text-[#C04103]">Меню</h3>
-                   <ul class="mt-2 space-y-1 ml-8">
-                       <li><a class="block px-3 py-2 text-sm text-[#929292] hover:bg-black/5 rounded-lg" href="#">Все пироги</a></li>
-                       <li><a class="block px-3 py-2 text-sm text-[#929292] hover:bg-black/5 rounded-lg" href="#">Хиты</a></li>
-                       <li><a class="block px-3 py-2 text-sm text-[#929292] hover:bg-black/5 rounded-lg" href="#">Новинки</a></li>
-                       <li><a class="block px-3 py-2 text-sm text-[#929292] hover:bg-black/5 rounded-lg" href="#">Сырные</a></li>
-                       <li><a class="block px-3 py-2 text-sm text-[#929292] hover:bg-black/5 rounded-lg" href="#">Мясные</a></li>
-                       <li><a class="block px-3 py-2 text-sm text-[#929292] hover:bg-black/5 rounded-lg" href="#">Постные</a></li>
-                       <li><a class="block px-3 py-2 text-sm text-[#929292] hover:bg-black/5 rounded-lg" href="#">Сладкие</a></li>
-                       <li><a class="block px-3 py-2 text-sm text-[#929292] hover:bg-black/5 rounded-lg" href="#">Сеты</a></li>
-                       <li><a class="block px-3 py-2 text-sm text-[#929292] hover:bg-black/5 rounded-lg" href="#">Торты</a></li>
-                       <li><a class="block px-3 py-2 text-sm text-[#929292] hover:bg-black/5 rounded-lg" href="#">Соусы</a></li>
-                       <li><a class="block px-3 py-2 text-sm text-[#929292] hover:bg-black/5 rounded-lg" href="#">Напитки</a></li>
-                   </ul>
-               </div>
-               -->
+                   <x-ui.menu-list
+                       title="{{ st('menu.title', 'Меню') }}"
+                       :items="$burgerCatalogItems"
+                       :remember="true"
+                   />
+
+                   @guest('web')
             <!-- Кнопка входа -->
             <div class="px-3 py-5">
                 <a href="#"
+                   @click="$dispatch('open-auth-modal', { tab: 'login' })"
+
                    class="block text-center rounded-[4px] bg-[#FF7500] text-white font-semibold py-3">
-                    Увійти
+                    {{ st('auth.login','Увійти') }}
                 </a>
             </div>
+                   @endguest
 
-            <!-- Контакты -->
+               <!-- Контакты -->
             <div class="px-3 pb-6 text-[16px] text-[#272828]">
-                <h4 class="font-semibold mb-2">Контакты</h4>
+                <h4 class="font-semibold mb-2">{{ st('all.contacts','Контакти') }}</h4>
                 <div class="space-y-1">
-                    <a href="tel:0444533333" class="block"> (044) 453-33-33</a>
-                    <a href="tel:0932884333" class="block"> (093) 288-43-33</a>
-                    <a href="tel:0979884333" class="block"> (097) 988-43-33</a>
-                    <a href="tel:0660784333" class="block"> (066) 078-43-33</a>
-                    <a href="mailto:info@3piroga.ua" class="block"> info@3piroga.ua</a>
+
+                    {{-- телефоны --}}
+                    @foreach ($phoneCols as $col)
+                            @foreach ($col as $p)
+                                    <a href="tel:{{ $p['tel'] }}" class="hover:text-black block">
+                                        {{ $p['display'] }}
+                                    </a>
+                            @endforeach
+                    @endforeach
+
+                    <a href="mailto:{{ $email }}" class="hover:text-black block">{{ $email }}</a>
+
                     <div class="mt-2 text-xs text-[#929292]">
-                        Київ, бул. Лесі Українки, 24
+                        @if($address)
+                                {{ $address }}
+                        @endif
                     </div>
                 </div>
 
                 <!-- соцсети -->
                 <div class="mt-4">
-                    <span class="text-[#929292] text-[13px]">Ми в соціальних мережах</span>
+                    <span class="text-[#929292] text-[13px]">{{ st('all.my-v-sotsialnykh-merezhakh','Ми в соціальних мережах') }}</span>
                 <ul class="flex items-center mt-2 gap-8 md:gap-8 md:justify-left">
                     <li><a href="https://www.facebook.com/3piroga.ua" target="_blank" aria-label="Facebook" class="text-black hover:text-[#FF7500]">
                             <x-icons.facebook class="w-8 h-8"/>

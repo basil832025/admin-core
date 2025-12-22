@@ -2,6 +2,7 @@
 'title' => 'Хіти',
 // сейчас можно передавать простой массив; позже будет коллекция моделей
 'items' => [],
+'favoriteIds' => [],
 // опционально «Показати все»
 'moreUrl' => null,
 ])
@@ -15,18 +16,31 @@
         @endif
     </div>
 
-    <!-- отступ 32px до сетки -->
+    <!-- отступ 32px до сетки  -->
     <div class="md:mt-8 mt-6 grid grid-cols-1 desk:gap-12 md:gap-8 sm:grid-cols-2 lg:grid-cols-3 ">
         @forelse ($items as $p)
+            @php
+                $pid    = $p['root_id'] ?? null;                    // из презентера
+                $isFav  = $pid ? in_array($pid, $favoriteIds, true) : false;
+             //   dd($p,$isFav,$pid);
+            @endphp
             <x-product.card
+                :product-id="$pid"
+                :is-favorite="$isFav"
                 :title="$p['title'] ?? 'Товар'"
+                :url="$p['url'] ?? ''"
+                :article="$p['article'] ?? '12345'"
                 :price="$p['price'] ?? '0.00'"
+                :description="$p['description'] ?? ''"
                 :price_no_sale="$p['price_no_sale'] ?? '0.00'"
-                :image="$p['image'] ?? '/images/no-image.svg'"
+                :image="$p['main_image'] ?? '/images/no-image.svg'"
+                :characteristics="$p['characteristics'] ?? []"   {{-- 👈 добавили --}}
+                :rows="$p['variant_rows'] ?? []"
+                :root_id="$p['root_id'] ?? null"   {{-- 👈 --}}
             />
         @empty
             @for ($i=0; $i<6; $i++)
-                <x-product.card />
+
             @endfor
         @endforelse
     </div>

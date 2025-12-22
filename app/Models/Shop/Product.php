@@ -12,9 +12,33 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\Casts\Attribute;
-class Product extends Model
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
+use Illuminate\Support\Facades\DB;
+
+class Product extends Model implements HasMedia
 {
+    use InteractsWithMedia;
+
     use HasTranslations;
+    // Коллекции медиа
+    public function registerMediaCollections(): void
+    {
+        $this
+            ->addMediaCollection('images') // имя коллекции
+            ->useDisk('public');           // тот же диск, что у поля
+    }
+
+    // Миниатюры (для компактного превью)
+    public function registerMediaConversions(Media $media = null): void
+    {
+        $this
+            ->addMediaConversion('thumb')
+            ->width(200)
+            ->height(200)
+            ->nonQueued(); // можно убрать, если очередь настроена
+    }
     protected $table = 'bs_products';
     protected $fillable = [
         'title','sku', 'slug', 'description', 'price', 'old_price',
@@ -180,6 +204,10 @@ class Product extends Model
         return $this->belongsToMany(CharacteristicValue::class, 'bs_product_characteristic_value')
             ->withPivot(['characteristic_id','price_modifier','product_id', 'value_text', 'value_number',
                 'value_datetime','characteristic_value_id']);
+    }
+    public function productCharacteristicValues(): HasMany
+    {
+        return $this->hasMany(ProductCharacteristicValue::class, 'product_id');
     }
     public function productVariations()
     {
@@ -377,12 +405,75 @@ class Product extends Model
         return Attribute::get(fn () => (float) $value);
     }
 
-    // Простейший scope "активные" (если есть колонка is_active)
-    public function scopeActive($q): void
+    /* Базовые скоупы */
+    public function scopeActive($q)   { return $q->where('in_stock', 1); }
+    public function scopeMainProduct($q)   { return $q->whereNull('parent_id'); }
+    public function scopeHit($q)      { return $q->where('is_hit', 1); }
+    public function scopeNew($q)      { return $q->where('is_new', 1); }
+    public function scopeHome($q)     { return $q->where('is_home', 1); }
+    public function scopePie($q)
     {
-        if (schema()->hasColumn($this->getTable(), 'is_active')) {
-            $q->where('is_active', true);
+        return $q->whereHas('mainCategory.parent', function ($q) {
+            $q->where('slug', 'pies');
+        });
+    }
+    public function scopeCardSelect($q)
+    {
+        return $q->select(['id','title','price','old_price','main_image','slug','code2','description','category_id','seo_title'])
+            ->with('categories:id,slug,title');
+    }
+
+    public function scopeWithCardRelations($q)
+    {
+        return $q->with([
+            'productCharacteristicValues.characteristic.svgImage',
+            'productCharacteristicValues.characteristicValue',
+            'children.productCharacteristicValues.characteristic.svgImage',
+            'children.productCharacteristicValues.characteristicValue',
+            'mainCategory:id,slug',// ← можно сузить столбцы
+        ]);
+    }
+    public static function getPriceBoundsForCategorySlug(string $slug): array
+    {
+        // 1. берём ID всех "главных" товаров в этой категории (по твоей логике MainProduct + categories/mainCategory)
+        $rootIds = self::query()
+            ->active()
+            ->MainProduct()
+            ->where(function ($q) use ($slug) {
+                $q->whereHas('categories', fn ($qq) => $qq->where('slug', $slug))
+                    ->orWhereHas('mainCategory', fn ($qq) => $qq->where('slug', $slug));
+            })
+            ->pluck('id');
+
+        if ($rootIds->isEmpty()) {
+            return [0, 0];
         }
+
+        // 2. считаем min/max по самим товарам и их детям
+        // если у тебя есть поле promo_price / special_price — сюда лучше поставить COALESCE
+        $row = self::query()
+            ->where(function ($q) use ($rootIds) {
+                $q->whereIn('id', $rootIds)          // сами родительские товары
+                ->orWhereIn('parent_id', $rootIds); // все их варианты/дети
+            })
+            ->selectRaw('MIN(price) as min_price, MAX(price) as max_price')
+            ->first();
+
+        $min = (int) floor($row->min_price ?? 0);
+        $max = (int) ceil($row->max_price ?? 0);
+
+        // защита от пустых случаев, когда min == max
+        if ($min === 0 && $max === 0) {
+            return [0, 0];
+        }
+
+        if ($min === $max) {
+            // чуть расширим диапазон, чтобы ползунок не слипался
+            $min = max(0, $min - 10);
+            $max = $max + 10;
+        }
+
+        return [$min, $max];
     }
 }
 if (! function_exists('schema')) {

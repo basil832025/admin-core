@@ -31,27 +31,42 @@ class ClientResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-user-group';
     protected static ?string $navigationGroup = 'Магазин';
-    protected static ?string $navigationLabel = 'Клиенты';
-    protected static ?string $modelLabel = 'Клиент';
-    protected static ?string $pluralModelLabel = 'Клиенты';
+    protected static ?string $navigationLabel = null;
+    protected static ?string $modelLabel = null;
+    protected static ?string $pluralModelLabel = null;
+
+    public static function getNavigationLabel(): string
+    {
+        return __('client.nav.navigation_label');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('client.nav.model_label');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('client.nav.plural_model_label');
+    }
     public static function form(Form $form): Form
     {
 
         return $form ->schema([
-            Forms\Components\Section::make()
+            Forms\Components\Section::make(__('client.sections.main'))
                 ->schema([
-                    TextInput::make('name')->required()->label('ФИО'),
+                    TextInput::make('name')->required()->label(__('client.fields.name')),
                     Grid::make(['default' => 1, 'lg' => 12])->schema([
                         TextInput::make('phone')
-                            ->label('Телефон')
+                            ->label(__('client.fields.phone'))
                             ->required()
                             ->tel()
                             ->columnSpan(['lg' => 8])
                             // Маска только для UA (цифра в маске — 9)
                             ->mask(fn (Get $get) => $get('is_foreign_phone') ? null : '(999) 999-99-99')
                             ->placeholder(fn (Get $get) => $get('is_foreign_phone')
-                                ? 'Напр.: 491512345678 (лише цифри, 6–15)'
-                                : '(067) 123-45-67')
+                                ? __('client.placeholders.phone_foreign')
+                                : __('client.placeholders.phone_ua'))
                             ->extraAttributes(fn (Get $get) => [
                                 'inputmode'    => 'numeric',
                                 'autocomplete' => 'tel',
@@ -102,43 +117,44 @@ class ClientResource extends Resource
                             ->validationAttribute('телефон'),
 
                         Toggle::make('is_foreign_phone')
-                            ->label('Телефон іншої країни')
-                            ->helperText('Увімкніть, якщо номер не український')
+                            ->label(__('client.fields.is_foreign_phone'))
+                            ->helperText(__('client.helpers.is_foreign_phone'))
                             ->inline(true)
                             ->live()                 // ← это ключ: заставит пересчитаться маска/placeholder у TextInput
                             ->dehydrated(false)
                             ->columnSpan(['lg' => 4])
                             ->extraAttributes(['class' => 'lg:mt-6']),
                     ]),
-                    TextInput::make('email')->email(),
-                    DatePicker::make('birthday')->label('Дата рождения'),
+                    TextInput::make('email')->email()->label(__('client.fields.email')),
+                    DatePicker::make('birthday')->label(__('client.fields.birthday')),
                     Select::make('gender')
+                        ->label(__('client.fields.gender'))
                         ->options([
-                            'male' => 'Мужчина',
-                            'female' => 'Женщина',
+                            'male' => __('client.gender.male'),
+                            'female' => __('client.gender.female'),
                         ])
                         ->nullable(),
                     TextInput::make('password')
                         ->password()
-                        ->label('Пароль')
+                        ->label(__('client.fields.password'))
                         ->dehydrateStateUsing(fn ($state) => filled($state) ? $state : null)
                         ->dehydrated(fn ($state) => filled($state)),
                     //  ->required(fn (string $context): bool => $context === 'create'),
-                    FileUpload::make('photo')->image()->directory('clients')->label('Фото'),
-                    Textarea::make('note')->label('Примечание'),
-                    Toggle::make('is_active')->label('Активен')->default(true),
+                    FileUpload::make('photo')->image()->directory('clients')->label(__('client.fields.photo')),
+                    Textarea::make('note')->label(__('client.fields.note')),
+                    Toggle::make('is_active')->label(__('client.fields.is_active'))->default(true),
                 ])
                 ->columns(2)
                 ->columnSpan(['lg' => fn (?Client $record) => $record === null ? 3 : 2]),
 
-            Forms\Components\Section::make()
+            Forms\Components\Section::make(__('client.sections.metadata'))
                 ->schema([
                     Forms\Components\Placeholder::make('created_at')
-                        ->label('Created at')
+                        ->label(__('client.metadata.created_at'))
                         ->content(fn (Client $record): ?string => $record->created_at?->diffForHumans()),
 
                     Forms\Components\Placeholder::make('updated_at')
-                        ->label('Last modified at')
+                        ->label(__('client.metadata.updated_at'))
                         ->content(fn (Client $record): ?string => $record->updated_at?->diffForHumans()),
                 ])
                 ->columnSpan(['lg' => 1])
@@ -151,11 +167,11 @@ class ClientResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('name')->searchable()->label('ФИО'),
-                TextColumn::make('phone')->label('Телефон'),
-                TextColumn::make('email'),
-                TextColumn::make('gender')->label('Пол'),
-                BooleanColumn::make('is_active')->label('Активен'),
+                TextColumn::make('name')->searchable()->label(__('client.columns.name')),
+                TextColumn::make('phone')->label(__('client.columns.phone')),
+                TextColumn::make('email')->label(__('client.columns.email')),
+                TextColumn::make('gender')->label(__('client.columns.gender')),
+                BooleanColumn::make('is_active')->label(__('client.columns.is_active')),
             ])
             ->filters([])
             ->actions([

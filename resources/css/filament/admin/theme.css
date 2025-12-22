@@ -1,8 +1,11 @@
-/* 1) Подключаем базовые стили Filament */
-@import '/vendor/filament/filament/resources/css/theme.css';
+/* 1) сначала подключаем готовую тему Filament */
+@import "/vendor/filament/filament/resources/css/theme.css";
 
-/* 2) Твои правки */
-.fi-ta-table thead th.th-wrap .fi-ta-header-cell-label{
-    white-space: pre-line !important;
-    line-height: 1.1;
+/* 2) ничего НЕ импортируем из плагинов! (Curator сам подключится через filament:assets) */
+/* 3) только свои небольшие правки */
+.curator-picker img{
+    max-height: 220px;
+    width: 100%;
+    height: auto;
+    object-fit: cover;
 }

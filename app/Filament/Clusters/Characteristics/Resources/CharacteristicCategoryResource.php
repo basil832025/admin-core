@@ -33,10 +33,31 @@ class CharacteristicCategoryResource extends Resource
 
     protected static ?string $cluster = Characteristics::class;
     //  protected static ?string $navigationParentItem = 'Категории характеристик';
-    protected static ?string $navigationLabel = 'Категории характеристик';
+    protected static ?string $navigationLabel = null;
     //   protected static ?string $navigationLabel = 'Категории характеристик';
-    protected static ?string $modelLabel = 'Категория характеристик';
-    protected static ?string $pluralModelLabel = 'Категории характеристик';
+    protected static ?string $modelLabel = null;
+    protected static ?string $pluralModelLabel = null;
+
+    public static function getNavigationLabel(): string
+    {
+        return __('characteristic_category.nav.navigation_label');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('characteristic_category.nav.model_label');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('characteristic_category.nav.plural_model_label');
+    }
+
+    public static function getBreadcrumb(): string
+    {
+        return __('characteristic_category.nav.navigation_label');
+    }
+
     protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
     protected static ?int $navigationSort = 1;
 
@@ -53,23 +74,23 @@ class CharacteristicCategoryResource extends Resource
                     ->prefixLocaleLabel()
                     ->columns(1)
                     ->columnSpanFull()
-                    ->schema(fn(string $locale) => [
+                                    ->schema(fn(string $locale) => [
                         TextInput::make('name')
-                            ->label('Название')
+                            ->label(__('characteristic_category.fields.name'))
                             ->required($locale === $defaultLocale)
                             ->maxLength(255),
                     ]),
                 TextInput::make('slug')
-                    ->label('Код/slug')
+                    ->label(__('characteristic_category.fields.slug'))
                     //     ->required()
                     ->unique(ignoreRecord: true)
                     ->maxLength(255),
                 TextInput::make('sort_order')
-                    ->label('Позиция сортировки')
+                    ->label(__('characteristic_category.fields.sort_order'))
                     ->numeric()
                     ->default(0),
                 Toggle::make('is_active')
-                    ->label('Статус')
+                    ->label(__('characteristic_category.fields.is_active'))
                     ->default(true),
             ]);
     }
@@ -79,17 +100,17 @@ class CharacteristicCategoryResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('name')
-                    ->label('Название')
+                    ->label(__('characteristic_category.columns.name'))
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('slug')
-                    ->label('Slug')
+                    ->label(__('characteristic_category.columns.slug'))
                     ->sortable(),
                 TextColumn::make('sort_order')
-                    ->label('Позиция')
+                    ->label(__('characteristic_category.columns.sort_order'))
                     ->sortable(),
                 IconColumn::make('is_active')
-                    ->label('Активна')
+                    ->label(__('characteristic_category.columns.is_active'))
                     ->boolean(),
             ])
             ->filters([

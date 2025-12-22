@@ -3,6 +3,7 @@ export default {
         "./resources/**/*.blade.php",
         "./resources/**/*.js",
         "./vendor/filament/**/*.blade.php",
+        './vendor/awcodes/filament-curator/resources/**/*.blade.php',
 
     ],
     theme: {
@@ -28,5 +29,5 @@ export default {
             '2xl': '1536px',
         },
     },
-    plugins: [],
+    plugins: [require('@tailwindcss/typography')],
 }

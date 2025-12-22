@@ -30,6 +30,11 @@ use Filament\Navigation\NavigationItem;
 use Filament\Enums\ThemeMode;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Awcodes\Curator\CuratorPlugin;
+use Awcodes\Curator\Resources\MediaResource;
+use TomatoPHP\FilamentMediaManager\FilamentMediaManagerPlugin;
+use Codedor\MediaLibrary\MediaLibraryPlugin;
+// ← ВАЖНО
 class AdminPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
@@ -75,6 +80,45 @@ class AdminPanelProvider extends PanelProvider
         $scheme = $hasSettings
             ? (Setting::first())->admin_color_scheme ?? 'primary'            : 'primary';
      $primaryColor = is_string($scheme) ?  ($palettes[$scheme]) : $palettes['primary']; // фоллбек, если ключа нет
+        
+        // Динамически генерируем пункты меню для языков
+        $userMenuItems = [];
+        
+        if ($hasLang) {
+            $languages = Language::where('active', true)
+                ->orderBy('position')
+                ->get(['code', 'name']);
+            
+            foreach ($languages as $lang) {
+                $code = strtolower($lang->code);
+                $userMenuItems["locale-{$code}"] = UserMenuItem::make()
+                    ->label($lang->name)
+                    ->icon('heroicon-m-language')
+                    ->url(fn () => route('admin.switch-locale', $code));
+            }
+        } else {
+            // Fallback, если таблицы нет
+            $fallback = [
+                'uk' => 'Українська',
+                'en' => 'English',
+                'ru' => 'Русский',
+            ];
+            
+            foreach ($fallback as $code => $name) {
+                $userMenuItems["locale-{$code}"] = UserMenuItem::make()
+                    ->label($name)
+                    ->icon('heroicon-m-language')
+                    ->url(fn () => route('admin.switch-locale', $code));
+            }
+        }
+        
+        // Добавляем пункт "Очистить кеш" в конец
+        $userMenuItems['clear-cache'] = UserMenuItem::make()
+            ->label('Сбросить кеш')
+            ->icon('heroicon-m-arrow-path')
+            ->url(fn () => route('admin.clear-cache'))
+            ->sort(100);
+        
             $panel = $panel
             ->default()
             ->id('admin')
@@ -84,6 +128,8 @@ class AdminPanelProvider extends PanelProvider
             ->brandName('Basil Admin')
             ->login()
            // ->viteTheme('resources/css/filament/admin/theme.css') // подключаем свои стили
+               //->viteTheme('resources/css/filament/admin/curator-overrides.css')
+
             ->colors([
                 'primary' =>  $primaryColor,
                 // токены, которые будем возвращать из enum:
@@ -109,6 +155,10 @@ class AdminPanelProvider extends PanelProvider
                 'Контент',
                 'Настройки',
             ])
+                ->renderHook(
+                    'panels::head.start', // имя того же хука в виде строки
+                    fn () => view('filament.css.curator-overrides')
+        )
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverClusters(in: app_path('Filament/Clusters'), for: 'App\\Filament\\Clusters')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
@@ -136,28 +186,33 @@ class AdminPanelProvider extends PanelProvider
             ->authMiddleware([
                 Authenticate::class,
             ])
-            ->userMenuItems([
-                'locale-uk' => UserMenuItem::make()
-                    ->label('Українська')->icon('heroicon-m-language')
-                    ->url(fn () => route('admin.switch-locale', 'uk')),
-
-                'locale-en' => UserMenuItem::make()
-                    ->label('English')->icon('heroicon-m-language')
-                    ->url(fn () => route('admin.switch-locale', 'en')),
-
-                'locale-ru' => UserMenuItem::make()
-                    ->label('Русский')->icon('heroicon-m-language')
-                    ->url(fn () => route('admin.switch-locale', 'ru')),
-            ])
+            ->userMenuItems($userMenuItems)
             ->plugins([
                 SpatieLaravelTranslatablePlugin::make()
                     // список локалей — обязателен
                      ->defaultLocales($locales),
-
+                FilamentShieldPlugin::make(),
                 FilamentTranslateFieldPlugin::make()
                     ->defaultLocales($locales),
+             //   MediaLibraryPlugin::make(), // добавит страницы/ресурсы медиатеки
+           /*     \TomatoPHP\FilamentMediaManager\FilamentMediaManagerPlugin::make(),
 
-                FilamentShieldPlugin::make()
+                        // опционально
+
+                  // медиа библиотека
+                    CuratorPlugin::make()
+                    ->label('Media')
+                    ->pluralLabel('Media')
+                    ->navigationIcon('heroicon-o-photo')
+                    ->navigationGroup('Content')
+                    ->navigationSort(3)
+                    ->navigationCountBadge()
+                        ->registerNavigation(true)          // ⬅️ показывать в меню
+                        ->defaultListView('grid')           // сетка по умолчанию
+                        ->resource(MediaResource::class),   // ⬅️ явно укажем ресурс
+*/
+                   // ->resource(\App\Filament\Resources\CustomMediaResource::class)
+
 
             ]);
         // гамбургер на десктопе

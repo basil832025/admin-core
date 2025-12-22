@@ -16,47 +16,79 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
+use SolutionForest\FilamentTranslateField\Forms\Component\Translate;
+use Filament\Resources\Concerns\Translatable;
+
 class TimeDiscountResource extends Resource
 {
+    use Translatable;
     protected static ?string $model = TimeDiscount::class;
 
-    protected static ?string $navigationGroup = 'Дисконтные программы';
+    protected static ?string $navigationGroup = null;
     protected static ?string $navigationIcon = 'heroicon-o-clock';
-    protected static ?string $navigationLabel = 'Скидки по времени';
-    protected static ?string $pluralModelLabel = 'Скидки по времени';
-    protected static ?string $modelLabel = 'Скидка по времени';
+    protected static ?string $navigationLabel = null;
+    protected static ?string $pluralModelLabel = null;
+    protected static ?string $modelLabel = null;
+
+    public static function getNavigationGroup(): ?string
+    {
+        return __('time_discount.nav.navigation_group');
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return __('time_discount.nav.navigation_label');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('time_discount.nav.model_label');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('time_discount.nav.plural_model_label');
+    }
 
     public static function form(Form $form): Form
     {
         $weekdayOptions = [
-            1 => 'Пн',
-            2 => 'Вт',
-            3 => 'Ср',
-            4 => 'Чт',
-            5 => 'Пт',
-            6 => 'Сб',
-            7 => 'Вс',
+            1 => __('time_discount.options.weekdays.1'),
+            2 => __('time_discount.options.weekdays.2'),
+            3 => __('time_discount.options.weekdays.3'),
+            4 => __('time_discount.options.weekdays.4'),
+            5 => __('time_discount.options.weekdays.5'),
+            6 => __('time_discount.options.weekdays.6'),
+            7 => __('time_discount.options.weekdays.7'),
         ];
-
+        $defaultLocale = Setting::value('default_language_code') ?: config('app.locale');
+        $locales = \App\Models\Setting::getActiveLocales(); // ['uk','en','ru']
         return $form->schema([
-            Forms\Components\Section::make('Основные параметры')
+            Forms\Components\Section::make(__('time_discount.sections.main'))
                 ->columns(3)
                 ->schema([
-                    Forms\Components\TextInput::make('name')
-                        ->label('Название')
-                        ->required()
-                        ->maxLength(160)
-                        ->columnSpan(2),
+                    // мультиязычное название
+                    Translate::make()
+                        ->locales($locales)
+                        ->prefixLocaleLabel()
+                        ->columns(1)
+                        ->columnSpan(2)
+                        ->schema(fn (string $locale) => [
+                            Forms\Components\TextInput::make('name')
+                                ->label(__('time_discount.fields.name'))
+                                ->maxLength(160)
+                                ->required($locale === $defaultLocale),
+                        ]),
 
                     Forms\Components\Toggle::make('is_active')
-                        ->label('Активна')
+                        ->label(__('time_discount.fields.is_active'))
                         ->default(true),
 
                     Forms\Components\CheckboxList::make('days')
-                        ->label('Дни недели')
-                        ->options([1=>'Пн',2=>'Вт',3=>'Ср',4=>'Чт',5=>'Пт',6=>'Сб',7=>'Вс'])
+                        ->label(__('time_discount.fields.days'))
+                        ->options($weekdayOptions)
                         ->columns(7)
-                        ->helperText('Если не выбрано — действует каждый день')
+                        ->helperText(__('time_discount.helpers.days'))
                         ->dehydrateStateUsing(fn ($state) => array_values(array_map('intval', (array) $state)))
                         ->afterStateHydrated(function ($component, $state) {
                             // если в БД лежит JSON-число (2) или строка "2" — сделаем массив [2]
@@ -76,30 +108,30 @@ class TimeDiscountResource extends Resource
                         ->columns(3)
                         ->schema([
                             Forms\Components\TimePicker::make('time_from')
-                                ->label('Время с')
+                                ->label(__('time_discount.fields.time_from'))
                                 ->seconds(false),
                             Forms\Components\TimePicker::make('time_to')
-                                ->label('Время по')
+                                ->label(__('time_discount.fields.time_to'))
                                 ->seconds(false),
                             Forms\Components\Select::make('time_type')
-                                ->label('Тип времени')
+                                ->label(__('time_discount.fields.time_type'))
                                 ->options([
-                                    'order_created'   => 'По времени создания заказа',
-                                    'order_fulfilled' => 'По времени выполнения (доставка/выдача)',
+                                    'order_created'   => __('time_discount.options.time_type_order_created'),
+                                    'order_fulfilled' => __('time_discount.options.time_type_order_fulfilled'),
                                 ])
                                 ->default('order_created'),
                         ])
                         ->columnSpanFull(),
 
                     Forms\Components\TextInput::make('nth_item')
-                        ->label('Каждый N-й товар')
+                        ->label(__('time_discount.fields.nth_item'))
                         ->numeric()
                         ->minValue(1)
                         ->default(1)
                         ->required(),
 
                     Forms\Components\TextInput::make('percent')
-                        ->label('Скидка %')
+                        ->label(__('time_discount.fields.percent'))
                         ->numeric()
                         ->suffix('%')
                         ->minValue(0.01)
@@ -108,25 +140,25 @@ class TimeDiscountResource extends Resource
                         ->required(),
 
                     Forms\Components\DateTimePicker::make('starts_at')
-                        ->label('Начало действия')
+                        ->label(__('time_discount.fields.starts_at'))
                         ->seconds(false),
 
                     Forms\Components\DateTimePicker::make('ends_at')
-                        ->label('Окончание действия')
+                        ->label(__('time_discount.fields.ends_at'))
                         ->seconds(false),
 
                     Forms\Components\Textarea::make('note')
-                        ->label('Примечание')
+                        ->label(__('time_discount.fields.note'))
                         ->columnSpanFull(),
                 ]),
 
-            Forms\Components\Section::make('Область действия')
-                ->description('Ограничь акцию по группам, товарам, характеристикам или их значениям')
+            Forms\Components\Section::make(__('time_discount.sections.scope'))
+                ->description(__('time_discount.helpers.scope_description'))
                 ->columns(2)
                 ->schema([
                     // категории (группы)
                     Forms\Components\MultiSelect::make('categories')
-                        ->label('Категории (группы)')
+                        ->label(__('time_discount.fields.categories'))
                         ->relationship(
                             name: 'categories',
                             titleAttribute: 'title' // поправим ниже через getOptionLabelFromRecordUsing
@@ -140,7 +172,7 @@ class TimeDiscountResource extends Resource
 
                     // товары
                     Forms\Components\MultiSelect::make('products')
-                        ->label('Товары')
+                        ->label(__('time_discount.fields.products'))
                         ->relationship(
                             name: 'products',
                             titleAttribute: 'title'
@@ -163,7 +195,7 @@ class TimeDiscountResource extends Resource
                     // характеристики (любой value)
                     // Характеристики (любой value)
                     Forms\Components\MultiSelect::make('characteristics')
-                        ->label('Характеристики (любой value)')
+                        ->label(__('time_discount.fields.characteristics'))
                         ->relationship(
                             name: 'characteristics',
                             titleAttribute: 'name'
@@ -204,7 +236,7 @@ class TimeDiscountResource extends Resource
 
                     // Значения характеристик (фильтруются по выбранным характеристикам)
                     Forms\Components\MultiSelect::make('characteristicValues')
-                        ->label('Значения характеристик')
+                        ->label(__('time_discount.fields.characteristic_values'))
                         ->relationship(
                             name: 'characteristicValues',
                             titleAttribute: 'value'
@@ -235,7 +267,7 @@ class TimeDiscountResource extends Resource
                         })
                         ->searchable()
                         ->preload(false) // чтобы не грузить весь справочник; будет подгружаться после выбора характеристик
-                        ->helperText('Если заполнено — приоритетнее, чем просто «характеристики (любой value)»'),
+                        ->helperText(__('time_discount.helpers.characteristic_values')),
                 ])
 
         ]);
@@ -248,37 +280,45 @@ class TimeDiscountResource extends Resource
                 Tables\Columns\TextColumn::make('id')->sortable(),
 
                 Tables\Columns\TextColumn::make('name')
-                    ->label('Название')
+                    ->label(__('time_discount.columns.name'))
                     ->searchable()
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('percent')
-                    ->label('Скидка')
+                    ->label(__('time_discount.columns.percent'))
                     ->suffix('%')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('nth_item')
-                    ->label('Каждый N-й')
+                    ->label(__('time_discount.columns.nth_item'))
                     ->sortable(),
 
                 Tables\Columns\BadgeColumn::make('time_type')
-                    ->label('Тип времени')
+                    ->label(__('time_discount.columns.time_type'))
                     ->colors([
                         'primary' => 'order_created',
                         'warning' => 'order_fulfilled',
                     ])
                     ->formatStateUsing(fn ($state) => $state === 'order_created'
-                        ? 'Создание заказа'
-                        : 'Выполнение'),
+                        ? __('time_discount.options.time_type_display_created')
+                        : __('time_discount.options.time_type_display_fulfilled')),
 
                 Tables\Columns\TextColumn::make('days')
-                    ->label('Дни')
+                    ->label(__('time_discount.columns.days'))
                     ->formatStateUsing(function ($state) {
-                        $map = [1=>'Пн',2=>'Вт',3=>'Ср',4=>'Чт',5=>'Пт',6=>'Сб',7=>'Вс'];
+                        $map = [
+                            1 => __('time_discount.options.weekdays.1'),
+                            2 => __('time_discount.options.weekdays.2'),
+                            3 => __('time_discount.options.weekdays.3'),
+                            4 => __('time_discount.options.weekdays.4'),
+                            5 => __('time_discount.options.weekdays.5'),
+                            6 => __('time_discount.options.weekdays.6'),
+                            7 => __('time_discount.options.weekdays.7'),
+                        ];
 
                         // null / пусто => "Все"
                         if ($state === null || $state === '' || $state === []) {
-                            return 'Все';
+                            return __('time_discount.options.days_all');
                         }
 
                         // если строка — пробуем JSON decode
@@ -303,34 +343,34 @@ class TimeDiscountResource extends Resource
                         $days = array_values(array_filter(array_map('intval', $state), fn ($d) => $d >= 1 && $d <= 7));
 
                         if (empty($days)) {
-                            return 'Все';
+                            return __('time_discount.options.days_all');
                         }
 
                         return implode(' ', array_map(fn ($d) => $map[$d] ?? (string) $d, $days));
                     }),
 
                 Tables\Columns\TextColumn::make('time_from')
-                    ->label('С'),
+                    ->label(__('time_discount.columns.time_from')),
 
                 Tables\Columns\TextColumn::make('time_to')
-                    ->label('По'),
+                    ->label(__('time_discount.columns.time_to')),
 
                 Tables\Columns\IconColumn::make('is_active')
-                    ->label('Активна')
+                    ->label(__('time_discount.columns.is_active'))
                     ->boolean(),
 
                 Tables\Columns\TextColumn::make('starts_at')
-                    ->label('Начало')
+                    ->label(__('time_discount.columns.starts_at'))
                     ->dateTime('d.m.Y H:i')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('ends_at')
-                    ->label('Окончание')
+                    ->label(__('time_discount.columns.ends_at'))
                     ->dateTime('d.m.Y H:i')
                     ->sortable(),
             ])
             ->filters([
-                Tables\Filters\TernaryFilter::make('is_active')->label('Активна'),
+                Tables\Filters\TernaryFilter::make('is_active')->label(__('time_discount.filters.is_active')),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

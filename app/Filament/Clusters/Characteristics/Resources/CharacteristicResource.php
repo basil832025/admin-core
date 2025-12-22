@@ -10,8 +10,10 @@ use App\Models\Shop\Characteristic;
 
 use App\Models\Shop\CharacteristicCategory;
 
+use App\Models\SvgImage;
 use Filament\Forms;
 use Filament\Forms\Components\Grid;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -21,6 +23,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ViewColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -32,6 +35,8 @@ use App\Models\Setting;
 use App\Models\Language;
 use Filament\Resources\Concerns\Translatable;
 use Filament\Tables\Enums\FiltersLayout;
+use Filament\Forms\Get;
+use Illuminate\Support\HtmlString;
 class CharacteristicResource extends Resource
 {
     use Translatable;
@@ -40,10 +45,31 @@ class CharacteristicResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
     protected static ?string $cluster = Characteristics::class;
-    protected static ?string $navigationLabel = 'Характеристики';
+    protected static ?string $navigationLabel = null;
     //   protected static ?string $navigationLabel = 'Категории характеристик';
-    protected static ?string $modelLabel = 'характеристика';
-    protected static ?string $pluralModelLabel = 'характеристика';
+    protected static ?string $modelLabel = null;
+    protected static ?string $pluralModelLabel = null;
+
+    public static function getNavigationLabel(): string
+    {
+        return __('characteristic.nav.navigation_label');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('characteristic.nav.model_label');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('characteristic.nav.plural_model_label');
+    }
+
+    public static function getBreadcrumb(): string
+    {
+        return __('characteristic.nav.navigation_label');
+    }
+
     protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
     protected static ?int $navigationSort = 1;
 
@@ -57,7 +83,7 @@ class CharacteristicResource extends Resource
         $locales = static::getActiveLocales();
         return $form
             ->schema([
-                Section::make('Основные')
+                Section::make(__('characteristic.sections.main'))
                     ->schema([
                         Grid::make(2)
                             ->schema([
@@ -68,13 +94,13 @@ class CharacteristicResource extends Resource
                                     ->columnSpanFull()
                                     ->schema(fn(string $locale) => [
                                         TextInput::make('name')
-                                            ->label('Название')
+                                            ->label(__('characteristic.fields.name'))
                                             ->required($locale === $defaultLocale)
                                             ->maxLength(255),
                                     ]),
 
                                 TextInput::make('slug')
-                                    ->label('Slug')
+                                    ->label(__('characteristic.fields.slug'))
                                     ->unique(ignoreRecord: true)
                                     //  ->required()
                                     ->maxLength(255),
@@ -94,15 +120,83 @@ class CharacteristicResource extends Resource
                                             ])
                                             ->toArray();
                                     })
-                                    ->label('Категория')
+                                    ->label(__('characteristic.fields.category'))
                                     ->required(),
+                                Section::make(__('characteristic.sections.icon'))
+                                    ->columns([
+                                        'default' => 1,   // на мобилках — одна колонка
+                                        'md'      => 12,  // с md и выше — 12 колонок
+                                    ])
+                                    ->schema([
+                                Select::make('svg_image_id')
+                                    ->label(__('characteristic.fields.icon'))
+                                    ->placeholder('— ' . __('characteristic.helpers.icon_not_selected') . ' —')
+                                    ->searchable()
+                                    ->preload()
+                                    ->options(function () {
+                                        // Возьмем только иконки, помеченные как "для характеристик"
+                                        return SvgImage::query()
+                                            ->where('is_attr', true)
+                                            ->orderBy('title')
+                                            ->get()
+                                            ->mapWithKeys(function (SvgImage $svg) {
+                                                $label = trim(($svg->title ?: $svg->slug) . ' [' . $svg->slug . ']');
+                                                return [$svg->id => $label];
+                                            })
+                                            ->toArray();
+                                    })
+                                    // если хотите связью (альтернатива options()):
+                                    // ->relationship('svgImage', 'slug', fn($q) => $q->where('is_attr', true))
+                                    ->hint(__('characteristic.helpers.icon_hint'))
+                                    ->native(false)       // красивый Select2
+                                    ->columnSpan(8)  // левая часть
+                                    ->live(),             // для живого превью ниже
 
+                                Placeholder::make('svg_icon_preview')
+                                    ->label(__('characteristic.fields.icon_preview'))
+                                    ->content(function (Get $get) {
+                                        $id = $get('svg_image_id');
+                                        if (! $id) {
+                                            return new HtmlString('<div class="text-xs text-gray-500">' . __('characteristic.helpers.icon_not_selected') . '</div>');
+                                        }
+
+                                        /** @var SvgImage|null $svg */
+                                        $svg = SvgImage::query()->find($id);
+                                        if (! $svg) {
+                                            return new HtmlString('<div class="text-xs text-red-500">' . __('characteristic.helpers.icon_load_error') . '</div>');
+                                        }
+
+                                        // предполагаем, что у SvgImage есть поле svg_normalized (или svg_code)
+                                        $code = $svg->svg_normalized ?: $svg->svg_code;
+
+                                        if (! is_string($code) || ! str_starts_with(ltrim($code), '<svg')) {
+                                            return new HtmlString('<div class="text-xs text-red-500">' . __('characteristic.helpers.icon_invalid') . '</div>');
+                                        }
+
+                                        // показываем маленьким размером; если нормализовали под currentColor — можно задать цвет
+                                        $code = preg_replace('/<svg\b(?![^>]*width=)/', '<svg width="28"', $code, 1);
+                                        $code = preg_replace('/<svg\b(?![^>]*height=)/', '<svg height="28"', $code, 1);
+
+                                        return new HtmlString('
+            <div class="flex items-center gap-2">
+                <span class="inline-flex items-center justify-center w-9 h-9 rounded border bg-white"
+                      style="color:#111827">'
+                                            . $code .
+                                            '</span>
+                <span class="text-xs text-gray-600">'
+                                            . e($svg->title ?: $svg->slug) .
+                                            '</span>
+            </div>
+        ');
+                                    })->columnSpan(4)
+                                    ,
+                                ]),
                                 Select::make('pricing_type')
-                                    ->label('Тип ценообразования')
+                                    ->label(__('characteristic.fields.pricing_type'))
                                     ->options([
-                                        0 => 'Не влияет',
-                                        1 => 'Надбавка',
-                                        2 => 'Фиксированная',
+                                        0 => __('characteristic.pricing_types.no_impact'),
+                                        1 => __('characteristic.pricing_types.surcharge'),
+                                        2 => __('characteristic.pricing_types.fixed'),
                                     ])
                                     ->required(),
                             ]),
@@ -110,39 +204,39 @@ class CharacteristicResource extends Resource
                         Grid::make(3)
                             ->schema([
                                 TextInput::make('sort_order')
-                                    ->label('Позиция сортировки')
+                                    ->label(__('characteristic.fields.sort_position'))
                                     ->numeric()
                                     ->default(0),
 
                                 Toggle::make('expand_values')
-                                    ->label('Раскрывать все значения'),
+                                    ->label(__('characteristic.fields.expand_all_values')),
 
                                 Toggle::make('is_required')
-                                    ->label('Обязательная'),
+                                    ->label(__('characteristic.fields.is_required')),
                                 Toggle::make('is_main_tab')
-                                    ->label('На главной вкладке показать товара'),
+                                    ->label(__('characteristic.fields.show_on_main_tab')),
                             ]),
 
                         Select::make('field_type')
-                            ->label('Тип поля')
+                            ->label(__('characteristic.fields.field_type'))
                             ->options([
-                                'text'        => 'TextInput',
-                                'datetime'    => 'Date/Time',
-                                'number'      => 'Number',
-                                'decimal'     => 'Decimal',
-                                'textarea'    => 'Textarea',
-                                'toggle'      => 'Switch',
-                                'color'       => 'Color Picker',
-                                'file'        => 'File/Image',
-                                'select'      => 'Select (одно)',
-                                'radio'       => 'RadioList',
-                                'multiselect' => 'MultiSelect',
-                                'checkbox'    => 'CheckboxList',
+                                'text'        => __('characteristic.field_types.text'),
+                                'datetime'    => __('characteristic.field_types.datetime'),
+                                'number'      => __('characteristic.field_types.number'),
+                                'decimal'     => __('characteristic.field_types.decimal'),
+                                'textarea'    => __('characteristic.field_types.textarea'),
+                                'toggle'      => __('characteristic.field_types.toggle'),
+                                'color'       => __('characteristic.field_types.color'),
+                                'file'        => __('characteristic.field_types.file'),
+                                'select'      => __('characteristic.field_types.select'),
+                                'radio'       => __('characteristic.field_types.radio'),
+                                'multiselect' => __('characteristic.field_types.multiselect'),
+                                'checkbox'    => __('characteristic.field_types.checkbox'),
                             ])
                             ->required(),
 
                         Toggle::make('is_active')
-                            ->label('Активность')
+                            ->label(__('characteristic.fields.is_active'))
                             ->default(true),
                     ]),
             ]);
@@ -159,14 +253,14 @@ class CharacteristicResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('name')
-                    ->label('Название')
+                    ->label(__('characteristic.columns.name'))
                     ->sortable()
                     ->searchable(),
                 TextColumn::make('slug')
-                    ->label('Slug')
+                    ->label(__('characteristic.columns.slug'))
                     ->sortable(),
                 TextColumn::make('category.name')
-                    ->label('Категория')
+                    ->label(__('characteristic.columns.category'))
 
                     ->getStateUsing(function (Characteristic $record, TextColumn $column, $livewire) use($defaultLocale) {
                         $locale = $defaultLocale;
@@ -181,28 +275,31 @@ class CharacteristicResource extends Resource
                     ->sortable(),
 
                 TextColumn::make('field_type')
-                    ->label('Тип поля'),
+                    ->label(__('characteristic.columns.field_type')),
 
                 TextColumn::make('pricing_type')
-                    ->label('Ценообразование')
+                    ->label(__('characteristic.columns.pricing_type'))
                     ->formatStateUsing(fn (int $state) => match ($state) {
-                        0 => 'Не влияет',
-                        1 => 'Надбавка',
-                        2 => 'Фиксированная',
+                        0 => __('characteristic.pricing_types.no_impact'),
+                        1 => __('characteristic.pricing_types.surcharge'),
+                        2 => __('characteristic.pricing_types.fixed'),
                     }),
-
+                ViewColumn::make('svg_icon')
+                    ->label(__('characteristic.columns.icon'))
+                    ->view('filament.tables.columns.characteristic-svg') // см. ниже
+                    ->toggleable(),
                 IconColumn::make('is_required')
-                    ->label('Обязательная')
+                    ->label(__('characteristic.columns.is_required'))
                     ->boolean(),
                 IconColumn::make('is_main_tab')
-                    ->label('На главной')
+                    ->label(__('characteristic.columns.is_main_tab'))
                     ->boolean(),
                 IconColumn::make('is_active')
-                    ->label('Активна')
+                    ->label(__('characteristic.columns.is_active'))
                     ->boolean(),
 
                 TextColumn::make('sort_order')
-                    ->label('Позиция')
+                    ->label(__('characteristic.columns.sort_order'))
                     ->sortable(),
             ])
             ->filtersFormColumns(6) // сколько колонок занимают фильтры в строке

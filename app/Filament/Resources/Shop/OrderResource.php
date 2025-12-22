@@ -55,21 +55,38 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\HtmlString;
+use App\Models\Shop\LoyaltyTransaction;
 use App\Models\Shop\Client;
 use App\Filament\Resources\ClientResource;
 use Filament\Support\Enums\VerticalAlignment;
 use App\Enums\PaymentMethodEnum;
-
+use Filament\Tables\Columns\BadgeColumn;
 class OrderResource extends Resource
 {
     protected static ?string $model = Order::class;
     protected static ?string $slug = 'shop/orders';
     protected static ?string $recordTitleAttribute = 'number';
     protected static ?string $navigationGroup = 'Магазин';
-    protected static ?string $navigationLabel = 'Заказы';
-    protected static ?string $modelLabel = 'Заказы';
-    protected static ?string $pluralModelLabel = 'Заказы';
+    protected static ?string $navigationLabel = null;
+    protected static ?string $modelLabel = null;
+    protected static ?string $pluralModelLabel = null;
+
+    public static function getNavigationLabel(): string
+    {
+        return __('order.nav.navigation_label');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('order.nav.model_label');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('order.nav.plural_model_label');
+    }
     protected static ?string $navigationIcon = 'heroicon-o-shopping-bag';
     protected static ?int $navigationSort = 1;
 
@@ -81,12 +98,12 @@ class OrderResource extends Resource
                     ->schema([
                         Forms\Components\Tabs::make('order_tabs')
                             ->tabs([
-                                Forms\Components\Tabs\Tab::make('Инфо по заказу')
+                                Forms\Components\Tabs\Tab::make(__('order.tabs.info'))
                                     ->schema(static::getInfoTabSchema())
                                     ->columns(2),
-                                Forms\Components\Tabs\Tab::make('Товары')
+                                Forms\Components\Tabs\Tab::make(__('order.tabs.products'))
                                     ->schema(static::getProductsTabSchema()),
-                                Forms\Components\Tabs\Tab::make('Журнал')->schema([
+                                Forms\Components\Tabs\Tab::make(__('order.tabs.journal'))->schema([
                                     View::make('filament.orders.journal-tab')
                                         ->dehydrated(false)
                                         ->columnSpanFull(),
@@ -112,7 +129,7 @@ class OrderResource extends Resource
                 ->default(fn (?Order $r) => $r?->status?->value),
 
             ToggleButtons::make('status_ui')
-                ->label('Статус')
+                ->label(__('order.fields.status'))
                 ->inline()
                 ->required()
                 ->options(fn () => static::allowedStatuses())
@@ -122,8 +139,8 @@ class OrderResource extends Resource
                 ->reactive(),
 
             Textarea::make('downgrade_reason')
-                ->label('Причина отката')
-                ->placeholder('Коротко опишите причину…')
+                ->label(__('order.fields.rollback_reason'))
+                ->placeholder(__('order.placeholders.rollback_reason'))
                 ->rows(3)
                 ->visible(function (Get $get) {
                     $cur = $get('current');
@@ -145,18 +162,18 @@ class OrderResource extends Resource
     public static function getProductsTabSchema(): array
     {
         return [
-            Section::make('Товары заказа')
+            Section::make(__('order.sections.order_items'))
                 ->headerActions([
-                    FormAction::make('Очистить')
-                        ->modalHeading('Are you sure?')
-                        ->modalDescription('All existing items will be removed from the order.')
+                    FormAction::make(__('order.actions.clear'))
+                        ->modalHeading(__('order.modals.clear_heading'))
+                        ->modalDescription(__('order.modals.clear_description'))
                         ->requiresConfirmation()
                         ->color('danger')
                         ->action(fn (Set $set) => $set('items', [])),
                 ])
                 ->schema([
                     Placeholder::make('order_total')
-                        ->label('Сума замовлення')
+                        ->label(__('order.fields.order_sum'))
                         ->content(function (callable $get) {
                             $items = $get('items') ?? [];
                             $items = collect($items)->map(fn ($item) => is_object($item) ? (array) $item : $item);
@@ -180,10 +197,10 @@ class OrderResource extends Resource
     {
         return [
             // ——— Суммы и скидки ———
-            Section::make('Сумма и скидки')
+            Section::make(__('order.sections.amount_discounts'))
                 ->schema([
                     Placeholder::make('order_total_right')
-                        ->label('Сума замовлення')
+                        ->label(__('order.fields.order_sum'))
                         ->content(function (Get $get) {
                             $items = collect($get('items') ?? [])
                                 ->map(fn ($item) => is_object($item) ? (array) $item : $item);
@@ -204,7 +221,7 @@ class OrderResource extends Resource
 
                     // 1) Фіксована знижка
                     Select::make('ui_fixed_discount_id')
-                        ->label('Фіксована знижка')
+                        ->label(__('order.fields.fixed_discount'))
                         ->dehydrated(false)
                         ->searchable()
                         ->nullable()
@@ -232,7 +249,7 @@ class OrderResource extends Resource
 
                     // 2) Знижки за часом (happy hours)
                     Select::make('ui_time_discount_id')
-                        ->label('Знижка за часом')
+                        ->label(__('order.fields.time_discount'))
                         ->searchable()
                         ->nullable()
                         ->dehydrated(false)
@@ -298,8 +315,8 @@ class OrderResource extends Resource
 
                     // 3) Промокод
                     TextInput::make('ui_promo_code')
-                        ->label('Промокод')
-                        ->placeholder('Введіть код')
+                        ->label(__('order.fields.promo_code'))
+                        ->placeholder(__('order.placeholders.promo_code'))
                         ->dehydrated(false)
                         ->reactive()
                         ->afterStateHydrated(function (TextInput $component, ?Order $record) {
@@ -330,36 +347,55 @@ class OrderResource extends Resource
 
                             FormAction::make('clearPromo')
                                 ->icon('heroicon-m-x-mark')
-                                ->tooltip('Скасувати промокод')
+                                ->tooltip(__('order.actions.clear_promo'))
                                 ->requiresConfirmation()
                                 ->action(function (Set $set, ?Order $record) {
                                     if (! $record) return;
 
-                                    DB::transaction(function () use ($record, $set) {
-                                        $adj = $record->adjustments()->where('type', 'coupon')->first();
+                                    try {
+                                        DB::transaction(function () use ($record, $set) {
+                                            $adj = $record->adjustments()->where('type', 'coupon')->first();
 
-                                        if ($adj) {
-                                            $promoId = $adj->promo_code_id
-                                                ?? ($adj->meta['promo_id'] ?? null);
+                                            if ($adj) {
+                                                $promoId = $adj->promo_code_id
+                                                    ?? ($adj->meta['promo_id'] ?? null);
 
-                                            $promo = $promoId
-                                                ? PromoCode::find($promoId)
-                                                : (isset($adj->meta['code'])
-                                                    ? PromoCode::where('code', $adj->meta['code'])->first()
-                                                    : null);
+                                                $promo = $promoId
+                                                    ? PromoCode::find($promoId)
+                                                    : (isset($adj->meta['code'])
+                                                        ? PromoCode::where('code', $adj->meta['code'])->first()
+                                                        : null);
 
-                                            $promo?->unmarkUsed($record->id);
-                                            $adj->delete();
-                                        }
+                                                $promo?->unmarkUsed($record->id);
+                                                $adj->delete();
+                                            }
 
-                                        app(\App\Services\OrderPricing::class)->recalc($record);
-                                        $set('ui_promo_code', null);
-                                    });
+                                            app(\App\Services\OrderPricing::class)->recalc($record);
+                                            $set('ui_promo_code', null);
+                                        });
+                                        
+                                        Notification::make()
+                                            ->success()
+                                            ->title('Промокод удален')
+                                            ->send();
+                                    } catch (\Exception $e) {
+                                        Notification::make()
+                                            ->danger()
+                                            ->title('Ошибка при удалении промокода')
+                                            ->body($e->getMessage())
+                                            ->send();
+                                        
+                                        Log::error('Ошибка при удалении промокода из заказа', [
+                                            'order_id' => $record->id,
+                                            'error' => $e->getMessage(),
+                                            'trace' => $e->getTraceAsString(),
+                                        ]);
+                                    }
                                 })
                         ]),
 
                     TextInput::make('ui_manual_percent')
-                        ->label('Ручна знижка, %')
+                        ->label(__('order.fields.manual_discount_percent'))
                         ->numeric()
                         ->dehydrated(false)
                         ->reactive()
@@ -390,7 +426,7 @@ class OrderResource extends Resource
                         }),
 
                     TextInput::make('ui_manual_fixed')
-                        ->label('Ручна знижка, грн')
+                        ->label(__('order.fields.manual_discount_amount'))
                         ->numeric()
                         ->dehydrated(false)
                         ->reactive()
@@ -415,7 +451,7 @@ class OrderResource extends Resource
                         }),
 
                     Placeholder::make('ui_adjustments_list')
-                        ->label('Застосовані знижки')
+                        ->label(__('order.fields.applied_discounts'))
                         ->content(function (?Order $order) {
                             if (! $order) return new HtmlString('—');
 
@@ -440,6 +476,35 @@ class OrderResource extends Resource
                             return new HtmlString($out);
                         })->dehydrated(false)->inlineLabel(false)
                         ->dehydrated(false),
+                    Placeholder::make('ui_loyalty_spent')
+                        ->label(__('order.fields.bonuses_written_off'))
+                        ->content(function (?Order $order) {
+                            if (! $order) {
+                                return new HtmlString('—');
+                            }
+
+                            // берём все транзакции лояльности по этому заказу
+                            $txQuery = $order->loyaltyTransactions();
+
+                            // предполагаем, что поле суммы называется amount
+                            // и списание идёт отрицательным знаком
+                            $spent = (float) abs(
+                                $txQuery->where('amount', '<', 0)->sum('amount')
+                            );
+
+                            if ($spent <= 0) {
+                                return new HtmlString(
+                                    '<div class="text-sm text-gray-500">Бонуси не використовувались</div>'
+                                );
+                            }
+
+                            $val = number_format($spent, 2, ',', ' ') . ' грн';
+
+                            return new HtmlString(
+                                '<div class="text-lg font-semibold">'.$val.'</div>'
+                            );
+                        }),
+
                     Hidden::make('ui_version')->dehydrated(false)->reactive(),
                     Hidden::make('total_price')
                         ->dehydrated(true)
@@ -465,7 +530,7 @@ class OrderResource extends Resource
                             return round($base + $adj, 2);
                         }),
                     Placeholder::make('total_after_discount')
-                        ->label('Разом зі знижкою')
+                        ->label(__('order.fields.total_with_discount'))
                         ->dehydrated(false)
                         ->reactive()
                         ->content(function (?Order $record, Get $get) {
@@ -499,7 +564,7 @@ class OrderResource extends Resource
                 ]),
 
             // ——— Статусы (инлайн блок остаётся на форме редактирования) ———
-            Section::make('Статусы')
+            Section::make(__('order.sections.statuses'))
                 ->reactive()
                 ->schema([
                     Hidden::make('status')->default(fn (?Order $r) => $r?->status->value)->dehydrated(true),
@@ -508,7 +573,7 @@ class OrderResource extends Resource
                     Hidden::make('downgrade_reason')->dehydrated(false),
 
                     ToggleButtons::make('status_ui')
-                        ->label('Статус')
+                        ->label(__('order.fields.status'))
                         ->dehydrated(false)
                         ->inline()
                         ->options(fn () => static::allowedStatuses())
@@ -559,15 +624,15 @@ class OrderResource extends Resource
 
                     Group::make([
                         Textarea::make('downgrade_reason')
-                            ->label('Причина')
-                            ->placeholder('Коротко опишите причину возврата статуса')
+                            ->label(__('order.fields.rollback_reason'))
+                            ->placeholder(__('order.placeholders.rollback_reason'))
                             ->required()
                             ->rows(3)
                             ->dehydrated(false),
 
                         Actions::make([
                             FormAction::make('confirmDowngradeInline')
-                                ->label('Подтвердить откат')
+                                ->label(__('order.actions.confirm_rollback'))
                                 ->color('danger')
                                 ->icon('heroicon-m-arrow-uturn-left')
                                 ->action(function (callable $get, callable $set, $livewire, Order $record) {
@@ -591,7 +656,7 @@ class OrderResource extends Resource
                                             'from'   => $from,
                                             'to'     => $to,
                                             'reason' => $reason,
-                                        ])->log('Статус возвращён назад');
+                                        ])->log(__('order.journal.status_rollback'));
 
                                     $set('status', $to);
                                     $set('status_ui', $to);
@@ -603,7 +668,7 @@ class OrderResource extends Resource
                                     Notification::make()->success()->title('Статус откатан')->send();
                                 }),
                             FormAction::make('cancelDowngradeInline')
-                                ->label('Отмена')
+                                ->label(__('order.actions.cancel'))
                                 ->color('gray')
                                 ->icon('heroicon-m-x-mark')
                                 ->action(function (callable $set) {
@@ -615,99 +680,19 @@ class OrderResource extends Resource
                     ])->visible(fn (callable $get) => (bool) $get('downgrade_pending')),
                 ]),
 
-            Section::make('Служебная информация')
+            Section::make(__('order.sections.metadata'))
                 ->schema([
                     Placeholder::make('created_at')
-                        ->label('Создан')
+                        ->label(__('order.fields.created_at'))
                         ->content(fn (Order $record): ?string => $record->created_at?->diffForHumans()),
                     Placeholder::make('updated_at')
-                        ->label('Изменён')
+                        ->label(__('order.fields.updated_at'))
                         ->content(fn (Order $record): ?string => $record->updated_at?->diffForHumans()),
                 ]),
         ];
     }
 
-  /*  public static function clientCreateForm(): array
-    {
-        return [
-            Grid::make(2)->schema([
-                TextInput::make('name')->label('Имя')->required()->maxLength(255),
-                Grid::make(['default' => 1, 'lg' => 12])->schema([
-                    TextInput::make('phone')
-                        ->label('Телефон')
-                        ->required()
-                        ->tel()
-                        ->columnSpan(['lg' => 8])
-                        // Маска только для UA (цифра в маске — 9)
-                        ->mask(fn (Get $get) => $get('is_foreign_phone') ? null : '(999) 999-99-99')
-                        ->placeholder(fn (Get $get) => $get('is_foreign_phone')
-                            ? 'Напр.: 491512345678 (лише цифри, 6–15)'
-                            : '(067) 123-45-67')
-                        ->extraAttributes(fn (Get $get) => [
-                            'inputmode'    => 'numeric',
-                            'autocomplete' => 'tel',
-                            'pattern'      => $get('is_foreign_phone')
-                                ? '\+?\d{6,15}'
-                                : '\(0\d{2}\)\s\d{3}-\d{2}-\d{2}',
-                        ])
-                        // Авто-детект “иностранного” номера при редактировании
-                        ->afterStateHydrated(function (TextInput $component, $state, Get $get, Set $set) {
-                            $d = preg_replace('/\D+/', '', (string) $state);
-                            if ($d === '') return;
 
-                            // Если не 0XXXXXXXXX — считаем иностранным и включаем тумблер
-                            if (! preg_match('/^0\d{9}$/', $d)) {
-                                $set('is_foreign_phone', true);          // тумблер “оживит” маску из-за ->live() ниже
-                                $component->state(substr($d, 0, 15));     // отобразим просто цифры
-                                return;
-                            }
-
-                            // Украина — красиво форматируем
-                            if (str_starts_with($d, '380'))      $d = '0' . substr($d, 3);
-                            elseif (str_starts_with($d, '80'))   $d = '0' . substr($d, 2);
-                            elseif (strlen($d) === 9)            $d = '0' . $d;
-
-                            $d = substr($d, 0, 10);
-                            if (preg_match('/^(0\d{2})(\d{3})(\d{2})(\d{2})$/', $d, $m)) {
-                                $component->state(sprintf('(%s) %s-%s-%s', $m[1], $m[2], $m[3], $m[4]));
-                            }
-                        })
-                        // В БД — только цифры (UA: 10; Intl: до 15)
-                        ->dehydrateStateUsing(function ($state, Get $get) {
-                            $d = preg_replace('/\D+/', '', (string) $state);
-
-                            if ($get('is_foreign_phone')) {
-                                return substr($d, 0, 15);
-                            }
-
-                            if (str_starts_with($d, '380'))      $d = '0' . substr($d, 3);
-                            elseif (str_starts_with($d, '80'))   $d = '0' . substr($d, 2);
-                            elseif (strlen($d) === 9)            $d = '0' . $d;
-
-                            return substr($d, 0, 10);
-                        })
-                        // Валидация по режиму
-                        ->rule(fn (Get $get) => $get('is_foreign_phone')
-                            ? 'regex:/^\+?\d{6,15}$/'
-                            : 'regex:/^\(0\d{2}\)\s\d{3}-\d{2}-\d{2}$|^0\d{9}$/')
-                        ->validationAttribute('телефон'),
-
-                    Toggle::make('is_foreign_phone')
-                        ->label('Телефон іншої країни')
-                        ->helperText('Увімкніть, якщо номер не український')
-                        ->inline(true)
-                        ->live()                 // ← это ключ: заставит пересчитаться маска/placeholder у TextInput
-                        ->dehydrated(false)
-                        ->columnSpan(['lg' => 4])
-                        ->extraAttributes(['class' => 'lg:mt-6']),
-                ]),
-                Select::make('gender')->label('Пол')->options(['male' => 'Мужчина','female' => 'Женщина'])->nullable(),
-                TextInput::make('email')->label('Email')->email()->unique(\App\Models\Shop\Client::class, 'email'),
-                Toggle::make('is_active')->label('Активный')->default(true),
-            ]),
-            Textarea::make('note')->label('Примечание')->columnSpanFull(),
-        ];
-    }*/
 
     public static function getInfoTabSchema(): array
     {
@@ -716,17 +701,17 @@ class OrderResource extends Resource
 
                 // 1) Номер заказа — компактное поле
                 TextInput::make('number')
-                    ->label('Номер заказа')
+                    ->label(__('order.fields.order_number'))
                     ->disabled()
                     ->dehydrated(false)
-                    ->placeholder(fn (Order $r) => $r?->exists ? $r->number : 'Будет присвоен после сохранения')
+                    ->placeholder(fn (Order $r) => $r?->exists ? $r->number : __('order.placeholders.number_auto'))
                     ->columnSpan(3),
 
                 // 2) Клиент — с create/edit в модалках из ClientResource
                 Select::make('clients_id')
                     ->relationship('clients', 'name')
                     ->searchable()
-                    ->label('Клиент')
+                    ->label(__('order.fields.client'))
                     ->required()
                     ->live()
                     // === ЛЕЙБЛ ПУНКТА (выбранное значение) ===
@@ -793,7 +778,7 @@ class OrderResource extends Resource
 
                 // 3) Телефон клиента — read-only + кнопка "копировать"
                 TextInput::make('client_phone_view')
-                    ->label('Телефон')
+                    ->label(__('order.fields.phone'))
                     ->readOnly()            // нельзя редактировать
                     ->dehydrated(false)     // не сохраняем в модель заказа
                     ->reactive()            // чтобы перерисовывалось
@@ -824,11 +809,11 @@ class OrderResource extends Resource
 
             Hidden::make('client_address_id')->dehydrated(true),
 
-            Section::make('Время и оплата')
+            Section::make(__('order.sections.time_payment'))
                 ->schema([
                     Grid::make(12)->schema([
                         DatePicker::make('dat')
-                            ->label('Дата создания')
+                            ->label(__('order.fields.created_date'))
                             ->default(fn (?Order $record) => $record?->exists ? null : now())
                             ->reactive()
                             ->afterStateUpdated(function ($state, Set $set, Get $get) {
@@ -839,7 +824,7 @@ class OrderResource extends Resource
                             ->columnSpan(3),
 
                         TimePicker::make('time_start')
-                            ->label('Время создания')
+                            ->label(__('order.fields.created_time'))
                             ->seconds(false)
                             ->default(fn (?Order $record) => $record?->exists ? null : Carbon::now()->format('H:i'))
                             ->live()
@@ -852,7 +837,7 @@ class OrderResource extends Resource
                             ->columnSpan(3),
 
                         TimePicker::make('time_order')
-                            ->label('Время заказа')
+                            ->label(__('order.fields.order_time'))
                             ->seconds(false)
                             ->default(fn () => Carbon::now(config('app.timezone'))->addMinutes(60)->format('H:i'))
                             ->afterStateHydrated(function ($component, $state) {
@@ -866,20 +851,20 @@ class OrderResource extends Resource
                             ->columnSpan(3),
 
                         DatePicker::make('date_order')
-                            ->label('Дата заказа')
+                            ->label(__('order.fields.order_date'))
                             ->default(now())
                             ->columnSpan(3),
                     ]),
 
                     Grid::make(12)->schema([
                         Toggle::make('as_soon_possible')
-                            ->label('Как можно скорее')
+                            ->label(__('order.fields.asap'))
                             ->inline(false)
                             ->live()
                             ->columnSpan(3),
 
                         Toggle::make('self_pickup')
-                            ->label('Самовывоз')
+                            ->label(__('order.fields.pickup'))
                             ->inline(false)
                             ->live()
                             ->reactive()
@@ -915,7 +900,7 @@ class OrderResource extends Resource
                                 11 => 'LiqPay',
                             ])*/
                             Select::make('payment')
-                                ->label(__('Оплата'))
+                                ->label(__('order.fields.payment_method'))
                                 ->options(PaymentMethodEnum::options())
                                 ->required()
                                 ->native(false)
@@ -926,17 +911,18 @@ class OrderResource extends Resource
                             ->columnSpan(4),
 
                         TextInput::make('reason_non_payment')
-                            ->label('Причина неоплаты')
-                            ->placeholder('Коротко…')
+                            ->label(__('order.fields.non_payment_reason'))
+                            ->placeholder(__('order.placeholders.reason_short'))
                             ->visible(fn (Get $get) => (int) $get('payment') === 5)
                             ->maxLength(255)
                             ->columnSpan(12),
                     ]),
+
                 ]),
 
             Select::make('selected_address_id')
-                ->label('Адрес доставки')
-                ->placeholder('Выберите адрес')
+                ->label(__('order.fields.delivery_address'))
+                ->placeholder(__('order.placeholders.select_address'))
                 ->default('')
                 ->live()
                 ->hidden(fn (Get $get) => (bool) $get('self_pickup'))
@@ -988,16 +974,16 @@ class OrderResource extends Resource
                     if (! $clientId) return [];
 
                     $addresses = ClientAddress::query()->where('client_id', $clientId)->get();
-                    $final = collect(['-1' => 'Новый адрес'])->union(
+                    $final = collect(['-1' => __('order.fields.new_address')])->union(
                         $addresses->mapWithKeys(function ($address) {
                             $key = (string) $address->id;
                             $label = trim(implode(', ', array_filter([
                                 $address->street,
                                 $address->house,
-                                $address->apartment ? 'кв. ' . $address->apartment : null,
-                                $address->entrance ? 'подъезд ' . $address->entrance : null,
-                                $address->floor ? 'этаж ' . $address->floor : null,
-                                $address->intercom ? 'домофон ' . $address->intercom : null,
+                                $address->apartment ? __('order.address_prefixes.apartment') . ' ' . $address->apartment : null,
+                                $address->entrance ? __('order.address_prefixes.entrance') . ' ' . $address->entrance : null,
+                                $address->floor ? __('order.address_prefixes.floor') . ' ' . $address->floor : null,
+                                $address->intercom ? __('order.address_prefixes.intercom') . ' ' . $address->intercom : null,
                             ])));
                             return [$key => $label];
                         })
@@ -1016,12 +1002,12 @@ class OrderResource extends Resource
 
             Select::make('currency')
                 ->searchable()
-                ->label('Валюта')
+                ->label(__('order.fields.currency'))
                 ->options(Currency::pluck('name', 'code'))
                 ->default('UAH')
                 ->required(),
 
-            MarkdownEditor::make('notes')->label('Примечание')->columnSpan('full'),
+            MarkdownEditor::make('notes')->label(__('order.fields.notes'))->columnSpan('full'),
         ];
     }
 
@@ -1062,11 +1048,11 @@ class OrderResource extends Resource
 
         return Repeater::make('items')
             ->relationship()
-            ->addActionLabel('Добавить товар')
+            ->addActionLabel(__('order.actions.add_item'))
             ->schema([
                 Grid::make(12)->schema([
                     Select::make('product_id')
-                        ->label('Продкут/товар')
+                        ->label(__('order.fields.product'))
                         ->options(function () use ($defaultLocale) {
                             return Product::query()
                                 ->where('in_stock', 1)
@@ -1105,7 +1091,20 @@ class OrderResource extends Resource
                         ->required()
                         ->reactive()
                         ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                            $set('unit_price', Product::find($state)?->price ?? 0);
+                            $product = Product::find($state);
+                            
+                            if (!$product) {
+                                Notification::make()
+                                    ->danger()
+                                    ->title('Товар не найден')
+                                    ->body('Выбранный товар был удален или не существует. Пожалуйста, выберите другой товар.')
+                                    ->send();
+                                $set('product_id', null);
+                                $set('unit_price', 0);
+                                return;
+                            }
+                            
+                            $set('unit_price', $product->price ?? 0);
                             $mods = $get('modifiers') ?? [];
                             foreach ($mods as &$m) {
                                 $m['_product_id']    = $state;
@@ -1121,7 +1120,7 @@ class OrderResource extends Resource
                         ->searchable(),
 
                     TextInput::make('qty')
-                        ->label('Количество')
+                        ->label(__('order.fields.quantity'))
                         ->numeric()
                         ->live(debounce: 250)
                         ->afterStateUpdated(fn ($state, callable $get, callable $set) => $set('order_total', now()))
@@ -1130,7 +1129,7 @@ class OrderResource extends Resource
                         ->required(),
 
                     TextInput::make('unit_price')
-                        ->label('Цена')
+                        ->label(__('order.fields.price'))
                         ->dehydrated()
                         ->numeric()
                         ->live(debounce:500)
@@ -1139,7 +1138,7 @@ class OrderResource extends Resource
                         ->columnSpan(2),
 
                     Placeholder::make('item_total')
-                        ->label('Сумма')
+                        ->label(__('order.fields.sum'))
                         ->content(function (callable $get) {
                             $qty = (float) $get('qty') ?? 0;
                             $price = (float) $get('unit_price') ?? 0;
@@ -1180,8 +1179,8 @@ class OrderResource extends Resource
                                 }),
 
                             Select::make('value_id')
-                                ->label('Характеристика / значение')
-                                ->placeholder('Обрати варіант')
+                                ->label(__('order.fields.characteristic_value'))
+                                ->placeholder(__('order.placeholders.select_variant'))
                                 ->reactive()
                                 ->searchable()
                                 ->preload()
@@ -1217,7 +1216,7 @@ class OrderResource extends Resource
                                 }),
 
                             TextInput::make('price_modifier')
-                                ->label('Цена +')
+                                ->label(__('order.fields.price_modifier'))
                                 ->numeric()
                                 ->inputMode('decimal')
                                 ->step('any')
@@ -1280,6 +1279,9 @@ class OrderResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query) => $query
+                ->with(['clients', 'clientAddress', 'lastLiqpayLog']) // ← исправление N+1 проблемы
+            )
             ->columns([
                 TextColumn::make('number')
                     ->label('')
@@ -1303,7 +1305,7 @@ class OrderResource extends Resource
                   //  ->extraAttributes(['class' => 'cursor-pointer underline']),
                   //  ->action('statuses'), // клик по номеру откроет модалку статусов
 
-                TextColumn::make('clients.name')->searchable()->label('Клиент')->sortable()->toggleable()->searchable(isIndividual: true)
+                TextColumn::make('clients.name')->searchable()->label(__('order.columns.client'))->sortable()->toggleable()->searchable(isIndividual: true)
                     ->extraHeaderAttributes(['style' => 'min-width:10rem;width:10rem;'])
                     ->extraCellAttributes(['style' => 'min-width:10rem;width:10rem;'])
                     ->url(fn (Order $record) =>
@@ -1312,25 +1314,25 @@ class OrderResource extends Resource
                         : null
                     )
                     ->openUrlInNewTab(),
-                TextColumn::make('clients.phone')->searchable()->label('Телефон')->sortable()->toggleable()
+                TextColumn::make('clients.phone')->searchable()->label(__('order.columns.phone'))->sortable()->toggleable()
                     ->searchable(isIndividual: true)
                     ->grow(false) // чтобы колонка не ужималась другими
                     ->extraHeaderAttributes(['style' => 'min-width:10rem;width:10rem;'])
                     ->extraCellAttributes(['style' => 'min-width:10rem;width:10rem;'])
                     ->copyable()
-                    ->copyMessage('Телефон клиента скопирован')
+                    ->copyMessage(__('order.notifications.phone_copied'))
                     ->copyMessageDuration(1500),
 
-                TextColumn::make('status')->label('Статус')->badge(),
+                TextColumn::make('status')->label(__('order.columns.status'))->badge(),
 
                 TextColumn::make('total_price')
-                    ->label('Сумма')
+                    ->label(__('order.columns.total_price'))
                     ->searchable()
                     ->sortable()
                     ->summarize([Sum::make()->money('UAH')]),
 
                 TextColumn::make('discount_total')
-                    ->label('Скидка')
+                    ->label(__('order.columns.discount'))
                     ->formatStateUsing(fn ($state) =>
                     ($state ?? 0) != 0
                         ? number_format(((float) $state), 2, ',', ' ') . ' грн'
@@ -1399,9 +1401,9 @@ class OrderResource extends Resource
                             $parts = [
                                 $a->street,
                                 $a->house,
-                                $a->apartment ? 'кв. ' . $a->apartment : null,
-                                $a->entrance  ? 'подъезд ' . $a->entrance : null,
-                                $a->floor     ? 'этаж ' . $a->floor : null,
+                                $a->apartment ? __('order.address_prefixes.apartment') . ' ' . $a->apartment : null,
+                                $a->entrance  ? __('order.address_prefixes.entrance') . ' ' . $a->entrance : null,
+                                $a->floor     ? __('order.address_prefixes.floor') . ' ' . $a->floor : null,
                             ];
                             $line = trim(implode(', ', array_filter($parts)));
                             return $line !== '' ? $line : null;
@@ -1412,9 +1414,9 @@ class OrderResource extends Resource
                         $parts = [
                             $addr['street']   ?? null,
                             $addr['house']    ?? null,
-                            !empty($addr['apartment']) ? 'кв. ' . $addr['apartment'] : null,
-                            !empty($addr['entrance'])  ? 'подъезд ' . $addr['entrance']  : null,
-                            !empty($addr['floor'])     ? 'этаж ' . $addr['floor']       : null,
+                            !empty($addr['apartment']) ? __('order.address_prefixes.apartment') . ' ' . $addr['apartment'] : null,
+                            !empty($addr['entrance'])  ? __('order.address_prefixes.entrance') . ' ' . $addr['entrance']  : null,
+                            !empty($addr['floor'])     ? __('order.address_prefixes.floor') . ' ' . $addr['floor']       : null,
                         ];
                         $line = trim(implode(', ', array_filter($parts)));
                         return $line !== '' ? $line : '—';
@@ -1428,6 +1430,56 @@ class OrderResource extends Resource
                     ->formatStateUsing(
                         fn (null|PaymentMethodEnum $state) => $state?->label() ?? '—'
                     ),
+                // ⬇️ НОВАЯ КОЛОНКА L i q P a y
+                BadgeColumn::make('liqpay_status')
+                    ->label('LiqPay')
+                    ->getStateUsing(fn (Order $record) => $record->lastLiqpayLog?->status)
+                    // что писать на бейдже
+                    ->formatStateUsing(function ($state) {
+                        return match ($state) {
+                            'success', 'sandbox'        => 'Успішно',
+                            'wait_accept', 'processing' => 'В обробці',
+                            'failure', 'error'          => 'Помилка',
+                            'reversed', 'refunded'      => 'Повернення',
+                            default                     => 'Немає',
+                        };
+                    })
+                    // цвет бейджа
+                    ->color(function ($state) {
+                        return match ($state) {
+                            'success', 'sandbox'        => 'success',   // зелёный
+                            'wait_accept', 'processing' => 'warning',   // жёлтый
+                            'failure', 'error'          => 'danger',    // красный
+                            'reversed', 'refunded'      => 'gray',      // серый
+                            default                     => 'secondary', // обычный
+                        };
+                    })
+                    // краткий коммент при наведении
+                    ->tooltip(function (Order $record) {
+                        $log = $record->lastLiqpayLog;
+
+                        if (! $log) {
+                            return 'Callback від LiqPay ще не приходив';
+                        }
+
+                        $payload = is_array($log->payload)
+                            ? $log->payload
+                            : (json_decode($log->payload ?? '[]', true) ?: []);
+
+                        $err = $payload['err_description'] ?? $payload['err_code'] ?? null;
+
+                        return match ($log->status) {
+                            'success', 'sandbox'        => 'Оплата пройшла успішно',
+                            'wait_accept', 'processing' => 'Платіж ще обробляється LiqPay',
+                            'failure', 'error'          => $err
+                                ? 'Помилка оплати: ' . $err
+                                : 'Помилка оплати на стороні LiqPay',
+                            'reversed', 'refunded'      => 'Платіж повернуто / відшкодовано',
+                            default                     => 'Статус LiqPay: невідомий',
+                        };
+                    })
+                    ->sortable(false)
+                    ->toggleable(),
                 TextColumn::make('created_at')->label('')
                     ->extraHeaderAttributes([
                         'x-data' => '{}',
@@ -1474,10 +1526,10 @@ class OrderResource extends Resource
             ->actions([
                 // МОДАЛЬНОЕ ДЕЙСТВИЕ «Статусы»
                 Action::make('statuses')
-                    ->label('Статусы')
+                    ->label(__('order.actions.statuses'))
                     ->icon('heroicon-m-adjustments-horizontal')
                     ->color('gray')
-                    ->modalHeading(fn (Order $r) => "Статусы: {$r->number}")
+                    ->modalHeading(fn (Order $r) => __('order.actions.statuses_modal_heading', ['number' => $r->number]))
                     ->modalWidth('lg')
                     ->form(fn (Order $record) => static::statusModalForm())
                     ->action(function (array $data, Order $record) {
@@ -1487,7 +1539,7 @@ class OrderResource extends Resource
                         $to   = OrderStatus::from($data['status_ui']);
 
                         if ($to->value === $from->value) {
-                            Notification::make()->title('Статус не изменился')->info()->send();
+                            Notification::make()->title(__('order.notifications.status_not_changed'))->info()->send();
                             return;
                         }
 
@@ -1526,7 +1578,7 @@ class OrderResource extends Resource
                                 'from'   => $from->value,
                                 'to'     => $to->value,
                                 'reason' => $reason,
-                            ])->log($newRank < $oldRank ? 'Статус возвращён назад' : 'Статус изменён');
+                            ])->log($newRank < $oldRank ? __('order.journal.status_rollback') : __('order.journal.status_changed'));
 
                         Notification::make()
                             ->success()
@@ -1562,7 +1614,10 @@ class OrderResource extends Resource
 
     public static function getRelations(): array
     {
-        return [ /* ... */ ];
+        return [
+            // ... твои другие relation managers (например, ItemsRelationManager)
+            \App\Filament\Clusters\Orders\Resources\OrderResource\RelationManagers\ClientOrdersRelationManager::class,
+        ];
     }
 
     public static function getWidgets(): array

@@ -42,10 +42,10 @@ class BlogCommentResource extends Resource
                         Forms\Components\TextInput::make('author_name')
                             ->label('Author Name')
                             ->required(),
-                        Forms\Components\TextInput::make('author_email')
+                        Forms\Components\TextInput::make('author_email.')
                             ->label('Author Email')
-                            ->email()
-                            ->required(),
+                            ->email()  //->required()
+                            ,
                         Forms\Components\Textarea::make('content')
                             ->label('Content')
                             ->rows(4)

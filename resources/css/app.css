@@ -8,6 +8,8 @@
 @tailwind utilities;
 
 @layer components {
+
+    html { scrollbar-gutter: stable; }
     /* чтобы уменьшенные слайды не обрезались */
     .banner-swiper { overflow: hidden; }
     /* Цвет активной точки уже решили: */
@@ -137,8 +139,228 @@ body.no-scroll { overflow: hidden !important; height: 100%; }
 @theme {
     --font-sans: "Intro", ui-sans-serif, system-ui, sans-serif;
 }
-
+.clamp-6{
+    display:-webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 6; /* кол-во строк */
+    overflow: hidden;
+}
 /* 13/16 */
 @layer utilities {
     .text-body { font-size: 13px; line-height: 16px; }
+}
+[x-cloak]{ display:none !important; }
+
+@layer components {
+    /* Базовый инпут 46/6/#E5E7EB */
+    .tp-input {
+        @apply h-[46px] w-full rounded-[6px] border border-[#E5E7EB] px-4
+        text-[16px] leading-[22px] placeholder:text-[#9CA3AF]
+        outline-none transition
+        focus:ring-2 focus:ring-[#FF7500]/20 focus:border-[#FF7500];
+    }
+    /* Select с «родной» стрелкой, но без системного стиля */
+    .tp-select {
+        @apply tp-input appearance-none pr-10 bg-white;
+        background-image:
+            linear-gradient(45deg, transparent 50%, #272828 50%),
+            linear-gradient(135deg, #272828 50%, transparent 50%);
+        background-position:
+            calc(100% - 24px) 20px, calc(100% - 18px) 20px;
+        background-size: 6px 6px, 6px 6px;
+        background-repeat: no-repeat;
+    }
+    .tp-textarea { @apply tp-input min-h-[92px] py-2 align-top; }
+    .tp-radio    { @apply text-[#FF7500] border-gray-300 focus:ring-[#FF7500]; }
+    .tp-check    { @apply rounded text-[#FF7500] border-gray-300 focus:ring-[#FF7500]; }
+
+    /* Состояния */
+    .tp-error   { @apply border-[#EF4444] focus:border-[#EF4444] focus:ring-[#EF4444]/20; }
+    .tp-hint    { @apply text-[12px] text-[#9CA3AF] mt-1; }
+    .tp-hint-err{ @apply text-[12px] text-[#EF4444] mt-1; }
+    .tp-disabled{ @apply bg-[#F9FAFB] text-gray-400 cursor-not-allowed; }
+
+    /* Лейбл 16/22 + красная звёздочка */
+    .tp-label   { @apply block text-[16px] leading-[22px] text-[#272828] mb-1; }
+    .tp-required::after { content:' *'; color:#EF4444; }
+}
+/* Chrome autofill — убираем жёлтый фон */
+input.tp-input:-webkit-autofill,
+input.tp-input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 30px #fff inset !important;
+    -webkit-text-fill-color: inherit !important;
+}
+.input-required {
+    position: relative;
+}
+.input-required input[required]::after {
+    content: '*';
+    color: #EF4444; /* красная */
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 18px;
+    pointer-events: none;
+}
+.tp-input{
+    @apply w-full h-[46px] rounded-[6px] border border-[#E5E7EB] px-4
+    text-[16px] leading-[22px] placeholder:text-[#9CA3AF]
+    focus:outline-none focus:ring-2 focus:ring-[#FF7500]/20 focus:border-[#FF7500]
+    transition;
+}
+.tp-radio{
+    /* оранжевая радиокнопка как в фигме */
+    appearance: none;
+    @apply inline-block w-4 h-4 rounded-full border border-[#D1D5DB] align-middle relative;
+}
+.tp-radio:checked{
+    border-color:#FF7500;
+    background-image: radial-gradient(#FF7500 0,#FF7500 55%,transparent 56%);
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+.tp-ico-left{
+    position:absolute; left:12px; top:50%; transform:translateY(-50%);
+    color:#FF7500; pointer-events:none;
+}
+.tp-ico-right{
+    position:absolute; right:12px; top:50%; transform:translateY(-50%);
+    color:#9CA3AF; pointer-events:none;
+}
+
+.tp-input-error { @apply border-[#EF4444] ring-2 ring-[#EF4444]/20; }
+.tp-hint-error { @apply text-[12px] text-[#EF4444] mt-1; }
+/* для страницы бонусов */
+#p_loy {
+    position: relative;
+    width: 160px;
+    height: 160px;
+    margin: 0 auto;
+    background: #ff7500;
+    border-radius: 50%;
+    color: #fff
+}
+
+#p_loy2 {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    margin: 1%;
+    background: #ff7500;
+    border-radius: 50%;
+    float: right;
+    color: #fff
+}
+.pl2 {
+    margin-top: 10%;
+    margin-bottom: 5%;
+    font-size: 36px;
+    text-align: center;
+    padding-top: 5%;
+    border-top: 2px solid #d4d4d4
+}
+
+#pr_loy {
+    padding: 15px 30px;
+    border-radius: 10px;
+    background-color: #ff7500;
+    border: none;
+    color: #ffe3cc;
+    font-size: 24px;
+    font-weight: 600;
+    -webkit-transition: all .5s;
+    transition: all .5s;
+    display: block;
+    border-top: 1px solid #e6e6e6!important;
+    margin-top: 5%!important
+}
+
+#pr_loy:hover {
+    background-color: #ff7500;
+    color: #fff;
+    border: 1px solid #ff7500;
+    -webkit-box-shadow: 0 0 20px rgba(255,90,0,.86);
+    box-shadow: 0 0 20px rgba(255,90,0,.86);
+    -webkit-transition: -webkit-box-shadow .5s;
+    transition: -webkit-box-shadow .5s;
+    transition: box-shadow .5s;
+    transition: box-shadow .5s , -webkit-box-shadow .5s
+}
+.p_loy_c2 {
+    text-align: center;
+    font-size: 55px;
+}
+img.p_loy_c3 {
+    margin-top: 22%;
+    margin-left: 22%;
+    width: 55px
+}
+.static_page .head_section {
+    font-size: 40px;
+    font-family: Violet;
+    line-height: 50px;
+    font-weight: 800;
+    color: #3c3c3c;
+    margin-bottom: 30px;
+}
+.p_loy_c {
+    text-align: center;
+    font-size: 75px;
+}
+img.p_loy_c {
+    margin-top: -10%;
+    margin-left: 18%;
+}
+img.p_loy_c {
+    width: 100px;
+}
+.p_loy_c {
+    text-align: center;
+    font-size: 75px;
+}
+.svg-inline--fa {
+    display: inline-block;
+    font-size: inherit;
+    height: 1em;
+    overflow: visible;
+    vertical-align: -.125em;
+}
+.item-number {
+    position: relative;
+    top: 0;
+    left: 8px;
+    z-index: 2;
+    display: -ms-flexbox;
+    display: flex;
+    -ms-flex-pack: center;
+    justify-content: center;
+    -ms-flex-align: center;
+    align-items: center;
+    width: 41px;
+    height: 41px;
+    background: #dfe3e6;
+    border-radius: 50%;
+    font-size: 25px;
+    font-weight: 700;
+    color: #ff9214
+}
+.text_pl {
+    font-size: 24px;
+    text-align: center;
+}
+.hpl {
+    font-size: 30px;
+}
+.text_pl_m {
+    font-size: 18px;
+}
+.pl2 {
+    margin-top: 10%;
+    margin-bottom: 5%;
+    font-size: 36px;
+    text-align: center;
+    padding-top: 5%;
+    border-top: 2px solid #d4d4d4;
 }

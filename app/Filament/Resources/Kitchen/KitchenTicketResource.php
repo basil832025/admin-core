@@ -32,19 +32,29 @@ class KitchenTicketResource extends Resource
 {
     protected static ?string $model = KitchenTicket::class;
 
-    protected static ?string $navigationGroup = 'КитченТач';
+    protected static ?string $navigationGroup = null;
     protected static ?string $navigationIcon   = 'heroicon-m-fire';
-    protected static ?string $navigationLabel  = 'КухняТач';
+    protected static ?string $navigationLabel  = null;
     protected static ?int    $navigationSort   = 10;
+
+    public static function getNavigationGroup(): ?string
+    {
+        return __('kitchen_ticket.nav.navigation_group');
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return __('kitchen_ticket.nav.navigation_label');
+    }
 
     public static function getModelLabel(): string
     {
-        return 'кухонный тикет';
+        return __('kitchen_ticket.nav.model_label');
     }
 
     public static function getPluralModelLabel(): string
     {
-        return 'кухонные тикеты';
+        return __('kitchen_ticket.nav.plural_model_label');
     }
 // ⬇️ БАЗОВЫЙ ЗАПРОС ДЛЯ ТАБЛИЦЫ (используется везде, в т.ч. табами)
     public static function getEloquentQuery(): Builder
@@ -90,7 +100,7 @@ class KitchenTicketResource extends Resource
             ->poll('5s') // лайв-обновление для кухни
             ->columns([
                 TextColumn::make('order.number')
-                    ->label('№ заказа')
+                    ->label(__('kitchen_ticket.columns.order_number'))
                     ->weight('semibold')
                     ->description(fn ($record) => $record->order?->created_at?->format('d.m H:i'))
                     ->wrap() // номер+дата в 2 строки ок
@@ -99,7 +109,7 @@ class KitchenTicketResource extends Resource
                     ->extraCellAttributes(['class' => 'min-w-[8rem]']),
 
                 TextColumn::make('order_dt')
-                    ->label('Время заказа')
+                    ->label(__('kitchen_ticket.columns.order_time'))
                     ->dateTime('d.m H:i')
                     ->grow(false)
                     ->extraHeaderAttributes(['class' => 'min-w-[7rem]'])
@@ -110,30 +120,30 @@ class KitchenTicketResource extends Resource
                     ),
 
                 BadgeColumn::make('urgent')
-                    ->label('Поскорее')
+                    ->label(__('kitchen_ticket.columns.urgent'))
                     ->grow(false)
                     ->state(fn (KitchenTicket $record) =>
                     (bool) ($record->as_soon_possible ?? ($record->order->as_soon_possible ?? false))
                     )
-                    ->formatStateUsing(fn ($state) => $state ? 'Да' : '—')
+                    ->formatStateUsing(fn ($state) => $state ? __('kitchen_ticket.values.yes') : __('kitchen_ticket.values.no'))
                     ->color(fn ($state) => $state ? 'danger' : 'gray')
                     ->toggleable(),
 
                 BadgeColumn::make('delivery_type')
-                    ->label('Тип')
+                    ->label(__('kitchen_ticket.columns.delivery_type'))
                     ->grow(false)
                     ->state(fn (KitchenTicket $record) =>
                         $record->delivery_type
                         ?? (((int) ($record->order?->self_pickup) === 1) ? 'pickup' : 'delivery')
                     )
                     ->formatStateUsing(fn ($state) =>
-                    $state === 'pickup' ? 'Самовывоз' : ($state === 'delivery' ? 'Доставка' : '—')
+                    $state === 'pickup' ? __('kitchen_ticket.values.pickup') : ($state === 'delivery' ? __('kitchen_ticket.values.delivery') : __('kitchen_ticket.values.no'))
                     )
                     ->color(fn ($state) =>
                     $state === 'pickup' ? 'lime' : ($state === 'delivery' ? 'sky' : 'gray')
                     ),
                 TextColumn::make('items_count')
-                    ->label('Кол товаров')
+                    ->label(__('kitchen_ticket.columns.items_count'))
                     ->counts('items') // если есть relation items()
                     ->sortable()
                     ->alignCenter(),
@@ -141,7 +151,7 @@ class KitchenTicketResource extends Resource
 
                 // текущий этап (использует твой enum оформления)
                 BadgeColumn::make('stage')
-                    ->label('Этап')
+                    ->label(__('kitchen_ticket.columns.stage'))
                     ->grow(false)
                     ->formatStateUsing(fn ($state) => ($s = $state instanceof OrderStatus ? $state : OrderStatus::from($state))->getLabel())
                     ->icon(fn ($state) => ($s = $state instanceof OrderStatus ? $state : OrderStatus::from($state))->getIcon())
@@ -154,10 +164,10 @@ class KitchenTicketResource extends Resource
             ->filters([
                 // Вкладки: Текущие / Архив
                 Tables\Filters\SelectFilter::make('tab')
-                    ->label('Статус')
+                    ->label(__('kitchen_ticket.filters.status'))
                     ->options([
-                        'current'  => 'Текущие',
-                        'archived' => 'Архивные',
+                        'current'  => __('kitchen_ticket.filter_options.current'),
+                        'archived' => __('kitchen_ticket.filter_options.archived'),
                     ])
                     ->default('current')
                     ->query(function (\Illuminate\Database\Eloquent\Builder $q, array $data) {
@@ -175,10 +185,10 @@ class KitchenTicketResource extends Resource
                     ->columnSpanFull(),
 
                 TernaryFilter::make('urgent')
-                    ->label('Поскорее')
-                    ->placeholder('Любые')
-                    ->trueLabel('Только срочные')
-                    ->falseLabel('Только обычные')
+                    ->label(__('kitchen_ticket.filters.urgent'))
+                    ->placeholder(__('kitchen_ticket.filter_options.any'))
+                    ->trueLabel(__('kitchen_ticket.filter_options.urgent_only'))
+                    ->falseLabel(__('kitchen_ticket.filter_options.normal_only'))
                     ->queries(
                         true:  fn (Builder $q) => $q->where('urgent', true),
                         false: fn (Builder $q) => $q->where('urgent', false),
@@ -186,10 +196,10 @@ class KitchenTicketResource extends Resource
                     ),
 
                 Tables\Filters\SelectFilter::make('delivery_type')
-                    ->label('Тип')
+                    ->label(__('kitchen_ticket.filters.delivery_type'))
                     ->options([
-                        'delivery' => 'Доставка',
-                        'pickup'   => 'Самовывоз',
+                        'delivery' => __('kitchen_ticket.filter_options.delivery'),
+                        'pickup'   => __('kitchen_ticket.filter_options.pickup'),
                     ]),
             ])
             ->actions([
@@ -198,20 +208,20 @@ class KitchenTicketResource extends Resource
                     ->icon('')
                     ->extraAttributes(['class' => 'opacity-0 pointer-events-none w-0 h-0 p-0 m-0'])
                     ->visible(fn ($record) => (bool) $record->order)
-                    ->modalHeading(fn ($record) => "Позиции заказа {$record->order?->number}")
+                    ->modalHeading(fn ($record) => __('kitchen_ticket.modals.order_items_heading', ['number' => $record->order?->number]))
                     ->modalWidth('4xl')
                     ->form(function ($record) {
                         $order = $record->order;
 
                         $activeKey = static::stageKeyForTicket($record); // как мы делали раньше
                         $stageNames = [
-                            'accepted' => 'Принял',
-                            'filling'  => 'Начинка',
-                            'molding'  => 'Лепка',
-                            'baking'   => 'Печь',
-                            'ready'    => 'Готово',
+                            'accepted' => __('kitchen_ticket.stages.accepted'),
+                            'filling'  => __('kitchen_ticket.stages.filling'),
+                            'molding'  => __('kitchen_ticket.stages.molding'),
+                            'baking'   => __('kitchen_ticket.stages.baking'),
+                            'ready'    => __('kitchen_ticket.stages.ready'),
                         ];
-                        $stageLabel = $stageNames[$activeKey] ?? 'Этап';
+                        $stageLabel = $stageNames[$activeKey] ?? __('kitchen_ticket.stages.stage');
 
                         // подготовка строк
                         $rows = $order->items->map(function (\App\Models\Shop\OrderItem $it) {
@@ -238,9 +248,9 @@ class KitchenTicketResource extends Resource
                             // ── Шапка «таблицы»
                             Grid::make(12)
                                 ->schema([
-                                    Placeholder::make('h_title')->label('')  ->content('Товар')->columnSpan(8)
+                                    Placeholder::make('h_title')->label('')  ->content(__('kitchen_ticket.table_headers.product'))->columnSpan(8)
                                         ->extraAttributes(['class' => 'text-sm font-medium text-gray-500']),
-                                    Placeholder::make('h_qty')->label('') ->content('К-во')->columnSpan(2)
+                                    Placeholder::make('h_qty')->label('') ->content(__('kitchen_ticket.table_headers.quantity'))->columnSpan(2)
                                         ->extraAttributes(['class' => 'text-sm font-medium text-gray-500']),
                                     Placeholder::make('h_stage')->label('')  ->content($stageLabel)->columnSpan(2)
                                         ->extraAttributes(['class' => 'text-sm font-medium text-gray-500']),
@@ -266,7 +276,7 @@ class KitchenTicketResource extends Resource
                                             $dopInfo = trim((string) $get('dop_info'));
                                             $dopHtml = $dopInfo !== ''
                                                 ? ($dopInfo)
-                                                : '<span class="text-gray-400">Калькуляція відсутня</span>';
+                                                : '<span class="text-gray-400">' . e(__('kitchen_ticket.helpers.calculation_missing')) . '</span>';
 
                                             return new \Illuminate\Support\HtmlString(<<<HTML
 <div x-data="{ open: false }" class="py-2">
@@ -304,7 +314,7 @@ HTML);
                                 ]),
                         ];
                     })
-                    ->modalSubmitActionLabel('Сохранить')
+                    ->modalSubmitActionLabel(__('kitchen_ticket.actions.save'))
                     ->action(function ($record, array $data) {
                         $order = $record->order;
                         $activeKey = static::stageKeyForTicket($record);
@@ -321,12 +331,12 @@ HTML);
                         }
 
                         \Filament\Notifications\Notification::make()
-                            ->success()->title('Отметки сохранены')->send();
+                            ->success()->title(__('kitchen_ticket.notifications.marks_saved'))->send();
                     }),
 
                 // Крупные кнопки этапов кухни
                 Tables\Actions\Action::make('to_filling')
-                    ->label('Начинка/Принял')
+                    ->label(__('kitchen_ticket.actions.to_filling'))
                     ->icon('heroicon-m-beaker')
                     ->color('teal')
                     ->visible(fn (KitchenTicket $r) => in_array($r->stage, [
@@ -335,7 +345,7 @@ HTML);
                     ->action(fn (KitchenTicket $r) => $r->moveTo(OrderStatus::Filling, auth()->id())),
 
                 Tables\Actions\Action::make('to_molding')
-                    ->label('Лепка')
+                    ->label(__('kitchen_ticket.actions.to_molding'))
                     ->icon('heroicon-m-puzzle-piece')
                     ->color('indigo')
                     ->visible(fn (KitchenTicket $r) => in_array($r->stage, [
@@ -344,7 +354,7 @@ HTML);
                     ->action(fn (KitchenTicket $r) => $r->moveTo(OrderStatus::Molding, auth()->id())),
 
                 Tables\Actions\Action::make('to_baking')
-                    ->label('Печь')
+                    ->label(__('kitchen_ticket.actions.to_baking'))
                     ->icon('heroicon-m-fire')
                     ->color('orange')
                     ->visible(fn (KitchenTicket $r) => in_array($r->stage, [
@@ -353,12 +363,12 @@ HTML);
                     ->action(fn (KitchenTicket $r) => $r->moveTo(OrderStatus::Baking, auth()->id())),
 
                 Tables\Actions\Action::make('to_prepared')
-                    ->label('Приготовлен')
+                    ->label(__('kitchen_ticket.actions.to_prepared'))
                     ->icon('heroicon-m-check')
                     ->color('success')
                     ->requiresConfirmation()
-                    ->modalHeading('Подтвердите завершение заказа')
-                    ->modalDescription('Заказ будет перемещён в архив и попадёт в сборку/выдачу.')
+                    ->modalHeading(__('kitchen_ticket.modals.confirm_prepared_heading'))
+                    ->modalDescription(__('kitchen_ticket.modals.confirm_prepared_description'))
                     ->visible(fn (KitchenTicket $r) => in_array($r->stage, [
                         OrderStatus::Processing, OrderStatus::Filling, OrderStatus::Molding, OrderStatus::Baking,
                     ], true))
@@ -367,8 +377,8 @@ HTML);
 
             ->bulkActions([]) // на кухне массовых не нужно
             ->emptyStateIcon('heroicon-m-fire')
-            ->emptyStateHeading('Заказов нет')
-            ->emptyStateDescription('Как только оператор переведёт заказ «В обработке», он появится здесь.');
+            ->emptyStateHeading(__('kitchen_ticket.empty_state.heading'))
+            ->emptyStateDescription(__('kitchen_ticket.empty_state.description'));
     }
     protected static function stageKeyForTicket($ticket): string
     {

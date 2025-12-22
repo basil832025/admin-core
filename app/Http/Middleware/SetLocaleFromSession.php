@@ -2,33 +2,56 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\Setting;
-use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Closure;
 
 class SetLocaleFromSession
 {
-    public function handle($request, Closure $next)
+    public function handle(Request $request, Closure $next)
     {
-        // то, что считаем дефолтным языком проекта
-        $default = Setting::value('default_language_code') ?: config('app.locale');
-
-        // если в сессии ещё нет выбранного языка — кладём дефолт
-        $locale = session('locale', $default);
-        if (! session()->has('locale')) {
-            session(['locale' => $locale]);
+        // Получаем список разрешенных языков из БД или используем дефолтные
+        $allowed = [];
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('bs_languages')) {
+                $allowed = \App\Models\Language::where('active', true)
+                    ->pluck('code')
+                    ->map(fn($c) => strtolower($c))
+                    ->toArray();
+            }
+        } catch (\Exception $e) {
+            // Если таблицы нет, используем дефолтные
+        }
+        
+        // Если языков нет, используем дефолтные
+        if (empty($allowed)) {
+            $allowed = ['ru', 'uk', 'en'];
         }
 
-        // применяем ко всему приложению
-        app()->setLocale($locale);
-        Carbon::setLocale($locale);
+        $locale = session('locale')
+            ?? $request->cookie('locale')
+            ?? config('app.locale');
 
-        // чтобы fallback в spatie/laravel-translatable и пр. был из БД
-        config([
-            'app.locale'                 => $locale,
-            'app.fallback_locale'        => $default,
-            'translatable.fallback_locale' => $default, // если конфиг пакета не опубликован — тоже ок
-        ]);
+        if (is_array($locale)) {
+            $locale = reset($locale) ?: null;
+        }
+
+        if (! is_string($locale) || $locale === '') {
+            $locale = null;
+        }
+        
+        $locale = strtolower($locale ?? '');
+
+        if (! in_array($locale, $allowed, true)) {
+            $locale = $allowed[0] ?? 'ru';
+        }
+
+        // Устанавливаем локаль для всего приложения (включая админку)
+        app()->setLocale($locale);
+        
+        // Также устанавливаем локаль для Carbon (даты)
+        if (class_exists(\Carbon\Carbon::class)) {
+            \Carbon\Carbon::setLocale($locale);
+        }
 
         return $next($request);
     }

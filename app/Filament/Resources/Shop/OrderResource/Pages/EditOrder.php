@@ -28,16 +28,17 @@ class EditOrder extends EditRecord
     {
         return [
             $this->getCancelFormAction()
-                ->label('Отмена')
+                ->label(__('order.actions.cancel'))
                 ->color('warning')
                 // можно задать куда вести, по умолчанию вернёт на index-роту
                 ->url($this->getResource()::getUrl('index')),
 
             $this->getSaveFormAction()
-                ->label('Сохранить')
+                ->label(__('order.actions.save'))
                 //   ->icon(Heroicons::class, 'outline-save') // указываем класс Filament\Icons\Heroicons
                 ->formId('form'), // <-- должно совпадать с ID вашей формы
-            DeleteAction::make(),
+            DeleteAction::make()
+                ->label(__('order.actions.delete')),
         ];
     }
     protected function getFooterWidgets(): array

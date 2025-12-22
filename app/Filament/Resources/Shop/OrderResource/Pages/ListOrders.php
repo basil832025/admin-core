@@ -28,42 +28,51 @@ class ListOrders extends ListRecords
     public function getTabs(): array
     {
         return [
-            null           => Tab::make('Все'),
+            // "Все" — показываем все, кроме корзины (Cart)
+            null => Tab::make(__('order.tabs.all'))
+                ->query(fn ($query) =>
+                $query->where('status', '!=', OrderStatus::Cart->value)
+            ),
 
-            'new'          => Tab::make('Новые')
-                ->query(fn ($query) => $query->where('status', 'new')),
+        'new' => Tab::make(OrderStatus::New->getLabel())
+        ->query(fn ($query) => $query->where('status', 'new')),
 
-            'processing'   => Tab::make('В обработке')
-                ->query(fn ($query) => $query->where('status', 'processing')),
+        'processing' => Tab::make(OrderStatus::Processing->getLabel())
+        ->query(fn ($query) => $query->where('status', 'processing')),
 
-            'on_hold'      => Tab::make('Отложены')
-                ->query(fn ($query) => $query->where('status', 'on_hold')),
+        'on_hold' => Tab::make(OrderStatus::OnHold->getLabel())
+        ->query(fn ($query) => $query->where('status', 'on_hold')),
 
-            'filling'      => Tab::make('Начинка')
-                ->query(fn ($query) => $query->where('status', 'filling')),
+        'filling' => Tab::make(OrderStatus::Filling->getLabel())
+        ->query(fn ($query) => $query->where('status', 'filling')),
 
-            'molding'      => Tab::make('Лепка')
-                ->query(fn ($query) => $query->where('status', 'molding')),
+        'molding' => Tab::make(OrderStatus::Molding->getLabel())
+        ->query(fn ($query) => $query->where('status', 'molding')),
 
-            'baking'       => Tab::make('Печь')
-                ->query(fn ($query) => $query->where('status', 'baking')),
+        'baking' => Tab::make(OrderStatus::Baking->getLabel())
+        ->query(fn ($query) => $query->where('status', 'baking')),
 
-            'prepared'     => Tab::make('Приготовлены')
-                ->query(fn ($query) => $query->where('status', 'prepared')),
+        'prepared' => Tab::make(OrderStatus::Prepared->getLabel())
+        ->query(fn ($query) => $query->where('status', 'prepared')),
 
-            'assembled'    => Tab::make('Собраны')
-                ->query(fn ($query) => $query->where('status', 'assembled')),
+        'assembled' => Tab::make(OrderStatus::Assembled->getLabel())
+        ->query(fn ($query) => $query->where('status', 'assembled')),
 
-            'shipped'      => Tab::make('Доставка')
-                ->query(fn ($query) => $query->where('status', 'shipped')),
+        'shipped' => Tab::make(OrderStatus::Shipped->getLabel())
+        ->query(fn ($query) => $query->where('status', 'shipped')),
 
-            'delivered'    => Tab::make('Доставлены')
-                ->query(fn ($query) => $query->where('status', 'delivered')),
+        'delivered' => Tab::make(OrderStatus::Delivered->getLabel())
+        ->query(fn ($query) => $query->where('status', 'delivered')),
 
-            'cancelled'    => Tab::make('Отменены')
-                ->query(fn ($query) => $query->where('status', 'cancelled')),
-        ];
-    }
+        'cancelled' => Tab::make(OrderStatus::Cancelled->getLabel())
+        ->query(fn ($query) => $query->where('status', 'cancelled')),
+
+        // 👉 новый таб справа — только черновики (Cart)
+        'cart' => Tab::make(OrderStatus::Cart->getLabel())
+        ->query(fn ($query) => $query->where('status', OrderStatus::Cart->value)),
+    ];
+}
+
 
     /*    public function getTabs(): array
      {

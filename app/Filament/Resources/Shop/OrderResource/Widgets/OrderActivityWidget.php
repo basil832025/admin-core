@@ -19,7 +19,12 @@ class OrderActivityWidget extends BaseWidget
     public ?Order $record = null;
 
     protected int|string|array $columnSpan = 'full';
-    protected static ?string $heading = 'Журнал операций';
+    protected static ?string $heading = null;
+
+    public static function getHeading(): string
+    {
+        return __('order.journal.heading');
+    }
 
     public function table(Table $table): Table
     {
@@ -27,22 +32,24 @@ class OrderActivityWidget extends BaseWidget
             ->query($this->query())
             ->columns([
                 TextColumn::make('created_at')
-                    ->label('Дата/время')->dateTime('Y-m-d H:i:s')->sortable(),
+                    ->label(__('order.journal.columns.datetime'))->dateTime('Y-m-d H:i:s')->sortable(),
 
                 TextColumn::make('causer.name')
-                    ->label('Пользователь')->default('Система')->toggleable(),
+                    ->label(__('order.journal.columns.user'))
+                    ->default(__('order.journal.system'))
+                    ->toggleable(),
 
                 TextColumn::make('log_name')
-                    ->label('Источник')
+                    ->label(__('order.journal.columns.source'))
                     ->formatStateUsing(fn ($state) => match ($state) {
-                        'order'       => 'Заказ',
-                        'order.items' => 'Товары заказа',
+                        'order'       => __('order.journal.sources.order'),
+                        'order.items' => __('order.journal.sources.order.items'),
                         default       => (string) $state,
                     })
                     ->badge(),
 
                 TextColumn::make('description')
-                    ->label('Операция')
+                    ->label(__('order.journal.columns.operation'))
                     ->state(fn (Activity $r) => OrderActivityFormatter::operation($r)),
 
              /*   Tables\Columns\TextColumn::make('event')
@@ -61,7 +68,7 @@ class OrderActivityWidget extends BaseWidget
                     ->toggleable(),*/
 
                 TextColumn::make('properties')
-                    ->label('Доп. инфо')
+                    ->label(__('order.journal.columns.additional_info'))
                     // Формируем видимый текст в ячейке
                     ->state(fn (Activity $r) => OrderActivityFormatter::text($r))
                     ->tooltip(fn (Activity $r) => OrderActivityFormatter::tooltip($r))

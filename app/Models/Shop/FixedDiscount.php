@@ -5,12 +5,16 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use Spatie\Translatable\HasTranslations;
+
 
 class FixedDiscount extends Model
 {
 use SoftDeletes;
-
+    use HasTranslations;
 protected $table = 'bs_shop_fixed_discounts';
+
 
 protected $fillable = [
 'name',
@@ -22,15 +26,70 @@ protected $fillable = [
 'ends_at',
 'note',
 ];
-
+    public $translatable = [
+        'name',
+  ];
 protected $casts = [
 'percent'        => 'decimal:2',
 'is_active'      => 'boolean',
 'applies_payload'=> 'array',
 'starts_at'      => 'datetime',
 'ends_at'        => 'datetime',
+'name' => 'array',
 ];
+    /**
+     * Получить название акции для конкретной локали.
+     */
+    public function getNameForLocale(?string $locale = null): string
+    {
+        $locale = $locale ?: app()->getLocale();
+        $names  = $this->name;
 
+        // fallback: если в БД ещё лежит просто строка
+        if (! is_array($names)) {
+            return (string) $names;
+        }
+
+        return $names[$locale]
+            ?? ($names[config('app.fallback_locale')] ?? null)
+            ?? reset($names)
+            ?? '';
+    }
+
+    /** Удобный аксессор для отображения, напр. "Именинники (−20%)" */
+    public function getDisplayLabelAttribute(): string
+    {
+        $p    = number_format((float) $this->percent, 2, '.', '');
+        $name = $this->getNameForLocale();
+
+        return "{$name} (−{$p}%)";
+    }
+    /**
+     * Сколько скидки (положительное число) дать с указанной суммы.
+     * Используется на checkout для живого пересчёта.
+     */
+    public function calculateForTotal(float $sum): float
+    {
+        if ($sum <= 0) {
+            return 0.0;
+        }
+
+        // 1) если задан percent — считаем процент
+        $percent = (float) ($this->percent ?? 0);
+        if ($percent > 0) {
+            return round($sum * $percent / 100, 2);
+        }
+
+        // 2) иначе, если задана фикс. сумма
+        $amount = (float) ($this->amount ?? 0);
+        if ($amount > 0) {
+            // не даём скидке быть больше суммы
+            return round(min($amount, $sum), 2);
+        }
+
+        // 3) иначе — никакой скидки
+        return 0.0;
+    }
 /** Скоуп: активные по флагу и по окну дат */
 public function scopeActive(Builder $q): Builder
 {
@@ -61,7 +120,17 @@ $q->whereNull('ends_at')->orWhere('ends_at', '>=', $now);
 
         return 0.0;
     }
+    public function hasEligibleProducts(Collection $productIds): bool
+    {
+        $ids = $productIds->filter()->unique()->values();
+        if ($ids->isEmpty()) {
+            return false;
+        }
 
+        // на текущем этапе — глобальная скидка "для всех"
+        // позже сюда по аналогии можно добавить проверки по товарам/категориям
+        return true;
+    }
     public function toAdjustmentMeta(): array
     {
         return [
@@ -75,12 +144,7 @@ public function scopeForAll(Builder $q): Builder
 return $q->where('applies_to', 'all');
 }
 
-/** Удобный аксессор для отображения, напр. "Именинники (−20%)" */
-public function getDisplayLabelAttribute(): string
-{
-$p = number_format((float)$this->percent, 2, '.', '');
-return "{$this->name} (−{$p}%)";
-}
+
 
 /**
 * Заглушка-валидатор бизнес-логики применения.

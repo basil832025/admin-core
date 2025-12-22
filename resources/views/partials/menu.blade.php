@@ -1,15 +1,12 @@
 @php
-    $items = [
-        'Все пироги', 'Хіти', 'Новинки', 'Сирные', 'М’ясные',
-        'Постные', 'Сладкие', 'Сеты', 'Торты', 'Соусы', 'Напитки',
-    ];
+
     $activeIndex = 0; // временно
     $brand = '#FF7500';
 @endphp
 
-<nav class="mt-6" x-data="scrollTabs()" x-init="init">
+<nav class="mt-6 " x-data="scrollTabs()" x-init="init">
     <!-- 16px паддинг контейнера как в макете -->
-    <div class="relative px-4">
+    <div class=" relative  px-4">
 
         <!-- левая стрелка -->
         <button
@@ -46,26 +43,28 @@
         <!-- скроллер -->
         <div x-ref="scroller"
              class="w-full overflow-x-auto no-scrollbar scroll-smooth">
-            <ul class="flex items-center whitespace-nowrap
+            <ul class="flex items-center justify-center           <!-- центрируем по оси X -->
+            w-max mx-auto                               <!-- ширина по контенту + авто-отступы -->
                  pl-[56px] pr-[56px]           {{-- место под стрелки --}}
                 gap-4 md:gap-[70px]           {{-- 16px мобайл, ~70px на md+ --}}
                 h-10">
-                @foreach ($items as $i => $label)
-                    @php $active = $i === $activeIndex; @endphp
+                @foreach ($MainMenuItems as $i => $item)
+                    @php $active = $i === $MenuactiveIndex; @endphp
                     <li class="shrink-0 h-10">
-                        <a href="#"
+                        <a href="{{ $item['url'] }}"
                            @class([
                         'inline-flex items-center h-10 pb-2 text-[14px] font-bold border-b-2 transition',
                         'text-[#FF7500] border-[#FF7500]' => $active,
                         'text-[#C04103] border-transparent hover:text-[var(--brand)] hover:border-[var(--brand)]' => ! $active,
                         ])
-                        style="--brand: {{ $brand }};"
+                        style="--brand: {{ $MenuBrand }};"
                         @if($active) x-ref="activeTab" @endif
                         >
-                        {{ $label }}
+                        {{ $item['label'] }}
                         </a>
                     </li>
                 @endforeach
+
             </ul>
         </div>
     </div>

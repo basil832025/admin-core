@@ -3,7 +3,7 @@
 @section('title', $product->display_name)
 
 @section('content')
-    @dd($product)
+   
     <div class="grid md:grid-cols-2 gap-8">
         <div>
             <img src="{{ $product->image_url }}" alt="{{ $product->display_name }}"

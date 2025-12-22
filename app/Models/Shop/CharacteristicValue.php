@@ -3,6 +3,7 @@
 namespace App\Models\Shop;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Spatie\Translatable\HasTranslations;
 class CharacteristicValue extends Model
@@ -43,7 +44,46 @@ class CharacteristicValue extends Model
     {
         return $this->hasMany(ProductCharacteristicValue::class, 'characteristic_value_id');
     }
+    public function option(): BelongsTo
+    {
+        return $this->belongsTo(CharacteristicValue::class, 'characteristic_value_id');
+    }
+    /**
+     * Если используешь spatie/laravel-translatable и у модели есть метод getTranslation(),
+     * можно оставить и такой хелпер:
+     */
+    public function getValueFor(string $locale): ?string
+    {
+        if (method_exists($this, 'getTranslation')) {
+            return $this->getTranslation('value', $locale);
+        }
 
+        $arr = $this->value;
+        if (!is_array($arr)) $arr = json_decode((string) $this->value, true) ?: [];
+        return $arr[$locale]
+            ?? $arr['uk'] ?? $arr['en'] ?? $arr['ru']
+            ?? (is_array($arr) && $arr ? reset($arr) : null);
+    }
+    /**
+     * Удобный ярлык для вывода: значение на текущей локали.
+     * Фолбэки: uk -> en -> ru -> первый элемент массива.
+     */
+    public function getLabelAttribute(): ?string
+    {
+        $arr = $this->value;
+
+        if (!is_array($arr)) {
+            $arr = json_decode((string) $this->value, true) ?: [];
+        }
+
+        $loc = app()->getLocale(); // 'uk' по умолчанию у тебя
+
+        return $arr[$loc]
+            ?? $arr['uk']
+            ?? $arr['en']
+            ?? $arr['ru']
+            ?? (is_array($arr) && $arr ? reset($arr) : null);
+    }
     public function characteristic()
     {
         return $this->belongsTo(Characteristic::class);

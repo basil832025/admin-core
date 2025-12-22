@@ -26,20 +26,29 @@
             }
         }
     }
+   // dd($items);
 @endphp
 
 @if($is_account_menu)
+    @php
+        $isAuth = auth('web')->check();
+    @endphp
     <nav x-data="menuList({ initial: @js($initial), remember: @js($remember), storageKey: @js($storageKey) })"
          class="space-y-1 text-[16px] mb-6">
+
              @foreach ($items as $it)
             @php
-                $pattern  = $it['activeWhen'] ?? $it['route'] ?? null;
-                $isActive = $pattern ? request()->routeIs($pattern) : false;
+                if (($it['auth_only'] ?? false) && !$isAuth) {
+                        continue;
+                    }
+                    $pattern  = $it['activeWhen'] ?? $it['route'] ?? null;
+                    $isActive = $pattern ? request()->routeIs($pattern) : false;
 
-                $href = $it['href']
-                    ?? (isset($it['route']) && \Illuminate\Support\Facades\Route::has($it['route'])
-                        ? route($it['route'], $it['params'] ?? [])
-                        : '#'); // fallback
+                    $href = $it['href']
+                        ?? (isset($it['route']) && \Illuminate\Support\Facades\Route::has($it['route'])
+                            ? route($it['route'], $it['params'] ?? [])
+                            : '#'); // fallback
+
             @endphp
             <a href="{{ $href }}"
                class="group flex items-center gap-3 rounded-xl px-3 py-2 transition-colors
@@ -51,24 +60,27 @@
                 <span class="flex-1">{{ $it['label'] }}</span>
             </a>
             @endforeach
+
                  @guest('web')
-                     @php $isActive = request()->routeIs('login'); @endphp
-                     <a href="{{ route('login') }}"
-                        class="group flex items-center gap-3 rounded-xl px-3 py-2 transition-colors
-              {{ $isActive ? 'text-[#FF7500] font-semibold bg-[#FFF9ED]' : 'text-[#929292]  hover:text-[#19191A]' }}">
-                         <x-icons.login class="w-6 h-6 {{ $isActive ? 'text-[#FF7500]' : 'text-[#929292] group-hover:text-[#FF7500]' }}"/>
-                         <span>Увійти</span>
-                     </a>
+                     <button
+                         type="button"
+                         @click="$dispatch('open-auth-modal', { tab: 'login' })"
+                         class="group flex items-center gap-3 rounded-xl px-3 py-2 transition-colors
+               text-[#929292] hover:text-[#19191A]">
+                         <x-icons.login class="w-6 h-6 text-[#929292] group-hover:text-[#FF7500]" />
+                         <span>{{ st('auth.login','Увійти') }}</span>
+                     </button>
                  @endguest
 
-                 @auth('web')
+
+             @auth('web')
                      @php $isActive = request()->routeIs('logout'); @endphp
                      <a href="{{ route('logout') }}"
                         class="group flex items-center gap-3 rounded-xl px-3 py-2 transition-colors
               {{ $isActive ? 'text-[#FF7500] font-semibold bg-[#FFF9ED]' : 'text-[#929292] hover:bg-[#FFF9ED] hover:text-[#19191A]' }}"
                         onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
                          <x-icons.login class="w-6 h-6 {{ $isActive ? 'text-[#FF7500]' : 'text-[#929292] group-hover:text-[#FF7500]' }}"/>
-                         <span>Вийти</span>
+                         <span>{{ st('auth.log_out','Вийти') }} </span>
                      </a>
                      <form id="logout-form" action="{{ route('logout') }}" method="POST" class="hidden">
                          @csrf

@@ -19,6 +19,7 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Tabs;
 use Filament\Forms\Components\Tabs\Tab;
 use Filament\Forms\Components\TextInput;
@@ -61,7 +62,9 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Columns\ToggleColumn;
-
+use Awcodes\Curator\Components\Forms\CuratorPicker;
+use Awcodes\Curator\Models\Media as CuratorMedia;
+use TomatoPHP\FilamentMediaManager\Form\MediaManagerInput;
 
 class ProductResource extends Resource
 {
@@ -232,16 +235,19 @@ class ProductResource extends Resource
                                 ->dehydrated(true)
                                 ->live() // 👈 важно: чтобы ниже schema(fn $get) пересчитывалась
                                 ->options(function () use ($defaultLocale) {
-                                    return ProductCategory::query()
-                                        ->where('is_visible', 1)
-                                        ->get()
-                                        ->mapWithKeys(function ($cat) use ($defaultLocale) {
-                                            // если title закодирован JSON-ом
-                                            $t = json_decode($cat->getRawOriginal('title'), true);
-                                            $label = $t[$defaultLocale] ?? $t[config('app.locale')] ?? ($t['uk'] ?? $t['ru'] ?? $t['en'] ?? $cat->id);
-                                            return [$cat->id => $label];
-                                        })
-                                        ->toArray();
+                                    // Кэшируем список категорий на 1 час для оптимизации
+                                    return cache()->remember("product_categories_{$defaultLocale}", 3600, function () use ($defaultLocale) {
+                                        return ProductCategory::query()
+                                            ->where('is_visible', 1)
+                                            ->get(['id', 'title'])
+                                            ->mapWithKeys(function ($cat) use ($defaultLocale) {
+                                                // если title закодирован JSON-ом
+                                                $t = json_decode($cat->getRawOriginal('title'), true);
+                                                $label = $t[$defaultLocale] ?? $t[config('app.locale')] ?? ($t['uk'] ?? $t['ru'] ?? $t['en'] ?? $cat->id);
+                                                return [$cat->id => $label];
+                                            })
+                                            ->toArray();
+                                    });
                                 })
                                 ->searchable()
                                 ->preload()
@@ -269,16 +275,25 @@ class ProductResource extends Resource
                                 ->options(function (Get $get) use ($defaultLocale) {
                                     $primary = $get('category_id');
 
-                                    return ProductCategory::query()
-                                        ->where('is_visible', 1)
-                                        ->when($primary, fn ($q) => $q->whereKeyNot($primary)) // не показываем главную
-                                        ->get()
-                                        ->mapWithKeys(function ($cat) use ($defaultLocale) {
-                                            $t = json_decode($cat->getRawOriginal('title'), true);
-                                            $label = $t[$defaultLocale] ?? $t[config('app.locale')] ?? ($t['uk'] ?? $t['ru'] ?? $t['en'] ?? $cat->id);
-                                            return [$cat->id => $label];
-                                        })
-                                        ->toArray();
+                                    // Кэшируем все категории, затем фильтруем
+                                    $allCategories = cache()->remember("product_categories_all_{$defaultLocale}", 3600, function () use ($defaultLocale) {
+                                        return ProductCategory::query()
+                                            ->where('is_visible', 1)
+                                            ->get(['id', 'title'])
+                                            ->mapWithKeys(function ($cat) use ($defaultLocale) {
+                                                $t = json_decode($cat->getRawOriginal('title'), true);
+                                                $label = $t[$defaultLocale] ?? $t[config('app.locale')] ?? ($t['uk'] ?? $t['ru'] ?? $t['en'] ?? $cat->id);
+                                                return [$cat->id => $label];
+                                            })
+                                            ->toArray();
+                                    });
+
+                                    // Исключаем главную категорию, если она выбрана
+                                    if ($primary && isset($allCategories[$primary])) {
+                                        unset($allCategories[$primary]);
+                                    }
+
+                                    return $allCategories;
                                 })
                                 ->searchable()
                                 ->preload()
@@ -1083,20 +1098,25 @@ class ProductResource extends Resource
             TextInput::make('seo_keywords')
                 ->label('SEO-ключевые слова')
                 ->maxLength(255),
-            ])
+            ]),
+
         ];
     }
     public static function table(Table $table): Table
     {
         $defaultLocale = Setting::value('default_language_code') ?: config('app.locale');
         $locales = static::getActiveLocales();
+
         return $table
             // включаем dnd-перетаскивание строк по колонке 'sort'
             ->reorderable('sort')
 
             // по умолчанию сортируем по 'sort'
             ->defaultSort('sort', 'asc')
-            ->query(fn () => Product::query()->parents())
+            ->query(fn () => Product::query()
+                ->parents()
+                ->with('mainCategory') // ← исправление N+1 проблемы
+            )
             ->columns([
                 Tables\Columns\TextColumn::make('sku')->label('SKU')->sortable(),
                 // 2) Невидимая колонка только для ПОИСКА

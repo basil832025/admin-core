@@ -16,36 +16,57 @@ use Filament\Tables\Table;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use App\Models\Shop\CharacteristicValue;
+use Illuminate\Database\Eloquent\Builder;
 
 class PromoCodeResource extends Resource
 {
     protected static ?string $model = PromoCode::class;
 
-    protected static ?string $navigationGroup = 'Дисконтные программы';
+    protected static ?string $navigationGroup = null;
     protected static ?string $navigationIcon  = 'heroicon-o-ticket';
-    protected static ?string $navigationLabel = 'Промокоды';
-    protected static ?string $pluralModelLabel = 'Промокоды';
-    protected static ?string $modelLabel = 'Промокод';
+    protected static ?string $navigationLabel = null;
+    protected static ?string $pluralModelLabel = null;
+    protected static ?string $modelLabel = null;
+
+    public static function getNavigationGroup(): ?string
+    {
+        return __('promo_code.nav.navigation_group');
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return __('promo_code.nav.navigation_label');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('promo_code.nav.model_label');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('promo_code.nav.plural_model_label');
+    }
 
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\Section::make('Параметры промокода')
+            Forms\Components\Section::make(__('promo_code.sections.parameters'))
                 ->columns(3)
                 ->schema([
                     Forms\Components\TextInput::make('code')
-                        ->label('Промокод')
+                        ->label(__('promo_code.fields.code'))
                         ->required()
                         ->maxLength(64)
                         ->unique(PromoCode::class, 'code', ignoreRecord: true)
-                        ->helperText('Будет сохранён в UPPERCASE')
+                        ->helperText(__('promo_code.helpers.code_uppercase'))
                         ->afterStateUpdated(fn ($state, $set) => $set('code', mb_strtoupper(trim((string) $state))))
                         ->afterStateHydrated(function ($component, $state) {
                             $component->state(mb_strtoupper(trim((string) $state)));
                         }),
 
                     Forms\Components\TextInput::make('percent')
-                        ->label('Скидка %')
+                        ->label(__('promo_code.fields.percent'))
                         ->numeric()
                         ->suffix('%')
                         ->minValue(0.01)
@@ -54,43 +75,43 @@ class PromoCodeResource extends Resource
                         ->required(),
 
                     Forms\Components\Toggle::make('is_active')
-                        ->label('Активен')
+                        ->label(__('promo_code.fields.is_active'))
                         ->default(true),
 
                     Forms\Components\DateTimePicker::make('starts_at')
-                        ->label('Начало действия')
+                        ->label(__('promo_code.fields.starts_at'))
                         ->seconds(false),
 
                     Forms\Components\DateTimePicker::make('ends_at')
-                        ->label('Окончание действия')
+                        ->label(__('promo_code.fields.ends_at'))
                         ->seconds(false)
                         ->rule('after_or_equal:starts_at'),
 
                     Forms\Components\TextInput::make('max_uses')
-                        ->label('Глобальный лимит использований')
+                        ->label(__('promo_code.fields.max_uses'))
                         ->numeric()
                         ->minValue(1)
-                        ->helperText('Пусто = без лимита'),
+                        ->helperText(__('promo_code.helpers.max_uses_empty')),
 
                     Forms\Components\TextInput::make('per_client_limit')
-                        ->label('Лимит на клиента')
+                        ->label(__('promo_code.fields.per_client_limit'))
                         ->numeric()
                         ->minValue(1)
                         ->default(1)
                         ->required(),
 
                     Forms\Components\Textarea::make('note')
-                        ->label('Примечание')
+                        ->label(__('promo_code.fields.note'))
                         ->columnSpanFull(),
                 ]),
 
-            Forms\Components\Section::make('Область действия')
-                ->description('Ограничь промокод по группам, товарам и/или характеристикам')
+            Forms\Components\Section::make(__('promo_code.sections.scope'))
+                ->description(__('promo_code.helpers.scope_description'))
                 ->columns(2)
                 ->schema([
                     // Категории
                     Forms\Components\MultiSelect::make('categories')
-                        ->label('Категории (группы)')
+                        ->label(__('promo_code.fields.categories'))
                         ->relationship(
                             name: 'categories',
                             titleAttribute: 'id', // метка ниже
@@ -134,7 +155,7 @@ class PromoCodeResource extends Resource
 
                     // Товары
                     Forms\Components\MultiSelect::make('products')
-                        ->label('Товары')
+                        ->label(__('promo_code.fields.products'))
                         ->relationship(
                             name: 'products',
                             titleAttribute: 'id' // метка ниже
@@ -188,7 +209,7 @@ class PromoCodeResource extends Resource
                     // Характеристики (любой value)
                     // Характеристики (любой value)
                     Forms\Components\MultiSelect::make('characteristics')
-                        ->label('Характеристики (любой value)')
+                        ->label(__('promo_code.fields.characteristics'))
                         ->relationship(name: 'characteristics', titleAttribute: 'name')
                         ->options(fn () => Characteristic::query()->orderBy('id')->pluck('name','id')->toArray())
                         ->searchable()
@@ -217,7 +238,7 @@ class PromoCodeResource extends Resource
                         }),
                     // Значения характеристик (зависят от выбранных характеристик)
                     Forms\Components\MultiSelect::make('characteristicValues')
-                        ->label('Значения характеристик')
+                        ->label(__('promo_code.fields.characteristic_values'))
                         ->relationship(name: 'characteristicValues', titleAttribute: 'value')
                         ->reactive()                // ← важно: пересчитывать options при изменении других полей
                         ->preload()                 // ← показывать список сразу (ограничен выбранными характеристиками)
@@ -245,19 +266,19 @@ class PromoCodeResource extends Resource
                                 ->toArray();
                         })
                         ->disabled(fn (Get $get) => empty($get('characteristics')))
-                        ->helperText('Сначала выберите характеристику(и); здесь отобразятся только их значения.'),
+                        ->helperText(__('promo_code.helpers.characteristic_values_hint')),
 
         ]),
 
-            Forms\Components\Section::make('Статистика (read-only)')
+            Forms\Components\Section::make(__('promo_code.sections.statistics'))
                 ->collapsed()
                 ->schema([
                     Forms\Components\Placeholder::make('used_total')
-                        ->label('Использований всего')
+                        ->label(__('promo_code.fields.used_total'))
                         ->content(fn (?PromoCode $record) => $record?->usages()->count() ?? 0),
 
                     Forms\Components\Placeholder::make('remaining')
-                        ->label('Осталось глобальных использований')
+                        ->label(__('promo_code.fields.remaining'))
                         ->content(function (?PromoCode $record) {
                             if (!$record || $record->max_uses === null) return '∞';
                             $rem = max(0, $record->max_uses - $record->usages()->count());
@@ -278,45 +299,45 @@ class PromoCodeResource extends Resource
                 Tables\Columns\TextColumn::make('id')->sortable(),
 
                 Tables\Columns\TextColumn::make('code')
-                    ->label('Код')
+                    ->label(__('promo_code.columns.code'))
                     ->searchable()
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('percent')
-                    ->label('Скидка')
+                    ->label(__('promo_code.columns.percent'))
                     ->suffix('%')
                     ->sortable(),
 
                 Tables\Columns\IconColumn::make('is_active')
-                    ->label('Активен')
+                    ->label(__('promo_code.columns.is_active'))
                     ->boolean(),
 
                 Tables\Columns\TextColumn::make('starts_at')
-                    ->label('Начало')
+                    ->label(__('promo_code.columns.starts_at'))
                     ->dateTime('d.m.Y H:i')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('ends_at')
-                    ->label('Окончание')
+                    ->label(__('promo_code.columns.ends_at'))
                     ->dateTime('d.m.Y H:i')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('usages_count')
-                    ->label('Исп. всего')
+                    ->label(__('promo_code.columns.usages_count'))
                     ->counts('usages') // withCount + вывод
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('remaining')
-                    ->label('Остаток')
+                    ->label(__('promo_code.columns.remaining'))
                     ->state(function (PromoCode $record) {
                         if ($record->max_uses === null) return '∞';
                         return max(0, $record->max_uses - $record->usages()->count());
                     }),
             ])
             ->filters([
-                Tables\Filters\TernaryFilter::make('is_active')->label('Активен'),
+                Tables\Filters\TernaryFilter::make('is_active')->label(__('promo_code.filters.is_active')),
                 Tables\Filters\Filter::make('active_now')
-                    ->label('Действует сейчас')
+                    ->label(__('promo_code.filters.active_now'))
                     ->query(function ($query) {
                         $now = now();
                         $query->where('is_active', true)

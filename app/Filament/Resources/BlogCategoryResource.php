@@ -36,11 +36,31 @@ class BlogCategoryResource extends Resource
 {
     use Translatable;
     protected static ?string $model = BlogCategory::class;
-    protected static ?string $navigationGroup = 'Контент';
-    protected static ?string $navigationLabel = 'Категории статей';
-    protected static ?string $modelLabel = 'Категория статей';
+    protected static ?string $navigationGroup = null;
+    protected static ?string $navigationLabel = null;
+    protected static ?string $modelLabel = null;
     protected static ?string $navigationIcon = 'heroicon-o-book-open';
-    protected static ?string $pluralModelLabel = 'Категории статей';
+    protected static ?string $pluralModelLabel = null;
+
+    public static function getNavigationGroup(): ?string
+    {
+        return __('blog_category.nav.navigation_group');
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return __('blog_category.nav.navigation_label');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('blog_category.nav.model_label');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('blog_category.nav.plural_model_label');
+    }
     // … навигация, иконки и т.д. …
 
     public static function form(Form $form): Form
@@ -52,7 +72,7 @@ class BlogCategoryResource extends Resource
 
         return $form
             ->schema([
-                Tabs::make('Контент')
+                Tabs::make(__('blog_category.tabs.content'))
                     ->columns(1)
                     ->tabs([
                         static::getMainTab($locales, $defaultLocale),
@@ -64,7 +84,7 @@ class BlogCategoryResource extends Resource
     }
     protected static function getSeoTab(array $locales): Tab
     {
-        return Tab::make('SEO')
+        return Tab::make(__('blog_category.tabs.seo'))
             ->schema([
                 Translate::make()
                     ->locales($locales)
@@ -73,18 +93,18 @@ class BlogCategoryResource extends Resource
                     ->columnSpanFull()
                     ->schema(fn(string $locale) => [
                         TextInput::make("meta_title")
-                            ->label('Meta Title'),
+                            ->label(__('blog_category.fields.meta_title')),
                         Textarea::make("meta_description")
-                            ->label('Meta Description')
+                            ->label(__('blog_category.fields.meta_description'))
                             ->rows(3),
                         TextInput::make("meta_keywords")
-                            ->label('Meta Keywords'),
+                            ->label(__('blog_category.fields.meta_keywords')),
                     ]),
             ]);
     }
     protected static function getMainTab(array $locales, string $defaultLocale): Tab
     {
-        return Tab::make('Основные')
+        return Tab::make(__('blog_category.tabs.main'))
             ->schema([
                 Translate::make()
                     ->locales($locales)
@@ -93,17 +113,17 @@ class BlogCategoryResource extends Resource
                     ->columnSpanFull()
                     ->schema(fn(string $locale) => [
                         TextInput::make("name")
-                            ->label('Заголовок')
+                            ->label(__('blog_category.fields.name'))
                             ->required($locale === $defaultLocale),
                         RichEditor::make("description")
-                            ->label('Описание')
+                            ->label(__('blog_category.fields.description'))
                             // ->required($locale === $defaultLocale)
                             ->fileAttachmentsDisk('public')
                             ->fileAttachmentsDirectory('uploads')
                             ->fileAttachmentsVisibility('public'),
                     ]),
                 TextInput::make('slug')
-                    ->label('Slug')
+                    ->label(__('blog_category.fields.slug'))
                     ->disabledOn('edit')
                     ->required()
                     ->unique(table: BlogCategory::class, column: 'slug', ignorable: fn ($record) => $record)
@@ -111,16 +131,16 @@ class BlogCategoryResource extends Resource
                 ,
 
 
-                Section::make('Дополнительно')->schema([
+                Section::make(__('blog_category.sections.additional'))->schema([
                     TextInput::make('sort_order')
                         ->default(0)       // <-- значение по умолчанию
-                        ->label('Порядок')
+                        ->label(__('blog_category.fields.sort_order'))
                         ->numeric(),
                     Toggle::make('is_active')
-                        ->label('Активна')
+                        ->label(__('blog_category.fields.is_active'))
                         ->inline(),
                     FileUpload::make('image')
-                        ->label('Изображение')
+                        ->label(__('blog_category.fields.image'))
                         ->directory('blog-categories')
                         ->visibility('public'),
 
@@ -142,29 +162,29 @@ class BlogCategoryResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('name')
-                    ->label('Название')
+                    ->label(__('blog_category.columns.name'))
                     ->sortable(),
 
                 TextColumn::make('slug')
-                    ->label('Slug'),
+                    ->label(__('blog_category.columns.slug')),
 
                 IconColumn::make('is_active')
-                    ->label('Активность')
+                    ->label(__('blog_category.columns.is_active'))
                     ->boolean(),
 
                 TextColumn::make('sort_order')
-                    ->label('Порядок'),
+                    ->label(__('blog_category.columns.sort_order')),
 
                 TextColumn::make('updated_at')
-                    ->label('Обновлено')
+                    ->label(__('blog_category.columns.updated_at'))
                     ->dateTime(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('is_active')
-                    ->label('Активные')
+                    ->label(__('blog_category.filters.is_active'))
                     ->options([
-                        1 => 'Да',
-                        0 => 'Нет',
+                        1 => __('blog_category.filter_options.yes'),
+                        0 => __('blog_category.filter_options.no'),
                     ]),
             ])
             ->actions([

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\Translatable\HasTranslations;
+use App\Models\Blog;
 class BlogCategory extends Model
 {
     use HasFactory;
@@ -35,4 +36,8 @@ class BlogCategory extends Model
         'name',
         'content',
     ];
+    public function posts()
+    {
+        return $this->hasMany(Blog::class, 'category_id');
+    }
 }

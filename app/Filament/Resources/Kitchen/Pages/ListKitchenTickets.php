@@ -17,14 +17,14 @@ class ListKitchenTickets extends ListRecords
 
         return [
             Actions\Action::make('current')
-                ->label('Текущие заказы')
+                ->label(__('kitchen_ticket.actions.current_orders'))
                 ->url(fn () => KitchenTicketResource::getUrl('index', ['scope' => 'current']))
                 ->button()
                 ->color($scope === 'current' ? 'primary' : 'gray')
                 ->extraAttributes(['class' => 'text-base px-4 py-3']),   // крупнее для тача
 
             Actions\Action::make('archived')
-                ->label('Архивные')
+                ->label(__('kitchen_ticket.actions.archived'))
                 ->url(fn () => KitchenTicketResource::getUrl('index', ['scope' => 'archived']))
                 ->button()
                 ->color($scope === 'archived' ? 'primary' : 'gray')

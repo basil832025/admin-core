@@ -31,8 +31,19 @@ class ProductCharacteristicValue extends Model
         return $this->belongsTo(Product::class);
     }
 
-    public function characteristic(): BelongsTo
+   /* public function characteristic(): BelongsTo
     {
         return $this->belongsTo(Characteristic::class);
+    }*/
+    public function characteristic()
+    {
+        return $this->belongsTo(Characteristic::class, 'characteristic_id');
     }
+
+    // 👇 ЯВНО: связь на справочник значений
+    public function characteristicValue()
+    {
+        return $this->belongsTo(CharacteristicValue::class, 'characteristic_value_id');
+    }
+
 }

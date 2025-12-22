@@ -13,6 +13,23 @@ return [
     | a conventional file to locate the various service credentials.
     |
     */
+    'esputnik' => [
+        'login'    => env('ESPUTNIK_LOGIN'),
+        'password' => env('ESPUTNIK_PASSWORD'),
+        'from'     => env('ESPUTNIK_SMS_FROM', 'TRIPIROGI'),
+    ],
+
+
+    'sms' => [
+        'fake'      => env('SMS_FAKE', env('APP_ENV') === 'local'),
+        'test_code' => env('SMS_TEST_CODE', '1234'),
+    ],
+
+    'liqpay' => [
+        'public_key'  => env('LIQPAY_PUBLIC_KEY'),
+        'private_key' => env('LIQPAY_PRIVATE_KEY'),
+    ],
+
     'google_maps' => [
         'key' => env('GOOGLE_MAPS_API_KEY'),
     ],

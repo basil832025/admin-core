@@ -23,13 +23,19 @@ use SolutionForest\FilamentTranslateField\Forms\Component\Translate;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Actions\DeleteAction;
 use Filament\Tables;
+use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 //use Filament\Resources\RelationManagers\Get; // ✅ нужный класс
 class ValuesRelationManager extends RelationManager
 {
     use Translatable;
 
     protected static string $relationship = 'values';
-    protected static ?string $label        = 'Значения';
+    protected static ?string $label        = null;
+
+    public static function getLabel(): string
+    {
+        return __('characteristic.values.label');
+    }
 
     // Сигнатура теперь корректна:
     public function form(Form $form): Form
@@ -46,21 +52,21 @@ class ValuesRelationManager extends RelationManager
                     ->schema(fn(string $locale) => [
                         // Color Picker (только если field_type === 'color')
                         ColorPicker::make("value")
-                            ->label('Колір')
+                            ->label(__('characteristic.values.color'))
                             ->required($locale === $defaultLocale)
                             // ->visible(fn ($get) => $get('field_type') === 'color'),
                             ->visible(fn () => $this->getOwnerRecord()?->field_type === 'color'),
 
                         // TextInput по умолчанию
                         TextInput::make("value")
-                            ->label('Значення')
+                            ->label(__('characteristic.values.value'))
                             ->required($locale === $defaultLocale)
                             ->visible(fn () => $this->getOwnerRecord()?->field_type !== 'color')
 
 
                     ]),
-                TextInput::make('sort_order')->label('Позиция')->numeric()->default(0),
-                Toggle::make('is_active')->label('Активно')->default(true),
+                TextInput::make('sort_order')->label(__('characteristic.values.sort_order'))->numeric()->default(0),
+                Toggle::make('is_active')->label(__('characteristic.values.is_active'))->default(true),
             ]);
     }
     protected static function getActiveLocales(): array
@@ -77,6 +83,7 @@ class ValuesRelationManager extends RelationManager
         $locale = Setting::value('default_language_code') ?? config('app.locale');
 
         return $table
+            ->reorderable('sort_order')
             ->columns([
                 // Показываем цветной кружок, если тип поля "color"
 
@@ -84,15 +91,27 @@ class ValuesRelationManager extends RelationManager
 
                 // Показываем текст, если не "color"
                 TextColumn::make('value')
-                    ->label('Значение')
+                    ->label(__('characteristic.values.value'))
+
+                    ->searchable(query: function (EloquentBuilder $query, string $search) use ($locale): EloquentBuilder {
+                        return $query->whereRaw(
+                            "JSON_UNQUOTE(JSON_EXTRACT(`value`, '$.\"$locale\"')) LIKE ?",
+                            ["%{$search}%"]
+                        );
+                    })
+                    ->sortable(query: function (EloquentBuilder $query, string $direction) use ($locale): EloquentBuilder {
+                        return $query->orderByRaw(
+                            "LOWER(JSON_UNQUOTE(JSON_EXTRACT(`value`, '$.\"$locale\"'))) {$direction}"
+                        );
+                    })
                     ->formatStateUsing(function ($state, $record) use ($locale) {
                         return $record->getTranslation('value', $locale);
                     })
                 //   ->visible(fn () => $owner?->field_type !== 'color')
                 ,
 
-                TextColumn::make('sort_order')->label('Позиция'),
-                IconColumn::make('is_active')->label('Активно')->boolean(),
+                TextColumn::make('sort_order')->label(__('characteristic.values.sort_order')),
+                IconColumn::make('is_active')->label(__('characteristic.values.is_active'))->boolean(),
             ])
             ->headerActions([
                 CreateAction::make(),

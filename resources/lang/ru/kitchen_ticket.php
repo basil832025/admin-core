@@ -1,0 +1,86 @@
+<?php
+
+return [
+    'nav' => [
+        'navigation_group'   => 'КитченТач',
+        'navigation_label'   => 'КухняТач',
+        'model_label'        => 'кухонный тикет',
+        'plural_model_label' => 'кухонные тикеты',
+    ],
+
+    'columns' => [
+        'order_number'  => '№ заказа',
+        'order_time'    => 'Время заказа',
+        'urgent'        => 'Поскорее',
+        'delivery_type' => 'Тип',
+        'items_count'   => 'Кол товаров',
+        'stage'         => 'Этап',
+    ],
+
+    'filters' => [
+        'status'        => 'Статус',
+        'urgent'        => 'Поскорее',
+        'delivery_type' => 'Тип',
+    ],
+
+    'filter_options' => [
+        'current'       => 'Текущие',
+        'archived'      => 'Архивные',
+        'any'           => 'Любые',
+        'urgent_only'   => 'Только срочные',
+        'normal_only'   => 'Только обычные',
+        'delivery'      => 'Доставка',
+        'pickup'        => 'Самовывоз',
+    ],
+
+    'actions' => [
+        'current_orders'    => 'Текущие заказы',
+        'archived'          => 'Архивные',
+        'to_filling'        => 'Начинка/Принял',
+        'to_molding'        => 'Лепка',
+        'to_baking'         => 'Печь',
+        'to_prepared'       => 'Приготовлен',
+        'save'              => 'Сохранить',
+    ],
+
+    'modals' => [
+        'order_items_heading'   => 'Позиции заказа :number',
+        'confirm_prepared_heading' => 'Подтвердите завершение заказа',
+        'confirm_prepared_description' => 'Заказ будет перемещён в архив и попадёт в сборку/выдачу.',
+    ],
+
+    'stages' => [
+        'accepted'  => 'Принял',
+        'filling'   => 'Начинка',
+        'molding'   => 'Лепка',
+        'baking'    => 'Печь',
+        'ready'     => 'Готово',
+        'stage'     => 'Этап',
+    ],
+
+    'table_headers' => [
+        'product'  => 'Товар',
+        'quantity'  => 'К-во',
+    ],
+
+    'empty_state' => [
+        'heading'      => 'Заказов нет',
+        'description'  => 'Как только оператор переведёт заказ «В обработке», он появится здесь.',
+    ],
+
+    'values' => [
+        'yes'       => 'Да',
+        'no'        => '—',
+        'delivery'  => 'Доставка',
+        'pickup'    => 'Самовывоз',
+    ],
+
+    'notifications' => [
+        'marks_saved' => 'Отметки сохранены',
+    ],
+
+    'helpers' => [
+        'calculation_missing' => 'Калькуляция отсутствует',
+    ],
+];
+
