@@ -14,7 +14,7 @@
 /auth.json
 /node_modules
 !build/
-# /public/build  # Временно
+/public/build
 /public/hot
 /public/storage
 /storage/*.key
