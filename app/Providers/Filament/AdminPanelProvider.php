@@ -30,10 +30,6 @@ use Filament\Navigation\NavigationItem;
 use Filament\Enums\ThemeMode;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
-use Awcodes\Curator\CuratorPlugin;
-use Awcodes\Curator\Resources\MediaResource;
-use TomatoPHP\FilamentMediaManager\FilamentMediaManagerPlugin;
-use Codedor\MediaLibrary\MediaLibraryPlugin;
 // ← ВАЖНО
 class AdminPanelProvider extends PanelProvider
 {
@@ -128,7 +124,6 @@ class AdminPanelProvider extends PanelProvider
             ->brandName('Basil Admin')
             ->login()
            // ->viteTheme('resources/css/filament/admin/theme.css') // подключаем свои стили
-               //->viteTheme('resources/css/filament/admin/curator-overrides.css')
 
             ->colors([
                 'primary' =>  $primaryColor,
@@ -155,10 +150,6 @@ class AdminPanelProvider extends PanelProvider
                 'Контент',
                 'Настройки',
             ])
-                ->renderHook(
-                    'panels::head.start', // имя того же хука в виде строки
-                    fn () => view('filament.css.curator-overrides')
-        )
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverClusters(in: app_path('Filament/Clusters'), for: 'App\\Filament\\Clusters')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
@@ -194,24 +185,6 @@ class AdminPanelProvider extends PanelProvider
                 FilamentShieldPlugin::make(),
                 FilamentTranslateFieldPlugin::make()
                     ->defaultLocales($locales),
-             //   MediaLibraryPlugin::make(), // добавит страницы/ресурсы медиатеки
-           /*     \TomatoPHP\FilamentMediaManager\FilamentMediaManagerPlugin::make(),
-
-                        // опционально
-
-                  // медиа библиотека
-                    CuratorPlugin::make()
-                    ->label('Media')
-                    ->pluralLabel('Media')
-                    ->navigationIcon('heroicon-o-photo')
-                    ->navigationGroup('Content')
-                    ->navigationSort(3)
-                    ->navigationCountBadge()
-                        ->registerNavigation(true)          // ⬅️ показывать в меню
-                        ->defaultListView('grid')           // сетка по умолчанию
-                        ->resource(MediaResource::class),   // ⬅️ явно укажем ресурс
-*/
-                   // ->resource(\App\Filament\Resources\CustomMediaResource::class)
 
 
             ]);
