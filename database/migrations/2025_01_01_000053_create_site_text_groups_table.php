@@ -9,13 +9,13 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('bs_site_text_groups', function (Blueprint $table) {
-                $t->id();
-                $t->string('slug')->unique();
-                $t->json('title')->nullable();
-                $t->string('description')->nullable();
-                $t->unsignedInteger('position')->default(0);
-                $t->boolean('active')->default(true);
-                $t->timestamps();
+            $table->id();
+            $table->string('slug')->unique();
+            $table->json('title')->nullable();
+            $table->string('description')->nullable();
+            $table->unsignedInteger('position')->default(0);
+            $table->boolean('active')->default(true);
+            $table->timestamps();
         });
     }
 
