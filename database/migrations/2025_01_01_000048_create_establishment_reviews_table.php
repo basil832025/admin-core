@@ -11,9 +11,10 @@ return new class extends Migration
         Schema::create('bs_establishment_reviews', function (Blueprint $table) {
             $table->id();
             $table->foreignId('location_id')
-                ->nullable()           // или ->constrained('bs_locations')->nullOnDelete();
-                ->index()
-                ->after('id');
+                ->nullable()
+                ->constrained('bs_locations')
+                ->nullOnDelete()
+                ->index();
             $table->string('author_name');
             $table->string('author_avatar')->nullable();
             $table->string('email')->nullable();
