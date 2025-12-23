@@ -39,31 +39,27 @@ class Menus
             ->get();
       //  dd($items);
         return $items->map(function (MenuItem $i) use ($locale) {
-            // Используем getTranslation для получения переведенного значения
-            // или напрямую обращаемся к label как к массиву (благодаря casts)
-            $labelRaw = $i->label;
-            
-            // Если это массив (благодаря casts), берем нужную локаль
-            if (is_array($labelRaw)) {
-                $label = $labelRaw[$locale] 
-                    ?? $labelRaw['uk'] 
-                    ?? $labelRaw['ru'] 
-                    ?? $labelRaw['en'] 
-                    ?? reset($labelRaw);
-            } elseif (is_string($labelRaw)) {
-                // Если это строка (JSON), пытаемся декодировать
-                $decoded = json_decode($labelRaw, true);
-                if (is_array($decoded)) {
-                    $label = $decoded[$locale] 
-                        ?? $decoded['uk'] 
-                        ?? $decoded['ru'] 
-                        ?? $decoded['en'] 
-                        ?? reset($decoded);
+            // Используем getTranslation из HasTranslations для правильного извлечения перевода
+            if (method_exists($i, 'getTranslation') && method_exists($i, 'isTranslatableAttribute') && $i->isTranslatableAttribute('label')) {
+                $label = $i->getTranslation('label', $locale, false); // false = без fallback
+                if (empty($label)) {
+                    // Fallback на другие локали
+                    $label = $i->getTranslation('label', 'uk', false)
+                        ?? $i->getTranslation('label', 'ru', false)
+                        ?? $i->getTranslation('label', 'en', false);
+                }
+            } else {
+                // Если нет HasTranslations, работаем напрямую с массивом
+                $labelRaw = $i->label;
+                if (is_array($labelRaw)) {
+                    $label = $labelRaw[$locale] 
+                        ?? $labelRaw['uk'] 
+                        ?? $labelRaw['ru'] 
+                        ?? $labelRaw['en'] 
+                        ?? reset($labelRaw);
                 } else {
                     $label = $labelRaw;
                 }
-            } else {
-                $label = $labelRaw;
             }
             $href  = self::resolveHref($i);
 
