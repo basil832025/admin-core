@@ -42,8 +42,8 @@ class CurrentDbSeeder extends Seeder
                 continue;
             }
 
-            // Если нужна «чистая» загрузка — раскомментируй:
-            // DB::table($table)->truncate();
+            // Очищаем таблицу перед загрузкой данных
+            DB::table($table)->truncate();
 
             foreach (array_chunk($filteredRows, 1000) as $chunk) {
                 // Если есть риск дублей по PK — можно так:
