@@ -29,6 +29,12 @@ class CurrentDbSeeder extends Seeder
             $rows  = json_decode(File::get($file->getPathname()), true) ?: [];
             if (!$rows) continue;
 
+            // Проверяем, существует ли таблица
+            if (!DB::getSchemaBuilder()->hasTable($table)) {
+                $this->command?->warn("Skipped: {$table} (table does not exist)");
+                continue;
+            }
+
             // Получаем список существующих колонок в таблице
             $columns = DB::getSchemaBuilder()->getColumnListing($table);
             
