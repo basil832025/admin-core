@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('bs_shop_orders', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('clients_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('clients_id')->nullable()->constrained('bs_clients')->nullOnDelete();
             $table->string('number', 32)->nullable();
             $table->decimal('total_price', 12, 2)->nullable();
             $table->enum('status', ['new','processing','shipped','delivered','cancelled','on_hold','filling','molding','baking','prepared','assembled'])->default('new');

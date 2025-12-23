@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('bs_kitchen_ticket_items', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('kitchen_ticket_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('kitchen_ticket_id')->constrained('bs_kitchen_tickets')->cascadeOnDelete();
             $table->unsignedBigInteger('order_item_id')->nullable()->index();
             // снапшоты, чтобы не бегать каждый раз в товары
             $table->string('product_name')->nullable();

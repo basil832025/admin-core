@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('bs_product_images', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('product_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('product_id')->constrained('bs_products')->cascadeOnDelete();
             $table->string('path');
             $table->integer('sort_order')->default(0);
             $table->timestamps();

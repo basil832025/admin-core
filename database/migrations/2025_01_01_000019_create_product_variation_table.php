@@ -10,8 +10,8 @@ return new class extends Migration
     {
         Schema::create('bs_product_variation', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('product_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('variation_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('product_id')->constrained('bs_products')->cascadeOnDelete();
+            $table->foreignId('variation_id')->constrained('bs_variations')->cascadeOnDelete();
             $table->decimal('price', 10, 2)->nullable();
             $table->timestamps();
             $table->unique(['product_id', 'variation_id']);

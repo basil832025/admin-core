@@ -17,7 +17,7 @@ return new class extends Migration
             // Для зарегистрированных пользователей (если есть таблица users)
             $table->foreignId('user_id')
                 ->nullable()
-                ->constrained()
+                ->constrained('users')
                 ->nullOnDelete();
             // Для гостей (если нужно)
             $table->string('author_name')->nullable();

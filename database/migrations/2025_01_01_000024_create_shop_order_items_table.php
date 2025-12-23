@@ -10,8 +10,8 @@ return new class extends Migration
     {
         Schema::create('bs_shop_order_items', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('shop_order_id')->nullable()->constrained()->cascadeOnDelete();
-            $table->foreignId('product_id')->nullable()->constrained()->cascadeOnDelete();
+            $table->foreignId('shop_order_id')->nullable()->constrained('bs_shop_orders')->cascadeOnDelete();
+            $table->foreignId('product_id')->nullable()->constrained('bs_products')->cascadeOnDelete();
             $table->string('sku',64)->nullable();
             $table->integer('qty');
             $table->string('currency',3)->nullable();

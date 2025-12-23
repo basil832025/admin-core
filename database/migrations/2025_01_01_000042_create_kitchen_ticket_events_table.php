@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('bs_kitchen_ticket_events', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('kitchen_ticket_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('kitchen_ticket_id')->constrained('bs_kitchen_tickets')->cascadeOnDelete();
             $table->string('from_stage')->nullable();
             $table->string('to_stage');
             $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete(); // кто нажал кнопку

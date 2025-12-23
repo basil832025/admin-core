@@ -11,14 +11,14 @@ return new class extends Migration
         Schema::create('bs_product_characteristic_value', function (Blueprint $table) {
             $table->id();
             $table->foreignId('product_id')
-                ->constrained()
+                ->constrained('bs_products')
                 ->cascadeOnDelete();
             $table->foreignId('characteristic_id')
-                ->constrained()
+                ->constrained('bs_characteristics')
                 ->cascadeOnDelete();
             $table->foreignId('characteristic_value_id')
                 ->nullable()
-                ->constrained()
+                ->constrained('bs_characteristic_values')
                 ->nullOnDelete();
             $table->decimal('price_modifier', 10, 2)->nullable(); // Надбавка (или фикс)
             $table->text('value_text')->nullable();

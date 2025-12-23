@@ -10,8 +10,8 @@ return new class extends Migration
     {
         Schema::create('bs_characteristic_product', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('product_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('characteristic_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('product_id')->constrained('bs_products')->cascadeOnDelete();
+            $table->foreignId('characteristic_id')->constrained('bs_characteristics')->cascadeOnDelete();
             $table->boolean('affects_price')->default(false); // влияет ли на цену
             $table->decimal('price_modifier', 10, 2)->nullable(); // например +10
             $table->enum('modifier_type', ['amount', 'percent'])->nullable(); // amount или percent
