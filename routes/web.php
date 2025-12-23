@@ -363,23 +363,6 @@ Route::get('/blog', [BlogController::class, 'index'])
     // ->where('slug', '[A-Za-z0-9\-_]+')
     ->where('slug', '[^/]+')
     ->name('blog.show');*/
-// добавляем в корзину
-Route::post('/cart/add/{product}', function ($productId, Request $request) {
-    // Получаем товар
-    $product = Product::findOrFail($productId);
-
-    // Примитивная корзина в сессии
-    $cart = Session::get('cart', []);
-    $cart[$productId] = [
-        'title' => $product->title,
-        'price' => $product->price,
-        'qty'   => ($cart[$productId]['qty'] ?? 0) + 1,
-    ];
-    Session::put('cart', $cart);
-
-    // Возврат на ту же страницу
-    return back()->with('success', 'Товар додано в кошик!');
-})->name('cart.add');
 
 Route::post('/products/{product}/reviews', [ProductReviewController::class, 'store'])
     ->name('product.reviews.store')
