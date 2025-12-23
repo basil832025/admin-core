@@ -77,12 +77,12 @@
     focusLoginAfterOpen();
 "
 
-    class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto py-10"
+    class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4"
 >
     <div class="hidden" x-text="'tab='+tab"></div>
     <div class="fixed inset-0 bg-black/40 backdrop-blur-[1px]" @click="open=false"></div>
 
-    <div class="relative w-[480px] max-w-full rounded-2xl bg-white p-6 shadow-xl my-auto">
+    <div class="relative w-full max-w-[480px] rounded-2xl bg-white p-6 shadow-xl">
         <button class="absolute right-3 top-3 text-2xl" @click="open=false">&times;</button>
 
         <h2 class="text-3xl font-bold text-center mb-4" x-text="title"></h2>
