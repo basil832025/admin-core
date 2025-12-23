@@ -13,6 +13,11 @@ return new class extends Migration
             $table->foreignId('clients_id')->nullable()->constrained('bs_clients')->nullOnDelete();
             $table->string('number', 32)->nullable();
             $table->decimal('total_price', 12, 2)->nullable();
+            $table->decimal('subtotal', 12, 2)->nullable();
+            $table->decimal('discount_total', 12, 2)->nullable();
+            $table->decimal('shipping_total', 12, 2)->nullable();
+            $table->decimal('tax_total', 12, 2)->nullable();
+            $table->decimal('grand_total', 12, 2)->nullable();
             $table->enum('status', ['cart','new','processing','shipped','delivered','cancelled','on_hold','filling','molding','baking','prepared','assembled'])->default('new');
             $table->string('currency');
             $table->decimal('shipping_price')->nullable();

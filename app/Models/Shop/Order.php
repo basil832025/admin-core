@@ -35,6 +35,11 @@ class Order extends Model
     protected $fillable = [
       //  'number',
         'total_price',
+        'subtotal',
+        'discount_total',
+        'shipping_total',
+        'tax_total',
+        'grand_total',
         'status',
         'client_address_id',
         'extra_reason',
