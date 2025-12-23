@@ -16,6 +16,7 @@ return new class extends Migration
             $table->date('birthday')->nullable();
             $table->enum('gender', ['male', 'female'])->nullable(); // ✅ на английском
             $table->string('password')->nullable();
+            $table->rememberToken();
             $table->string('photo')->nullable();
             $table->text('note')->nullable();
             $table->boolean('is_active')->default(true);
