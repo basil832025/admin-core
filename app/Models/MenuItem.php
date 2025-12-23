@@ -15,7 +15,7 @@ class MenuItem extends Model
     protected $fillable = [
         'menu_id',
         'parent_id',
-        'title',
+        'label',
         'link_type',
         'target_id',
         'url',
@@ -28,7 +28,7 @@ class MenuItem extends Model
     ];
 
     protected $casts = [
-        'title'        => 'array',
+        'label'        => 'array',
         'is_active'    => 'boolean',
         'sort'         => 'integer',
         'visible_from' => 'datetime',
@@ -37,7 +37,7 @@ class MenuItem extends Model
     /** === ВАЖНО: сообщаем плагину имена колонок === */
     public function determineParentColumnName(): string { return 'parent_id'; }
     public function determineOrderColumnName(): string  { return 'sort'; }
-    public function determineTitleColumnName(): string  { return 'title'; }
+    public function determineTitleColumnName(): string  { return 'label'; }
     public static function defaultParentKey()           { return -1; }
     public function menu(): BelongsTo
     {

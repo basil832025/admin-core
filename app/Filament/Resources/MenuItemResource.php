@@ -25,7 +25,7 @@ class MenuItemResource extends Resource
     protected static ?string $modelLabel = 'Пункт меню';
     protected static ?string $pluralModelLabel = 'Пункты меню';
     protected static ?string $slug = 'menu-items';
-    protected static ?string $recordTitleAttribute = 'title';
+    protected static ?string $recordTitleAttribute = 'label';
 
     // Не показываем этот ресурс в боковом меню — управляем через ItemsTree
     public static function shouldRegisterNavigation(): bool
@@ -89,9 +89,9 @@ class MenuItemResource extends Resource
                     $locale = app()->getLocale();
 
                     $options = $items->mapWithKeys(function (MenuItem $i) use ($locale) {
-                        $title = is_array($i->title)
-                            ? ($i->title[$locale] ?? reset($i->title))
-                            : $i->title;
+                        $title = is_array($i->label)
+                            ? ($i->label[$locale] ?? reset($i->label))
+                            : $i->label;
 
                         return [$i->id => $title ?: ('#'.$i->id)];
                     })->all();
@@ -122,7 +122,7 @@ class MenuItemResource extends Resource
                 ->columns(1)
                 ->columnSpanFull()
                 ->schema(fn (string $locale) => [
-                    Forms\Components\TextInput::make("title")
+                    Forms\Components\TextInput::make("label")
                         ->label('Заголовок')
                         ->required($locale === $defaultLocale)
                         ->maxLength(255),
@@ -250,7 +250,7 @@ class MenuItemResource extends Resource
 
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make("title")->label('Текст')->searchable(),
+                Tables\Columns\TextColumn::make("label")->label('Текст')->searchable(),
                 Tables\Columns\TextColumn::make('menu_id')->label('Меню')->sortable(),
                 Tables\Columns\TextColumn::make('parent_id')->label('Родитель')->sortable(),
                 Tables\Columns\TextColumn::make('link_type')->label('Тип'),
