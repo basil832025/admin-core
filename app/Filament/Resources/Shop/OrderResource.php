@@ -1616,7 +1616,7 @@ class OrderResource extends Resource
     {
         return [
             // ... твои другие relation managers (например, ItemsRelationManager)
-            \App\Filament\Clusters\Orders\Resources\OrderResource\RelationManagers\ClientOrdersRelationManager::class,
+            \App\Filament\Resources\Shop\OrderResource\RelationManagers\ClientOrdersRelationManager::class,
         ];
     }
 

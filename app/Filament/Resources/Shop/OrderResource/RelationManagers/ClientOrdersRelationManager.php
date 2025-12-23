@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Clusters\Orders\Resources\OrderResource\RelationManagers;
+namespace App\Filament\Resources\Shop\OrderResource\RelationManagers;
 
 use App\Enums\PaymentMethodEnum;              // если используешь enum для оплаты
 use App\Models\Shop\Order;
