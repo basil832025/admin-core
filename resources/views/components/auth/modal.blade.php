@@ -77,12 +77,13 @@
     focusLoginAfterOpen();
 "
 
-    class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4"
+    class="fixed inset-0 z-50 overflow-y-auto"
 >
     <div class="hidden" x-text="'tab='+tab"></div>
     <div class="fixed inset-0 bg-black/40 backdrop-blur-[1px]" @click="open=false"></div>
 
-    <div class="relative w-full max-w-[480px] rounded-2xl bg-white p-6 shadow-xl">
+    <div class="min-h-full flex items-center justify-center p-4">
+        <div class="relative w-full max-w-[480px] rounded-2xl bg-white p-6 shadow-xl my-4">
         <button class="absolute right-3 top-3 text-2xl" @click="open=false">&times;</button>
 
         <h2 class="text-3xl font-bold text-center mb-4" x-text="title"></h2>
@@ -408,6 +409,7 @@
             <a href="{{ route('auth.redirect','facebook') }}"><img src="/images/svg/facebook.svg" class="w-10 h-10" alt=""></a>
             <a href="{{ route('auth.redirect','google') }}"><img src="/images/svg/google.svg" class="w-10 h-10" alt=""></a>
         </div>-->
+        </div>
     </div>
 </div>
 
