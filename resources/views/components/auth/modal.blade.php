@@ -77,12 +77,12 @@
     focusLoginAfterOpen();
 "
 
-    class="fixed inset-0 z-50"
+    class="fixed inset-0 z-50 overflow-y-auto"
 >
     <div class="hidden" x-text="'tab='+tab"></div>
     <div class="absolute inset-0 bg-black/40 backdrop-blur-[1px]" @click="open=false"></div>
 
-    <div class="relative mx-auto mt-10 w-[480px] max-w-full rounded-2xl bg-white p-6 shadow-xl">
+    <div class="relative mx-auto my-10 w-[480px] max-w-full rounded-2xl bg-white p-6 shadow-xl">
         <button class="absolute right-3 top-3 text-2xl" @click="open=false">&times;</button>
 
         <h2 class="text-3xl font-bold text-center mb-4" x-text="title"></h2>
