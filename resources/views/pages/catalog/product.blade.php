@@ -96,21 +96,33 @@
                             </div>
                         </div>
 
-                        <div class="text-end">
-                            <form action="{{ route('cart.add') }}" method="post" class="ml-auto">
-                                @csrf
-                                {{-- По умолчанию отправляем rootId, а если Alpine-стор инициализирован — выбранный вариант --}}
-                                <input
-                                    type="hidden"
-                                    name="product_id"
-                                    value="{{ $rootId ?? 0 }}"
-                                    x-bind:value="$store.sku?.selected || '{{ $rootId ?? 0 }}'"
-                                >
-                                <button type="submit"
-                                        class="inline-flex items-center gap-2 w-full md:w-[218px] justify-center bg-[#FF7500] hover:bg-orange-600 text-white font-semibold px-5 py-3 rounded-lg transition">
-                                    <x-icons.cart class="h-5 w-5" /> {{ st('product.addcart','Додати в кошик') }}
-                                </button>
-                            </form>
+                        <div class="text-end" x-data="{ adding: false }">
+                            <button
+                                type="button"
+                                class="inline-flex items-center gap-2 w-full md:w-[218px] justify-center bg-[#FF7500] hover:bg-orange-600 text-white font-semibold px-5 py-3 rounded-lg transition disabled:opacity-60"
+                                :disabled="adding"
+                                @click="
+                                    adding = true;
+                                    const pid = $store.sku?.selected || '{{ $rootId ?? 0 }}';
+                                    console.log('Product page: add to cart', { product_id: pid });
+                                    window.CartAPI.add('{{ route('cart.add') }}', {
+                                        product_id: pid,
+                                        qty: 1,
+                                    })
+                                    .then((data) => {
+                                        console.log('Product page: cart response', data);
+                                    })
+                                    .catch((e) => {
+                                        console.error('Product page: CartAPI.add error', e);
+                                        alert('Не вдалося додати до кошика');
+                                    })
+                                    .finally(() => {
+                                        adding = false;
+                                    });
+                                "
+                            >
+                                <x-icons.cart class="h-5 w-5" /> {{ st('product.addcart','Додати в кошик') }}
+                            </button>
                         </div>
                     </div>
 
