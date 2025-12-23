@@ -12,6 +12,8 @@ class MenuItem extends Model
     use HasTranslations;
     protected $table = 'bs_menu_items';
 
+    public $translatable = ['label'];
+
     protected $fillable = [
         'menu_id',
         'parent_id',
