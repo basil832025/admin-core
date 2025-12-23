@@ -31,6 +31,23 @@ window.normalizePhone = normalizePhone; // чтобы был доступен в
 function registerAlpineComponents() {
     Alpine.data('scrollTabs', scrollTabs)
     Alpine.data('authModal', authModal);   // ⬅️ регистрируем вынесенный модуль
+    
+    // Регистрируем menuList для бургер-меню
+    Alpine.data('menuList', (opts = {}) => ({
+        active: opts.initial || null,
+        remember: !!opts.remember,
+        storageKey: opts.storageKey || 'burger.menu.active',
+        init() {
+            if (this.remember) {
+                const saved = localStorage.getItem(this.storageKey);
+                if (saved) this.active = saved;
+                this.$watch('active', v => localStorage.setItem(this.storageKey, v ?? ''));
+            }
+        },
+        setActive(k){ this.active = k },
+        isActive(k){ return this.active === k },
+    }));
+    
     registerCartActions(Alpine);
     registerFavoriteButton(Alpine)
     registerCartStore(window.Alpine, {
@@ -45,6 +62,10 @@ function registerAlpineComponents() {
         infoUrl: '/favorites/info',
         initQty: Number(window.__FAVORITES_INIT__?.qty ?? 0),
     });
+    
+    // Хранилище + событие открытия (если нужно)
+    Alpine.store('authModal', { open:false });
+    window.addEventListener('open-auth-modal', () => Alpine.store('authModal').open = true);
 }
 // если Alpine уже загрузился — регистрируем сразу,
 // если ещё нет — дождёмся события инициализации
@@ -53,25 +74,6 @@ if (window.Alpine) {
 } else {
     window.addEventListener('alpine:init', registerAlpineComponents)
 }
-// меню в бургере
-document.addEventListener('alpine:init', () => {
-    window.Alpine.data('menuList', (opts = {}) => ({
-        active: opts.initial || null,
-        remember: !!opts.remember,
-        storageKey: opts.storageKey || 'burger.menu.active',
-        init() {
-            if (this.remember) {
-                const saved = localStorage.getItem(this.storageKey);
-                if (saved) this.active = saved;
-                this.$watch('active', v => localStorage.setItem(this.storageKey, v ?? ''));
-            }
-        },
-        setActive(k){ this.active = k },
-        isActive(k){ return this.active === k },
-    }));
-});
-
-
 // ---- Swiper
 document.addEventListener('DOMContentLoaded', () => {
     new Swiper('.banner-swiper', {
@@ -94,32 +96,6 @@ document.addEventListener('DOMContentLoaded', () => {
             prevEl: '.banner-swiper .swiper-button-prev',
         },
     });
-});
-document.addEventListener('alpine:init', () => {
-    // --- регистрируем все компоненты ТОЛЬКО здесь ---
-    Alpine.data('scrollTabs', scrollTabs);
-    registerFavoriteButton(Alpine);
-
-    Alpine.data('menuList', (opts = {}) => ({
-        active: opts.initial || null,
-        remember: !!opts.remember,
-        storageKey: opts.storageKey || 'burger.menu.active',
-        init() {
-            if (this.remember) {
-                const saved = localStorage.getItem(this.storageKey);
-                if (saved) this.active = saved;
-                this.$watch('active', v => localStorage.setItem(this.storageKey, v ?? ''));
-            }
-        },
-        setActive(k){ this.active = k },
-        isActive(k){ return this.active === k },
-    }));
-
-
-
-    // Хранилище + событие открытия (если нужно)
-    Alpine.store('authModal', { open:false });
-    window.addEventListener('open-auth-modal', () => Alpine.store('authModal').open = true);
 });
 document.addEventListener('alpine:init', () => {
     Alpine.magic('t', el => (key, params={}) => {
