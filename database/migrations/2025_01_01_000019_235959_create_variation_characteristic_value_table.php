@@ -10,9 +10,21 @@ return new class extends Migration
     {
         Schema::create('bs_variation_characteristic_value', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('variation_id')->constrained('bs_variations')->cascadeOnDelete();
-            $table->foreignId('characteristic_id')->constrained('bs_characteristics')->cascadeOnDelete();
-            $table->foreignId('characteristic_value_id')->constrained('bs_characteristic_values')->cascadeOnDelete();
+            $table->unsignedBigInteger('variation_id');
+            $table->foreign('variation_id', 'fk_var_char_val_var_id')
+                ->references('id')
+                ->on('bs_variations')
+                ->cascadeOnDelete();
+            $table->unsignedBigInteger('characteristic_id');
+            $table->foreign('characteristic_id', 'fk_var_char_val_char_id')
+                ->references('id')
+                ->on('bs_characteristics')
+                ->cascadeOnDelete();
+            $table->unsignedBigInteger('characteristic_value_id');
+            $table->foreign('characteristic_value_id', 'fk_var_char_val_char_val_id')
+                ->references('id')
+                ->on('bs_characteristic_values')
+                ->cascadeOnDelete();
             $table->unique(['variation_id', 'characteristic_id'], 'uniq_variation_char');
         });
     }
