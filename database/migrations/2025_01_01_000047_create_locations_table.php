@@ -9,27 +9,27 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('bs_locations', function (Blueprint $table) {
-            $t->id();
+            $table->id();
             // мультиязычные поля (JSON): {ua:"...", ru:"...", en:"..."}
-            $t->json('title');
-            $t->json('city')->nullable();
-            $t->json('address')->nullable();
+            $table->json('title');
+            $table->json('city')->nullable();
+            $table->json('address')->nullable();
             // координаты точки
-            $t->decimal('lat', 10, 7)->nullable();
-            $t->decimal('lng', 10, 7)->nullable();
+            $table->decimal('lat', 10, 7)->nullable();
+            $table->decimal('lng', 10, 7)->nullable();
             // ссылка на иконку маркера (модель SvgImage)
-            $t->foreignId('svg_image_id')->nullable()->constrained('bs_svg_images')->nullOnDelete();
+            $table->foreignId('svg_image_id')->nullable()->constrained('bs_svg_images')->nullOnDelete();
             // контакты в виде builder-массивов
             // phones/emails — массив блоков: [{slug, value, is_active, note}]
-            $t->json('phones')->nullable();
-            $t->json('emails')->nullable();
+            $table->json('phones')->nullable();
+            $table->json('emails')->nullable();
             // произвольный график работы
-            $t->json('schedule')->nullable();
-            $t->boolean('is_active')->default(true);
-            $t->unsignedInteger('sort')->default(100);
-            $t->string('slug')->unique();
-            $t->timestamps();
-            $t->index(['is_active', 'sort']);
+            $table->json('schedule')->nullable();
+            $table->boolean('is_active')->default(true);
+            $table->unsignedInteger('sort')->default(100);
+            $table->string('slug')->unique();
+            $table->timestamps();
+            $table->index(['is_active', 'sort']);
         });
     }
 
