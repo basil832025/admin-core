@@ -29,16 +29,29 @@ class CurrentDbSeeder extends Seeder
             $rows  = json_decode(File::get($file->getPathname()), true) ?: [];
             if (!$rows) continue;
 
+            // Получаем список существующих колонок в таблице
+            $columns = DB::getSchemaBuilder()->getColumnListing($table);
+            
+            // Фильтруем данные, оставляя только существующие колонки
+            $filteredRows = array_map(function($row) use ($columns) {
+                return array_intersect_key($row, array_flip($columns));
+            }, $rows);
+
+            if (empty($filteredRows)) {
+                $this->command?->warn("Skipped: {$table} (no matching columns)");
+                continue;
+            }
+
             // Если нужна «чистая» загрузка — раскомментируй:
             // DB::table($table)->truncate();
 
-            foreach (array_chunk($rows, 1000) as $chunk) {
+            foreach (array_chunk($filteredRows, 1000) as $chunk) {
                 // Если есть риск дублей по PK — можно так:
                 // DB::table($table)->insertOrIgnore($chunk);
                 DB::table($table)->insert($chunk);
             }
 
-            $this->command?->info("Seeded: {$table} (".count($rows).')');
+            $this->command?->info("Seeded: {$table} (".count($filteredRows).')');
         }
 
         DB::statement('SET FOREIGN_KEY_CHECKS=1');
