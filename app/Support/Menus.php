@@ -39,9 +39,29 @@ class Menus
             ->get();
       //  dd($items);
         return $items->map(function (MenuItem $i) use ($locale) {
+            // Используем getTranslation для получения переведенного значения
+            // или напрямую обращаемся к label как к массиву (благодаря casts)
             $labelRaw = $i->label;
+            
+            // Если это массив (благодаря casts), берем нужную локаль
             if (is_array($labelRaw)) {
-                $label = $labelRaw[$locale] ?? reset($labelRaw);
+                $label = $labelRaw[$locale] 
+                    ?? $labelRaw['uk'] 
+                    ?? $labelRaw['ru'] 
+                    ?? $labelRaw['en'] 
+                    ?? reset($labelRaw);
+            } elseif (is_string($labelRaw)) {
+                // Если это строка (JSON), пытаемся декодировать
+                $decoded = json_decode($labelRaw, true);
+                if (is_array($decoded)) {
+                    $label = $decoded[$locale] 
+                        ?? $decoded['uk'] 
+                        ?? $decoded['ru'] 
+                        ?? $decoded['en'] 
+                        ?? reset($decoded);
+                } else {
+                    $label = $labelRaw;
+                }
             } else {
                 $label = $labelRaw;
             }
