@@ -39,15 +39,12 @@ class Menus
             ->get();
       //  dd($items);
         return $items->map(function (MenuItem $i) use ($locale) {
-            $title = $i->title;
-            if (is_array($title)) {
-                $label = $title[$locale] ?? reset($title);
+            $labelRaw = $i->label;
+            if (is_array($labelRaw)) {
+                $label = $labelRaw[$locale] ?? reset($labelRaw);
             } else {
-                $label = $title;
+                $label = $labelRaw;
             }
-
-
-          //  $label = is_array($i->title) ? ($i->title[$locale] ?? reset($i->title)) : $i->title;
             $href  = self::resolveHref($i);
 
             // простая автоподсветка активного: по текущему path
