@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             // Привязка к записи блога
             $table->foreignId('blog_id')
-                ->constrained('blogs')
+                ->constrained('bs_blogs')
                 ->onDelete('cascade');
             // Для зарегистрированных пользователей (если есть таблица users)
             $table->foreignId('user_id')
@@ -27,7 +27,7 @@ return new class extends Migration
             // Вложенность комментариев
             $table->foreignId('parent_id')
                 ->nullable()
-                ->constrained('blog_comments')
+                ->constrained('bs_blog_comments')
                 ->onDelete('cascade');
             // Модерация
             $table->boolean('is_approved')->default(false);

@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             // связь с категориями блога
             $table->foreignId('blog_category_id')
-                ->constrained('blog_categories')
+                ->constrained('bs_blog_categories')
                 ->onDelete('cascade');
             // основные поля
             $table->json('title');

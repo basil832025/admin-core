@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('bs_characteristics', function (Blueprint $table) {
             $table->id();
             $table->foreignId('category_id')
-                ->constrained('characteristic_categories')
+                ->constrained('bs_characteristic_categories')
                 ->onDelete('cascade');
             $table->json('name')->comment('Название характеристики');
             $table->string('slug')->unique()->comment('URL-friendly код');

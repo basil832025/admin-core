@@ -10,8 +10,8 @@ return new class extends Migration
     {
         Schema::create('bs_category_characteristic', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('category_id')->constrained('product_categories')->cascadeOnDelete();
-            $table->foreignId('characteristic_id')->constrained('characteristics')->cascadeOnDelete();
+            $table->foreignId('category_id')->constrained('bs_product_categories')->cascadeOnDelete();
+            $table->foreignId('characteristic_id')->constrained('bs_characteristics')->cascadeOnDelete();
             $table->boolean('affects_price')->default(false);
             $table->boolean('is_required')->default(true);
             $table->timestamps();

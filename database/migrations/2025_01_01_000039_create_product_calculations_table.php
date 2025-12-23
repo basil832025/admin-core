@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('bs_product_calculations', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('product_id')->constrained('products')->cascadeOnDelete();
+            $table->foreignId('product_id')->constrained('bs_products')->cascadeOnDelete();
             $table->date('valid_from');            // с какой даты действует
             $table->date('valid_to')->nullable();  // по какую (включительно), null = бессрочно
             $table->string('name')->nullable();    // произвольное имя/версия (опц.)

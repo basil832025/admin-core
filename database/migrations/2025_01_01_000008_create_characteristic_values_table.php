@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             // связь с характеристикой
             $table->foreignId('characteristic_id')
-                ->constrained('characteristics')
+                ->constrained('bs_characteristics')
                 ->cascadeOnDelete();
             $table->json('value')->comment('Значение характеристики');
             $table->integer('sort_order')->default(0)->comment('Позиция сортировки');

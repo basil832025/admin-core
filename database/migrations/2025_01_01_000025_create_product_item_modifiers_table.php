@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('order_item_id')
                 ->references('id')
-                ->on('shop_order_items')
+                ->on('bs_shop_order_items')
                 ->onDelete('cascade');
             $table->enum('type', ['variation', 'characteristic']);
             $table->unsignedBigInteger('value_id');

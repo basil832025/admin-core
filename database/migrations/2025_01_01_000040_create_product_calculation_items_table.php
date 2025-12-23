@@ -10,9 +10,9 @@ return new class extends Migration
     {
         Schema::create('bs_product_calculation_items', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('calculation_id')->constrained('product_calculations')->cascadeOnDelete();
+            $table->foreignId('calculation_id')->constrained('bs_product_calculations')->cascadeOnDelete();
             // компонент-товар из того же каталога products, НО не сам продукт-калькулируемый
-            $table->foreignId('component_product_id')->constrained('products');
+            $table->foreignId('component_product_id')->constrained('bs_products');
             $table->decimal('qty', 10, 3)->default(1);       // количество компонента
             $table->decimal('unit_cost', 12, 2)->default(0); // себестоимость за 1 ед. (снимок)
             $table->decimal('row_cost', 12, 2)->default(0);  // сумма = qty * unit_cost (снимок)

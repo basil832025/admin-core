@@ -23,12 +23,12 @@ return new class extends Migration
             $table->json('seo_keywords')->nullable();
             $table->foreignId('parent_id')
                 ->nullable()
-                ->constrained('products')
+                ->constrained('bs_products')
                 ->nullOnDelete()
                 ->cascadeOnUpdate();
             $table->foreignId('category_id')
                 ->nullable()
-                ->constrained('product_categories')
+                ->constrained('bs_product_categories')
                 ->nullOnDelete()
                 ->cascadeOnUpdate();
             $table->text('dop_info')->nullable();

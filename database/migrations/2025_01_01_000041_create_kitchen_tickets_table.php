@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('bs_kitchen_tickets', function (Blueprint $table) {
             $table->id();
             // Привязка к заказу (уже есть shop_orders)
-            $table->foreignId('order_id')->constrained('shop_orders')->cascadeOnDelete();
+            $table->foreignId('order_id')->constrained('bs_shop_orders')->cascadeOnDelete();
             // Текущий статус кухни (используем OrderStatus)
             $table->string('stage')
                 ->default('processing') // OrderStatus::Processing

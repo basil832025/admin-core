@@ -23,7 +23,7 @@ return new class extends Migration
             $table->unsignedBigInteger('client_address_id')->nullable();
             $table->foreign('client_address_id')
                 ->references('id')
-                ->on('client_addresses')
+                ->on('bs_client_addresses')
                 ->nullOnDelete();
             $table->json('status_times')->nullable();
             $table->text('extra_reason')->nullable();
