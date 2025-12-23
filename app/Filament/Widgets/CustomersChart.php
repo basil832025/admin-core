@@ -18,8 +18,8 @@ class CustomersChart extends ChartWidget
 
     public static function canAccess(): bool
     {
-        $user = auth()->user();
-        if (! $user) return false;
+        $user = auth('admin')->user();
+        if (! $user || !$user instanceof \App\Models\User) return false;
 
         // Две возможные схемы именования у Shield:
         $keys = [

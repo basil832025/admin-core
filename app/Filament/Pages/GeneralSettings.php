@@ -44,8 +44,8 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
 
     public static function canAccess(): bool
     {
-        $user = auth()->user();
-        if (! $user) return false;
+        $user = auth('admin')->user();
+        if (! $user || !$user instanceof \App\Models\User) return false;
 
         $keys = [
             'page_' . Str::of(static::getSlug())->snake(),

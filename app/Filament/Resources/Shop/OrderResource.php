@@ -650,7 +650,7 @@ class OrderResource extends Resource
                                     $record->status = OrderStatus::from($to);
                                     $record->save();
 
-                                    activity('order')->performedOn($record)->causedBy(auth()->user())
+                                    activity('order')->performedOn($record)->causedBy(auth('admin')->user())
                                         ->event('status_downgraded')->withProperties([
                                             'action' => 'status_downgraded',
                                             'from'   => $from,
@@ -1024,14 +1024,15 @@ class OrderResource extends Resource
     public static function canSetStatus(string|OrderStatus $status): bool
     {
         $name = $status instanceof OrderStatus ? $status->value : $status;
-        $u = auth()->user();
-        if (! $u) return false;
+        $u = auth('admin')->user();
+        if (! $u || !$u instanceof \App\Models\User) return false;
         return $u->can('set_order_status_' . $name);
     }
 
     public static function canDowngrade(): bool
     {
-        return auth()->user()?->can('order_status_downgrade') ?? false;
+        $u = auth('admin')->user();
+        return ($u && $u instanceof \App\Models\User) ? $u->can('order_status_downgrade') : false;
     }
 
     protected static function allowedStatuses(): array
@@ -1533,7 +1534,11 @@ class OrderResource extends Resource
                     ->modalWidth('lg')
                     ->form(fn (Order $record) => static::statusModalForm())
                     ->action(function (array $data, Order $record) {
-                        $user = auth()->user();
+                        $user = auth('admin')->user();
+                        if (!$user || !$user instanceof \App\Models\User) {
+                            Notification::make()->danger()->title('Ошибка авторизации')->send();
+                            return;
+                        }
 
                         $from = $record->status;
                         $to   = OrderStatus::from($data['status_ui']);

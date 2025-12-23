@@ -137,8 +137,13 @@ class ProductCategoryTree extends BasePage
 
     public static function canAccess(): bool
     {
-        $u = auth()->user();
+        $u = auth('admin')->user();
         if (! $u) return false;
+
+        // Проверяем, что это User модель, а не Client
+        if (!$u instanceof \App\Models\User) {
+            return false;
+        }
 
         if (method_exists($u, 'hasRole') && $u->hasRole(config('shield.super_admin.name', 'super_admin'))) {
             return true;
