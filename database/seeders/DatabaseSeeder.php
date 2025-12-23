@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             UsersTableSeeder::class,
             RolePermissionSeeder::class,
             GeneratePermissionsFromResourcesSeeder::class,
+            GenerateShieldPermissionsSeeder::class, // Генерируем пермишены Shield после загрузки всех данных
             // ... другие сидеры
         ]);
 

@@ -43,8 +43,15 @@ class DumpSeedData extends Command
                     return in_array($t, $only, true);
                 }
 
-                // разрешаем ТОЛЬКО bs_* и users
-                return Str::startsWith($t, 'bs_') || $t === 'users';
+                // разрешаем bs_*, users и таблицы пермишенов
+                $permissionTables = [
+                    'permissions',
+                    'roles',
+                    'model_has_permissions',
+                    'model_has_roles',
+                    'role_has_permissions'
+                ];
+                return Str::startsWith($t, 'bs_') || $t === 'users' || in_array($t, $permissionTables, true);
             })
             ->values();
 

@@ -49,17 +49,42 @@ class CurrentDbSeeder extends Seeder
             }
 
             // Очищаем таблицу перед загрузкой данных
-            DB::table($table)->truncate();
+            $permissionTables = ['permissions', 'roles', 'model_has_permissions', 'model_has_roles', 'role_has_permissions'];
+            if (!in_array($table, $permissionTables, true)) {
+                DB::table($table)->truncate();
+            } else {
+                // Для таблиц пермишенов используем delete вместо truncate
+                DB::table($table)->delete();
+            }
 
             foreach (array_chunk($filteredRows, 1000) as $chunk) {
-                // Если есть риск дублей по PK — можно так:
-                // DB::table($table)->insertOrIgnore($chunk);
-                DB::table($table)->insert($chunk);
+                // Для таблиц пермишенов вставляем по одной записи с проверкой дублей
+                if (in_array($table, $permissionTables, true)) {
+                    foreach ($chunk as $row) {
+                        try {
+                            DB::table($table)->insert($row);
+                        } catch (\Illuminate\Database\QueryException $e) {
+                            // Игнорируем ошибки дубликатов (например, unique constraint)
+                            if (strpos($e->getMessage(), 'Duplicate entry') === false && 
+                                strpos($e->getMessage(), 'UNIQUE constraint') === false) {
+                                throw $e;
+                            }
+                        }
+                    }
+                } else {
+                    DB::table($table)->insert($chunk);
+                }
             }
 
             $this->command?->info("Seeded: {$table} (".count($filteredRows).')');
         }
 
         DB::statement('SET FOREIGN_KEY_CHECKS=1');
+        
+        // Сбрасываем кеш пермишенов после загрузки
+        if (class_exists(\Spatie\Permission\PermissionRegistrar::class)) {
+            app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+            $this->command->info('Кеш пермишенов сброшен.');
+        }
     }
 }
