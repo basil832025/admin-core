@@ -106,6 +106,23 @@ class ProductCardPresenter
             ];
         }
 
+        // Сортируем варианты по размеру (rozmir-pirogiv) - извлекаем числовое значение размера
+        $sizeChar = collect($main)->firstWhere('slug', 'rozmir-pirogiv');
+        if ($sizeChar && count($variantRows) > 1) {
+            $sizeCharId = $sizeChar['id'];
+            usort($variantRows, function ($a, $b) use ($sizeCharId) {
+                $sizeA = $this->extractSizeNumber($a['char_values'][$sizeCharId] ?? null);
+                $sizeB = $this->extractSizeNumber($b['char_values'][$sizeCharId] ?? null);
+                
+                // Если не удалось извлечь число, оставляем порядок как есть
+                if ($sizeA === null && $sizeB === null) return 0;
+                if ($sizeA === null) return 1;
+                if ($sizeB === null) return -1;
+                
+                return $sizeA <=> $sizeB; // Сортировка по возрастанию
+            });
+        }
+
         // ссылки
 
         $url          = ($categorySlug && $p->slug)
@@ -140,5 +157,22 @@ class ProductCardPresenter
             $out[] = $this->for($p);
         }
         return $out;
+    }
+
+    /**
+     * Извлекает числовое значение размера из строки (например, "19 см" -> 19)
+     */
+    protected function extractSizeNumber(?string $sizeValue): ?int
+    {
+        if (!$sizeValue) {
+            return null;
+        }
+
+        // Удаляем все нецифровые символы и извлекаем первое число
+        if (preg_match('/\d+/', (string)$sizeValue, $matches)) {
+            return (int)$matches[0];
+        }
+
+        return null;
     }
 }
