@@ -172,6 +172,13 @@
                     }
                 }
 
+                // Закрываем dropdown ПЕРЕД изменением значения
+                // Находим и скрываем элементы Google Places dropdown
+                const pacContainer = document.querySelector('.pac-container');
+                if (pacContainer) {
+                    pacContainer.style.display = 'none';
+                }
+
                 // Заполняем поле улицы (только название улицы без номера)
                 if (street) {
                     streetInput.value = street;
@@ -187,14 +194,32 @@
                 // Триггерим событие для Alpine.js
                 streetInput.dispatchEvent(new Event('input', { bubbles: true }));
 
-                // Закрываем dropdown, убирая фокус с поля
+                // Убираем фокус с поля и перемещаем на другое поле
                 setTimeout(function() {
                     streetInput.blur();
                     // Если есть поле дома, перемещаем фокус на него
                     if (houseInput && streetNumber) {
                         houseInput.focus();
+                    } else if (houseInput) {
+                        // Если номера дома нет, все равно перемещаем фокус для закрытия dropdown
+                        houseInput.focus();
+                        setTimeout(() => houseInput.blur(), 50);
                     }
-                }, 100);
+                    
+                    // Дополнительно скрываем dropdown на случай, если он все еще виден
+                    const pacContainer = document.querySelector('.pac-container');
+                    if (pacContainer) {
+                        pacContainer.style.display = 'none';
+                    }
+                }, 50);
+            });
+
+            // Дополнительно: закрываем dropdown при клике вне его
+            document.addEventListener('click', function(e) {
+                const pacContainer = document.querySelector('.pac-container');
+                if (pacContainer && !pacContainer.contains(e.target) && e.target !== streetInput) {
+                    pacContainer.style.display = 'none';
+                }
             });
 
             autocompleteInitialized = true;
