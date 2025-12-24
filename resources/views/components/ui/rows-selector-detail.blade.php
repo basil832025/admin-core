@@ -61,29 +61,29 @@
         @endif
         class="mt-4"
     >
-        {{-- КНОПКИ-«ПИЛЮЛИ»: на мобиле 1 кол., на md+ — 2 колонки --}}
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 min-w-[292px] text-xs">
+        {{-- КНОПКИ-«ПИЛЮЛИ»: на мобиле 1 кол., на md+ — flex wrap --}}
+        <div class="flex flex-wrap gap-2 min-w-[292px] text-xs">
             @foreach($rows as $r)
                 @php $id = (string)($r['product_id']); @endphp
                 <button
                     type="button"
                     x-on:click="$store['{{ $store }}'].selected='{{ $id }}'"
-                    class="group w-full md:w-auto inline-flex items-center justify-between gap-3 rounded-[8px] px-3 py-2 border transition
+                    class="group w-full md:w-auto md:flex-1 md:min-w-0 inline-flex items-center justify-between gap-2 rounded-[8px] px-2 py-2 border transition
                        md:h-[40px]
                        data-[active=true]:bg-[#FF7500] data-[active=true]:text-white data-[active=true]:border-[#FF7500]
                        data-[active=false]:bg-white data-[active=false]:text-[#333] data-[active=false]:border-[#E6E6E6] hover:border-[#FF7500]"
                     :data-active="$store['{{ $store }}'].selected === '{{ $id }}'"
                 >
                     {{-- слева 1–2 характеристики (иконка + текст) --}}
-                    <span class="flex items-center gap-5">
+                    <span class="flex items-center gap-3">
                     @foreach($leftChars as $char)
                             @php
                                 $val = $r['char_values'][$char['id']] ?? null;
                                 $svg = $char['svg'] ?? null;
                             @endphp
-                            <span class="inline-flex items-center gap-2 whitespace-nowrap">
+                            <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
                             @if($svg)
-                                    <span aria-hidden="true" class="inline-block h-5 w-5"
+                                    <span aria-hidden="true" class="inline-block h-4 w-4"
                                           style="background-color: currentColor;
                                               mask-image:url('{{ $svg }}');-webkit-mask-image:url('{{ $svg }}');
                                               mask-repeat:no-repeat;-webkit-mask-repeat:no-repeat;
@@ -107,7 +107,7 @@
                             }
                             $svgRight = $rightChar['svg'] ?? null;
                             $personIcon = $svgRight
-                                ? '<span aria-hidden="true" class="inline-block h-5 w-[10px]"
+                                ? '<span aria-hidden="true" class="inline-block h-4 w-[8px]"
                                     style="background-color: currentColor;
                                     mask-image:url(\'' . e($svgRight) . '\'); -webkit-mask-image:url(\'' . e($svgRight) . '\');
                                     mask-repeat:no-repeat; -webkit-mask-repeat:no-repeat;
