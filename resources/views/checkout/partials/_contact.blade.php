@@ -46,6 +46,7 @@
                 <span class="sr-only">Email</span>
                 <input
                     type="email"
+                    id="contact_email"
                     name="contact_email"
                     placeholder="E-mail ({{ st('profile.neobovyazkovo', 'необовʼязково') }})"
                     value="{{ old('contact_email', $client->email ?? '') }}"
@@ -72,7 +73,17 @@
                         type="button"
                         class="h-[40px] w-full rounded-full bg-[#FF7500] text-white
                                text-[14px] font-semibold hover:bg-[#e56700] transition"
-                        @click="$dispatch('open-auth-modal', { tab: 'login' })"
+                        @click="
+                            const authName  = document.getElementById('contact_name')?.value || '';
+                            const authPhone = document.getElementById('contact_phone')?.value || '';
+                            const authEmail = document.getElementById('contact_email')?.value || '';
+                            $dispatch('open-auth-modal', {
+                                tab: 'login',
+                                name: authName,
+                                phone: authPhone,
+                                email: authEmail,
+                            });
+                        "
                     >
                         <span>{{ st('auth.login','Увійти') }}</span>
                     </button>

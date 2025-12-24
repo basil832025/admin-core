@@ -81,15 +81,17 @@
         // 1) закрываем эту модалку
         showAuthModal = false;
 
-        // 2) подтягиваем имя и телефон из формы чекаута (если заполнены)
+        // 2) подтягиваем имя, телефон и email из формы чекаута (если заполнены)
         const authName  = document.getElementById('contact_name')?.value || '';
         const authPhone = document.getElementById('contact_phone')?.value || '';
+        const authEmail = document.getElementById('contact_email')?.value || '';
 
         // 3) открываем основное окно авторизации с уже подставленными данными
         $dispatch('open-auth-modal', {
             tab: 'login',
             name: authName,
             phone: authPhone,
+            email: authEmail,
         });
     "
                     >

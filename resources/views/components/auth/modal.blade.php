@@ -51,17 +51,7 @@
     @open-auth-modal.window="
     const payload = $event.detail || {};
 
-    // открыть модалку
-    open = true;
-    loginLoading = false;
-
-    // вкладка: login / register
-    if (payload.tab) {
-        switchTab(payload.tab);
-    } else {
-        switchTab('login');
-    }
-
+    // СНАЧАЛА подставляем данные, ПОТОМ переключаем вкладку
     // подставить имя в регистрацию
     if (payload.name) {
         registerData.name = payload.name;
@@ -85,8 +75,19 @@
         registerData.password_confirmation = payload.password;
     }
 
+    // открыть модалку
+    open = true;
+    loginLoading = false;
+
+    // вкладка: login / register (после подстановки данных)
+    if (payload.tab) {
+        switchTab(payload.tab);
+    } else {
+        switchTab('login');
+    }
+
     // сфокусироваться на поле логина (как и было раньше)
-    focusLoginAfterOpen();
+    $nextTick(() => focusLoginAfterOpen());
 "
 
     class="fixed inset-0 z-50 overflow-y-auto"
