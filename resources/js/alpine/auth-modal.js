@@ -275,9 +275,23 @@ export default function authModal(opts = {}) {
         registerError: null,
         registerData: { name:'', phone:'', email:'', password:'', password_confirmation:'' },
         async register(){
-            if (this.sending) return;          // ← добавь
-            this.sending = true;               // ← поднимаем в самый верх
+            if (this.sending) return;
             this.registerError = null;
+
+            // Валидация пароля: минимум 6 символов
+            const password = String(this.registerData.password || '').trim();
+            if (password.length < 6) {
+                this.registerError = t('auth.password_min_6', 'Пароль повинен містити мінімум 6 символів');
+                return;
+            }
+
+            // Проверка совпадения паролей
+            if (password !== String(this.registerData.password_confirmation || '').trim()) {
+                this.registerError = t('auth.password_mismatch', 'Паролі не співпадають');
+                return;
+            }
+
+            this.sending = true;
 
             // открываем SMS и ставим фокус
             this.switchTab('sms');

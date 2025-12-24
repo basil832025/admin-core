@@ -513,6 +513,7 @@ class CartService
             $order->clients_id  = $user->getAuthIdentifier();
             $order->status      = OrderStatus::Cart;
             $order->total_price = 0;
+            $order->currency    = 'UAH'; // Значение по умолчанию для валюты
             $order->save();
         }
 
