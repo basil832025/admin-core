@@ -731,8 +731,13 @@ public function submit(Request $request)
 public function success(Order $order)
 {
     // защита от чужих заказов
-    if (auth()->check() && $order->clients_id && auth()->id() !== $order->clients_id) {
-        abort(403);
+    if ($order->clients_id) {
+        $orderClientId = (int) $order->clients_id;
+        $currentUserId = auth()->check() ? (int) auth()->id() : null;
+        
+        if (!$currentUserId || $currentUserId !== $orderClientId) {
+            abort(403);
+        }
     }
   //  dd($order);
     // сразу подгружаем items + product
