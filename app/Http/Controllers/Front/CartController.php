@@ -11,31 +11,33 @@ class CartController extends Controller
 
 // app/Http/Controllers/Front/CartController.php
 
-public function add(Request $r)
-{
-    // Принимаем как новое имя product_id, так и старое product
-    $pid = $r->integer('product_id');
-    if (! $pid) {
-        $pid = $r->integer('product');
+    public function add(Request $r)
+    {
+        // Принимаем и product_id, и старое поле product
+        $pid = (int) $r->input('product_id', 0);
+        if (! $pid) {
+            $pid = (int) $r->input('product', 0);
+        }
+
+        if (! $pid) {
+            return back()->with('cart_error', 'Не передан идентификатор товара.');
+        }
+
+        // Добавляем N штук (по умолчанию 1)
+        $qty   = max(1, (int) $r->input('qty', 1));
+        $price = $r->has('price') ? (float) $r->input('price') : null;
+
+        // Используем ту же логику, что и при добавлении из списка (CartService::add)
+        $payload = $this->cart->add($pid, $qty, $price);
+
+        // Для AJAX/JSON-запросов возвращаем JSON как раньше
+        if ($r->expectsJson() || $r->wantsJson() || $r->ajax()) {
+            return response()->json($payload);
+        }
+
+        // Для обычной формы (карточка товара) просто возвращаемся назад
+        return back()->with('cart', $payload);
     }
-
-    $qty   = $r->integer('qty', 1);      // может быть отрицательным / дельта
-    $price = $r->has('price') ? (float) $r->input('price') : null;
-    $isSet = $r->boolean('set', false);  // ← новый флаг: установить qty
-
-    // НИКАКИХ min:1 / abs() — нам нужна дельта с минусом
-    $payload = $isSet
-        ? $this->cart->setQty($pid, $qty, $price)    // абсолютное значение
-        : $this->cart->changeQty($pid, $qty, $price); // дельта (+1 / -1)
-
-    // Если запрос ожидает JSON (AJAX/Fetch) — отдаем JSON (как раньше)
-    if ($r->expectsJson() || $r->wantsJson() || $r->ajax()) {
-        return response()->json($payload);
-    }
-
-    // Иначе это обычная форма (как на карточке товара) — вернёмся назад
-    return back()->with('cart', $payload);
-}
 public function page()
 {
     $info = $this->cart->info();

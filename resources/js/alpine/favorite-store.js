@@ -49,3 +49,4 @@ export function registerFavoriteStore(Alpine, { infoUrl = '/favorites/info', ini
     });
 }
 
+

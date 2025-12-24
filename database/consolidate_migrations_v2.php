@@ -298,3 +298,4 @@ if (file_exists($siteTextGroupsFile)) {
 echo "\nГотово! Объединенные миграции сохранены в {$newDir}\n";
 echo "Обработано таблиц: {$processed}\n";
 
+
