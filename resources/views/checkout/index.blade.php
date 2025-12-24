@@ -214,6 +214,16 @@
                 }, 50);
             });
 
+            // Закрываем dropdown при потере фокуса
+            streetInput.addEventListener('blur', function() {
+                setTimeout(function() {
+                    const pacContainer = document.querySelector('.pac-container');
+                    if (pacContainer) {
+                        pacContainer.style.display = 'none';
+                    }
+                }, 200);
+            });
+
             // Дополнительно: закрываем dropdown при клике вне его
             document.addEventListener('click', function(e) {
                 const pacContainer = document.querySelector('.pac-container');
