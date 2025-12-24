@@ -755,9 +755,13 @@ public function success(Order $order)
 public function payLiqPay(Order $order)
 {
     // защита от "чужих" заказов
-    if (auth()->check() && $order->clients_id && auth()->id() !== $order->clients_id) {
-        abort(403);
+    // Если пользователь авторизован и заказ привязан к клиенту - проверяем, что это его заказ
+    if (auth()->check() && $order->clients_id) {
+        if (auth()->id() !== $order->clients_id) {
+            abort(403);
+        }
     }
+    // Для гостевых заказов (clients_id = null) разрешаем доступ
 
     if ($order->payment !== PaymentMethodEnum::LIQPAY) {
         abort(404);
