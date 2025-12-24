@@ -122,8 +122,8 @@
                                 @else
                                     {!! $personIcon !!}<span class="ml-1">× {{ $people }}</span>
                                 @endif
-                                {{-- Для 1 человека текст не показываем --}}
-                                @if($people > 1 && $val)<span class="ml-1">{{ $val }}</span>@endif
+                                {{-- На странице товара показываем текст для всех вариантов --}}
+                                @if($val)<span class="ml-1">{{ $val }}</span>@endif
                             @else
                                 {!! $personIcon !!}
                                 @if($val)<span class="ml-1">{{ $val }}</span>@endif

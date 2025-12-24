@@ -143,11 +143,11 @@
                                     {!! $personIcon !!}
                                     <span class="ml-1">&times;&nbsp;{{ $people }}</span>
                                 @endif
+                                {{-- Для карточки товара текст для персон не показываем, только пиктограммы --}}
                             @else
                                 {!! $personIcon !!}
+                                @if($val)<span class="ml-1">{{ $val }}</span>@endif
                             @endif
-
-                            @if($val)<span class="ml-1">{{ $val }}</span>@endif
                     </span>
                     @endif
                 </x-slot:right>
