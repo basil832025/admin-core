@@ -8,8 +8,19 @@ export default function authModal(opts = {}) {
     const I18N = opts.i18n || {};
 
     // простая функция подстановки с плейсхолдерами :name / :sec
-    const t = (key, params = {}) => {
-        let s = I18N[key] ?? key;
+    const t = (key, fallbackOrParams = {}) => {
+        // Если второй параметр - строка, это fallback значение
+        const isFallback = typeof fallbackOrParams === 'string';
+        const params = isFallback ? {} : fallbackOrParams;
+        const fallback = isFallback ? fallbackOrParams : null;
+        
+        let s = I18N[key];
+        
+        // Если ключ не найден, используем fallback или сам ключ
+        if (s === undefined || s === null) {
+            s = fallback || key;
+        }
+        
         if (typeof s === 'string') {
             for (const [k,v] of Object.entries(params)) {
                 s = s.replace(new RegExp(':'+k+'\\b','g'), String(v));
