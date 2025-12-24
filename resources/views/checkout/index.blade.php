@@ -258,7 +258,7 @@
         };
 
         const script = document.createElement('script');
-        script.src = 'https://maps.googleapis.com/maps/api/js?key={{ env("GOOGLE_MAPS_API_KEY") }}&libraries=places&callback=initCheckoutAddressAutocompleteCallback';
+        script.src = 'https://maps.googleapis.com/maps/api/js?key={{ config("services.google_maps.key") }}&libraries=places&callback=initCheckoutAddressAutocompleteCallback';
         script.defer = true;
         script.async = true;
         document.head.appendChild(script);
