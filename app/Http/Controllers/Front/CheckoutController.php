@@ -758,7 +758,11 @@ public function payLiqPay(Order $order)
     // Если заказ привязан к клиенту - проверяем, что текущий пользователь это его владелец
     if ($order->clients_id) {
         // Заказ привязан к клиенту - проверяем авторизацию и владельца
-        if (!auth()->check() || auth()->id() !== $order->clients_id) {
+        // Используем строгое сравнение с приведением типов
+        $orderClientId = (int) $order->clients_id;
+        $currentUserId = auth()->check() ? (int) auth()->id() : null;
+        
+        if (!$currentUserId || $currentUserId !== $orderClientId) {
             abort(403);
         }
     }
