@@ -67,10 +67,22 @@
         registerData.name = payload.name;
     }
 
+    // подставить email в регистрацию
+    if (payload.email) {
+        registerData.email = payload.email;
+    }
+
     // подставить телефон в логин и регистрацию
     if (payload.phone) {
         loginData.phone    = payload.phone;
         registerData.phone = payload.phone;
+    }
+
+    // подставить пароль в обе формы, если передан
+    if (payload.password) {
+        loginData.password = payload.password;
+        registerData.password = payload.password;
+        registerData.password_confirmation = payload.password;
     }
 
     // сфокусироваться на поле логина (как и было раньше)

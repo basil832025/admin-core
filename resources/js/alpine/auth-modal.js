@@ -125,6 +125,26 @@ export default function authModal(opts = {}) {
             return d;
         },
         switchTab(tabName){
+            // Синхронизация данных при переключении вкладок
+            if (tabName === 'register' && this.tab === 'login') {
+                // Переключение с логина на регистрацию: копируем phone и password
+                if (this.loginData.phone) {
+                    this.registerData.phone = this.loginData.phone;
+                }
+                if (this.loginData.password) {
+                    this.registerData.password = this.loginData.password;
+                    this.registerData.password_confirmation = this.loginData.password;
+                }
+            } else if (tabName === 'login' && this.tab === 'register') {
+                // Переключение с регистрации на логин: копируем phone и password
+                if (this.registerData.phone) {
+                    this.loginData.phone = this.registerData.phone;
+                }
+                if (this.registerData.password) {
+                    this.loginData.password = this.registerData.password;
+                }
+            }
+
             this.tab = tabName;
             this.title =
                 tabName==='login'   ? t('auth.login') :
