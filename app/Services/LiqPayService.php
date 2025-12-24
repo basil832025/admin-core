@@ -40,8 +40,7 @@ class LiqPayService
             'order_id'    => 'order_'.$order->id,
             'version'     => '3',
             'result_url'  => route('checkout.success', $order),
-            'server_url'  => 'https://jaxson-semipreserved-judgmentally.ngrok-free.dev/liqpay/callback',
-          //  'server_url'  => route('liqpay.callback'),
+            'server_url'  => route('liqpay.callback'),
             'language'    => $lang,
         ];
 
