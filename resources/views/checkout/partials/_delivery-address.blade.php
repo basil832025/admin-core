@@ -91,6 +91,7 @@
                     {{ st('address.form.street', 'Вулиця') }}
                 </label>
                 <input
+                    id="checkout-address-street"
                     name="addr[street]"
                     class="tp-input"
                     placeholder="{{ st('address.form.street', 'Вулиця') }}"
@@ -108,6 +109,7 @@
                     {{ st('address.form.house', 'Дім') }}
                 </label>
                 <input
+                    id="checkout-address-house"
                     name="addr[house]"
                     class="tp-input"
                     placeholder="{{ st('address.form.house', 'Дім') }}"

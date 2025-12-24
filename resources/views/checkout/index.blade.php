@@ -113,3 +113,122 @@
 
     </div>
 @endsection
+
+@push('scripts')
+<script>
+(function() {
+    let autocompleteInitialized = false;
+    let initAttempts = 0;
+    const maxAttempts = 10;
+
+    function initCheckoutAddressAutocomplete() {
+        // Проверяем, не инициализирован ли уже autocomplete
+        if (autocompleteInitialized) return;
+
+        const streetInput = document.getElementById('checkout-address-street');
+        const houseInput = document.getElementById('checkout-address-house');
+        
+        if (!streetInput) {
+            // Поле еще не доступно, попробуем позже (но не более maxAttempts раз)
+            initAttempts++;
+            if (initAttempts < maxAttempts) {
+                setTimeout(initCheckoutAddressAutocomplete, 500);
+            }
+            return;
+        }
+
+        if (typeof google === 'undefined' || !google.maps || !google.maps.places) {
+            // Google Maps API еще не загружен, попробуем позже
+            initAttempts++;
+            if (initAttempts < maxAttempts) {
+                setTimeout(initCheckoutAddressAutocomplete, 500);
+            }
+            return;
+        }
+
+        var options = {
+            componentRestrictions: { country: 'ua' },
+            types: ['address'],
+        };
+
+        try {
+            var autocomplete = new google.maps.places.Autocomplete(streetInput, options);
+
+            autocomplete.addListener('place_changed', function () {
+                const place = autocomplete.getPlace();
+                if (!place || !place.geometry || !place.geometry.location) return;
+
+                // Извлекаем части адреса
+                const comps = place.address_components || [];
+                let street = '';
+                let streetNumber = '';
+
+                for (const c of comps) {
+                    if (c.types.includes('route')) {
+                        street = c.long_name;
+                    }
+                    if (c.types.includes('street_number')) {
+                        streetNumber = c.long_name;
+                    }
+                }
+
+                // Заполняем поле улицы (только название улицы без номера)
+                if (street) {
+                    streetInput.value = street;
+                }
+
+                // Заполняем поле дома, если номер дома есть
+                if (streetNumber && houseInput) {
+                    houseInput.value = streetNumber;
+                    // Триггерим событие для Alpine.js
+                    houseInput.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+
+                // Триггерим событие для Alpine.js
+                streetInput.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+
+            autocompleteInitialized = true;
+        } catch (e) {
+            console.error('Error initializing Google Places Autocomplete:', e);
+        }
+    }
+
+    // Функция для загрузки Google Maps API
+    function loadGoogleMapsAPI() {
+        if (typeof google !== 'undefined' && google.maps && google.maps.places) {
+            initCheckoutAddressAutocomplete();
+            return;
+        }
+
+        // Проверяем, не загружается ли уже скрипт
+        if (document.querySelector('script[src*="maps.googleapis.com/maps/api/js"]')) {
+            // Скрипт уже есть, просто ждем его загрузки
+            setTimeout(initCheckoutAddressAutocomplete, 1000);
+            return;
+        }
+
+        // Создаем callback функцию глобально
+        window.initCheckoutAddressAutocompleteCallback = function() {
+            initCheckoutAddressAutocomplete();
+        };
+
+        const script = document.createElement('script');
+        script.src = 'https://maps.googleapis.com/maps/api/js?key={{ env("GOOGLE_MAPS_API_KEY") }}&libraries=places&callback=initCheckoutAddressAutocompleteCallback';
+        script.defer = true;
+        script.async = true;
+        document.head.appendChild(script);
+    }
+
+    // Инициализируем после загрузки DOM
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            // Небольшая задержка, чтобы убедиться, что Alpine.js инициализировал поля
+            setTimeout(loadGoogleMapsAPI, 500);
+        });
+    } else {
+        setTimeout(loadGoogleMapsAPI, 500);
+    }
+})();
+</script>
+@endpush
