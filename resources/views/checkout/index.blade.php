@@ -186,6 +186,15 @@
 
                 // Триггерим событие для Alpine.js
                 streetInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+                // Закрываем dropdown, убирая фокус с поля
+                setTimeout(function() {
+                    streetInput.blur();
+                    // Если есть поле дома, перемещаем фокус на него
+                    if (houseInput && streetNumber) {
+                        houseInput.focus();
+                    }
+                }, 100);
             });
 
             autocompleteInitialized = true;
