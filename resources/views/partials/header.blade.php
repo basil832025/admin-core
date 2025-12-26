@@ -52,9 +52,9 @@
                         <ul class="space-y-1">
                             @foreach($phones as $phone)
                                 <li>
-                                    <a href="{{ $phone['tel'] }}" class="flex items-center justify-between gap-2 px-3 py-2 rounded-lg hover:bg-gray-50">
+                                    <a href="{{ $telHref($phone['display'] ?? $phone['tel'] ?? '') }}" class="flex items-center justify-between gap-2 px-3 py-2 rounded-lg hover:bg-gray-50">
                                         <span class="text-sm">{{ $phone['display'] }}</span>
-                                        @if($headerPhonePrimary && $phone['tel'] === $headerPhonePrimary['tel'])
+                                        @if($headerPhonePrimary && ($phone['tel'] ?? '') === ($headerPhonePrimary['tel'] ?? ''))
                                             <span class="text-[#FF7500] text-xs">{{ st('header.phone.main','основний') }}</span>
                                         @endif
                                     </a>
