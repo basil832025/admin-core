@@ -216,6 +216,7 @@ Route::middleware(['web', 'auth'])->group(function () {
 
     // Адреса доставки
     Route::resource('profile/addresses', \App\Http\Controllers\Front\ClientAddressController::class)
+        ->parameters(['addresses' => 'address'])
         ->names([
             'index' => 'profile.addresses.index',
             'create' => 'profile.addresses.create',
@@ -232,7 +233,7 @@ Route::middleware(['web'])->group(function () {
     Route::get('/orders/history', fn() => 'Orders history stub')->name('orders.history');
     Route::get('/bonuses', fn() => 'Bonuses stub')->name('bonuses.index');
   //  Route::redirect('/profile', '/', 302)->name('profile.show');
-    Route::redirect('/addresses', route('profile.addresses.index'), 302)->name('addresses.index');
+    Route::redirect('/addresses', '/profile/addresses', 302)->name('addresses.index');
     // ВАЖНО: правильные имена для аутентификации
     Route::redirect('/login', '/', 302)->name('login');   // если страницы логина пока нет
     // либо так: Route::view('/login', 'pages.stub')->name('login')->defaults('title','Увійти');
