@@ -213,6 +213,17 @@ Route::middleware(['web', 'auth'])->group(function () {
 
     Route::put('/profile', [ProfileController::class, 'update'])
         ->name('profile.update');
+
+    // Адреса доставки
+    Route::resource('profile/addresses', \App\Http\Controllers\Front\ClientAddressController::class)
+        ->names([
+            'index' => 'profile.addresses.index',
+            'create' => 'profile.addresses.create',
+            'store' => 'profile.addresses.store',
+            'edit' => 'profile.addresses.edit',
+            'update' => 'profile.addresses.update',
+            'destroy' => 'profile.addresses.destroy',
+        ]);
 });
 
 Route::middleware(['web'])->group(function () {
