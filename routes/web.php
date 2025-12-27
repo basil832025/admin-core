@@ -238,9 +238,19 @@ Route::middleware(['web', 'auth'])->group(function () {
 
     Route::get('/profile/orders/{order}', function (\App\Models\Shop\Order $order) {
         // Проверка, что заказ принадлежит текущему пользователю
-        if ($order->clients_id !== auth()->id()) {
+        $currentUserId = auth()->id();
+        $orderClientId = $order->clients_id;
+        
+        // Проверяем, что пользователь авторизован
+        if (!$currentUserId) {
             abort(403);
         }
+        
+        // Строгое сравнение с приведением к int для избежания проблем с типами
+        if ((int)$orderClientId !== (int)$currentUserId) {
+            abort(403);
+        }
+        
         return view('pages.profile.orders.show', compact('order'));
     })->name('profile.orders.show');
 });
