@@ -187,6 +187,37 @@ class SeedOrdersTranslations extends Command
                 'value' => ['uk' => 'Спасибо за заказ!', 'ru' => 'Спасибо за заказ!', 'en' => 'Thank you for your order!'],
                 'description' => 'Сообщение благодарности',
             ],
+            // Повторить заказ
+            [
+                'group' => 'profile',
+                'slug' => 'profile.orders.repeat_requires_auth',
+                'value' => ['uk' => 'Для повторения заказа необходимо авторизоваться', 'ru' => 'Для повторения заказа необходимо авторизоваться', 'en' => 'Authentication required to repeat order'],
+                'description' => 'Ошибка: требуется авторизация',
+            ],
+            [
+                'group' => 'profile',
+                'slug' => 'profile.orders.repeat_empty',
+                'value' => ['uk' => 'В заказе нет товаров для добавления в корзину', 'ru' => 'В заказе нет товаров для добавления в корзину', 'en' => 'Order has no items to add to cart'],
+                'description' => 'Ошибка: заказ пустой',
+            ],
+            [
+                'group' => 'profile',
+                'slug' => 'profile.orders.repeat_no_available',
+                'value' => ['uk' => 'Нет доступных товаров для добавления в корзину', 'ru' => 'Нет доступных товаров для добавления в корзину', 'en' => 'No available products to add to cart'],
+                'description' => 'Ошибка: нет доступных товаров',
+            ],
+            [
+                'group' => 'profile',
+                'slug' => 'profile.orders.repeat_success',
+                'value' => ['uk' => 'Товары из заказа добавлены в корзину', 'ru' => 'Товары из заказа добавлены в корзину', 'en' => 'Order items added to cart'],
+                'description' => 'Успешное добавление товаров',
+            ],
+            [
+                'group' => 'profile',
+                'slug' => 'profile.orders.repeat_skipped',
+                'value' => ['uk' => 'пропущено', 'ru' => 'пропущено', 'en' => 'skipped'],
+                'description' => 'Пропущенные товары',
+            ],
         ];
 
         $this->info('Добавление переводов для страницы истории заказов...');

@@ -256,6 +256,10 @@ Route::middleware(['web', 'auth'])->group(function () {
         
         return view('pages.profile.orders.show', compact('order'));
     })->name('profile.orders.show');
+
+    // Повторить заказ
+    Route::post('/profile/orders/{order}/repeat', [\App\Http\Controllers\Front\OrderController::class, 'repeat'])
+        ->name('profile.orders.repeat');
 });
 
 Route::middleware(['web'])->group(function () {

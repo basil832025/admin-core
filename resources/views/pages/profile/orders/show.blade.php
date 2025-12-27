@@ -440,10 +440,13 @@
                         </div>
 
                         {{-- Кнопка "Повторить заказ" --}}
-                        <button type="button" 
-                                class="w-full h-[46px] rounded-[6px] text-[14px] font-semibold text-white bg-[#FF7500] hover:bg-orange-600 transition shadow-[0_2px_10px_rgba(0,0,0,0.08)]">
-                            {{ st('profile.orders.repeat', 'Повторить заказ') }}
-                        </button>
+                        <form action="{{ route('profile.orders.repeat', $order) }}" method="POST">
+                            @csrf
+                            <button type="submit" 
+                                    class="w-full h-[46px] rounded-[6px] text-[14px] font-semibold text-white bg-[#FF7500] hover:bg-orange-600 transition shadow-[0_2px_10px_rgba(0,0,0,0.08)]">
+                                {{ st('profile.orders.repeat', 'Повторить заказ') }}
+                            </button>
+                        </form>
                     </div>
                 </div>
             </main>
