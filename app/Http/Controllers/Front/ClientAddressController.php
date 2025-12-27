@@ -66,25 +66,45 @@ class ClientAddressController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(ClientAddress $address)
+    public function edit($address)
     {
-        // Проверка, что адрес принадлежит текущему пользователю
-        if ($address->client_id !== Auth::id()) {
+        $user = Auth::user();
+        
+        if (!$user) {
+            abort(403);
+        }
+        
+        // Находим адрес с явной проверкой принадлежности
+        $addressModel = ClientAddress::where('id', $address)
+            ->where('client_id', $user->id)
+            ->first();
+        
+        if (!$addressModel) {
             abort(403);
         }
 
         return view('pages.profile.addresses.form', [
-            'address' => $address,
+            'address' => $addressModel,
         ]);
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, ClientAddress $address)
+    public function update(Request $request, $address)
     {
-        // Проверка, что адрес принадлежит текущему пользователю
-        if ($address->client_id !== Auth::id()) {
+        $user = Auth::user();
+        
+        if (!$user) {
+            abort(403);
+        }
+        
+        // Находим адрес с явной проверкой принадлежности
+        $addressModel = ClientAddress::where('id', $address)
+            ->where('client_id', $user->id)
+            ->first();
+        
+        if (!$addressModel) {
             abort(403);
         }
 
@@ -103,7 +123,7 @@ class ClientAddressController extends Controller
 
         $validated['is_private_house'] = $request->boolean('is_private_house', false);
 
-        $address->update($validated);
+        $addressModel->update($validated);
 
         return redirect()
             ->route('profile.addresses.index')
@@ -113,14 +133,24 @@ class ClientAddressController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(ClientAddress $address)
+    public function destroy($address)
     {
-        // Проверка, что адрес принадлежит текущему пользователю
-        if ($address->client_id !== Auth::id()) {
+        $user = Auth::user();
+        
+        if (!$user) {
+            abort(403);
+        }
+        
+        // Находим адрес с явной проверкой принадлежности
+        $addressModel = ClientAddress::where('id', $address)
+            ->where('client_id', $user->id)
+            ->first();
+        
+        if (!$addressModel) {
             abort(403);
         }
 
-        $address->delete();
+        $addressModel->delete();
 
         return redirect()
             ->route('profile.addresses.index')
