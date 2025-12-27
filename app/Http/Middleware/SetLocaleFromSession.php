@@ -27,9 +27,18 @@ class SetLocaleFromSession
             $allowed = ['ru', 'uk', 'en'];
         }
 
-        $locale = session('locale')
-            ?? $request->cookie('locale')
-            ?? config('app.locale');
+        // Определяем, находимся ли мы в админке
+        $isAdmin = $request->is('admin*') || $request->is('*/admin*');
+        
+        // Для админки используем отдельный ключ сессии, для фронтенда - обычный
+        if ($isAdmin) {
+            $locale = session('admin_locale')
+                ?? config('app.locale');
+        } else {
+            $locale = session('locale')
+                ?? $request->cookie('locale')
+                ?? config('app.locale');
+        }
 
         if (is_array($locale)) {
             $locale = reset($locale) ?: null;
@@ -45,7 +54,7 @@ class SetLocaleFromSession
             $locale = $allowed[0] ?? 'ru';
         }
 
-        // Устанавливаем локаль для всего приложения (включая админку)
+        // Устанавливаем локаль для всего приложения
         app()->setLocale($locale);
         
         // Также устанавливаем локаль для Carbon (даты)

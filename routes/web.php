@@ -78,8 +78,8 @@ Route::get('/admin/switch-locale/{locale}', function (string $locale) {
         $locale = config('app.locale', 'ru');
     }
     
-    // Сохраняем в сессии
-    session(['locale' => $locale]);
+    // Сохраняем в сессии под отдельным ключом для админки
+    session(['admin_locale' => $locale]);
     
     // Устанавливаем локаль приложения
     app()->setLocale($locale);
