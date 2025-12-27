@@ -20,9 +20,14 @@
     $initial = $current;
     if (!$initial) {
         foreach ($items as $it) {
-            if (!empty($it['activeWhen']) && request()->routeIs($it['activeWhen'])) {
-                $initial = $it['key'] ?? null;
-                break;
+            $pattern = $it['activeWhen'] ?? null;
+            if ($pattern) {
+                // request()->is() работает с путями (с * или без), не требует ведущего слэша
+                $isActive = request()->is($pattern);
+                if ($isActive) {
+                    $initial = $it['key'] ?? null;
+                    break;
+                }
             }
         }
     }
@@ -38,11 +43,13 @@
 
              @foreach ($items as $it)
             @php
-                if (($it['auth_only'] ?? false) && !$isAuth) {
+                    if (($it['auth_only'] ?? false) && !$isAuth) {
                         continue;
                     }
                     $pattern  = $it['activeWhen'] ?? $it['route'] ?? null;
-                    $isActive = $pattern ? request()->routeIs($pattern) : false;
+                    // Проверяем путь для подсветки
+                    // request()->is() работает с путями (с * или без), не требует ведущего слэша
+                    $isActive = $pattern ? request()->is($pattern) : false;
 
                     $href = $it['href']
                         ?? (isset($it['route']) && \Illuminate\Support\Facades\Route::has($it['route'])
@@ -55,9 +62,9 @@
               {{ $isActive ? 'text-[#FF7500] font-semibold bg-[#FFF9ED]' : 'text-[#929292]  hover:text-[#19191A]' }}">
                 <x-dynamic-component
                     :component="$it['icon']"
-                    class="w-6 h-6 {{ $isActive ? 'text-[#FF7500]' : 'text-[#929292] group-hover:text-[#FF7500]' }}"
+                    class="w-6 h-6 flex-shrink-0 {{ $isActive ? 'text-[#FF7500]' : 'text-[#929292] group-hover:text-[#FF7500]' }}"
                 />
-                <span class="flex-1">{{ $it['label'] }}</span>
+                <span class="flex-1 text-left">{{ $it['label'] }}</span>
             </a>
             @endforeach
 

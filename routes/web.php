@@ -225,13 +225,31 @@ Route::middleware(['web', 'auth'])->group(function () {
             'update' => 'profile.addresses.update',
             'destroy' => 'profile.addresses.destroy',
         ]);
+
+    // Бонусы
+    Route::get('/profile/bonus', function () {
+        return view('pages.profile.bonuses.index');
+    })->name('profile.bonuses.index');
+
+    // История заказов
+    Route::get('/profile/orders', function () {
+        return view('pages.profile.orders.index');
+    })->name('profile.orders.index');
+
+    Route::get('/profile/orders/{order}', function (\App\Models\Shop\Order $order) {
+        // Проверка, что заказ принадлежит текущему пользователю
+        if ($order->clients_id !== auth()->id()) {
+            abort(403);
+        }
+        return view('pages.profile.orders.show', compact('order'));
+    })->name('profile.orders.show');
 });
 
 Route::middleware(['web'])->group(function () {
   //  Route::redirect('/favorites', '/', 302)->name('favorites.index');
-    Route::redirect('/orders', '/', 302)->name('orders.index');
-    Route::get('/orders/history', fn() => 'Orders history stub')->name('orders.history');
-    Route::get('/bonuses', fn() => 'Bonuses stub')->name('bonuses.index');
+    Route::redirect('/orders', '/profile/orders', 302)->name('orders.index');
+    Route::redirect('/orders/history', '/profile/orders', 302)->name('orders.history');
+    Route::redirect('/bonuses', '/profile/bonus', 302)->name('bonuses.index');
   //  Route::redirect('/profile', '/', 302)->name('profile.show');
     Route::redirect('/addresses', '/profile/addresses', 302)->name('addresses.index');
     // ВАЖНО: правильные имена для аутентификации

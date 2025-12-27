@@ -1000,6 +1000,11 @@ class ProductResource extends Resource
                     }),
 
                 Tables\Columns\TextColumn::make('price')->label(__('product.columns.price'))->money('UAH'),
+                Tables\Columns\TextColumn::make('old_price')
+                    ->label('Старая цена')
+                    ->money('UAH')
+                    ->toggleable()
+                    ->default('—'),
                 Tables\Columns\IconColumn::make('in_stock')->label(__('product.columns.in_stock'))->boolean(),
                 Tables\Columns\TextColumn::make('sort')->label(__('product.columns.sort'))->sortable()->toggleable(),
                 ToggleColumn::make('is_new')->label(__('product.columns.is_new')),

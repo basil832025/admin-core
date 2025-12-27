@@ -65,7 +65,15 @@ class Menus
 
             // простая автоподсветка активного: по текущему path
             $path  = trim(parse_url($href, PHP_URL_PATH) ?: '', '/');
-            $activeWhen = $path ? $path . '*' : '';
+            // Формируем паттерн для подсветки: путь + * для подсветки подпутей
+            // Но для /profile делаем точное совпадение без *, чтобы не подсвечивать /profile/addresses
+            if ($path === 'profile') {
+                // Для /profile делаем точное совпадение, не добавляем *
+                $activeWhen = $path;
+            } else {
+                // Для других путей добавляем * для подсветки подпутей
+                $activeWhen = $path ? $path . '*' : '';
+            }
 
             return [
                 'key'        => (string) $i->id,
@@ -95,6 +103,23 @@ class Menus
 
             if (Str::startsWith($u, ['http://','https://','/'])) {
                 return $u;
+            }
+
+            // Для относительных путей в profile-menu добавляем префикс /profile/
+            // Это нужно для пункта "Адреса доставки" (URL: addresses -> /profile/addresses)
+            // Но если URL уже = 'profile', то возвращаем просто '/profile' без дублирования
+            $menu = $i->menu ?? Menu::find($i->menu_id);
+            if ($menu && $menu->slug === 'profile-menu') {
+                // Если URL уже = 'profile', возвращаем просто '/profile'
+                if ($u === 'profile') {
+                    return '/profile';
+                }
+                // Исключения: favorites не нужно добавлять префикс /profile/
+                if ($u === 'favorites') {
+                    return '/favorites';
+                }
+                // Для других относительных путей добавляем префикс /profile/
+                return '/profile/' . ltrim($u, '/');
             }
 
             return '/' . ltrim($u, '/');

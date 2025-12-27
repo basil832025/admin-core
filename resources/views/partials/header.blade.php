@@ -130,8 +130,8 @@
                 {{-- Увійти --}}
                 @include('partials.header-auth')
 
-                {{-- Вибране --}}
-                <a href="{{ route('favorites.index') }}" class="relative flex items-center justify-center w-5 h-5" aria-label="Вибране">
+                {{-- Обране --}}
+                <a href="{{ route('favorites.index') }}" class="relative flex items-center justify-center w-5 h-5" aria-label="Обране">
                     <img src="{{ asset('images/heart.svg') }}" class="w-5 h-5 shrink-0 flex-none " alt="">
                     <span x-cloak
                           x-show="$store.favorites && ($store.favorites.qty > 0)"

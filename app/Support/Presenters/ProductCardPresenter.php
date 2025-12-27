@@ -92,7 +92,7 @@ class ProductCardPresenter
             'product_id'  => $p->id,
             'slug'        => $p->slug,
             'price'       => $p->price,
-            'old_price'   => $p->price_no_sale,
+            'old_price'   => $p->old_price,
             'char_values' => $buildCharMap($p),
         ]];
 
@@ -101,7 +101,7 @@ class ProductCardPresenter
                 'product_id'  => $child->id,
                 'slug'        => $child->slug,
                 'price'       => $child->price,
-                'old_price'   => $child->price_no_sale,
+                'old_price'   => $child->old_price,
                 'char_values' => $buildCharMap($child),
             ];
         }
@@ -133,7 +133,7 @@ class ProductCardPresenter
         return [
             'title'           => method_exists($p, 'getTranslation') ? $p->getTranslation('title', $this->locale) : $p->title,
             'description'     => method_exists($p, 'getTranslation') ? $p->getTranslation('description', $this->locale) : $p->description,
-            'old_price'       => $p->price_no_sale,
+            'old_price'       => $p->old_price,
             'price'           => $p->price,
             'main_image'      => $p->main_image_url,
             'slug'            => $p->slug,

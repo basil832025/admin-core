@@ -18,7 +18,7 @@ class FavoriteController extends Controller
       //  dd($ids);
         if (empty($ids)) {
             $categorySections = [[
-                'title' => (function_exists('st') ? st('menu.favorites','Вибране') : 'Вибране'),
+                'title' => (function_exists('st') ? st('menu.favorites','Обране') : 'Обране'),
                 'items' => collect(),   // пусто
                 'slug'  => 'favorites',
             ]];
@@ -35,7 +35,7 @@ class FavoriteController extends Controller
         );
 
         $categorySections = [[
-            'title' => (function_exists('st') ? st('menu.favorites','Вибране') : 'Вибране'),
+            'title' => (function_exists('st') ? st('menu.favorites','Обране') : 'Обране'),
             'items' => $items,
             'slug'  => 'favorites',
         ]];

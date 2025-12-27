@@ -54,7 +54,7 @@ case Cancelled  = 'cancelled';   // Отменен
         self::Assembled  => 'cyan',
         self::Shipped    => 'sky',
         self::Delivered  => 'success',
-        self::Cancelled  => 'danger',
+        self::Cancelled  => 'gray',
     };
 }
     function userCanSetStatus(OrderStatus $status): bool
@@ -121,5 +121,27 @@ case Cancelled  = 'cancelled';   // Отменен
     public static function colorsMap(): array
 {
     return collect(self::sorted())->mapWithKeys(fn ($s) => [$s->value => $s->getColor()])->all();
+}
+
+    /**
+     * Получить цвета для фронтенда (hex коды)
+     * Возвращает массив: ['bg' => hex, 'text' => hex]
+     */
+    public function getFrontendColors(): array
+{
+    return match ($this) {
+        self::Cart       => ['bg' => '#E5E7EB', 'text' => '#374151'], // gray-200, gray-700
+        self::New        => ['bg' => '#E9D5FF', 'text' => '#6B21A8'], // violet-200, violet-800
+        self::Processing => ['bg' => '#FDE68A', 'text' => '#92400E'], // amber-200, amber-800
+        self::OnHold     => ['bg' => '#E5E7EB', 'text' => '#374151'], // gray-200, gray-700
+        self::Filling    => ['bg' => '#99F6E4', 'text' => '#134E4A'], // teal-200, teal-800
+        self::Molding    => ['bg' => '#C7D2FE', 'text' => '#3730A3'], // indigo-200, indigo-800
+        self::Baking     => ['bg' => '#FED7AA', 'text' => '#9A3412'], // orange-200, orange-800
+        self::Prepared   => ['bg' => '#D9F99D', 'text' => '#365314'], // lime-200, lime-800
+        self::Assembled  => ['bg' => '#A5F3FC', 'text' => '#164E63'], // cyan-200, cyan-800
+        self::Shipped    => ['bg' => '#BAE6FD', 'text' => '#0C4A6E'], // sky-200, sky-900
+        self::Delivered  => ['bg' => '#BBF7D0', 'text' => '#166534'], // green-200 (Success), green-800
+        self::Cancelled  => ['bg' => '#E5E7EB', 'text' => '#374151'], // gray-200, gray-700
+    };
 }
 }

@@ -11,7 +11,7 @@ return [
     'prepared'    => 'Приготовлен',
     'assembled'   => 'Собран',
     'shipped'     => 'Доставка',
-    'delivered'   => 'Доставлен',
+    'delivered'   => 'Завершен',
     'cancelled'   => 'Отменен',
 ];
 

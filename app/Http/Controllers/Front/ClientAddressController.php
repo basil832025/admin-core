@@ -60,7 +60,7 @@ class ClientAddressController extends Controller
 
         return redirect()
             ->route('profile.addresses.index')
-            ->with('success', 'Адреса успішно додана');
+            ->with('success', st('profile.addresses.success_added', 'Адреса успішно додана'));
     }
 
     /**
@@ -107,7 +107,7 @@ class ClientAddressController extends Controller
 
         return redirect()
             ->route('profile.addresses.index')
-            ->with('success', 'Адреса успішно оновлена');
+            ->with('success', st('profile.addresses.success_updated', 'Адреса успішно оновлена'));
     }
 
     /**
@@ -124,7 +124,7 @@ class ClientAddressController extends Controller
 
         return redirect()
             ->route('profile.addresses.index')
-            ->with('success', 'Адреса успішно видалена');
+            ->with('success', st('profile.addresses.success_deleted', 'Адреса успішно видалена'));
     }
 }
 

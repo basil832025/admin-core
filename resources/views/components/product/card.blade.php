@@ -27,9 +27,22 @@
     <a href="{{ $url }}">
         <div class="relative desk:w-[354px] h-[220px] md:w-[336px] w-[331px] overflow-hidden rounded-[12px]">
             <img src="{{ $image }}" alt="{{ $title }}" class="h-full w-full object-cover">
-            <span class="absolute right-[10px] top-[10px] rounded-[3px] bg-[#B91C1C] px-[10px] py-[4px] text-white font-intro font-bold text-[14px] leading-[16px]">
-                Знижка –22%
-            </span>
+            @php
+                // Вычисляем процент скидки, если есть старая цена
+                $discountPercent = null;
+                if ($price_no_sale && $price_no_sale > 0 && $price && $price > 0) {
+                    $oldPrice = (float)$price_no_sale;
+                    $currentPrice = (float)$price;
+                    if ($oldPrice > $currentPrice) {
+                        $discountPercent = round((($oldPrice - $currentPrice) / $oldPrice) * 100);
+                    }
+                }
+            @endphp
+            @if($discountPercent && $discountPercent > 0)
+                <span class="absolute right-[10px] top-[10px] rounded-[3px] bg-[#B91C1C] px-[10px] py-[4px] text-white font-intro font-bold text-[14px] leading-[16px]">
+                    Знижка –{{ $discountPercent }}%
+                </span>
+            @endif
         </div>
     </a>
 

@@ -13,11 +13,6 @@
         x-data="profilePage()"
         class="mx-auto desk:w-[1200px] px-4 md:px-6 desk:px-0"
     >
-        {{-- Хлебные / заголовок можно скрыть, если не нужно --}}
-        <h1 class="sr-only md:not-sr-only md:text-[28px] md:leading-8 font-bold text-[#19191A] md:mb-4">
-            {{ st('profile.title','Профіль') }}
-        </h1>
-
         <div class="xl:grid xl:grid-cols-[240px,1fr] md:gap-6">
             {{-- Леве меню (desktop) --}}
             <aside class="hidden xl:block">
@@ -25,7 +20,11 @@
             </aside>
 
             {{-- Контент --}}
-            <main  >
+            <main>
+                {{-- Заголовок --}}
+                <h1 class="text-[28px] font-bold text-[#19191A] mb-4">
+                    {{ st('profile.title','Профіль') }}
+                </h1>
 
                 {{-- Карта профілю --}}
                 <div class="bg-white rounded-[6px] ring-1 ring-black/10 p-4 md:p-6">

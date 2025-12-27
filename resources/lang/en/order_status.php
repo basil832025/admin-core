@@ -11,7 +11,7 @@ return [
     'prepared'    => 'Prepared',
     'assembled'   => 'Assembled',
     'shipped'     => 'Shipped',
-    'delivered'   => 'Delivered',
+    'delivered'   => 'Completed',
     'cancelled'   => 'Cancelled',
 ];
 
