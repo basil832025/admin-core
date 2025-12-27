@@ -116,9 +116,16 @@
                                 }
                                 $image = $image ?? asset('images/placeholder-4x3.jpg');
                                 
-                                $qty = $item->qty ?? 1;
-                                $price = $item->unit_price ?? $item->price ?? 0;
-                                $subtotal = $item->subtotal ?? $item->total ?? ($qty * $price);
+                                $qty = (int)($item->qty ?? 1);
+                                $price = (float)($item->unit_price ?? 0);
+                                // Если subtotal или total не заполнены, вычисляем из unit_price и qty
+                                if (!empty($item->subtotal) && (float)$item->subtotal > 0) {
+                                    $subtotal = (float)$item->subtotal;
+                                } elseif (!empty($item->total) && (float)$item->total > 0) {
+                                    $subtotal = (float)$item->total;
+                                } else {
+                                    $subtotal = $qty * $price;
+                                }
                                 
                                 // Получаем старую цену
                                 $oldPrice = null;
