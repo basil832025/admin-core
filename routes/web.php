@@ -236,19 +236,22 @@ Route::middleware(['web', 'auth'])->group(function () {
         return view('pages.profile.orders.index');
     })->name('profile.orders.index');
 
-    Route::get('/profile/orders/{order}', function (\App\Models\Shop\Order $order) {
-        // Проверка, что заказ принадлежит текущему пользователю
-        $currentUserId = auth()->id();
-        $orderClientId = $order->clients_id;
+    Route::get('/profile/orders/{order}', function ($orderId) {
+        $user = auth()->user();
         
         // Проверяем, что пользователь авторизован
-        if (!$currentUserId) {
-            abort(403);
+        if (!$user) {
+            abort(403, 'User not authenticated');
         }
         
-        // Строгое сравнение с приведением к int для избежания проблем с типами
-        if ((int)$orderClientId !== (int)$currentUserId) {
-            abort(403);
+        // Находим заказ с явной проверкой принадлежности
+        $order = \App\Models\Shop\Order::where('id', $orderId)
+            ->where('clients_id', $user->id)
+            ->first();
+        
+        // Если заказ не найден или не принадлежит пользователю
+        if (!$order) {
+            abort(403, 'Order not found or access denied');
         }
         
         return view('pages.profile.orders.show', compact('order'));
