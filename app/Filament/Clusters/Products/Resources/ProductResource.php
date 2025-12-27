@@ -974,10 +974,25 @@ class ProductResource extends Resource
 
                 ViewColumn::make('title')
                     ->label(__('product.columns.title'))
-                    ->view('filament.tables.columns.title-with-preview'),
+                    ->view('filament.tables.columns.title-with-preview')
+                    ->sortable(query: function (Builder $query, string $direction) use ($defaultLocale): Builder {
+                        return $query->orderByRaw(
+                            "JSON_UNQUOTE(JSON_EXTRACT(`title`, '$.\"{$defaultLocale}\"')) {$direction}"
+                        );
+                    }),
                 TextColumn::make('category_id')
                     ->label(__('product.columns.category'))
-                    ->sortable(false)       // можно сделать кастомную сортировку позже
+                    ->sortable(query: function (Builder $query, string $direction) use ($defaultLocale): Builder {
+                        $productTable = (new \App\Models\Shop\Product())->getTable();
+                        $categoryTable = (new \App\Models\Shop\ProductCategory())->getTable();
+                        
+                        // Используем leftJoin, чтобы избежать потери записей без категории
+                        return $query->leftJoin($categoryTable, "{$productTable}.category_id", '=', "{$categoryTable}.id")
+                            ->orderByRaw(
+                                "JSON_UNQUOTE(JSON_EXTRACT(`{$categoryTable}`.`title`, '$.\"{$defaultLocale}\"')) {$direction}"
+                            )
+                            ->select("{$productTable}.*");
+                    })
                     ->searchable(false)
                     ->formatStateUsing(function ($state,  $record)use ($defaultLocale)   {
                         $locale =  $defaultLocale;
@@ -999,19 +1014,20 @@ class ProductResource extends Resource
                         return '—';
                     }),
 
-                Tables\Columns\TextColumn::make('price')->label(__('product.columns.price'))->money('UAH'),
+                Tables\Columns\TextColumn::make('price')->label(__('product.columns.price'))->money('UAH')->sortable(),
                 Tables\Columns\TextColumn::make('old_price')
                     ->label('Старая цена')
                     ->money('UAH')
+                    ->sortable()
                     ->toggleable()
                     ->default('—'),
-                Tables\Columns\IconColumn::make('in_stock')->label(__('product.columns.in_stock'))->boolean(),
+                Tables\Columns\IconColumn::make('in_stock')->label(__('product.columns.in_stock'))->boolean()->sortable(),
                 Tables\Columns\TextColumn::make('sort')->label(__('product.columns.sort'))->sortable()->toggleable(),
-                ToggleColumn::make('is_new')->label(__('product.columns.is_new')),
-                ToggleColumn::make('is_hit')->label(__('product.columns.is_hit')),
-                ToggleColumn::make('is_home')->label(__('product.columns.is_home')),
-                Tables\Columns\TextColumn::make('quantity')->label(__('product.columns.quantity')),
-                Tables\Columns\TextColumn::make('updated_at')->label(__('product.columns.updated_at'))->dateTime('d.m.Y H:i')
+                ToggleColumn::make('is_new')->label(__('product.columns.is_new'))->sortable(),
+                ToggleColumn::make('is_hit')->label(__('product.columns.is_hit'))->sortable(),
+                ToggleColumn::make('is_home')->label(__('product.columns.is_home'))->sortable(),
+                Tables\Columns\TextColumn::make('quantity')->label(__('product.columns.quantity'))->sortable(),
+                Tables\Columns\TextColumn::make('updated_at')->label(__('product.columns.updated_at'))->dateTime('d.m.Y H:i')->sortable()
             ])
             ->filtersFormColumns(6) // сколько колонок занимают фильтры в строке
             // 👇 сохранять выбор фильтров между перезагрузками
