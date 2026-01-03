@@ -11,7 +11,9 @@ return [
     |
     */
 
-    'order_notification_email' => env('ORDER_NOTIFICATION_EMAIL', 'info@3piroga.ua'),
+    'order_notification_email' => array_filter(
+        array_map('trim', explode(',', env('ORDER_NOTIFICATION_EMAIL', 'info@3piroga.ua')))
+    ),
 
 ];
 

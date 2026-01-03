@@ -71,10 +71,34 @@
     $order->load([
         'items.product.parent.productCharacteristicValues.characteristic.svgImage',
         'items.product.productCharacteristicValues.characteristic.svgImage',
-        'items.product.productCharacteristicValues.characteristicValue'
+        'items.product.productCharacteristicValues.characteristicValue',
+        'adjustments'
     ]);
     $items = $order->items;
-    $total = $order->grand_total ?? $order->total_price ?? 0;
+    
+    // Сумма товаров без скидок
+    $itemsTotal = (float)($order->total_price ?? 0);
+    
+    // Все скидки (adjustments с отрицательными amount)
+    // Берем только adjustments на уровне заказа (не на уровне товара)
+    $adjustments = $order->adjustments()->whereNull('shop_order_item_id')->get();
+    $discountTotal = 0;
+    $discountsList = [];
+    
+    foreach ($adjustments as $adj) {
+        $amount = (float)($adj->amount ?? 0);
+        if ($amount < 0) {
+            $discountAmount = abs($amount);
+            $discountTotal += $discountAmount;
+            $discountsList[] = [
+                'label' => $adj->label ?? 'Скидка',
+                'amount' => $discountAmount,
+            ];
+        }
+    }
+    
+    // Итоговая сумма с учетом скидок
+    $total = $order->grand_total ?? ($itemsTotal - $discountTotal);
 @endphp
 
 <x-mail::table>
@@ -174,7 +198,15 @@
 
 ## Итого
 
-**Сумма заказа:** {{ number_format($total, 2, '.', ' ') }} грн
+**Товары:** {{ number_format($itemsTotal, 2, '.', ' ') }} грн
+
+@if(!empty($discountsList))
+@foreach($discountsList as $discount)
+**{{ $discount['label'] }}:** -{{ number_format($discount['amount'], 2, '.', ' ') }} грн
+@endforeach
+@endif
+
+**Итого к оплате:** {{ number_format($total, 2, '.', ' ') }} грн
 
 @if($order->notes)
 ## Комментарии

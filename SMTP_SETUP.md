@@ -14,7 +14,7 @@ MAIL_ENCRYPTION=ssl
 MAIL_FROM_ADDRESS=test@3piroga.ua
 MAIL_FROM_NAME="Три пироги"
 
-ORDER_NOTIFICATION_EMAIL=neo.basil@gmail.com
+ORDER_NOTIFICATION_EMAIL=neo.basil@gmail.com,another@example.com
 ```
 
 **Альтернативные порты (если 465 не работает):**

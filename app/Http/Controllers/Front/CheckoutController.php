@@ -721,18 +721,31 @@ public function submit(Request $request)
             'items.product.parent.productCharacteristicValues.characteristic.svgImage',
             'items.product.productCharacteristicValues.characteristic.svgImage',
             'items.product.productCharacteristicValues.characteristicValue',
+            'adjustments',
             'clientAddress', 
             'clients'
         ]);
-        $notificationEmail = config('notifications.order_notification_email');
-        if ($notificationEmail) {
+        $notificationEmails = config('notifications.order_notification_email', []);
+        // Если это строка (старый формат), преобразуем в массив
+        if (is_string($notificationEmails)) {
+            $notificationEmails = array_filter(array_map('trim', explode(',', $notificationEmails)));
+        }
+        // Если массив пустой, используем fallback
+        if (empty($notificationEmails)) {
+            $notificationEmails = ['info@3piroga.ua'];
+        }
+        
+        if (!empty($notificationEmails)) {
             \Log::info('Sending order notification email', [
                 'order_id' => $order->id,
-                'email' => $notificationEmail,
+                'emails' => $notificationEmails,
                 'mail_driver' => config('mail.default'),
             ]);
-            Mail::to($notificationEmail)->send(new OrderNotificationMail($order));
-            \Log::info('Order notification email sent successfully', ['order_id' => $order->id]);
+            Mail::to($notificationEmails)->send(new OrderNotificationMail($order));
+            \Log::info('Order notification email sent successfully', [
+                'order_id' => $order->id,
+                'emails' => $notificationEmails,
+            ]);
         } else {
             \Log::warning('Order notification email not configured', ['order_id' => $order->id]);
         }
