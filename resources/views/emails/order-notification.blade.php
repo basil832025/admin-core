@@ -52,17 +52,17 @@
 ## Способ оплаты
 
 @if($order->payment)
-    @if($order->payment === \App\Enums\PaymentMethodEnum::CARD || $order->payment->value === 1)
-        Оплата картой
+    @if($order->payment === \App\Enums\PaymentMethodEnum::LIQPAY || $order->payment->value === 11)
+        LiqPay
+    @elseif($order->payment === \App\Enums\PaymentMethodEnum::CARD || $order->payment->value === 1)
+        {{ st('cart.payment.card_on_delivery', 'Картой при получении') }}
     @elseif($order->payment === \App\Enums\PaymentMethodEnum::CASH || $order->payment->value === 2)
-        Оплата наличными
-    @elseif($order->payment === \App\Enums\PaymentMethodEnum::LIQPAY || $order->payment->value === 11)
-        Онлайн оплата
+        {{ st('cart.payment.cash', 'Наличными') }}
     @else
         {{ $order->payment->label() }}
     @endif
 @else
-    Оплата картой
+    {{ st('cart.payment.card_on_delivery', 'Картой при получении') }}
 @endif
 
 ## Товары
