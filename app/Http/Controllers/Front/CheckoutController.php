@@ -21,6 +21,8 @@ use App\Models\Shop\Product;
 use App\Models\Shop\FixedDiscount;
 use App\Models\Shop\TimeDiscount;
 use App\Services\LiqPayService;
+use App\Mail\OrderNotificationMail;
+use Illuminate\Support\Facades\Mail;
 
 
 class CheckoutController extends Controller
@@ -713,7 +715,37 @@ public function submit(Request $request)
     $order->grand_total = max(0, round($baseTotal + $adjTotal, 2));
     $order->save();
 
-// 10. Очищаем только гостевую корзину
+    // 10. Отправляем уведомление на почту
+    try {
+        $order->load([
+            'items.product.parent.productCharacteristicValues.characteristic.svgImage',
+            'items.product.productCharacteristicValues.characteristic.svgImage',
+            'items.product.productCharacteristicValues.characteristicValue',
+            'clientAddress', 
+            'clients'
+        ]);
+        $notificationEmail = config('notifications.order_notification_email');
+        if ($notificationEmail) {
+            \Log::info('Sending order notification email', [
+                'order_id' => $order->id,
+                'email' => $notificationEmail,
+                'mail_driver' => config('mail.default'),
+            ]);
+            Mail::to($notificationEmail)->send(new OrderNotificationMail($order));
+            \Log::info('Order notification email sent successfully', ['order_id' => $order->id]);
+        } else {
+            \Log::warning('Order notification email not configured', ['order_id' => $order->id]);
+        }
+    } catch (\Throwable $e) {
+        \Log::error('Failed to send order notification email: ' . $e->getMessage(), [
+            'order_id' => $order->id,
+            'email' => $notificationEmail ?? 'not configured',
+            'mail_driver' => config('mail.default'),
+            'trace' => $e->getTraceAsString(),
+        ]);
+    }
+
+// 11. Очищаем только гостевую корзину
     if (method_exists($this->cart, 'clearAfterCheckout')) {
         $this->cart->clearAfterCheckout();
     }
