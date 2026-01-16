@@ -495,7 +495,6 @@ export default function authModal(opts = {}) {
                 // если номер не собрали — сразу понятная ошибка и выходим
                 if (!/^380\d{9}$/.test(phoneDigits)) {
                     this.smsError =  t('auth.enter_phone');
-                    console.warn('VERIFY: phoneDigits empty/invalid', { phoneDigits, sms: this.sms });
                     return;
                 }
 
@@ -513,7 +512,6 @@ export default function authModal(opts = {}) {
                 const data = await res.json().catch(()=>({}));
 
                 if (!res.ok || data.ok !== true){
-                    console.log('VERIFY-ERROR', data);
                     const codeKey = data.errors?.code?.[0];
 
                     this.smsError =

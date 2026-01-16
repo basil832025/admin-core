@@ -106,14 +106,7 @@ Rows Data:
         discountPercent: @js($initialDiscount ?? null), 
         rootId: @js($pid), 
         init() { 
-            // ДИАГНОСТИКА
-            console.log('=== CARD INIT DEBUG ===');
-            console.log('Debug info:', @js($debugInfo));
-            console.log('Prices map:', this.prices);
-            console.log('Initial discount:', this.discountPercent);
-            
-            const initialProductId = @js($pid ? (string)$pid : ($rows[0]['product_id'] ?? '')); 
-            console.log('Initial product ID:', initialProductId);
+            const initialProductId = @js($pid ? (string)$pid : ($rows[0]['product_id'] ?? ''));
             if (initialProductId) { 
                 this.updateDiscount(initialProductId); 
             }
@@ -131,36 +124,28 @@ Rows Data:
                                 if (selectorData.selected) { this.updateDiscount(String(selectorData.selected)); } 
                             } 
                         } catch(e) {
-                            console.warn('Error accessing rows-selector data:', e);
+                            // Silent error handling
                         }
                     } 
                 } 
             }); 
         }, 
         updateDiscount(productId) { 
-            console.log('updateDiscount called with productId:', productId);
             if (!productId) { 
-                console.log('No productId, setting discount to null');
                 this.discountPercent = null; 
                 return; 
             } 
             const priceData = this.prices[String(productId)]; 
-            console.log('Price data for', productId, ':', priceData);
             if (!priceData) { 
-                console.log('No price data, setting discount to null');
                 this.discountPercent = null; 
                 return; 
             } 
             const oldPrice = priceData.old; 
             const currentPrice = priceData.price; 
             
-            console.log('Calculating discount:', { oldPrice, currentPrice });
-            
             if (oldPrice !== null && oldPrice !== undefined && oldPrice > 0 && currentPrice && currentPrice > 0 && oldPrice > currentPrice) { 
                 this.discountPercent = Math.round(((oldPrice - currentPrice) / oldPrice) * 100); 
-                console.log('Discount calculated:', this.discountPercent + '%');
             } else { 
-                console.log('No discount (conditions not met)');
                 this.discountPercent = null; 
             } 
         }, 

@@ -140,14 +140,13 @@
                                     const price = typeof $store.sku?.price === 'function'
                                         ? Number($store.sku.price() || 0)
                                         : null;
-                                    console.log('Product page: add to cart', { product_id: pid, price });
                                     window.CartAPI.add('{{ route('cart.add') }}', {
                                         product_id: pid,
                                         qty: 1,
                                         price: price,
                                     })
                                     .then((data) => {
-                                        console.log('Product page: cart response', data);
+                                        // Cart added successfully
                                     })
                                     .catch((e) => {
                                         console.error('Product page: CartAPI.add error', e);
