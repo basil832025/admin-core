@@ -173,8 +173,8 @@ Rows Data:
     </a>
 
     <div class="pt-4 flex-1 flex flex-col">
-        <div class="flex items-start justify-between">
-            <h5 class="w-[312px] font-intro font-bold text-[16px] leading-[22px] text-neutral-700">
+        <div class="flex items-start justify-between gap-2">
+            <h5 class="flex-1 min-w-0 font-intro font-bold text-[16px] leading-[22px] text-neutral-700 break-words">
                 {{ $title }}
             </h5>
 
@@ -188,11 +188,11 @@ Rows Data:
             @endif
         </div>
 
-        <p class="w-[354px] font-intro text-[13px] leading-[16px] text-[#C04103]">
+        <p class="w-full font-intro text-[13px] leading-[16px] text-[#C04103] break-words">
             {{ st('product.sku_label', 'Артикул') }}: {{ $article ?? '123456' }}
         </p>
 
-        <div class="w-[354px] font-intro text-[13px] leading-[16px] text-[#A9A9A9] clamp-6 max-h-[96px] overflow-hidden">
+        <div class="w-full font-intro text-[13px] leading-[16px] text-[#A9A9A9] clamp-6 max-h-[96px] overflow-hidden break-words">
             {!! $description !!}
         </div>
 
