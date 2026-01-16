@@ -12,14 +12,25 @@ export function registerCartStore(Alpine, { infoUrl = '/cart/info', initQty = 0,
         });
     }
 
-    // первичная загрузка состояния
-    fetch(infoUrl, { headers: { 'Accept': 'application/json' } })
-        .then(r => r.json())
-        .then(d => {
-            Alpine.store('cart').setQty(Number(d.qty ?? 0));
-            Alpine.store('cart').setTotal(Number(d.total_price ?? d.total ?? 0));
-        })
-        .catch(() => {});
+    // первичная загрузка состояния - используем глобальный кеш, если доступен
+    const loadCartData = async () => {
+        try {
+            let data;
+            if (window.__CART_CACHE__) {
+                // Используем кеш, чтобы избежать дублирования запросов
+                data = await window.__CART_CACHE__.get();
+            } else {
+                // Fallback на прямой запрос, если кеш не инициализирован
+                const res = await fetch(infoUrl, { headers: { 'Accept': 'application/json' } });
+                data = await res.json();
+            }
+            Alpine.store('cart').setQty(Number(data.qty ?? 0));
+            Alpine.store('cart').setTotal(Number(data.total_price ?? data.total ?? 0));
+        } catch (_) {
+            // Игнорируем ошибки
+        }
+    };
+    loadCartData();
 
     // любое обновление корзины (из patchDom) — обновляем бейдж
     window.addEventListener('cart-updated', (e) => {

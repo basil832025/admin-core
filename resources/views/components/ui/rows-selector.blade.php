@@ -89,6 +89,7 @@
             });
             
             // Отправляем начальное событие после инициализации
+            // Откладываем checkCartQty на небольшую задержку, чтобы кеш успел загрузиться
             this.$nextTick(() => {
                 const detail = {
                     productId: this.selected,
@@ -106,24 +107,43 @@
                 
                 this.$dispatch('variant-selected', detail);
                 
-                // Проверяем количество в корзине при инициализации
-                this.checkCartQty();
+                // Откладываем проверку корзины, чтобы все карточки не запрашивали одновременно
+                // Используем небольшую случайную задержку для батчинга запросов
+                setTimeout(() => {
+                    this.checkCartQty();
+                }, Math.random() * 50 + 10); // 10-60ms случайная задержка
             });
             
             // Слушаем обновления корзины
             window.addEventListener('cart-updated', (e) => {
                 if (e?.detail?.item?.product_id === parseInt(this.selected)) {
                     this.cartQty = e.detail.item?.qty ?? 0;
+                } else if (e?.detail?.items) {
+                    // Если пришли все items, обновляем для текущего товара
+                    const item = e.detail.items.find(i => parseInt(i.product_id) === parseInt(this.selected));
+                    if (item) {
+                        this.cartQty = item.qty ?? 0;
+                    }
                 }
             });
         },
 
         async checkCartQty() {
             try {
-                const res = await fetch('{{ route('cart.info') }}', {
-                    headers: { 'Accept': 'application/json' }
-                });
-                const data = await res.json();
+                // Используем глобальный кеш вместо прямого запроса
+                const cache = window.__CART_CACHE__;
+                if (!cache) {
+                    // Fallback на прямой запрос, если кеш не инициализирован
+                    const res = await fetch('{{ route('cart.info') }}', {
+                        headers: { 'Accept': 'application/json' }
+                    });
+                    const data = await res.json();
+                    const item = (data?.items ?? []).find(i => parseInt(i.product_id) === parseInt(this.selected));
+                    this.cartQty = item?.qty ?? 0;
+                    return;
+                }
+                
+                const data = await cache.get();
                 const item = (data?.items ?? []).find(i => parseInt(i.product_id) === parseInt(this.selected));
                 this.cartQty = item?.qty ?? 0;
             } catch (e) {

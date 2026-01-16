@@ -53,6 +53,62 @@ function registerAlpineComponents() {
         isActive(k){ return this.active === k },
     }));
     
+    // Глобальный кеш состояния корзины для всех карточек товаров
+    // Предотвращает множественные запросы /cart/info при инициализации
+    // Инициализируем ДО регистрации компонентов, чтобы они могли его использовать
+    window.__CART_CACHE__ = {
+        data: null,
+        loading: false,
+        promise: null,
+        timestamp: 0,
+        TTL: 5000, // 5 секунд
+        
+        async get() {
+            // Если данные свежие (меньше TTL) - возвращаем кеш
+            if (this.data && (Date.now() - this.timestamp) < this.TTL) {
+                return this.data;
+            }
+            
+            // Если уже идет загрузка - возвращаем промис
+            if (this.loading && this.promise) {
+                return this.promise;
+            }
+            
+            // Начинаем загрузку
+            this.loading = true;
+            this.promise = fetch('/cart/info', {
+                headers: { 'Accept': 'application/json' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                this.data = data;
+                this.timestamp = Date.now();
+                this.loading = false;
+                this.promise = null;
+                return data;
+            })
+            .catch(err => {
+                this.loading = false;
+                this.promise = null;
+                return { items: [], qty: 0, total_price: 0 };
+            });
+            
+            return this.promise;
+        },
+        
+        invalidate() {
+            this.data = null;
+            this.timestamp = 0;
+        }
+    };
+    
+    // Инвалидируем кеш при обновлении корзины
+    window.addEventListener('cart-updated', () => {
+        if (window.__CART_CACHE__) {
+            window.__CART_CACHE__.invalidate();
+        }
+    });
+    
     registerCartActions(Alpine);
     registerFavoriteButton(Alpine)
     registerCartStore(window.Alpine, {
@@ -72,6 +128,54 @@ function registerAlpineComponents() {
     Alpine.store('authModal', { open:false });
     window.addEventListener('open-auth-modal', () => Alpine.store('authModal').open = true);
 }
+// Предзагружаем данные корзины сразу при загрузке страницы,
+// чтобы кеш был готов до инициализации карточек товаров
+if (!window.__CART_CACHE__) {
+    window.__CART_CACHE__ = {
+        data: null,
+        loading: false,
+        promise: null,
+        timestamp: 0,
+        TTL: 5000,
+        
+        async get() {
+            if (this.data && (Date.now() - this.timestamp) < this.TTL) {
+                return this.data;
+            }
+            if (this.loading && this.promise) {
+                return this.promise;
+            }
+            this.loading = true;
+            this.promise = fetch('/cart/info', {
+                headers: { 'Accept': 'application/json' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                this.data = data;
+                this.timestamp = Date.now();
+                this.loading = false;
+                this.promise = null;
+                return data;
+            })
+            .catch(err => {
+                this.loading = false;
+                this.promise = null;
+                return { items: [], qty: 0, total_price: 0 };
+            });
+            return this.promise;
+        },
+        
+        invalidate() {
+            this.data = null;
+            this.timestamp = 0;
+        }
+    };
+}
+
+// Предзагружаем данные корзины асинхронно
+// Это гарантирует, что кеш будет заполнен до того, как карточки начнут запрашивать
+window.__CART_CACHE__.get().catch(() => {});
+
 // если Alpine уже загрузился — регистрируем сразу,
 // если ещё нет — дождёмся события инициализации
 if (window.Alpine) {
@@ -139,30 +243,42 @@ document.addEventListener('alpine:init', () => {
         infoUrl,
 
         async init() {
-            // 1) сразу попробуем подтянуть актуальное
+            // 1) используем кеш для получения актуальных данных
             await this.refresh();
 
             // 2) слушаем глобальные обновления корзины
             window.addEventListener('cart-updated', (e) => {
                 if (e?.detail?.qty !== undefined) {
                     this.qty = Number(e.detail.qty) || 0;
+                } else if (e?.detail?.items) {
+                    // Если пришли items, считаем общее количество
+                    const totalQty = (e.detail.items || []).reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
+                    this.qty = totalQty;
                 } else {
-                    this.refresh(); // если qty не пришёл — дотянем сами
+                    // Используем кеш вместо прямого запроса
+                    this.refresh();
                 }
             });
         },
 
         async refresh() {
             try {
-                const res = await fetch(this.infoUrl, {
-                    headers: {
-                        'Accept': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                    credentials: 'same-origin', // важно для сессии
-                    cache: 'no-store',          // не брать из кэша
-                });
-                const data = await res.json();
+                let data;
+                // Используем глобальный кеш, если доступен
+                if (window.__CART_CACHE__) {
+                    data = await window.__CART_CACHE__.get();
+                } else {
+                    // Fallback на прямой запрос, если кеш не инициализирован
+                    const res = await fetch(this.infoUrl, {
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        credentials: 'same-origin',
+                        cache: 'no-store',
+                    });
+                    data = await res.json();
+                }
                 if (data && data.qty !== undefined) {
                     this.qty = Number(data.qty) || 0;
                 }
