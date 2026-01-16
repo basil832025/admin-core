@@ -72,6 +72,15 @@
                 <span class="text-gray-700">{{ $product['title'] }}</span>
             </nav>
 
+            {{-- Кнопка "Назад" --}}
+            <a href="javascript:history.back()" 
+               class="inline-flex items-center gap-2 text-[#333333] hover:text-[#FF7500] transition mb-4">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M15 18L9 12L15 6" stroke="#FF7500" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="font-intro font-bold text-[18px] leading-[22px]">{{ st('common.back', 'Назад') }}</span>
+            </a>
+
             {{-- Верх: фото + инфо --}}
             <section class="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 {{-- Фото --}}
