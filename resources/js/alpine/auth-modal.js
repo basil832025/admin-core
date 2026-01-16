@@ -72,6 +72,7 @@ export default function authModal(opts = {}) {
         onLoginBackspace(e) {
             const el = e.target;
             try {
+                if (!el || typeof el.selectionStart === 'undefined' || !el.setSelectionRange) return;
                 if (el.selectionStart <= this.PREFIX_LEN) {        // не даём стирать префикс
                     e.preventDefault();
                     el.setSelectionRange(this.PREFIX_LEN, this.PREFIX_LEN);
@@ -114,6 +115,7 @@ export default function authModal(opts = {}) {
         onForgotClick(e) {
             const el = e.target;
             try {
+                if (!el || typeof el.selectionStart === 'undefined' || !el.setSelectionRange) return;
                 if (el.selectionStart < this.PREFIX_LEN)
                     el.setSelectionRange(this.PREFIX_LEN, this.PREFIX_LEN);
             } catch (_) {}
@@ -121,6 +123,7 @@ export default function authModal(opts = {}) {
         onForgotBackspace(e) {
             const el = e.target;
             try {
+                if (!el || typeof el.selectionStart === 'undefined' || !el.setSelectionRange) return;
                 if (el.selectionStart <= this.PREFIX_LEN) {
                     e.preventDefault();
                     el.setSelectionRange(this.PREFIX_LEN, this.PREFIX_LEN);
