@@ -11,8 +11,8 @@
         <!-- левая стрелка -->
         <button
             type="button"
-            class="menu-arrow absolute left-4 top-1/2 -translate-y-1/2 z-10
-             h-6 w-6 p-0 bg-transparent rounded-none ring-0 shadow-none
+            class="menu-arrow absolute left-0 top-1/2 -translate-y-1/2 z-20
+             h-6 w-6 p-0 bg-white/80 backdrop-blur-sm rounded-none ring-0 shadow-none
              flex items-center justify-center"
             x-show="canScrollLeft" @click="scroll('left')" aria-label="Вліво">
 
@@ -24,8 +24,8 @@
         <!-- правая стрелка -->
         <button
             type="button"
-            class="menu-arrow absolute right-4 top-1/2 -translate-y-1/2 z-10
-             h-6 w-6 p-0 bg-transparent rounded-none ring-0 shadow-none
+            class="menu-arrow absolute right-0 top-1/2 -translate-y-1/2 z-20
+             h-6 w-6 p-0 bg-white/80 backdrop-blur-sm rounded-none ring-0 shadow-none
              flex items-center justify-center"
             x-show="canScrollRight" @click="scroll('right')" aria-label="Вправо">
             <svg width="11" height="21" viewBox="0 0 11 21" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -45,7 +45,7 @@
              class="w-full overflow-x-auto no-scrollbar scroll-smooth">
             <ul class="flex items-center justify-center           <!-- центрируем по оси X -->
             w-max mx-auto                               <!-- ширина по контенту + авто-отступы -->
-                 pl-[56px] pr-[56px]           {{-- место под стрелки --}}
+                 pl-10 pr-10           {{-- место под стрелки (40px с каждой стороны) --}}
                 gap-4 md:gap-[70px]           {{-- 16px мобайл, ~70px на md+ --}}
                 h-10">
                 @foreach ($MainMenuItems as $i => $item)

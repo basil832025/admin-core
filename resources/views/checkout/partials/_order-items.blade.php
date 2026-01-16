@@ -2,12 +2,14 @@
     $cartUrl = Route::has('cart.page') ? route('cart.page') : url('/cart');
 @endphp
 
-<div
-    class="bg-white rounded-[12px] shadow-[0_2px_10px_rgba(0,0,0,.08)] p-4 space-y-4"
-    x-data="(() => {
-        const addUrl = '{{ $addUrl }}';
-        const removeUrl = '{{ $removeUrl }}';
-        const csrfToken = '{{ csrf_token() }}';
+@push('scripts')
+<script>
+document.addEventListener('alpine:init', () => {
+    Alpine.data('checkoutOrderItems', () => {
+        const addUrl = @json($addUrl);
+        const removeUrl = @json($removeUrl);
+        const csrfToken = @json(csrf_token());
+        const currencyShort = @json(st('cart.summary.currency_short', 'грн.'));
 
         async function sendRequest(url, payload) {
             try {
@@ -30,7 +32,8 @@
 
         function updateDom(data, productId) {
             try {
-                const row = document.querySelector(`[data-cart-item='${productId}']`);
+                const productIdStr = String(productId || '').split('"').join('&quot;');
+                const row = document.querySelector('[data-cart-item="' + productIdStr + '"]');
                 if (!row) return;
 
                 if (data && data.item) {
@@ -66,7 +69,7 @@
                 }
 
                 const fmt = (v) =>
-                    new Intl.NumberFormat('uk-UA').format(Number(v || 0)) + ' {{ st('cart.summary.currency_short', 'грн.') }}';
+                    new Intl.NumberFormat('uk-UA').format(Number(v || 0)) + ' ' + currencyShort;
 
                 const totalEl = document.querySelector('[data-cart-total]');
                 if (totalEl) totalEl.textContent = fmt(total);
@@ -113,7 +116,14 @@
                 return data;
             }
         };
-    })()"
+    });
+});
+</script>
+@endpush
+
+<div
+    class="bg-white rounded-[12px] shadow-[0_2px_10px_rgba(0,0,0,.08)] p-4 space-y-4"
+    x-data="checkoutOrderItems"
     @cart-remove.stop="doRemove($event.detail)"
 >
     <div class="flex items-start justify-between gap-2">

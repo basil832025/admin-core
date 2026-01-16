@@ -5,7 +5,7 @@
 
 <div
     class="bg-white rounded-xl shadow-[0_2px_10px_rgba(0,0,0,.08)] pt-3 pr-4 pb-3 pl-4 space-y-4"
-    x-show="method === 'pickup'"
+    x-show="typeof method !== 'undefined' && method === 'pickup'"
     x-cloak
     x-data="{
         openMap() {

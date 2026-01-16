@@ -1,7 +1,7 @@
 <div
     class="bg-white rounded-xl shadow-[0_2px_10px_rgba(0,0,0,.08)] pt-3 pr-4 pb-3 pl-4 space-y-6"
     x-data="{ useNew: {{ $useNewInitial ? 'true' : 'false' }} }"
-    x-show="method === 'delivery'"
+    x-show="typeof method !== 'undefined' && method === 'delivery'"
     x-cloak
 >
     <div class="text-[18px] md:text-[22px] leading-6 md:leading-7 font-semibold">
@@ -95,8 +95,8 @@
                     name="addr[street]"
                     class="tp-input"
                     placeholder="{{ st('address.form.street', 'Вулиця') }}"
-                    :disabled="!useNew || method  === 'pickup'"
-                    :required="useNew && method  === 'delivery'"
+                    :disabled="!useNew || (typeof method !== 'undefined' && method === 'pickup')"
+                    :required="useNew && (typeof method !== 'undefined' && method === 'delivery')"
                     value="{{ old('addr.street', $sessionData['addr_street'] ?? '') }}"
                 >
                 @error('addr.street')
@@ -113,8 +113,8 @@
                     name="addr[house]"
                     class="tp-input"
                     placeholder="{{ st('address.form.house', 'Дім') }}"
-                    :disabled="!useNew || method  === 'pickup'"
-                    :required="useNew && method  === 'delivery'"
+                    :disabled="!useNew || (typeof method !== 'undefined' && method === 'pickup')"
+                    :required="useNew && (typeof method !== 'undefined' && method === 'delivery')"
                     value="{{ old('addr.house', $sessionData['addr_house'] ?? '') }}"
                 >
                 @error('addr.house')
@@ -143,8 +143,8 @@
                     name="addr[apartment]"
                     class="tp-input"
                     placeholder="{{ st('address.form.apartment', 'Квартира') }}"
-                    :disabled="!useNew || method  === 'pickup'"
-                    :required="useNew && method  === 'delivery'"
+                    :disabled="!useNew || (typeof method !== 'undefined' && method === 'pickup')"
+                    :required="useNew && (typeof method !== 'undefined' && method === 'delivery')"
                     value="{{ old('addr.apartment', $sessionData['addr_apartment'] ?? '') }}"
                 >
                 @error('addr.apartment')
@@ -173,8 +173,8 @@
                     name="addr[porch]"
                     class="tp-input"
                     placeholder="{{ st('address.form.porch', 'Під’їзд') }}"
-                    :disabled="!useNew || method  === 'pickup'"
-                    :required="useNew && method  === 'delivery'"
+                    :disabled="!useNew || (typeof method !== 'undefined' && method === 'pickup')"
+                    :required="useNew && (typeof method !== 'undefined' && method === 'delivery')"
                     value="{{ old('addr.porch', $sessionData['addr_porch'] ?? '') }}"
                 >
                 @error('addr.porch')

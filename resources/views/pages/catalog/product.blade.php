@@ -129,36 +129,155 @@
                             </div>
                         </div>
 
-                        <div class="text-end" x-data="{ adding: false }">
-                            <button
-                                type="button"
-                                class="inline-flex items-center gap-2 w-full md:w-[218px] justify-center bg-[#FF7500] hover:bg-orange-600 text-white font-semibold px-5 py-3 rounded-lg transition disabled:opacity-60"
-                                :disabled="adding"
-                                @click="
-                                    adding = true;
+                        <div class="text-end" x-data="{
+                            adding: false,
+                            cartQty: 0,
+                            async init() {
+                                // Проверяем количество в корзине при инициализации
+                                await this.checkCartQty();
+                                
+                                // Слушаем обновления корзины
+                                window.addEventListener('cart-updated', (e) => {
+                                    const selectedId = $store.sku?.selected || '{{ $rootId ?? 0 }}';
+                                    if (e?.detail?.item?.product_id === parseInt(selectedId)) {
+                                        this.cartQty = e.detail.item?.qty ?? 0;
+                                    } else if (e?.detail?.items) {
+                                        const item = e.detail.items.find(i => parseInt(i.product_id) === parseInt(selectedId));
+                                        if (item) {
+                                            this.cartQty = item.qty ?? 0;
+                                        }
+                                    }
+                                });
+                                
+                                // Обновляем количество при смене варианта товара
+                                $watch('$store.sku.selected', () => {
+                                    this.checkCartQty();
+                                });
+                            },
+                            async checkCartQty() {
+                                try {
+                                    const cache = window.__CART_CACHE__;
+                                    let data;
+                                    if (cache) {
+                                        data = await cache.get();
+                                    } else {
+                                        const res = await fetch('{{ route('cart.info') }}', {
+                                            headers: { 'Accept': 'application/json' }
+                                        });
+                                        data = await res.json();
+                                    }
+                                    const selectedId = $store.sku?.selected || '{{ $rootId ?? 0 }}';
+                                    const item = (data?.items ?? []).find(i => parseInt(i.product_id) === parseInt(selectedId));
+                                    this.cartQty = item?.qty ?? 0;
+                                } catch (e) {
+                                    this.cartQty = 0;
+                                }
+                            },
+                            async addToCart() {
+                                if (this.adding) return;
+                                this.adding = true;
+                                
+                                try {
                                     const pid = $store.sku?.selected || '{{ $rootId ?? 0 }}';
                                     const price = typeof $store.sku?.price === 'function'
                                         ? Number($store.sku.price() || 0)
                                         : null;
-                                    window.CartAPI.add('{{ route('cart.add') }}', {
+                                    const data = await window.CartAPI.add('{{ route('cart.add') }}', {
                                         product_id: pid,
                                         qty: 1,
                                         price: price,
-                                    })
-                                    .then((data) => {
-                                        // Cart added successfully
-                                    })
-                                    .catch((e) => {
-                                        console.error('Product page: CartAPI.add error', e);
-                                        alert('Не вдалося додати до кошика');
-                                    })
-                                    .finally(() => {
-                                        adding = false;
                                     });
-                                "
+                                    this.cartQty = data?.item?.qty ?? 1;
+                                } catch (e) {
+                                    console.error('Product page: CartAPI.add error', e);
+                                    alert('Не вдалося додати до кошика');
+                                } finally {
+                                    this.adding = false;
+                                }
+                            },
+                            async incrementQty() {
+                                if (this.adding) return;
+                                this.adding = true;
+                                
+                                try {
+                                    const pid = $store.sku?.selected || '{{ $rootId ?? 0 }}';
+                                    const price = typeof $store.sku?.price === 'function'
+                                        ? Number($store.sku.price() || 0)
+                                        : null;
+                                    const data = await window.CartAPI.add('{{ route('cart.add') }}', {
+                                        product_id: pid,
+                                        qty: 1,
+                                        price: price,
+                                    });
+                                    this.cartQty = data?.item?.qty ?? this.cartQty + 1;
+                                } catch (e) {
+                                    console.error('Product page: increment error', e);
+                                    alert('Не вдалося оновити кількість');
+                                } finally {
+                                    this.adding = false;
+                                }
+                            },
+                            async decrementQty() {
+                                if (this.adding || this.cartQty <= 1) return;
+                                this.adding = true;
+                                
+                                try {
+                                    const pid = $store.sku?.selected || '{{ $rootId ?? 0 }}';
+                                    const price = typeof $store.sku?.price === 'function'
+                                        ? Number($store.sku.price() || 0)
+                                        : null;
+                                    const data = await window.CartAPI.add('{{ route('cart.add') }}', {
+                                        product_id: pid,
+                                        qty: -1,
+                                        price: price,
+                                    });
+                                    this.cartQty = data?.item?.qty ?? Math.max(0, this.cartQty - 1);
+                                } catch (e) {
+                                    console.error('Product page: decrement error', e);
+                                    alert('Не вдалося оновити кількість');
+                                } finally {
+                                    this.adding = false;
+                                }
+                            }
+                        }">
+                            {{-- Кнопка "Добавить в корзину" --}}
+                            <button
+                                x-show="cartQty === 0"
+                                x-cloak
+                                type="button"
+                                class="inline-flex items-center gap-2 w-full md:w-[218px] justify-center bg-[#FF7500] hover:bg-orange-600 text-white font-semibold px-5 py-3 rounded-lg transition disabled:opacity-60"
+                                :disabled="adding"
+                                @click="addToCart"
                             >
-                                <x-icons.cart class="h-5 w-5" /> {{ st('product.addcart','Додати в кошик') }}
+                                <template x-if="!adding">
+                                    <x-icons.cart class="h-5 w-5" />
+                                </template>
+                                <template x-if="adding">
+                                    <svg class="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor"
+                                              d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                                    </svg>
+                                </template>
+                                {{ st('product.addcart','Додати в кошик') }}
                             </button>
+                            
+                            {{-- Контролы количества --}}
+                            <div x-show="cartQty > 0" x-cloak class="inline-flex items-center bg-[#FDDDA7] text-[#FF7500] h-10 rounded-[4px] px-1 shrink-0">
+                                <button
+                                    type="button"
+                                    class="w-6 h-6 grid place-items-center text-xl leading-none"
+                                    @click="decrementQty"
+                                    :disabled="adding || cartQty <= 1"
+                                >−</button>
+                                <div class="w-8 text-center font-semibold" x-text="cartQty">1</div>
+                                <button
+                                    type="button"
+                                    class="w-6 h-6 grid place-items-center text-xl leading-none"
+                                    @click="incrementQty"
+                                    :disabled="adding"
+                                >+</button>
+                            </div>
                         </div>
                     </div>
 

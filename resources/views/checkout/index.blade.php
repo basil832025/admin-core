@@ -22,38 +22,51 @@
     <div class="mx-auto desk:w-[1208px] px-4 py-6 md:p-6 max-w-full">
         <h1 class="text-[26px] md:text-2xl font-semibold mb-4 md:mb-6">{{ st('cart.miy-zakaz', 'Мій заказ') }}</h1>
 
+@push('scripts')
+<script>
+document.addEventListener('alpine:init', () => {
+    Alpine.data('checkoutForm', () => ({
+        method: @json($shippingMethod),
+        useNew: @json($useNewInitial),
+        deliveryMode: @json($deliveryMode),
+        paymentMethod: @json($paymentMethod),
+        init() {
+            // Загружаем данные из сессии при инициализации после небольшой задержки
+            this.$nextTick(() => {
+                const sessionData = @json($sessionData ?? []);
+                if (sessionData && Object.keys(sessionData).length > 0) {
+                    try {
+                        // Обновляем способ получения
+                        if (sessionData.shipping_method) {
+                            this.method = sessionData.shipping_method;
+                        }
+                        // Обновляем режим доставки
+                        if (sessionData.delivery_mode) {
+                            this.deliveryMode = sessionData.delivery_mode;
+                        }
+                        // Обновляем способ оплаты
+                        if (sessionData.payment_method) {
+                            this.paymentMethod = sessionData.payment_method;
+                            const paymentValue = String(sessionData.payment_method || '').split('"').join('&quot;');
+                            const radio = document.querySelector('[name="payment_method"][value="' + paymentValue + '"]');
+                            if (radio) radio.checked = true;
+                        }
+                    } catch (e) {
+                        console.error('Error loading session data:', e);
+                    }
+                }
+            });
+        }
+    }));
+});
+</script>
+@endpush
+
         <form action="{{ route('checkout.submit') }}" method="POST" class="space-y-6" data-checkout-form >
             @csrf
 
             <div
-                x-data="{
-            method: '{{ $shippingMethod }}',
-            useNew: {{ $useNewInitial ? 'true' : 'false' }},
-            deliveryMode: '{{ $deliveryMode }}',
-            paymentMethod: '{{ $paymentMethod }}',
-            init() {
-                // Загружаем данные из сессии при инициализации после небольшой задержки
-                this.$nextTick(() => {
-                    @if(!empty($sessionData))
-                        const formData = @js($sessionData);
-                        // Обновляем способ получения
-                        if (formData.shipping_method) {
-                            this.method = formData.shipping_method;
-                        }
-                        // Обновляем режим доставки
-                        if (formData.delivery_mode) {
-                            this.deliveryMode = formData.delivery_mode;
-                        }
-                        // Обновляем способ оплаты
-                        if (formData.payment_method) {
-                            this.paymentMethod = formData.payment_method;
-                            const radio = document.querySelector(`[name=\"payment_method\"][value=\"${formData.payment_method}\"]`);
-                            if (radio) radio.checked = true;
-                        }
-                    @endif
-                });
-            }
-                    }"
+                x-data="checkoutForm"
                 class="mb-6"
             >
                 {{-- Переключатель способа получения + hidden --}}
