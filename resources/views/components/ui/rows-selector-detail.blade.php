@@ -98,12 +98,13 @@
                     {{-- справа 3-я характеристика (обычно «персоны») --}}
                     @if($rightChar)
                         @php
-                            $val       = $r['char_values'][$rightChar['id']] ?? null;
+                            $valRaw    = $r['char_values'][$rightChar['id']] ?? null;
+                            $val       = is_array($valRaw) ? (string)($valRaw['title'] ?? reset($valRaw)) : (string)($valRaw ?? '');
                             $isPersons = ($rightChar['slug'] ?? null) === $personSlug;
                             $people    = 1;
                             if ($isPersons) {
-                                if (is_numeric($val)) $people = (int)$val;
-                                else { $n=(int)preg_replace('/[^\d]/','',(string)$val); $people=max(1,$n); }
+                                $digits = (int) preg_replace('/\D+/', '', (string)$val);
+                                $people = max(1, $digits ?: (is_numeric($val) ? (int)$val : 1));
                             }
                             $svgRight = $rightChar['svg'] ?? null;
                             $personIcon = $svgRight
@@ -123,10 +124,10 @@
                                     {!! $personIcon !!}<span class="ml-1">× {{ $people }}</span>
                                 @endif
                                 {{-- На странице товара показываем текст для всех вариантов --}}
-                                @if($val)<span class="ml-1">{{ $val }}</span>@endif
+                                @if(!empty(trim($val)))<span class="ml-1">{{ $val }}</span>@endif
                             @else
                                 {!! $personIcon !!}
-                                @if($val)<span class="ml-1">{{ $val }}</span>@endif
+                                @if(!empty(trim($val)))<span class="ml-1">{{ $val }}</span>@endif
                             @endif
                     </span>
                     @endif
