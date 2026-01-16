@@ -39,18 +39,20 @@ class HomeController extends Controller
         // 1) ХІТИ
         $hitsQuery = Product::withCardRelations()
             ->active()->hit()->cardSelect()->MainProduct()->Pie();
+        // Сортировка на уровне SQL (быстро)
         $this->applySort($hitsQuery, request());
         $hits_products = $hitsQuery->get();
         $hits = (new ProductCardPresenter($locale))->collection($hits_products);
-        $hits = $this->sortCardCollection($hits, request());
+        // НЕ сортируем повторно - данные уже отсортированы в SQL
         
         // 2) НОВИНКИ
         $newsQuery = Product::withCardRelations()
             ->active()->new()->cardSelect()->MainProduct()->Pie();
+        // Сортировка на уровне SQL (быстро)
         $this->applySort($newsQuery, request());
         $news_products = $newsQuery->get();
         $news = (new ProductCardPresenter($locale))->collection($news_products);
-        $news = $this->sortCardCollection($news, request());
+        // НЕ сортируем повторно - данные уже отсортированы в SQL
 
         $parentSlug = 'pies';
 
@@ -86,10 +88,13 @@ class HomeController extends Controller
                     $query->whereHas('categories', fn($qq) => $qq->where('slug', $slug))
                         ->orWhereHas('mainCategory', fn($qq) => $qq->where('slug', $slug));
                 });
+            // Применяем сортировку на уровне SQL (быстро)
             $this->applySort($q, request());
             $items = $q->get();
+            // Преобразуем в карточки (порядок уже сохранен из SQL)
             $items = (new ProductCardPresenter($locale))->collection($items);
-            $items = $this->sortCardCollection($items, request());
+            // НЕ сортируем повторно в PHP - данные уже отсортированы в SQL
+            // sortCardCollection только для случаев, когда сортировка не может быть в SQL
             $categorySections[] = [
                 'title' => $title,
                 'items' => $items,
