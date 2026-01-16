@@ -6,6 +6,36 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <script>
         window.isGuestCheckout = {{ auth()->check() ? 'false' : 'true' }};
+        
+        // Защита от ошибок с undefined key в обработчиках клавиатуры
+        // Обертываем обработчики событий перед инициализацией Alpine.js
+        const originalAddEventListener = EventTarget.prototype.addEventListener;
+        EventTarget.prototype.addEventListener = function(type, listener, options) {
+            if (type === 'keydown' || type === 'keyup' || type === 'keypress') {
+                const wrappedListener = function(e) {
+                    // Если event.key undefined - создаем безопасный объект
+                    if (!e || !('key' in e)) {
+                        Object.defineProperty(e, 'key', {
+                            value: '',
+                            writable: false,
+                            enumerable: true,
+                            configurable: false
+                        });
+                    }
+                    try {
+                        return listener.call(this, e);
+                    } catch (err) {
+                        // Игнорируем ошибки, связанные с undefined key
+                        if (err.message && err.message.includes('length')) {
+                            return;
+                        }
+                        throw err;
+                    }
+                };
+                return originalAddEventListener.call(this, type, wrappedListener, options);
+            }
+            return originalAddEventListener.call(this, type, listener, options);
+        };
     </script>
     <title>@yield('title', 'Доставка осетинських пирогів')</title>
     @vite(['resources/css/app.css','resources/js/app.js'])

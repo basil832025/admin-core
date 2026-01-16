@@ -8,6 +8,10 @@ import 'swiper/css/autoplay';
 import './alpine/checkout';
 import Inputmask from "inputmask";
 
+// Версия скрипта для проверки загрузки (обновлять при каждом изменении)
+window.APP_SCRIPT_VERSION = '2026-01-16-15:00';
+console.log('App script loaded, version:', window.APP_SCRIPT_VERSION);
+
 import registerFavoriteButton from './components/favoriteButton.js'
 // ⬇️ новый импорт
 import authModal from './alpine/auth-modal';
@@ -198,6 +202,7 @@ window.applyUaPhoneMask = function (el) {
 
     el.addEventListener('keydown', (e) => {
         if (!el || !el.selectionStart) return;
+        if (!e || !e.key) return; // Защита от undefined key
         const pos = el.selectionStart ?? 0;
         if (pos <= PREFIX.length && ['Backspace','Delete','ArrowLeft','Home'].includes(e.key)) {
             e.preventDefault();
