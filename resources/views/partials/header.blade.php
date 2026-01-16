@@ -110,40 +110,63 @@
             </div>
 
             {{-- ПРАВО: иконки --}}
-            <div class="flex items-center gap-5">
-                {{-- Кнопки поиска: переключают store --}}
-                <button type="button" class="relative flex items-center justify-center w-5 h-5 lg:hidden"
-                        aria-label="Пошук" @click.stop="$store.search.open = true">
-                    <img src="{{ asset('images/search.svg') }}" class="w-5 h-5 shrink-0 flex-none block" width="20" height="20" alt="">
+            <div class="flex items-center gap-[20px] shrink-0">
+                {{-- Поиск (mobile) --}}
+                <button
+                    type="button"
+                    class="relative inline-flex items-center justify-center w-5 h-5 shrink-0 lg:hidden"
+                    aria-label="Пошук"
+                    @click.stop="$store.search.open = true"
+                >
+                    <img src="{{ asset('images/search.svg') }}" class="w-5 h-5 shrink-0 flex-none" width="20" height="20" alt="">
                 </button>
-                <button type="button" class="relative flex items-center justify-center w-5 h-5 hidden lg:flex"
-                        aria-label="Пошук" @click.stop="$store.search.open = !$store.search.open">
-                    <img src="{{ asset('images/search.svg') }}" class="w-5 h-5 shrink-0 flex-none block" width="20" height="20" alt="">
+
+                {{-- Поиск (desktop) --}}
+                <button
+                    type="button"
+                    class="relative hidden lg:inline-flex items-center justify-center w-5 h-5 shrink-0"
+                    aria-label="Пошук"
+                    @click.stop="$store.search.open = !$store.search.open"
+                >
+                    <img src="{{ asset('images/search.svg') }}" class="w-5 h-5 shrink-0 flex-none" width="20" height="20" alt="">
+                </button>
 
                 {{-- Акції --}}
-                <a href="/discounts" class="flex items-center gap-1.5 text-sm font-medium text-[#19191A] hover:text-orange-600">
-                    <span class="relative flex items-center justify-center w-5 h-5">
-                        <img src="{{ asset('images/percent.svg') }}" class="w-5 h-5 shrink-0 flex-none block" width="20" height="20" alt="">
-                    </span>
-                    <span class="hidden md:block">{{ st('header.promotions','Акції') }}</span>
+                <a
+                    href="/discounts"
+                    class="inline-flex items-center gap-2 text-sm leading-none font-medium text-[#19191A] hover:text-orange-600 shrink-0"
+                >
+                    <img src="{{ asset('images/percent.svg') }}" class="w-5 h-5 shrink-0 flex-none" width="20" height="20" alt="">
+                    <span class="hidden lg:inline whitespace-nowrap">{{ st('header.promotions','Акції') }}</span>
                 </a>
 
                 {{-- Увійти --}}
-                @include('partials.header-auth')
+                <div class="shrink-0">
+                    @include('partials.header-auth')
+                </div>
 
                 {{-- Обране --}}
-                <a href="{{ route('favorites.index') }}" class="relative flex items-center justify-center w-5 h-5" aria-label="Обране">
-                    <img src="{{ asset('images/heart.svg') }}" class="w-5 h-5 shrink-0 flex-none block" width="20" height="20" alt="">
-                    <span x-cloak
-                          x-show="$store.favorites && ($store.favorites.qty > 0)"
-                          x-text="$store.favorites ? $store.favorites.qty : 0"
-                          class="absolute -top-1 -right-2 bg-red-600 text-white text-[10px] leading-none rounded-full px-1 min-w-[16px] text-center">0</span>
+                <a
+                    href="{{ route('favorites.index') }}"
+                    class="relative inline-flex items-center justify-center w-5 h-5 shrink-0"
+                    aria-label="Обране"
+                >
+                    <img src="{{ asset('images/heart.svg') }}" class="w-5 h-5 shrink-0 flex-none" width="20" height="20" alt="">
+                    <span
+                        x-cloak
+                        x-show="$store.favorites && ($store.favorites.qty > 0)"
+                        x-text="$store.favorites ? $store.favorites.qty : 0"
+                        class="absolute -top-1 -right-2 bg-red-600 text-white text-[10px] leading-none rounded-full px-1 min-w-[16px] text-center"
+                    >0</span>
                 </a>
 
                 {{-- Кошик --}}
-                {{-- передай текущее количество, если есть --}}
-                @include('partials.header-cart')
+                <div class="shrink-0">
+                    @include('partials.header-cart')
+                </div>
             </div>
+
+
         </div>
     </div>
     </div>

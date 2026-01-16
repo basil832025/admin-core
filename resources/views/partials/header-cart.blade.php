@@ -24,7 +24,7 @@ x-init="isOpen = false; url = null; $nextTick(() => { isOpen = false; close(); }
        class="relative flex items-center justify-center w-5 h-5"
        data-url="{{ route('cart.sidebar') }}"
        @click.prevent="open($event.currentTarget.dataset.url)">
-        <img src="{{ asset('images/cart.svg') }}" class="w-5 h-5 shrink-0 flex-none block" width="20" height="20" alt="">
+        <img src="{{ asset('images/cart.svg') }}" class="w-5 h-5 shrink-0 flex-none" width="20" height="20" alt="">
         <span x-cloak
               x-show="$store.cart && ($store.cart.qty > 0)"
               x-text="$store.cart ? $store.cart.qty : 0"
