@@ -112,17 +112,19 @@
             {{-- ПРАВО: иконки --}}
             <div class="flex items-center gap-5">
                 {{-- Кнопки поиска: переключают store --}}
-                <button type="button" class="w-5 h-5 flex items-center justify-center lg:hidden"
+                <button type="button" class="relative flex items-center justify-center w-5 h-5 lg:hidden"
                         aria-label="Пошук" @click.stop="$store.search.open = true">
-                    <img src="{{ asset('images/search.svg') }}" class="w-5 h-5 shrink-0 flex-none " alt="">
+                    <img src="{{ asset('images/search.svg') }}" class="w-5 h-5 shrink-0 flex-none block" width="20" height="20" alt="">
                 </button>
-                <button type="button" class="w-5 h-5 hidden lg:flex items-center justify-center"
+                <button type="button" class="relative flex items-center justify-center w-5 h-5 hidden lg:flex"
                         aria-label="Пошук" @click.stop="$store.search.open = !$store.search.open">
-                    <img src="{{ asset('images/search.svg') }}" class="w-5 h-5 shrink-0 flex-none" alt="">
+                    <img src="{{ asset('images/search.svg') }}" class="w-5 h-5 shrink-0 flex-none block" width="20" height="20" alt="">
 
                 {{-- Акції --}}
                 <a href="/discounts" class="flex items-center gap-1.5 text-sm font-medium text-[#19191A] hover:text-orange-600">
-                    <img src="{{ asset('images/percent.svg') }}" class="w-5 h-5 shrink-0 flex-none " alt="">
+                    <span class="relative flex items-center justify-center w-5 h-5">
+                        <img src="{{ asset('images/percent.svg') }}" class="w-5 h-5 shrink-0 flex-none block" width="20" height="20" alt="">
+                    </span>
                     <span class="hidden md:block">{{ st('header.promotions','Акції') }}</span>
                 </a>
 
@@ -131,7 +133,7 @@
 
                 {{-- Обране --}}
                 <a href="{{ route('favorites.index') }}" class="relative flex items-center justify-center w-5 h-5" aria-label="Обране">
-                    <img src="{{ asset('images/heart.svg') }}" class="w-5 h-5 shrink-0 flex-none " alt="">
+                    <img src="{{ asset('images/heart.svg') }}" class="w-5 h-5 shrink-0 flex-none block" width="20" height="20" alt="">
                     <span x-cloak
                           x-show="$store.favorites && ($store.favorites.qty > 0)"
                           x-text="$store.favorites ? $store.favorites.qty : 0"
