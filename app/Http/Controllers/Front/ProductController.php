@@ -7,6 +7,7 @@ use App\Models\Shop\Product;
 use App\Models\Shop\ProductCategory;
 use App\Models\Shop\ProductReview;
 use App\Support\Presenters\ProductCardPresenter;
+use App\Services\LoyaltyService;
 
 class ProductController extends Controller
 {
@@ -46,9 +47,13 @@ class ProductController extends Controller
         $related = (new ProductCardPresenter($locale))->collection($q->get());
         $product = (new ProductCardPresenter($locale))->for($product);
 
+        // Расчет процента начисления бонусов и минимальной суммы
+        $loyalty = app(LoyaltyService::class);
+        $rule = $loyalty->findRuleForDate(\Carbon\Carbon::now());
+        $bonusPercent = ($rule && $rule->is_enabled) ? (int)$rule->earn_percent : 0;
+        $minOrderSumForEarn = ($rule && $rule->is_enabled) ? (float)$rule->min_order_sum_for_earn : 0;
 
-
-        return view('pages.catalog.product', compact('product', 'category', 'related','reviews','stats'));
+        return view('pages.catalog.product', compact('product', 'category', 'related','reviews','stats', 'bonusPercent', 'minOrderSumForEarn'));
     }
 }
 

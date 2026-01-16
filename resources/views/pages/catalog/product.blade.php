@@ -44,6 +44,8 @@
             Alpine.store('sku', {
                 selected: '{{ $rootKey }}',
                 prices: @js($priceMap),
+                bonusPercent: {{ $bonusPercent ?? 0 }},
+                minOrderSumForEarn: {{ $minOrderSumForEarn ?? 0 }},
                 fmt(v){ const n=Number(v||0); const parts=n.toFixed(2).split('.'); return { uah: parts[0].replace(/\B(?=(\d{3})+(?!\d))/g,' '), kop: parts[1] }; },
                 price(){ const p=this.prices[this.selected]; return p?.price ?? {{ $defaultPrice }}; },
                 old(){ const p=this.prices[this.selected]; return (p?.old && p.old > (p?.price ?? 0)) ? p.old : null; },
@@ -54,6 +56,28 @@
                         return Math.round(((oldPrice - currentPrice) / oldPrice) * 100);
                     }
                     return null;
+                },
+                discountAmount(){
+                    const oldPrice = this.old();
+                    const currentPrice = this.price();
+                    if (oldPrice && oldPrice > 0 && currentPrice > 0 && oldPrice > currentPrice) {
+                        return oldPrice - currentPrice;
+                    }
+                    return 0;
+                },
+                bonusEarn(){
+                    const currentPrice = this.price();
+                    const discount = this.discountAmount();
+                    const base = Math.max(currentPrice - discount, 0);
+                    // Проверка минимальной суммы для начисления
+                    if (this.minOrderSumForEarn > 0 && base < this.minOrderSumForEarn) {
+                        return 0;
+                    }
+                    if (base <= 0 || this.bonusPercent <= 0) return 0;
+                    // Рассчитываем бонусы (как в сервисе, округляем до 2 знаков)
+                    const bonus = Math.round(base * this.bonusPercent / 100 * 100) / 100;
+                    // Для отображения округляем до целого
+                    return Math.round(bonus);
                 },
             })
         "
@@ -292,9 +316,11 @@
 
 
                     {{-- бонусы --}}
-                    <div class="mt-4 flex items-start text-[#A9A9A9] text-base">
+                    <div class="mt-4 flex items-start text-[#A9A9A9] text-base" x-show="$store.sku.bonusEarn() > 0">
                         <img src="{{ asset('images/svg/bonus.svg') }}" alt="" class="w-[22px] h-[19px] mr-2" aria-hidden="true">
-                        <span>За покупку вам будет начислено</span><span class="text-[#FF7500]">&nbsp;15&nbsp;</span><span>баллов</span>
+                        <span>{{ st('cart.za-pokupku-narahovano', 'За покупку вам будет начислено') }}</span>
+                        <span class="text-[#FF7500]">&nbsp;<span x-text="$store.sku.bonusEarn()"></span>&nbsp;</span>
+                        <span>{{ st('cart.balliv', 'баллов') }}</span>
                     </div>
 
                     {{-- Состав --}}
