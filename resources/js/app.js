@@ -171,6 +171,7 @@ document.addEventListener('alpine:init', () => {
 
 window.applyUaPhoneMask = function (el) {
     if (!el || el.__uaPhoneMasked) return;
+    if (typeof el.value === 'undefined' && !('value' in el)) return; // Проверяем, что это input элемент
 
     const PREFIX = '+38 0 ';
     const im = new Inputmask({
@@ -182,11 +183,12 @@ window.applyUaPhoneMask = function (el) {
     });
     im.mask(el);
 
-    if (!el.value || !el.value.startsWith(PREFIX)) im.setValue(PREFIX);
+    if (!el.value || !String(el.value || '').startsWith(PREFIX)) im.setValue(PREFIX);
 
     const ensurePrefix = () => {
+        if (!el || !el.value) return;
         // берём только цифры и срезаем ведущие 380 / 38 / 0
-        let digits = el.value.replace(/\D/g, '');
+        let digits = String(el.value || '').replace(/\D/g, '');
         if (digits.startsWith('380')) digits = digits.slice(3);
         else if (digits.startsWith('38')) digits = digits.slice(2);
         else if (digits.startsWith('0')) digits = digits.slice(1);
@@ -195,17 +197,27 @@ window.applyUaPhoneMask = function (el) {
     };
 
     el.addEventListener('keydown', (e) => {
+        if (!el || !el.selectionStart) return;
         const pos = el.selectionStart ?? 0;
         if (pos <= PREFIX.length && ['Backspace','Delete','ArrowLeft','Home'].includes(e.key)) {
             e.preventDefault();
-            el.setSelectionRange(PREFIX.length, PREFIX.length);
+            if (el.setSelectionRange) {
+                el.setSelectionRange(PREFIX.length, PREFIX.length);
+            }
         }
     });
 
     el.addEventListener('input', ensurePrefix);
     el.addEventListener('focus', () => {
+        if (!el) return;
         if (!el.value) im.setValue(PREFIX);
-        setTimeout(() => el.setSelectionRange(el.value.length, el.value.length));
+        if (el.value && el.setSelectionRange) {
+            setTimeout(() => {
+                if (el && el.value) {
+                    el.setSelectionRange(el.value.length, el.value.length);
+                }
+            }, 0);
+        }
     });
 
 
