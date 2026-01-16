@@ -1,7 +1,7 @@
 <div class="space-y-2"
      x-data="promoComponent()"
 >
-    <div class="text-[22px] leading-7 font-semibold">
+    <div class="text-[18px] md:text-[22px] leading-6 md:leading-7 font-semibold">
         {{ st('cart.promo.title', 'У вас є промокод?') }}
     </div>
 

@@ -113,18 +113,17 @@ class VariantsRelationManager extends RelationManager
                     ])->columnSpanFull(),
 
                 Section::make('Цены')
+                    ->columns(2)
                     ->schema([
-                TextInput::make('price')
-                    ->label('Цена')
-                    ->numeric()->inputMode('decimal')->step('any')
-                    ->required()
-                    ->columnSpan(3),
+                        TextInput::make('price')
+                            ->label('Цена')
+                            ->numeric()->inputMode('decimal')->step('any')
+                            ->required(),
 
-                TextInput::make('old_price')
-                    ->label('Старая цена')
-                    ->numeric()->inputMode('decimal')->step('any')
-                    ->columnSpan(3),
-                ])->columnSpanFull(),
+                        TextInput::make('old_price')
+                            ->label('Старая цена')
+                            ->numeric()->inputMode('decimal')->step('any'),
+                    ])->columnSpanFull(),
 
                 // --- Характеристики только с is_main_tab = 1 ---
                 Section::make('Свойства товара')
@@ -212,6 +211,38 @@ class VariantsRelationManager extends RelationManager
                     ->alignRight()
                     ->label(__('product.columns.price'))
                     ->sortable(),
+                TextInputColumn::make('old_price')
+                    ->type('number')   // HTML5 number
+                    ->step('1')
+                    ->rules(['numeric','min:0']) // валидация на сохранение
+                    ->alignRight()
+                    ->label('Старая цена')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('discount_percent')
+                    ->label('Скидка %')
+                    ->getStateUsing(function (\App\Models\Shop\Product $record) {
+                        $oldPrice = $record->old_price ?? null;
+                        $price = $record->price ?? 0;
+                        
+                        if (!$oldPrice || $oldPrice <= 0 || $price <= 0 || $oldPrice <= $price) {
+                            return 0;
+                        }
+                        
+                        return round((($oldPrice - $price) / $oldPrice) * 100);
+                    })
+                    ->formatStateUsing(fn ($state) => $state > 0 ? "–{$state}%" : '0%')
+                    ->color(fn ($state) => $state > 0 ? 'danger' : 'gray')
+                    ->alignRight()
+                    ->sortable(query: function ($query, string $direction) {
+                        // Сортировка по вычисленному проценту скидки
+                        return $query->orderByRaw("
+                            CASE 
+                                WHEN old_price > 0 AND price > 0 AND old_price > price 
+                                THEN ROUND(((old_price - price) / old_price) * 100)
+                                ELSE 0 
+                            END {$direction}
+                        ");
+                    }),
                 Tables\Columns\TextColumn::make('quantity')->label('Остаток'),
                 // 👇 РОЗМІР ПИРОГІВ
                 Tables\Columns\TextColumn::make('pie_size')

@@ -22,7 +22,7 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ru.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/uk.js"></script>
 </head>
-<body class="antialiased  text-gray-900">
+<body class="antialiased text-gray-900 overflow-x-hidden">
 @include('components.auth.modal')
 {{-- Header --}}
 @include('partials.header')

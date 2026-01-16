@@ -24,6 +24,17 @@
             ];
         }
         $defaultPrice = (float)($product['price'] ?? 0);
+        
+        // расчет начальной скидки для начального варианта
+        $initialDiscount = null;
+        if ($rootKey && isset($priceMap[$rootKey])) {
+            $initialPriceData = $priceMap[$rootKey];
+            $oldPrice = $initialPriceData['old'];
+            $currentPrice = $initialPriceData['price'];
+            if ($oldPrice !== null && $oldPrice > 0 && $currentPrice > 0 && $oldPrice > $currentPrice) {
+                $initialDiscount = round((($oldPrice - $currentPrice) / $oldPrice) * 100);
+            }
+        }
     @endphp
 
     {{-- ИНИЦИАЛИЗАЦИЯ ОБЩЕГО STORE ДЛЯ ЦЕН --}}
@@ -36,6 +47,14 @@
                 fmt(v){ const n=Number(v||0); const parts=n.toFixed(2).split('.'); return { uah: parts[0].replace(/\B(?=(\d{3})+(?!\d))/g,' '), kop: parts[1] }; },
                 price(){ const p=this.prices[this.selected]; return p?.price ?? {{ $defaultPrice }}; },
                 old(){ const p=this.prices[this.selected]; return (p?.old && p.old > (p?.price ?? 0)) ? p.old : null; },
+                discountPercent(){ 
+                    const oldPrice = this.old(); 
+                    const currentPrice = this.price(); 
+                    if (oldPrice && oldPrice > 0 && currentPrice > 0 && oldPrice > currentPrice) {
+                        return Math.round(((oldPrice - currentPrice) / oldPrice) * 100);
+                    }
+                    return null;
+                },
             })
         "
     >
@@ -62,10 +81,24 @@
                             <img src="{{ $product['main_image'] }}" alt="{{ $product['title'] }}"
                                  class="h-full w-full object-cover" loading="eager">
                         </div>
-                        @if(!empty($product->discount_percent))
-                            <div class="absolute top-3 right-3 bg-orange-500 text-white text-xs font-semibold px-2 py-1 rounded">
-                                -{{ (int)$product->discount_percent }}%
-                            </div>
+                        @php
+                            $showBadge = $initialDiscount !== null && $initialDiscount > 0;
+                        @endphp
+                        @if($showBadge)
+                            <span 
+                                x-show="$store.sku.discountPercent() !== null && $store.sku.discountPercent() > 0"
+                                x-text="'Знижка –' + $store.sku.discountPercent() + '%'"
+                                style="display: block;"
+                                class="absolute right-[10px] top-[10px] rounded-[3px] bg-[#B91C1C] px-[10px] py-[4px] text-white font-intro font-bold text-[14px] leading-[16px] z-10">
+                                Знижка –{{ $initialDiscount }}%
+                            </span>
+                        @else
+                            <span 
+                                x-show="$store.sku.discountPercent() !== null && $store.sku.discountPercent() > 0"
+                                x-text="'Знижка –' + $store.sku.discountPercent() + '%'"
+                                x-cloak
+                                class="absolute right-[10px] top-[10px] rounded-[3px] bg-[#B91C1C] px-[10px] py-[4px] text-white font-intro font-bold text-[14px] leading-[16px] z-10">
+                            </span>
                         @endif
                     </div>
                 </div>

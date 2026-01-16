@@ -3,9 +3,9 @@
 @section('title', 'Доставка осетинських пирогів у Києві')
 
 @section('content')
-    <section class="flex items-center justify-center">
+    <section class="flex items-center justify-center overflow-x-hidden w-full">
              <!-- баннер -->
-        <div class="desk:h-[320px] md:h-[197px]  desk:w-[1100px] md:w-[674px] ">
+        <div class="w-full md:w-[674px]">
             <x-banner-carousel />
         </div>
 
@@ -29,6 +29,7 @@
               {{ st('all.filter','Фільтр.  ') }}
             </span>
         </button>
+        <x-ui.sort-dropdown />
 
     </div>
             <section class="max-w-screen-xl mx-auto ">

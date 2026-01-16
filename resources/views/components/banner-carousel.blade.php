@@ -44,7 +44,7 @@
                     @if($banner->url)
                         <a href="{{ $banner->url }}"
                            @if($banner->target === '_blank') target="_blank" rel="noopener" @endif>
-                            @endif
+                    @endif
 
                             <picture>
                                 @if($mobilePath && $mobilePath !== $imagePath)
@@ -56,7 +56,7 @@
                                      class="w-full md:h-[197px] md:w-[674px] desk:w-[1098px] desk:h-[320px] object-cover rounded-2xl">
                             </picture>
 
-                            @if($banner->url)
+                    @if($banner->url)
                         </a>
                     @endif
                 </div>

@@ -1,7 +1,10 @@
-<div x-data="{ kitchen: false, courier: false }"
+<div x-data="{ 
+        kitchen: {{ !empty($sessionData['comment_kitchen']) ? 'true' : 'false' }}, 
+        courier: {{ !empty($sessionData['comment_courier']) ? 'true' : 'false' }}
+     }"
      class="bg-white rounded shadow-[0_2px_10px_rgba(0,0,0,.08)] pt-3 pr-4 pb-3 pl-4">
 
-    <div class="text-[22px] leading-7 font-semibold mb-4">
+    <div class="text-[18px] md:text-[22px] leading-6 md:leading-7 font-semibold mb-3 md:mb-4">
         {{ st('cart.addons.title', 'Дополнения') }}
     </div>
 
@@ -29,6 +32,7 @@
                     <input type="text"
                            name="comment_kitchen"
                            placeholder="{{ st('cart.addons.kitchen.placeholder','Комментарий') }}"
+                           value="{{ old('comment_kitchen', $sessionData['comment_kitchen'] ?? '') }}"
                            class="w-full h-[46px] rounded-[6px] border border-[#E5E7EB] px-4 mt-2
                                   text-[16px] leading-[22px] placeholder:text-[#9CA3AF]
                                   focus:outline-none focus:ring-2 focus:ring-[#FF7500]/20 focus:border-[#FF7500]
@@ -59,6 +63,7 @@
                     <input type="text"
                            name="comment_courier"
                            placeholder="{{ st('cart.addons.courier.placeholder','Комментарий для курьера') }}"
+                           value="{{ old('comment_courier', $sessionData['comment_courier'] ?? '') }}"
                            class="w-full h-[46px] rounded-[6px] border border-[#E5E7EB] px-4 mt-2
                                   text-[16px] leading-[22px] placeholder:text-[#9CA3AF]
                                   focus:outline-none focus:ring-2 focus:ring-[#FF7500]/20 focus:border-[#FF7500]

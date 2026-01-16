@@ -37,15 +37,20 @@ class HomeController extends Controller
             ->get();
 
         // 1) ХІТИ
-        $hits_products  = Product::withCardRelations()
-            ->active()->hit()->cardSelect()->MainProduct()->Pie()
-            ->inRandomOrder()->limit(6)->get();
-         $hits = (new ProductCardPresenter($locale))->collection($hits_products);
+        $hitsQuery = Product::withCardRelations()
+            ->active()->hit()->cardSelect()->MainProduct()->Pie();
+        $this->applySort($hitsQuery, request());
+        $hits_products = $hitsQuery->get();
+        $hits = (new ProductCardPresenter($locale))->collection($hits_products);
+        $hits = $this->sortCardCollection($hits, request());
+        
         // 2) НОВИНКИ
-        $news_products = Product::withCardRelations()
-            ->active()->new()->cardSelect()->MainProduct()->Pie()
-             ->inRandomOrder()->limit(6)->get();
-         $news = (new ProductCardPresenter($locale))->collection($news_products);
+        $newsQuery = Product::withCardRelations()
+            ->active()->new()->cardSelect()->MainProduct()->Pie();
+        $this->applySort($newsQuery, request());
+        $news_products = $newsQuery->get();
+        $news = (new ProductCardPresenter($locale))->collection($news_products);
+        $news = $this->sortCardCollection($news, request());
 
         $parentSlug = 'pies';
 
@@ -75,15 +80,16 @@ class HomeController extends Controller
         })->all();
         $categorySections = [];
         foreach ($homeCategorySlugs as $slug => $title) {
-            $items = Product::withCardRelations()
-                ->active()->home()->cardSelect()->MainProduct()
-                 ->where(function ($q) use ($slug) {
-                    $q->whereHas('categories', fn($qq) => $qq->where('slug', $slug))
+            $q = Product::withCardRelations()
+                ->active()->cardSelect()->MainProduct()
+                ->where(function ($query) use ($slug) {
+                    $query->whereHas('categories', fn($qq) => $qq->where('slug', $slug))
                         ->orWhereHas('mainCategory', fn($qq) => $qq->where('slug', $slug));
-                })
-                ->inRandomOrder()->limit(6)->get();
-                //->map($pack)->all();
+                });
+            $this->applySort($q, request());
+            $items = $q->get();
             $items = (new ProductCardPresenter($locale))->collection($items);
+            $items = $this->sortCardCollection($items, request());
             $categorySections[] = [
                 'title' => $title,
                 'items' => $items,

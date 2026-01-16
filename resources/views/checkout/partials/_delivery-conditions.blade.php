@@ -1,24 +1,30 @@
+@php
+    $deliveryMode = $deliveryMode ?? old('delivery_mode', session('checkout.form_data.delivery_mode', 'asap'));
+@endphp
 <div
     x-data="deliveryBlock()"
-    x-init="init()"
+    x-init="
+        mode = '{{ $deliveryMode }}';
+        init();
+    "
     class="bg-white rounded shadow-[0_2px_10px_rgba(0,0,0,.08)] pt-3 pr-4 pb-3 pl-4"
 >
     <input type="hidden" name="delivery_mode" x-model="mode">
 
-    <div class="text-[22px] leading-7 font-semibold mb-4">
+    <div class="text-[18px] md:text-[22px] leading-6 md:leading-7 font-semibold mb-3 md:mb-4">
         {{ st('cart.delivery.conditions_title', 'Умови доставки') }}
     </div>
 
     <div class="flex flex-col md:flex-row md:items-center gap-4 mb-4">
         <label class="inline-flex items-center gap-2 cursor-pointer">
-            <input type="radio" value="asap"  x-model="mode" class="tp-radio" checked>
+            <input type="radio" value="asap"  x-model="mode" class="tp-radio" @checked($deliveryMode === 'asap')>
             <span class="text-[16px] leading-[22px] text-[#272828]">
                 {{ st('cart.delivery.mode.asap', 'Якнайшвидше') }}
             </span>
         </label>
 
         <label class="inline-flex items-center gap-2 cursor-pointer">
-            <input type="radio" value="fixed" x-model="mode" class="tp-radio">
+            <input type="radio" value="fixed" x-model="mode" class="tp-radio" @checked($deliveryMode === 'fixed')>
             <span class="text-[16px] leading-[22px] text-[#272828]">
                 {{ st('cart.delivery.mode.fixed', 'До визначеного часу') }}
             </span>
@@ -36,6 +42,8 @@
                 type="text"
                 name="delivery_date"
                 placeholder="{{ st('cart.delivery.date_label', 'Дата*') }}"
+                value="{{ old('delivery_date', $sessionData['delivery_date'] ?? '') }}"
+                :disabled="mode==='asap'"
                 :class="[
                     'tp-input pr-10',
                     mode==='asap' ? 'bg-[#F9FAFB] text-[#9CA3AF] cursor-not-allowed' : ''
@@ -44,12 +52,13 @@
             @error('delivery_date')
             <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
             @enderror
-            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[#FF7500] pointer-events-none">
+            <span class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                  :class="mode==='asap' ? 'text-[#9CA3AF]' : 'text-[#FF7500]'">
                 {{-- иконка календаря --}}
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
                      xmlns="http://www.w3.org/2000/svg">
-                    <path d="M18 4H6C3.79086 4 2 5.79086 2 8V18C2 20.2091 3.79086 22 6 22H18C20.2091 22 22 20.2091 22 18V8C22 5.79086 20.2091 4 18 4Z" stroke="#FF7500" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M8 2V6M16 2V6M2 10H22" stroke="#FF7500" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M18 4H6C3.79086 4 2 5.79086 2 8V18C2 20.2091 3.79086 22 6 22H18C20.2091 22 22 20.2091 22 18V8C22 5.79086 20.2091 4 18 4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M8 2V6M16 2V6M2 10H22" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
             </span>
         </label>
@@ -64,6 +73,8 @@
                 type="text"
                 name="delivery_time"
                 placeholder="{{ st('cart.delivery.time_label', 'Час') }}"
+                value="{{ old('delivery_time', $sessionData['delivery_time'] ?? '') }}"
+                :disabled="mode==='asap'"
                 :class="[
                     'tp-input pr-10',
                     mode==='asap' ? 'bg-[#F9FAFB] text-[#9CA3AF] cursor-not-allowed' : ''

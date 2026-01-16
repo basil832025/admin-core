@@ -428,6 +428,9 @@ class Product extends Model implements HasMedia
         return $q->with([
             'productCharacteristicValues.characteristic.svgImage',
             'productCharacteristicValues.characteristicValue',
+            'children' => function ($query) {
+                $query->select(['id','title','price','old_price','main_image','slug','code2','description','category_id','seo_title','parent_id','sort']);
+            },
             'children.productCharacteristicValues.characteristic.svgImage',
             'children.productCharacteristicValues.characteristicValue',
             'mainCategory:id,slug',// ← можно сузить столбцы

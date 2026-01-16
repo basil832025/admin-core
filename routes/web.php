@@ -163,6 +163,7 @@ Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/cart', [CartController::class, 'page'])->name('cart.page');
 Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout');
 Route::post('/checkout', [CheckoutController::class, 'submit'])->name('checkout.submit');
+Route::post('/checkout/save-form-data', [CheckoutController::class, 'saveFormData'])->name('checkout.save-form-data');
 Route::post('/checkout/apply-coupon', [CheckoutController::class, 'applyCoupon'])->name('checkout.apply-coupon');
 Route::post('/checkout/promo', [CheckoutController::class, 'updatePromo'])
     ->name('checkout.promo');

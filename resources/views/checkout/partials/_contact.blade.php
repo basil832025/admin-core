@@ -1,5 +1,5 @@
 <div class="bg-white rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.08)] p-4">
-    <div class="text-[22px] leading-7 font-semibold mb-4">{{ st('profile.kontaktni-dani', 'Контактні дані') }}</div>
+    <div class="text-[18px] md:text-[22px] leading-6 md:leading-7 font-semibold mb-3 md:mb-4">{{ st('profile.kontaktni-dani', 'Контактні дані') }}</div>
 
     <div class="flex flex-col gap-4 @auth md:flex-col @else md:flex-row @endauth">
         {{-- ЛЕВАЯ ЧАСТЬ: поля контактов --}}
@@ -12,7 +12,7 @@
                     id="contact_name"
                     name="contact_name"
                     placeholder="{{ st('profile.name', 'Імʼя') }}*"
-                    value="{{ old('contact_name', $client->name ?? '') }}"
+                    value="{{ old('contact_name', $sessionData['contact_name'] ?? $client->name ?? '') }}"
                     class="w-full h-[46px] rounded-[6px] border border-[#E5E7EB] px-4
                            text-[16px] leading-[22px] placeholder:text-[#9CA3AF]
                            focus:outline-none focus:ring-2 focus:ring-[#FF7500]/20 focus:border-[#FF7500]
@@ -28,15 +28,18 @@
                     type="tel"
                     id="contact_phone"
                     name="contact_phone"
-                    inputmode="tel"
-                    placeholder="{{ st('profile.phone', 'Телефон') }}*"
-                    value="{{ old('contact_phone', $client->phone ?? '') }}"
+                    inputmode="numeric"
+                    dir="ltr"
+                    placeholder="+38 0__ ___ __ __"
+                    value="{{ old('contact_phone', $sessionData['contact_phone'] ?? $client->phone ?? '') }}"
                     @auth readonly class="w-full h-[46px] rounded-[6px] border border-[#E5E7EB] px-4
-                       bg-gray-100 cursor-not-allowed text-[16px] leading-[22px]" @endauth
-                    @guest class="w-full h-[46px] rounded-[6px] border border-[#E5E7EB] px-4
+                       bg-gray-100 cursor-not-allowed text-[16px] leading-[22px] caret-black" @endauth
+                    @guest 
+                        x-init="window.applyUaPhoneMask($el)"
+                        class="w-full h-[46px] rounded-[6px] border border-[#E5E7EB] px-4
                        text-[16px] leading-[22px] placeholder:text-[#9CA3AF]
                        focus:outline-none focus:ring-2 focus:ring-[#FF7500]/20 focus:border-[#FF7500]
-                       transition" @endguest
+                       transition caret-black" @endguest
                     required
                 >
             </label>
@@ -49,7 +52,7 @@
                     id="contact_email"
                     name="contact_email"
                     placeholder="E-mail ({{ st('profile.neobovyazkovo', 'необовʼязково') }})"
-                    value="{{ old('contact_email', $client->email ?? '') }}"
+                    value="{{ old('contact_email', $sessionData['contact_email'] ?? $client->email ?? '') }}"
                     class="w-full h-[46px] rounded-[6px] border border-[#E5E7EB] px-4
                            text-[16px] leading-[22px] placeholder:text-[#9CA3AF]
                            focus:outline-none focus:ring-2 focus:ring-[#FF7500]/20 focus:border-[#FF7500]

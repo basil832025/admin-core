@@ -61,6 +61,75 @@
 
         // состояние кнопки
         adding: false,
+        cartQty: 0,
+
+        init() {
+            // Отправляем событие при изменении selected
+            this.$watch('selected', (newVal) => {
+                const detail = {
+                    productId: newVal,
+                    price: this.prices[newVal]?.price ?? null,
+                    oldPrice: this.prices[newVal]?.old ?? null,
+                };
+                
+                // Отправляем событие на родительский элемент (article)
+                const parentCard = this.$el.closest('article[x-data]');
+                if (parentCard && window.Alpine) {
+                    const cardData = window.Alpine.$data(parentCard);
+                    if (cardData && cardData.handleVariantSelected) {
+                        cardData.handleVariantSelected({ detail });
+                    }
+                }
+                
+                // Также отправляем всплывающее событие для надежности
+                this.$dispatch('variant-selected', detail);
+                
+                // При смене варианта проверяем количество в корзине
+                this.checkCartQty();
+            });
+            
+            // Отправляем начальное событие после инициализации
+            this.$nextTick(() => {
+                const detail = {
+                    productId: this.selected,
+                    price: this.prices[this.selected]?.price ?? null,
+                    oldPrice: this.prices[this.selected]?.old ?? null,
+                };
+                
+                const parentCard = this.$el.closest('article[x-data]');
+                if (parentCard && window.Alpine) {
+                    const cardData = window.Alpine.$data(parentCard);
+                    if (cardData && cardData.handleVariantSelected) {
+                        cardData.handleVariantSelected({ detail });
+                    }
+                }
+                
+                this.$dispatch('variant-selected', detail);
+                
+                // Проверяем количество в корзине при инициализации
+                this.checkCartQty();
+            });
+            
+            // Слушаем обновления корзины
+            window.addEventListener('cart-updated', (e) => {
+                if (e?.detail?.item?.product_id === parseInt(this.selected)) {
+                    this.cartQty = e.detail.item?.qty ?? 0;
+                }
+            });
+        },
+
+        async checkCartQty() {
+            try {
+                const res = await fetch('{{ route('cart.info') }}', {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await res.json();
+                const item = (data?.items ?? []).find(i => parseInt(i.product_id) === parseInt(this.selected));
+                this.cartQty = item?.qty ?? 0;
+            } catch (e) {
+                this.cartQty = 0;
+            }
+        },
 
         // ✅ обновлённый метод добавления в корзину
         async addToCart() {
@@ -74,12 +143,57 @@
                     price: this.prices[this.selected]?.price ?? null,
                 });
 
+                // Обновляем количество в корзине
+                this.cartQty = data?.item?.qty ?? 1;
+
                 // уведомление (опционально)
                 this.$dispatch('notify', { text: 'Додано до кошика', type: 'success' });
 
             } catch (e) {
                 console.error(e);
                 alert('Не вдалося додати до кошика');
+            } finally {
+                this.adding = false;
+            }
+        },
+
+        async incrementQty() {
+            if (this.adding) return;
+            this.adding = true;
+
+            try {
+                const data = await window.CartAPI.add('{{ route('cart.add') }}', {
+                    product_id: this.selected,
+                    qty: 1,
+                    price: this.prices[this.selected]?.price ?? null,
+                });
+
+                this.cartQty = data?.item?.qty ?? this.cartQty + 1;
+
+            } catch (e) {
+                console.error(e);
+                alert('Не вдалося оновити кількість');
+            } finally {
+                this.adding = false;
+            }
+        },
+
+        async decrementQty() {
+            if (this.adding || this.cartQty <= 1) return;
+            this.adding = true;
+
+            try {
+                const data = await window.CartAPI.add('{{ route('cart.add') }}', {
+                    product_id: this.selected,
+                    qty: -1,
+                    price: this.prices[this.selected]?.price ?? null,
+                });
+
+                this.cartQty = data?.item?.qty ?? Math.max(0, this.cartQty - 1);
+
+            } catch (e) {
+                console.error(e);
+                alert('Не вдалося оновити кількість');
             } finally {
                 this.adding = false;
             }
@@ -171,8 +285,11 @@
                 </div>
             </div>
 
+            {{-- Кнопка "Добавить в корзину" --}}
             <button
                 type="button"
+                x-show="cartQty === 0"
+                x-cloak
                 class="inline-flex items-center text-[12px] w-[173px] h-[36px] gap-2 rounded bg-[#FF7500] px-4 font-semibold text-white shadow-[0_4px_12px_rgba(255,117,0,.35)] transition
                hover:bg-[#ff841f] active:bg-[#e66700] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FF7500]/50 disabled:opacity-60"
                 x-bind:data-product-id="selected"
@@ -191,6 +308,23 @@
                 </template>
                 {{ $cartText }}
             </button>
+
+            {{-- Контролы количества --}}
+            <div x-show="cartQty > 0" x-cloak class="inline-flex items-center bg-[#FDDDA7] text-[#FF7500] h-10 rounded-[4px] px-1 shrink-0">
+                <button
+                    type="button"
+                    class="w-6 h-6 grid place-items-center text-xl leading-none"
+                    @click="decrementQty"
+                    x-bind:disabled="adding || cartQty <= 1"
+                >−</button>
+                <div class="w-8 text-center font-semibold" x-text="cartQty">1</div>
+                <button
+                    type="button"
+                    class="w-6 h-6 grid place-items-center text-xl leading-none"
+                    @click="incrementQty"
+                    x-bind:disabled="adding"
+                >+</button>
+            </div>
 
         </div>
     </div>

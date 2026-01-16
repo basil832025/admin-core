@@ -184,4 +184,96 @@ trait HasCatalogFilters
         $u = auth()->user();
         return $u instanceof Client ? $u : null;
     }
+
+    /**
+     * Применить сортировку к запросу товаров по параметру ?sort=
+     */
+    protected function applySort(Builder $query, Request $request): Builder
+    {
+        $sort = $request->query('sort', 'popular');
+
+        switch ($sort) {
+            case 'price_asc':
+                // сортировка по цене ↑
+                $query->orderBy('price', 'asc');
+                break;
+
+            case 'price_desc':
+                // сортировка по цене ↓
+                $query->orderBy('price', 'desc');
+                break;
+
+            case 'discount_asc':
+                // по размеру скидки ↑
+                $query->orderByRaw('(IFNULL(old_price, price) - price) ASC');
+                break;
+
+            case 'discount_desc':
+                // по размеру скидки ↓
+                $query->orderByRaw('(IFNULL(old_price, price) - price) DESC');
+                break;
+
+            case 'new':
+                // новые сначала
+                $query->orderBy('created_at', 'desc');
+                break;
+
+            case 'popular':
+            default:
+                // «популярні» – базовый порядок (можно по полю sort или по полю популярности)
+                $query->orderBy('sort', 'asc');
+                break;
+        }
+
+        return $query;
+    }
+
+    /**
+     * Сортировка уже «готовых» карточек (массивов) после презентера.
+     */
+    protected function sortCardCollection($items, Request $request)
+    {
+        // если пришёл массив — оборачиваем в коллекцию
+        if (! $items instanceof Collection) {
+            $items = collect($items);
+        }
+
+        $sort = $request->query('sort', 'popular');
+
+        $items = match ($sort) {
+            // Цена ↑
+            'price_asc' => $items->sortBy(function ($p) {
+                return $p['price'] ?? $p['final_price'] ?? $p['min_price'] ?? 0;
+            }),
+
+            // Цена ↓
+            'price_desc' => $items->sortByDesc(function ($p) {
+                return $p['price'] ?? $p['final_price'] ?? $p['min_price'] ?? 0;
+            }),
+
+            // Знижка ↑
+            'discount_asc' => $items->sortBy(function ($p) {
+                $price    = $p['price'] ?? 0;
+                $oldPrice = $p['old_price'] ?? $p['price_old'] ?? $price;
+                return max($oldPrice - $price, 0);
+            }),
+
+            // Знижка ↓
+            'discount_desc' => $items->sortByDesc(function ($p) {
+                $price    = $p['price'] ?? 0;
+                $oldPrice = $p['old_price'] ?? $p['price_old'] ?? $price;
+                return max($oldPrice - $price, 0);
+            }),
+
+            // Новинки — по дате ↓ (если дата есть в карточке)
+            'new' => $items->sortByDesc(function ($p) {
+                return $p['created_at'] ?? null;
+            }),
+
+            // Популярні — базовый порядок (по sort)
+            default => $items,
+        };
+
+        return $items->values(); // нормализуем ключи 0..N
+    }
 }

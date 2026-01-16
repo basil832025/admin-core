@@ -1,12 +1,12 @@
 <div class="bg-white rounded shadow-[0_2px_10px_rgba(0,0,0,.08)] pt-3 pr-4 pb-3 pl-4">
-    <div class="text-[22px] leading-7 font-semibold mb-4">
+    <div class="text-[18px] md:text-[22px] leading-6 md:leading-7 font-semibold mb-3 md:mb-4">
         {{ st('cart.payment.title', 'Способы оплаты') }}
     </div>
 
     <div class="flex flex-col gap-6">
         {{-- LiqPay --}}
         <label class="flex items-center gap-3 cursor-pointer">
-            <input type="radio" name="payment_method" value="liqpay" class="tp-radio" checked>
+            <input type="radio" name="payment_method" value="liqpay" class="tp-radio" @checked($paymentMethod === 'liqpay' || (!$sessionData || !isset($sessionData['payment_method'])))>
             <span class="flex items-center gap-3 text-[16px] leading-[22px] text-[#272828]">
                 <span>
                     {{-- иконка LiqPay --}}
@@ -25,7 +25,7 @@
 
         {{-- Картой при получении --}}
         <label class="flex items-center gap-3 cursor-pointer">
-            <input type="radio" name="payment_method" value="card_on_delivery" class="tp-radio">
+            <input type="radio" name="payment_method" value="card_on_delivery" class="tp-radio" @checked($paymentMethod === 'card_on_delivery')>
             <span class="flex items-center gap-3 text-[16px] leading-[22px] text-[#272828]">
                 <span class="text-[#FF7500]" aria-hidden="true">
                     {{-- иконка карты --}}
@@ -39,7 +39,7 @@
 
         {{-- Наличными --}}
         <label class="flex items-center gap-3 cursor-pointer">
-            <input type="radio" name="payment_method" value="cash" class="tp-radio">
+            <input type="radio" name="payment_method" value="cash" class="tp-radio" @checked($paymentMethod === 'cash')>
             <span class="flex items-center gap-3 text-[16px] leading-[22px] text-[#272828]">
                 <span class="text-[#FF7500]" aria-hidden="true">
                     {{-- иконка наличных --}}

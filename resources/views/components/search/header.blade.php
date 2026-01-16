@@ -41,7 +41,23 @@
                             })
                             .finally(() => this.loading = false);
                     },
-                })
+                });
+                
+                // Гарантируем, что поиск закрыт при инициализации и при навигации
+                const searchStore = Alpine.store('search');
+                if (searchStore) {
+                    searchStore.open = false;
+                    // Закрываем поиск при навигации
+                    window.addEventListener('popstate', () => { 
+                        if (searchStore) searchStore.open = false; 
+                    });
+                    // Закрываем поиск при видимости страницы
+                    document.addEventListener('visibilitychange', () => { 
+                        if (!document.hidden && searchStore && searchStore.open) { 
+                            searchStore.open = false; 
+                        } 
+                    });
+                }
             })
         </script>
     @endpush
@@ -55,7 +71,9 @@
 >
     {{-- DESKTOP: центральное поле --}}
 
-    <div x-show="$store.search.open" x-transition class="hidden lg:flex w-full px-3">
+    <div x-show="$store.search.open" 
+         x-cloak
+         x-transition class="hidden lg:flex w-full px-3">
         <div class="relative w-full mx-auto" style="width: {{ $maxWidth }};">
             <form action="{{ $action }}" method="get">
                 <div class="flex items-center gap-2 ring-1 ring-black/10 rounded-[4px] h-10 px-3 bg-white">
@@ -131,7 +149,9 @@
     </div>
 
     {{-- MOBILE/TABLET OVERLAY --}}
-    <div x-show="$store.search.open" x-transition.opacity class="fixed inset-0 z-50 lg:hidden">
+    <div x-show="$store.search.open" 
+         x-cloak
+         x-transition.opacity class="fixed inset-0 z-50 lg:hidden">
         <div class="absolute inset-0 bg-black/40 backdrop-blur-[1px]" @click="$store.search.open=false"></div>
 
         <div class="relative mx-auto w-full max-w-[736px] px-4 pt-4" @click.stop>

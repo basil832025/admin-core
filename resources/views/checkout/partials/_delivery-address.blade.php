@@ -1,10 +1,10 @@
 <div
     class="bg-white rounded-xl shadow-[0_2px_10px_rgba(0,0,0,.08)] pt-3 pr-4 pb-3 pl-4 space-y-6"
-    x-data="{ useNew: {{ $addresses->isEmpty() ? 'true' : 'false' }} }"
+    x-data="{ useNew: {{ $useNewInitial ? 'true' : 'false' }} }"
     x-show="method === 'delivery'"
     x-cloak
 >
-    <div class="text-[22px] leading-7 font-semibold">
+    <div class="text-[18px] md:text-[22px] leading-6 md:leading-7 font-semibold">
         {{ st('cart.delivery.title', 'Адреса доставки') }}
     </div>
 
@@ -97,7 +97,7 @@
                     placeholder="{{ st('address.form.street', 'Вулиця') }}"
                     :disabled="!useNew || method  === 'pickup'"
                     :required="useNew && method  === 'delivery'"
-                    value="{{ old('addr.street') }}"
+                    value="{{ old('addr.street', $sessionData['addr_street'] ?? '') }}"
                 >
                 @error('addr.street')
                 <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
@@ -115,7 +115,7 @@
                     placeholder="{{ st('address.form.house', 'Дім') }}"
                     :disabled="!useNew || method  === 'pickup'"
                     :required="useNew && method  === 'delivery'"
-                    value="{{ old('addr.house') }}"
+                    value="{{ old('addr.house', $sessionData['addr_house'] ?? '') }}"
                 >
                 @error('addr.house')
                 <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
@@ -131,7 +131,7 @@
                     class="tp-input"
                     placeholder="{{ st('address.form.intercom', 'Домофон') }}"
                     :disabled="!useNew"
-                    value="{{ old('addr.intercom') }}"
+                    value="{{ old('addr.intercom', $sessionData['addr_intercom'] ?? '') }}"
                 >
             </div>
 
@@ -145,7 +145,7 @@
                     placeholder="{{ st('address.form.apartment', 'Квартира') }}"
                     :disabled="!useNew || method  === 'pickup'"
                     :required="useNew && method  === 'delivery'"
-                    value="{{ old('addr.apartment') }}"
+                    value="{{ old('addr.apartment', $sessionData['addr_apartment'] ?? '') }}"
                 >
                 @error('addr.apartment')
                 <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
@@ -161,7 +161,7 @@
                     class="tp-input"
                     placeholder="{{ st('address.form.floor', 'Поверх') }}"
                     :disabled="!useNew"
-                    value="{{ old('addr.floor') }}"
+                    value="{{ old('addr.floor', $sessionData['addr_floor'] ?? '') }}"
                 >
             </div>
 
@@ -175,7 +175,7 @@
                     placeholder="{{ st('address.form.porch', 'Під’їзд') }}"
                     :disabled="!useNew || method  === 'pickup'"
                     :required="useNew && method  === 'delivery'"
-                    value="{{ old('addr.porch') }}"
+                    value="{{ old('addr.porch', $sessionData['addr_porch'] ?? '') }}"
                 >
                 @error('addr.porch')
                 <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
@@ -192,7 +192,7 @@
                 class="tp-input"
                 placeholder="{{ st('address.form.comment', 'Коментар для кур’єра') }}"
                 :disabled="!useNew"
-                value="{{ old('addr.comment') }}"
+                value="{{ old('addr.comment', $sessionData['addr_comment'] ?? '') }}"
             >
         </div>
 
@@ -203,7 +203,7 @@
                 name="addr[is_private_house]"
                 value="1"
                 :disabled="!useNew"
-                @checked(old('addr.is_private_house'))
+                @checked(old('addr.is_private_house', !empty($sessionData['addr_is_private_house'])))
             >
             <span class="text-sm text-gray-700">
                 {{ st('address.form.private_house', 'Це приватний будинок') }}
@@ -213,7 +213,7 @@
         {{-- Тип адреса: дом / работа / друзья --}}
         <div
             class="flex flex-wrap gap-2"
-            x-data="{ t: '{{ old('addr.type', 'home') }}' }"
+            x-data="{ t: '{{ old('addr.type', $sessionData['addr_type'] ?? 'home') }}' }"
         >
             <input type="hidden" name="addr[type]" :value="t" :disabled="!useNew">
 

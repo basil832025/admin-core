@@ -68,29 +68,57 @@ function deliveryBlock() {
                 maxTime: '21:00',
             });
 
-            this.$watch('mode', (v) => {
-                const fixed = v === 'fixed';
-                this.fpDate.set('clickOpens', fixed);
-                this.fpTime.set('clickOpens', fixed);
-                const alt = this.fpDate?.altInput;
-                if (alt) {
-                    alt.readOnly = !fixed;
-                    alt.classList.toggle('bg-[#F9FAFB]', !fixed);
-                    alt.classList.toggle('text-[#9CA3AF]', !fixed);
-                    alt.classList.toggle('cursor-not-allowed', !fixed);
-                }
-                if (!fixed) {
-                    this.fpDate.clear();
-                    this.fpTime.clear();
-                } else {
-                    if (!this.$refs.date.value) {
-                        const t = todayStr();
-                        this.fpDate.setDate(t, true);
-                    } else {
-                        this.updateTimeMin(this.$refs.date.value);
-                    }
-                }
+            // Устанавливаем начальное состояние при загрузке
+            this.updateFieldsState();
+
+            this.$watch('mode', () => {
+                this.updateFieldsState();
+                // Сохраняем изменение в сессию
+                const event = new Event('change');
+                const form = document.querySelector('[data-checkout-form]');
+                if (form) form.dispatchEvent(event);
             });
+        },
+
+        updateFieldsState() {
+            const fixed = this.mode === 'fixed';
+            
+            // Обновляем flatpickr
+            this.fpDate.set('clickOpens', fixed);
+            this.fpTime.set('clickOpens', fixed);
+            
+            // Обновляем altInput для даты
+            const altDate = this.fpDate?.altInput;
+            if (altDate) {
+                altDate.readOnly = !fixed;
+                altDate.disabled = !fixed;
+                altDate.classList.toggle('bg-[#F9FAFB]', !fixed);
+                altDate.classList.toggle('text-[#9CA3AF]', !fixed);
+                altDate.classList.toggle('cursor-not-allowed', !fixed);
+            }
+            
+            // Обновляем input для времени
+            const timeInput = this.$refs.time;
+            if (timeInput) {
+                timeInput.disabled = !fixed;
+            }
+            
+            // Очищаем поля если переключились на asap
+            if (!fixed) {
+                this.fpDate.clear();
+                this.fpTime.clear();
+            } else {
+                // Если переключились на fixed, устанавливаем дату по умолчанию
+                if (!this.$refs.date.value) {
+                    const t = (() => {
+                        const d = new Date();
+                        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                    })();
+                    this.fpDate.setDate(t, true);
+                } else {
+                    this.updateTimeMin(this.$refs.date.value);
+                }
+            }
         },
 
         updateTimeMin(ymd) {

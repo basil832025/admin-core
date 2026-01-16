@@ -5,71 +5,122 @@
 <div
     class="bg-white rounded-[12px] shadow-[0_2px_10px_rgba(0,0,0,.08)] p-4 space-y-4"
     x-data="(() => {
-        const base = (window.cartActions || (()=>({})))('{{ $addUrl }}','{{ $removeUrl }}');
+        const addUrl = '{{ $addUrl }}';
+        const removeUrl = '{{ $removeUrl }}';
+        const csrfToken = '{{ csrf_token() }}';
 
-        base.doRemove = async (payload) => {
-            const id = (typeof payload === 'object') ? payload.id : payload;
-
-            if (typeof base.remove === 'function') return base.remove({ id });
-            if (typeof base.del    === 'function') return base.del(id);
-
+        async function sendRequest(url, payload) {
             try {
-                const res = await fetch('{{ $removeUrl }}', {
+                const res = await fetch(url, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'X-CSRF-TOKEN': csrfToken,
                         'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
                     },
-                    body: JSON.stringify({ product_id: id })
+                    body: JSON.stringify(payload)
                 });
+                return await res.json();
+            } catch (e) {
+                console.error('cart request error:', e);
+                return {};
+            }
+        }
 
-                const data = await res.json();
+        function updateDom(data, productId) {
+            try {
+                const row = document.querySelector(`[data-cart-item='${productId}']`);
+                if (!row) return;
 
-                const row = document.querySelector(`[data-cart-item='${id}']`);
-                if (row) row.remove();
-
-                if (window.Alpine && Alpine.store('cart')) {
-                    Alpine.store('cart').setQty(Number(data.qty ?? 0));
-                    Alpine.store('cart').setTotal(Number(data.total_price ?? data.total ?? 0));
+                if (data && data.item) {
+                    const it = data.item;
+                    if (data.removed || Number(it.qty) <= 0) {
+                        row.remove();
+                    } else {
+                        const qtyEl = row.querySelector('[data-cart-line-total]')?.parentElement?.parentElement?.querySelector('.font-semibold');
+                        if (qtyEl) qtyEl.textContent = String(it.qty ?? 0);
+                        const lineTotal = row.querySelector('[data-cart-line-total]');
+                        if (lineTotal) {
+                            const price = Number(it.line_total || it.subtotal || 0);
+                            const uah = Math.floor(price);
+                            const kop = Math.round((price - uah) * 100);
+                            lineTotal.textContent = new Intl.NumberFormat('uk-UA').format(uah);
+                            const sup = lineTotal.nextElementSibling;
+                            if (sup && sup.tagName === 'SUP') {
+                                sup.textContent = String(kop).padStart(2, '0');
+                            }
+                        }
+                    }
+                } else if (data?.removed) {
+                    row.remove();
                 }
 
-                document.dispatchEvent(new CustomEvent('cart-updated', { detail: data }));
+                // Обновляем итоги
+                const qty = Number(data?.qty ?? data?.total_qty ?? 0);
+                const total = Number(data?.total_price ?? data?.total ?? 0);
+
+                if (window.Alpine && Alpine.store('cart')) {
+                    Alpine.store('cart').setQty(qty);
+                    Alpine.store('cart').setTotal(total);
+                }
 
                 const fmt = (v) =>
                     new Intl.NumberFormat('uk-UA').format(Number(v || 0)) + ' {{ st('cart.summary.currency_short', 'грн.') }}';
 
-                const newTotal = data.total_price ?? data.total ?? 0;
-
                 const totalEl = document.querySelector('[data-cart-total]');
-                if (totalEl) {
-                    totalEl.textContent = fmt(newTotal);
-                }
+                if (totalEl) totalEl.textContent = fmt(total);
 
                 const subEl = document.querySelector('[data-checkout-subtotal]');
-                if (subEl) {
-                    subEl.textContent = fmt(newTotal);
-                }
+                if (subEl) subEl.textContent = fmt(total);
 
                 const grandEl = document.querySelector('[data-checkout-total]');
-                if (grandEl) {
-                    grandEl.textContent = fmt(newTotal);
-                }
+                if (grandEl) grandEl.textContent = fmt(total);
 
+                document.dispatchEvent(new CustomEvent('cart-updated', { detail: data }));
             } catch (e) {
-                console.error('remove fallback error', e);
+                console.error('updateDom error:', e);
+            }
+        }
+
+        return {
+            async inc(payload) {
+                const id = (typeof payload === 'object') ? payload.id : payload;
+                const price = (typeof payload === 'object') ? payload.price : null;
+                const data = await sendRequest(addUrl, { 
+                    product_id: id, 
+                    qty: 1,
+                    price: price 
+                });
+                updateDom(data, id);
+                return data;
+            },
+            async dec(payload) {
+                const id = (typeof payload === 'object') ? payload.id : payload;
+                const price = (typeof payload === 'object') ? payload.price : null;
+                const data = await sendRequest(addUrl, { 
+                    product_id: id, 
+                    qty: -1,
+                    price: price 
+                });
+                updateDom(data, id);
+                return data;
+            },
+            async doRemove(payload) {
+                const id = (typeof payload === 'object') ? payload.id : payload;
+                const data = await sendRequest(removeUrl, { product_id: id });
+                updateDom(data, id);
+                return data;
             }
         };
-
-        return base;
     })()"
     @cart-remove.stop="doRemove($event.detail)"
 >
-    <div class="flex items-start justify-between">
-        <div class="text-[28px] leading-8 font-semibold">{{ st('cart.miy-zakaz', 'Мій заказ') }}</div>
+    <div class="flex items-start justify-between gap-2">
+        <div class="text-[22px] md:text-[28px] leading-7 md:leading-8 font-semibold">{{ st('cart.miy-zakaz', 'Мій заказ') }}</div>
 
         <a href="{{ $cartUrl }}"
-           class="text-[#FF7500] font-medium hover:underline">{{ st('cart.redaguvaty', 'Редагувати') }}</a>
+           class="text-[#FF7500] font-medium hover:underline text-sm md:text-base whitespace-nowrap">{{ st('cart.redaguvaty', 'Редагувати') }}</a>
     </div>
 
     <div class="space-y-4">
@@ -87,97 +138,191 @@
                 $old   = isset($it['old_subtotal']) ? (float)$it['old_subtotal'] : null;
             @endphp
 
-            <div class="flex items-center justify-between gap-2 border border-[#F1F2F4] h-[116px] rounded-[12px]
-                        shadow-[0_2px_8px_rgba(0,0,0,.06)] p-2" data-cart-item="{{ $pid }}">
-                {{-- картинка --}}
-                <img src="{{ $img }}" alt="" class="w-[120px] h-[96px] rounded-[8px] object-cover shrink-0">
+            <div class="flex flex-col md:flex-row items-start gap-3 md:gap-2 border border-[#F1F2F4] rounded-[12px]
+                        shadow-[0_2px_8px_rgba(0,0,0,.06)] p-3 md:p-2 md:h-[116px]" data-cart-item="{{ $pid }}">
+                {{-- ПЕРВЫЙ РЯД: изображение + описание и размеры (мобильная версия) --}}
+                <div class="md:hidden flex items-start gap-3 w-full">
+                    {{-- изображение --}}
+                    <img src="{{ $img }}" alt="" class="w-[100px] h-[96px] rounded-[8px] object-cover shrink-0">
+                    
+                    {{-- описание и размеры --}}
+                    <div class="flex-1 min-w-0">
+                        <div class="text-[14px] font-semibold text-[#272828] line-clamp-2">{{ $name }}</div>
 
-                {{-- инфо --}}
-                <div class="flex-1 min-w-0 pr-2">
-                    <div class="text-[10px] font-semibold text-[#272828] w-[155px] line-clamp-2">{{ $name }}</div>
+                        @if(!empty($it['meta_line']))
+                            <div class="mt-1 text-[12px] text-[#9CA3AF]">{!! $it['meta_line'] !!}</div>
+                        @elseif($var)
+                            <div class="mt-1 text-[12px] text-[#9CA3AF]">{{ $var }}</div>
+                        @endif
 
-                    @if(!empty($it['meta_line']))
-                        <div class="mt-1 text-[12px] text-[#9CA3AF]">{!! $it['meta_line'] !!}</div>
-                    @elseif($var)
-                        <div class="mt-1 text-[12px] text-[#9CA3AF]">{{ $var }}</div>
-                    @endif
-
-                    <div class="mt-1 text-[12px] text-[#9CA3AF]">{{ $qty }} шт</div>
+                        <div class="mt-1 text-[12px] text-[#9CA3AF]">{{ $qty }} шт</div>
+                    </div>
                 </div>
 
-                {{-- qty + цена + удалить --}}
-                <div class="flex items-center gap-4 sm:gap-5 shrink-0 w-[180px] justify-end">
-                    {{-- контрол количества --}}
-                    <div class="inline-flex items-center bg-[#FDDDA7] text-[#FF7500] h-10 rounded-[4px] px-1 shrink-0">
-                        <button type="button" class="w-6 h-6 grid place-items-center text-xl leading-none"
-                                @click.prevent="dec({ id: {{ $pid }}, price: {{ (float)($it['price'] ?? 0) }} })">−</button>
-                        <div class="w-8 text-center font-semibold">{{ $qty }}</div>
-                        <button type="button" class="w-6 h-6 grid place-items-center text-xl leading-none"
-                                @click.prevent="inc({ id: {{ $pid }}, price: {{ (float)($it['price'] ?? 0) }} })">+</button>
-                    </div>
+                {{-- ДЕСКТОПНАЯ ВЕРСИЯ: изображение (скрыто на мобильных) --}}
+                <img src="{{ $img }}" alt="" class="hidden md:block w-[120px] h-[96px] rounded-[8px] object-cover shrink-0">
 
-                    {{-- цена --}}
-                    <div class="text-right min-w-[90px] whitespace-nowrap">
-                        <div class="flex items-baseline justify-end gap-1 text-[#E44800] font-bold leading-none">
-                            <span class="text-[18px] tabular-nums" data-cart-line-total>
-                                {{ number_format($uah, 0, ',', ' ') }}
-                            </span>
-                            <sup class="align-top text-[12px] font-semibold tabular-nums">{{ $kop }}</sup>
-                            <span class="text-[14px]">{{ st('cart.summary.currency_short', 'грн.') }}</span>
-                        </div>
+                {{-- Информация о товаре + контролы --}}
+                <div class="flex-1 min-w-0 flex flex-col gap-3 md:gap-0 md:justify-between w-full md:w-auto">
+                    {{-- Основная информация о товаре (только для десктопа) --}}
+                    <div class="hidden md:block flex-1 min-w-0">
+                        <div class="text-[14px] font-semibold text-[#272828] line-clamp-2">{{ $name }}</div>
 
-                        @if($old && $old > $price)
-                            <div class="text-[14px] text-[#9CA3AF] line-through tabular-nums">
-                                {{ number_format($old, 0, ',', ' ') }} {{ st('cart.summary.currency_short', 'грн') }}
-                            </div>
+                        @if(!empty($it['meta_line']))
+                            <div class="mt-1 text-[12px] text-[#9CA3AF]">{!! $it['meta_line'] !!}</div>
+                        @elseif($var)
+                            <div class="mt-1 text-[12px] text-[#9CA3AF]">{{ $var }}</div>
                         @endif
+
+                        <div class="mt-1 text-[12px] text-[#9CA3AF]">{{ $qty }} шт</div>
                     </div>
 
-                    {{-- удалить с кастомным confirm --}}
-                    <div x-data="{ ask:false }" class="relative">
-                        <button
-                            type="button"
-                            class="w-8 h-8 grid place-items-center border border-[#E5E7EB] rounded-[4px] text-[#9CA3AF] hover:text-[#6B7280]"
-                            title="Видалити"
-                            aria-label="Видалити"
-                            @click="ask = true"
-                        >
-                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"
-                                 xmlns="http://www.w3.org/2000/svg">
-                                <path fill-rule="evenodd" clip-rule="evenodd"
-                                      d="M0.292893 0.292893C0.683417 -0.0976309 1.31658 -0.0976309 1.70711 0.292893L7 5.58579L12.2929 0.292893C12.6834 -0.0976311 13.3166 -0.0976311 13.7071 0.292893C14.0976 0.683417 14.0976 1.31658 13.7071 1.70711L8.41421 7L13.7071 12.2929C14.0976 12.6834 14.0976 13.3166 13.7071 13.7071C13.3166 14.0976 12.6834 14.0976 12.2929 13.7071L7 8.41421L1.70711 13.7071C1.31658 14.0976 0.683418 14.0976 0.292893 13.7071C-0.0976309 13.3166 -0.0976309 12.6834 0.292893 12.2929L5.58579 7L0.292893 1.70711C-0.0976311 1.31658 -0.0976311 0.683418 0.292893 0.292893Z"
-                                      fill="#929292"/>
-                            </svg>
-                        </button>
-
-                        <div
-                            x-show="ask"
-                            x-transition
-                            @click.outside="ask = false"
-                            class="absolute right-0 top-full mt-2 bg-white shadow-lg rounded-md border border-gray-200 p-3 w-[180px] z-20"
-                        >
-                            <div class="text-sm text-gray-800 mb-2 text-center">
-                                {{ st('cart.vydalyty-tsei-tovar-iz-zamovlennya', 'Видалити цей товар із замовлення') }}?
+                    {{-- ВТОРОЙ РЯД: кнопки - и + (неактивные) и цена (мобильная версия) --}}
+                    <div class="md:hidden flex items-center justify-between gap-3 w-full">
+                        {{-- Слева: контрол количества + цена --}}
+                        <div class="flex items-center gap-3 flex-1">
+                            {{-- контрол количества (неактивный) --}}
+                            <div class="inline-flex items-center bg-[#FDDDA7] text-[#FF7500] h-10 rounded-[4px] px-1 shrink-0 opacity-50 cursor-not-allowed">
+                                <button type="button" disabled class="w-6 h-6 grid place-items-center text-xl leading-none cursor-not-allowed">−</button>
+                                <div class="w-8 text-center font-semibold">{{ $qty }}</div>
+                                <button type="button" disabled class="w-6 h-6 grid place-items-center text-xl leading-none cursor-not-allowed">+</button>
                             </div>
-                            <div class="flex justify-center gap-2">
-                                <button
-                                    type="button"
-                                    class="px-3 py-1.5 rounded-md text-white bg-[#FF7500] hover:bg-[#e56700] text-sm font-semibold"
-                                    @click="$dispatch('cart-remove', { id: {{ $pid }} }); ask = false"
-                                >
-                                    {{ st('cart.yes', 'Так') }}
-                                </button>
-                                <button
-                                    type="button"
-                                    class="px-3 py-1.5 rounded-md text-gray-600 bg-gray-100 hover:bg-gray-200 text-sm font-medium"
-                                    @click="ask = false"
-                                >
-                                    {{ st('cart.no', 'Ні') }}
-                                </button>
+
+                            {{-- цена --}}
+                            <div class="text-left whitespace-nowrap">
+                                <div class="flex items-baseline gap-1 text-[#E44800] font-bold leading-none">
+                                    <span class="text-[18px] tabular-nums" data-cart-line-total>
+                                        {{ number_format($uah, 0, ',', ' ') }}
+                                    </span>
+                                    <sup class="align-top text-[12px] font-semibold tabular-nums">{{ $kop }}</sup>
+                                    <span class="text-[14px]">{{ st('cart.summary.currency_short', 'грн.') }}</span>
+                                </div>
+
+                                @if($old && $old > $price)
+                                    <div class="text-[14px] text-[#9CA3AF] line-through tabular-nums">
+                                        {{ number_format($old, 0, ',', ' ') }} {{ st('cart.summary.currency_short', 'грн') }}
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+
+                        {{-- Справа: удалить --}}
+                        <div x-data="{ ask:false }" class="relative shrink-0">
+                            <button
+                                type="button"
+                                class="w-8 h-8 grid place-items-center border border-[#E5E7EB] rounded-[4px] text-[#9CA3AF] hover:text-[#6B7280]"
+                                title="Видалити"
+                                aria-label="Видалити"
+                                @click="ask = true"
+                            >
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"
+                                     xmlns="http://www.w3.org/2000/svg">
+                                    <path fill-rule="evenodd" clip-rule="evenodd"
+                                          d="M0.292893 0.292893C0.683417 -0.0976309 1.31658 -0.0976309 1.70711 0.292893L7 5.58579L12.2929 0.292893C12.6834 -0.0976311 13.3166 -0.0976311 13.7071 0.292893C14.0976 0.683417 14.0976 1.31658 13.7071 1.70711L8.41421 7L13.7071 12.2929C14.0976 12.6834 14.0976 13.3166 13.7071 13.7071C13.3166 14.0976 12.6834 14.0976 12.2929 13.7071L7 8.41421L1.70711 13.7071C1.31658 14.0976 0.683418 14.0976 0.292893 13.7071C-0.0976309 13.3166 -0.0976309 12.6834 0.292893 12.2929L5.58579 7L0.292893 1.70711C-0.0976311 1.31658 -0.0976311 0.683418 0.292893 0.292893Z"
+                                          fill="#929292"/>
+                                </svg>
+                            </button>
+
+                            <div
+                                x-show="ask"
+                                x-transition
+                                @click.outside="ask = false"
+                                class="absolute right-0 top-full mt-2 bg-white shadow-lg rounded-md border border-gray-200 p-3 w-[180px] z-20"
+                            >
+                                <div class="text-sm text-gray-800 mb-2 text-center">
+                                    {{ st('cart.vydalyty-tsei-tovar-iz-zamovlennya', 'Видалити цей товар із замовлення') }}?
+                                </div>
+                                <div class="flex justify-center gap-2">
+                                    <button
+                                        type="button"
+                                        class="px-3 py-1.5 rounded-md text-white bg-[#FF7500] hover:bg-[#e56700] text-sm font-semibold"
+                                        @click="$dispatch('cart-remove', { id: {{ $pid }} }); ask = false"
+                                    >
+                                        {{ st('cart.yes', 'Так') }}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="px-3 py-1.5 rounded-md text-gray-600 bg-gray-100 hover:bg-gray-200 text-sm font-medium"
+                                        @click="ask = false"
+                                    >
+                                        {{ st('cart.no', 'Ні') }}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
 
+                    {{-- ДЕСКТОПНАЯ ВЕРСИЯ: контролы (неактивные), цена и удалить в ряд (скрыто на мобильных) --}}
+                    <div class="hidden md:flex items-center gap-4 sm:gap-5 shrink-0 justify-end">
+                        {{-- контрол количества (неактивный) --}}
+                        <div class="inline-flex items-center bg-[#FDDDA7] text-[#FF7500] h-10 rounded-[4px] px-1 shrink-0 opacity-50 cursor-not-allowed">
+                            <button type="button" disabled class="w-6 h-6 grid place-items-center text-xl leading-none cursor-not-allowed">−</button>
+                            <div class="w-8 text-center font-semibold">{{ $qty }}</div>
+                            <button type="button" disabled class="w-6 h-6 grid place-items-center text-xl leading-none cursor-not-allowed">+</button>
+                        </div>
+
+                        {{-- цена --}}
+                        <div class="text-right min-w-[90px] whitespace-nowrap">
+                            <div class="flex items-baseline justify-end gap-1 text-[#E44800] font-bold leading-none">
+                                <span class="text-[18px] tabular-nums" data-cart-line-total>
+                                    {{ number_format($uah, 0, ',', ' ') }}
+                                </span>
+                                <sup class="align-top text-[12px] font-semibold tabular-nums">{{ $kop }}</sup>
+                                <span class="text-[14px]">{{ st('cart.summary.currency_short', 'грн.') }}</span>
+                            </div>
+
+                            @if($old && $old > $price)
+                                <div class="text-[14px] text-[#9CA3AF] line-through tabular-nums">
+                                    {{ number_format($old, 0, ',', ' ') }} {{ st('cart.summary.currency_short', 'грн') }}
+                                </div>
+                            @endif
+                        </div>
+
+                        {{-- удалить с кастомным confirm --}}
+                        <div x-data="{ ask:false }" class="relative">
+                            <button
+                                type="button"
+                                class="w-8 h-8 grid place-items-center border border-[#E5E7EB] rounded-[4px] text-[#9CA3AF] hover:text-[#6B7280]"
+                                title="Видалити"
+                                aria-label="Видалити"
+                                @click="ask = true"
+                            >
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"
+                                     xmlns="http://www.w3.org/2000/svg">
+                                    <path fill-rule="evenodd" clip-rule="evenodd"
+                                          d="M0.292893 0.292893C0.683417 -0.0976309 1.31658 -0.0976309 1.70711 0.292893L7 5.58579L12.2929 0.292893C12.6834 -0.0976311 13.3166 -0.0976311 13.7071 0.292893C14.0976 0.683417 14.0976 1.31658 13.7071 1.70711L8.41421 7L13.7071 12.2929C14.0976 12.6834 14.0976 13.3166 13.7071 13.7071C13.3166 14.0976 12.6834 14.0976 12.2929 13.7071L7 8.41421L1.70711 13.7071C1.31658 14.0976 0.683418 14.0976 0.292893 13.7071C-0.0976309 13.3166 -0.0976309 12.6834 0.292893 12.2929L5.58579 7L0.292893 1.70711C-0.0976311 1.31658 -0.0976311 0.683418 0.292893 0.292893Z"
+                                          fill="#929292"/>
+                                </svg>
+                            </button>
+
+                            <div
+                                x-show="ask"
+                                x-transition
+                                @click.outside="ask = false"
+                                class="absolute right-0 top-full mt-2 bg-white shadow-lg rounded-md border border-gray-200 p-3 w-[180px] z-20"
+                            >
+                                <div class="text-sm text-gray-800 mb-2 text-center">
+                                    {{ st('cart.vydalyty-tsei-tovar-iz-zamovlennya', 'Видалити цей товар із замовлення') }}?
+                                </div>
+                                <div class="flex justify-center gap-2">
+                                    <button
+                                        type="button"
+                                        class="px-3 py-1.5 rounded-md text-white bg-[#FF7500] hover:bg-[#e56700] text-sm font-semibold"
+                                        @click="$dispatch('cart-remove', { id: {{ $pid }} }); ask = false"
+                                    >
+                                        {{ st('cart.yes', 'Так') }}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="px-3 py-1.5 rounded-md text-gray-600 bg-gray-100 hover:bg-gray-200 text-sm font-medium"
+                                        @click="ask = false"
+                                    >
+                                        {{ st('cart.no', 'Ні') }}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         @endforeach

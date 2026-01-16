@@ -153,10 +153,31 @@ class ProductResource extends Resource
 
                     Section::make(__('product.sections.prices'))
                         ->schema([
-                            TextInput::make('price')->label(__('product.fields.price'))->numeric()->required(),
-                            TextInput::make('old_price')->label(__('product.fields.old_price'))->numeric()->nullable(),
-
-                        ]) ->columns(2),
+                            TextInput::make('price')
+                                ->label(__('product.fields.price'))
+                                ->numeric()
+                                ->required()
+                                ->reactive(),
+                            TextInput::make('old_price')
+                                ->label(__('product.fields.old_price'))
+                                ->numeric()
+                                ->nullable()
+                                ->reactive(),
+                            Placeholder::make('discount_percent')
+                                ->label('Скидка %')
+                                ->content(function (Get $get) {
+                                    $oldPrice = (float)($get('old_price') ?? 0);
+                                    $price = (float)($get('price') ?? 0);
+                                    
+                                    if (!$oldPrice || $oldPrice <= 0 || $price <= 0 || $oldPrice <= $price) {
+                                        return new HtmlString('<span class="text-gray-500">0%</span>');
+                                    }
+                                    
+                                    $discount = round((($oldPrice - $price) / $oldPrice) * 100);
+                                    return new HtmlString('<span class="text-danger font-semibold">–' . $discount . '%</span>');
+                                })
+                                ->reactive(),
+                        ]) ->columns(3),
                     Section::make(__('product.sections.stock'))
                         ->schema([
                             TextInput::make('sku')->label(__('product.fields.sku')),
@@ -1021,6 +1042,32 @@ class ProductResource extends Resource
                     ->sortable()
                     ->toggleable()
                     ->default('—'),
+                Tables\Columns\TextColumn::make('discount_percent')
+                    ->label('Скидка %')
+                    ->getStateUsing(function (\App\Models\Shop\Product $record) {
+                        $oldPrice = $record->old_price ?? null;
+                        $price = $record->price ?? 0;
+                        
+                        if (!$oldPrice || $oldPrice <= 0 || $price <= 0 || $oldPrice <= $price) {
+                            return 0;
+                        }
+                        
+                        return round((($oldPrice - $price) / $oldPrice) * 100);
+                    })
+                    ->formatStateUsing(fn ($state) => $state > 0 ? "–{$state}%" : '0%')
+                    ->color(fn ($state) => $state > 0 ? 'danger' : 'gray')
+                    ->alignRight()
+                    ->sortable(query: function ($query, string $direction) {
+                        // Сортировка по вычисленному проценту скидки
+                        return $query->orderByRaw("
+                            CASE 
+                                WHEN old_price > 0 AND price > 0 AND old_price > price 
+                                THEN ROUND(((old_price - price) / old_price) * 100)
+                                ELSE 0 
+                            END {$direction}
+                        ");
+                    })
+                    ->toggleable(),
                 Tables\Columns\IconColumn::make('in_stock')->label(__('product.columns.in_stock'))->boolean()->sortable(),
                 Tables\Columns\TextColumn::make('sort')->label(__('product.columns.sort'))->sortable()->toggleable(),
                 ToggleColumn::make('is_new')->label(__('product.columns.is_new'))->sortable(),

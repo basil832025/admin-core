@@ -7,7 +7,7 @@
     x-data="{
     isOpen:false, url:null, hdr:0,
     async open(u){ this.calcHeader(); this.isOpen=true; this.url=u; await this.load(u) },
-    close(){ this.isOpen=false },
+    close(){ this.isOpen=false; this.url=null; },
     calcHeader(){ const el=document.getElementById('site-header'); this.hdr=el?Math.round(el.getBoundingClientRect().height):0 },
     async load(u){
       const box = this.$refs.box;
@@ -16,11 +16,7 @@ const html = await fetch(u, { headers:{'Accept':'text/html'} }).then(r=>r.text()
 box.innerHTML = html;
 }
 }"
-x-init="
-// перерисовать при любом обновлении корзины (даже если окно уже открыто)
-$el.addEventListener('cart-reload', () => { if (isOpen && url) load(url) });
-window.addEventListener('cart-reload', () => { if (isOpen && url) load(url) });
-"
+x-init="isOpen = false; url = null; $nextTick(() => { isOpen = false; close(); }); $el.addEventListener('cart-reload', () => { if (isOpen && url) load(url) }); window.addEventListener('cart-reload', () => { if (isOpen && url) load(url) }); window.addEventListener('popstate', () => { close(); }); document.addEventListener('visibilitychange', () => { if (!document.hidden && isOpen) { close(); } });"
 >
 
     {{-- иконка --}}
@@ -37,6 +33,7 @@ window.addEventListener('cart-reload', () => { if (isOpen && url) load(url) });
 
     {{-- backdrop: начинается ниже шапки --}}
     <div x-show="isOpen"
+         x-cloak
          x-transition.opacity
          @click="close"
          class="fixed left-0 right-0 z-[40] bg-black/40"
@@ -44,6 +41,7 @@ window.addEventListener('cart-reload', () => { if (isOpen && url) load(url) });
 
     {{-- панель: тоже ниже шапки, ширины по брейкпоинтам --}}
     <div x-show="isOpen"
+         x-cloak
          x-transition:enter="transition transform duration-300"
          x-transition:enter-start="translate-x-full"
          x-transition:enter-end="translate-x-0"

@@ -38,6 +38,9 @@ class CheckoutController extends Controller
  */
 public function index()
 {
+    // Загружаем сохраненные данные из сессии
+    $sessionData = session('checkout.form_data', []);
+    
     $items  = $this->cart->items();
     $info   = $this->cart->info();
     // 1) Точки самовывоза из bs_locations
@@ -124,8 +127,98 @@ public function index()
         'totals'    => $totals,
         'locations' => $locations,
         'availablePromos' => $availablePromos,
-
+        'sessionData' => $sessionData,
     ]);
+}
+
+/**
+ * Сохранение данных формы в сессию
+ */
+public function saveFormData(Request $request)
+{
+    $data = [];
+    
+    // Контактные данные
+    if ($request->has('contact_name')) {
+        $data['contact_name'] = $request->input('contact_name');
+    }
+    if ($request->has('contact_phone')) {
+        $data['contact_phone'] = $request->input('contact_phone');
+    }
+    if ($request->has('contact_email')) {
+        $data['contact_email'] = $request->input('contact_email');
+    }
+    
+    // Способ получения и адрес
+    if ($request->has('shipping_method')) {
+        $data['shipping_method'] = $request->input('shipping_method');
+    }
+    if ($request->has('selected_address_id')) {
+        $data['selected_address_id'] = $request->input('selected_address_id');
+    }
+    if ($request->has('use_new_address')) {
+        $data['use_new_address'] = $request->boolean('use_new_address');
+    }
+    
+    // Данные нового адреса
+    if ($request->has('addr_street')) {
+        $data['addr_street'] = $request->input('addr_street');
+    }
+    if ($request->has('addr_house')) {
+        $data['addr_house'] = $request->input('addr_house');
+    }
+    if ($request->has('addr_apartment')) {
+        $data['addr_apartment'] = $request->input('addr_apartment');
+    }
+    if ($request->has('addr_intercom')) {
+        $data['addr_intercom'] = $request->input('addr_intercom');
+    }
+    if ($request->has('addr_floor')) {
+        $data['addr_floor'] = $request->input('addr_floor');
+    }
+    if ($request->has('addr_porch')) {
+        $data['addr_porch'] = $request->input('addr_porch');
+    }
+    if ($request->has('addr_comment')) {
+        $data['addr_comment'] = $request->input('addr_comment');
+    }
+    if ($request->has('addr_is_private_house')) {
+        $data['addr_is_private_house'] = $request->boolean('addr_is_private_house');
+    }
+    if ($request->has('addr_type')) {
+        $data['addr_type'] = $request->input('addr_type');
+    }
+    
+    // Условия доставки
+    if ($request->has('delivery_mode')) {
+        $data['delivery_mode'] = $request->input('delivery_mode');
+    }
+    if ($request->has('delivery_date')) {
+        $data['delivery_date'] = $request->input('delivery_date');
+    }
+    if ($request->has('delivery_time')) {
+        $data['delivery_time'] = $request->input('delivery_time');
+    }
+    
+    // Способ оплаты
+    if ($request->has('payment_method')) {
+        $data['payment_method'] = $request->input('payment_method');
+    }
+    
+    // Комментарии
+    if ($request->has('comment_kitchen')) {
+        $data['comment_kitchen'] = $request->input('comment_kitchen');
+    }
+    if ($request->has('comment_courier')) {
+        $data['comment_courier'] = $request->input('comment_courier');
+    }
+
+    // Сохраняем в сессию (объединяем с существующими данными, чтобы не потерять уже сохраненные)
+    $existingData = session('checkout.form_data', []);
+    $mergedData = array_merge($existingData, $data);
+    session(['checkout.form_data' => $mergedData]);
+
+    return response()->json(['ok' => true]);
 }
 public function updatePromo(Request $request)
 {
@@ -763,6 +856,8 @@ public function submit(Request $request)
         $this->cart->clearAfterCheckout();
     }
     session()->forget('checkout.selected_promo');
+    // Очищаем сохраненные данные формы после успешного оформления
+    session()->forget('checkout.form_data');
 
     if ($paymentEnum === PaymentMethodEnum::LIQPAY) {
         // своя страница с кнопкой LiqPay

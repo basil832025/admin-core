@@ -4,6 +4,7 @@ import { Navigation, Pagination, Autoplay } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
+import 'swiper/css/autoplay';
 import './alpine/checkout';
 import Inputmask from "inputmask";
 
@@ -75,14 +76,30 @@ if (window.Alpine) {
     window.addEventListener('alpine:init', registerAlpineComponents)
 }
 // ---- Swiper
-document.addEventListener('DOMContentLoaded', () => {
+function initBannerSwiper() {
+    const bannerEl = document.querySelector('.banner-swiper');
+    if (!bannerEl) {
+        console.warn('Banner swiper element not found');
+        return;
+    }
+    
+    // Проверяем, не инициализирован ли уже
+    if (bannerEl.swiper) {
+        return;
+    }
+    
     new Swiper('.banner-swiper', {
-        modules: [Navigation, Pagination, ], //Autoplay
+        modules: [Navigation, Pagination, Autoplay],
         loop: true,
-        autoplay: { delay: 4000, disableOnInteraction: false },
+        autoplay: { 
+            delay: 4000, 
+            disableOnInteraction: false,
+            pauseOnMouseEnter: false,
+        },
         slidesPerView: 'auto',
         centeredSlides: true,
         spaceBetween: 24,
+        speed: 600,
         // точки в отдельном div под слайдером
         pagination: {
             el: '#banner-pagination',
@@ -96,6 +113,12 @@ document.addEventListener('DOMContentLoaded', () => {
             prevEl: '.banner-swiper .swiper-button-prev',
         },
     });
+}
+
+document.addEventListener('DOMContentLoaded', initBannerSwiper);
+// Также инициализируем после Alpine, если элемент появится позже
+document.addEventListener('alpine:init', () => {
+    setTimeout(initBannerSwiper, 100);
 });
 document.addEventListener('alpine:init', () => {
     Alpine.magic('t', el => (key, params={}) => {
@@ -196,6 +219,56 @@ window.applyUaPhoneMask = function (el) {
 
 // Сообщаем, что функция готова (на случай раннего x-init)
 window.dispatchEvent(new Event('ua-phone-mask-ready'));
+
+// Закрываем корзину и меню пользователя при навигации по ссылкам
+document.addEventListener('DOMContentLoaded', () => {
+    // Обработчик для всех ссылок навигации
+    document.addEventListener('click', (e) => {
+        const link = e.target.closest('a[href]');
+        if (link && link.href && !link.href.startsWith('#') && !link.hasAttribute('data-url')) {
+            // Если это обычная ссылка навигации (не якорь и не кнопка корзины)
+            // Закрываем корзину
+            const cartComponent = document.querySelector('[x-data*="isOpen"]');
+            if (cartComponent && window.Alpine) {
+                const cartData = window.Alpine.$data(cartComponent);
+                if (cartData && cartData.isOpen) {
+                    cartData.close();
+                }
+            }
+            // Закрываем меню пользователя
+            const userMenuComponents = document.querySelectorAll('[x-data*="open"][x-data*="hover"]');
+            userMenuComponents.forEach(component => {
+                if (component && window.Alpine) {
+                    const menuData = window.Alpine.$data(component);
+                    if (menuData && menuData.open) {
+                        menuData.open = false;
+                        menuData.hover = false;
+                    }
+                }
+            });
+            // Закрываем поиск
+            if (window.Alpine && window.Alpine.store('search')) {
+                const searchStore = window.Alpine.store('search');
+                if (searchStore && searchStore.open) {
+                    searchStore.open = false;
+                }
+            }
+            // Закрываем dropdown сортировки
+            const sortDropdowns = document.querySelectorAll('[x-data*="open"]');
+            sortDropdowns.forEach(dropdown => {
+                const menu = dropdown.querySelector('[x-show="open"]');
+                if (menu && menu.classList.contains('absolute') && menu.classList.contains('z-20')) {
+                    if (dropdown && window.Alpine) {
+                        const dropdownData = window.Alpine.$data(dropdown);
+                        if (dropdownData && dropdownData.open) {
+                            dropdownData.open = false;
+                        }
+                    }
+                }
+            });
+        }
+    }, true); // Используем capture phase для раннего перехвата
+});
 
 
 

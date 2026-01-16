@@ -29,17 +29,39 @@
     }
     /* Десктоп: ≥1344 */
     @screen lg {
-        .banner-swiper { --swiper-navigation-sides-offset: 46px; }
-        .banner-swiper {
-            --swiper-navigation-sides-offset: -45px; /* было 66px внутрь, теперь -66px наружу */
-             overflow: visible; /* чтобы их не обрезало */
+        .banner-swiper { 
+            --swiper-navigation-sides-offset: 46px;
+            overflow: visible !important; /* чтобы их не обрезало */
+            width: 100%;
+        }
+        .banner-swiper .swiper-wrapper {
+            display: flex;
+            align-items: center;
+        }
+        .banner-swiper .swiper-slide {
+            width: 1098px !important;
+            min-width: 1098px !important;
+            max-width: 1098px !important;
+            flex-shrink: 0 !important;
+            flex-grow: 0 !important;
         }
     }
     @screen desktop {
-        .banner-swiper { --swiper-navigation-sides-offset: 66px; }
-        .banner-swiper {
-            --swiper-navigation-sides-offset: -66px; /* было 66px внутрь, теперь -66px наружу */
-            overflow: visible; /* чтобы их не обрезало */
+        .banner-swiper { 
+            --swiper-navigation-sides-offset: 66px;
+            overflow: visible !important; /* чтобы их не обрезало */
+            width: 100%;
+        }
+        .banner-swiper .swiper-wrapper {
+            display: flex;
+            align-items: center;
+        }
+        .banner-swiper .swiper-slide {
+            width: 1098px !important;
+            min-width: 1098px !important;
+            max-width: 1098px !important;
+            flex-shrink: 0 !important;
+            flex-grow: 0 !important;
         }
     }
     /* выключаем дефолтные стрелки Swiper */
@@ -59,7 +81,35 @@
     .banner-swiper .swiper-slide-duplicate-next { transform-origin: left center; }
     /* на всякий случай поднимем над слайдом */
     .banner-swiper .swiper-button-prev,
-    .banner-swiper .swiper-button-next { @apply z-10; }
+    .banner-swiper .swiper-button-next { 
+        @apply z-10;
+        position: absolute !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        margin-top: 0 !important;
+    }
+    
+    @screen lg {
+        .banner-swiper .swiper-button-prev {
+            left: 46px !important;
+            right: auto !important;
+        }
+        .banner-swiper .swiper-button-next {
+            right: 46px !important;
+            left: auto !important;
+        }
+    }
+    
+    @screen desktop {
+        .banner-swiper .swiper-button-prev {
+            left: 66px !important;
+            right: auto !important;
+        }
+        .banner-swiper .swiper-button-next {
+            right: 66px !important;
+            left: auto !important;
+        }
+    }
 
     /* плавная анимация масштаба */
     .banner-swiper .swiper-slide {
@@ -150,6 +200,12 @@ body.no-scroll { overflow: hidden !important; height: 100%; }
     .text-body { font-size: 13px; line-height: 16px; }
 }
 [x-cloak]{ display:none !important; }
+/* Скрываем элементы корзины, меню пользователя и поиска по умолчанию до инициализации Alpine.js */
+/* НЕ скрываем dropdown сортировки через CSS - Alpine.js сам управляет их видимостью через x-show */
+div[x-show*="isOpen"][x-cloak],
+div[x-show*="$store.search.open"][x-cloak] {
+    display: none !important;
+}
 
 @layer components {
     /* Базовый инпут 46/6/#E5E7EB */

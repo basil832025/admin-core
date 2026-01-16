@@ -31,7 +31,7 @@
     }"
 >
     <div class="flex items-center justify-between">
-        <div class="text-[22px] leading-7 font-semibold">
+        <div class="text-[18px] md:text-[22px] leading-6 md:leading-7 font-semibold">
             {{ st('cart.pickup.title', 'Адреси ресторанів') }}
         </div>
 

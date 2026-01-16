@@ -5,22 +5,29 @@ namespace App\Http\Controllers\Front;
 use App\Http\Controllers\Controller;
 use App\Models\Shop\Product;
 use App\Models\Shop\ProductCategory;
+use App\Support\Presenters\ProductCardPresenter;
+use App\Support\Traits\HasCatalogFilters;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class SearchController extends Controller
 {
+    use HasCatalogFilters;
     /** Страница с результатами */
     public function index(Request $request)
     {
         $q = trim((string) $request->get('q', ''));
         $locales = \App\Models\Setting::getActiveLocales();
+        $locale = app()->getLocale();
+        $favoriteIds = $this->favoriteIds();
 
         if ($q === '') {
-            return view('front.search.index', [
+            return view('pages.search.index', [
                 'q'          => $q,
                 'products'   => collect(),
                 'categories' => collect(),
+                'favoriteIds' => $favoriteIds,
             ]);
         }
 
@@ -28,17 +35,23 @@ class SearchController extends Controller
         $needle = '%' . addcslashes(mb_strtolower($q), '%_') . '%';
 
         // ==== ТОВАРЫ ====
-        $products = Product::query()
-            ->select(['id','slug','title','main_image','category_id'])
-            ->with(['mainCategory:id,slug,title'])
+        
+        $productsQuery = Product::withCardRelations()
+            ->cardSelect()
             ->where('in_stock', true)
             ->whereRaw('COALESCE(parent_id,0)=0')
             ->where(function (Builder $w) use ($locales, $needle) {
                 $this->applyTitleSlugLikeCI($w, $locales, $needle);
+                // Поиск по артикулу (code2)
+                $w->orWhereRaw('LOWER(`code2`) LIKE ?', [$needle]);
+                // Поиск по характеристикам
+                $this->applyCharacteristicSearch($w, $locales, $needle);
             })
             ->orderByDesc('sort')
-            ->limit(50)
-            ->get();
+            ->limit(50);
+        
+        $productsCollection = $productsQuery->get();
+        $products = collect((new ProductCardPresenter($locale))->collection($productsCollection));
 
         // ==== КАТЕГОРИИ ====
         $categories = ProductCategory::query()
@@ -49,7 +62,7 @@ class SearchController extends Controller
             ->limit(20)
             ->get();
 
-        return view('front.search.index', compact('q','products','categories'));
+        return view('pages.search.index', compact('q','products','categories','favoriteIds'));
     }
 
     /** AJAX-подсказки для хедера */
@@ -71,6 +84,10 @@ class SearchController extends Controller
             ->whereRaw('COALESCE(parent_id,0)=0')
             ->where(function (Builder $w) use ($locales, $needle) {
                 $this->applyTitleSlugLikeCI($w, $locales, $needle);
+                // Поиск по артикулу (code2)
+                $w->orWhereRaw('LOWER(`code2`) LIKE ?', [$needle]);
+                // Поиск по характеристикам
+                $this->applyCharacteristicSearch($w, $locales, $needle);
             })
             ->limit(6)
             ->get()
@@ -131,5 +148,60 @@ class SearchController extends Controller
 
         // slug
         $w->orWhereRaw('LOWER(`slug`) LIKE ?', [$needle]);
+    }
+
+    /**
+     * Поиск по характеристикам товаров
+     * Ищет по значениям характеристик (CharacteristicValue.value) на всех языках
+     * и по текстовым значениям в pivot таблице (value_text)
+     * Учитывает характеристики как у родительского товара, так и у дочерних (вариантов)
+     */
+    private function applyCharacteristicSearch(Builder $w, array $locales, string $needle): void
+    {
+        // Поиск по value_text в pivot таблице (характеристики родительского товара)
+        $w->orWhereExists(function ($query) use ($needle) {
+            $query->select(DB::raw(1))
+                ->from('bs_product_characteristic_value')
+                ->whereColumn('bs_product_characteristic_value.product_id', 'bs_products.id')
+                ->whereRaw('LOWER(bs_product_characteristic_value.value_text) LIKE ?', [$needle]);
+        });
+
+        // Поиск по value_text в pivot таблице (характеристики дочерних товаров)
+        $w->orWhereExists(function ($query) use ($needle) {
+            $query->select(DB::raw(1))
+                ->from('bs_products AS child_products')
+                ->join('bs_product_characteristic_value', 'child_products.id', '=', 'bs_product_characteristic_value.product_id')
+                ->whereColumn('child_products.parent_id', 'bs_products.id')
+                ->whereRaw('LOWER(bs_product_characteristic_value.value_text) LIKE ?', [$needle]);
+        });
+
+        // Поиск по CharacteristicValue.value (JSON поле) на всех языках (характеристики родительского товара)
+        foreach ($locales as $loc) {
+            $w->orWhereExists(function ($query) use ($needle, $loc) {
+                $query->select(DB::raw(1))
+                    ->from('bs_product_characteristic_value')
+                    ->join('bs_characteristic_values', 'bs_product_characteristic_value.characteristic_value_id', '=', 'bs_characteristic_values.id')
+                    ->whereColumn('bs_product_characteristic_value.product_id', 'bs_products.id')
+                    ->whereRaw(
+                        "LOWER(JSON_UNQUOTE(JSON_EXTRACT(bs_characteristic_values.value, '$.\"$loc\"'))) LIKE ?",
+                        [$needle]
+                    );
+            });
+        }
+
+        // Поиск по CharacteristicValue.value (JSON поле) на всех языках (характеристики дочерних товаров)
+        foreach ($locales as $loc) {
+            $w->orWhereExists(function ($query) use ($needle, $loc) {
+                $query->select(DB::raw(1))
+                    ->from('bs_products AS child_products')
+                    ->join('bs_product_characteristic_value', 'child_products.id', '=', 'bs_product_characteristic_value.product_id')
+                    ->join('bs_characteristic_values', 'bs_product_characteristic_value.characteristic_value_id', '=', 'bs_characteristic_values.id')
+                    ->whereColumn('child_products.parent_id', 'bs_products.id')
+                    ->whereRaw(
+                        "LOWER(JSON_UNQUOTE(JSON_EXTRACT(bs_characteristic_values.value, '$.\"$loc\"'))) LIKE ?",
+                        [$needle]
+                    );
+            });
+        }
     }
 }

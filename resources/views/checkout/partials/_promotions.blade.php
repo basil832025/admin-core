@@ -7,7 +7,7 @@
         x-data="availablePromosComponent('{{ $selectedPromo }}')"
         class="bg-white rounded shadow-[0_2px_10px_rgba(0,0,0,.08)] pt-3 pr-4 pb-3 pl-4 relative"
     >
-        <div class="text-[22px] leading-7 font-semibold mb-4">{{ st('cart.dostupni-aktsii', 'Доступні акції') }}</div>
+        <div class="text-[18px] md:text-[22px] leading-6 md:leading-7 font-semibold mb-3 md:mb-4">{{ st('cart.dostupni-aktsii', 'Доступні акції') }}</div>
 
         {{-- скрытое поле для отправки на submit --}}
         <input type="hidden" name="selected_promo" x-model="selected">

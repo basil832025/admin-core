@@ -1,6 +1,7 @@
 @auth
     <div
         x-data="{ open:false, hover:false }"
+        x-init="open = false; hover = false; window.addEventListener('popstate', () => { open = false; hover = false; }); document.addEventListener('visibilitychange', () => { if (!document.hidden && open) { open = false; hover = false; } });"
         @keydown.escape.window="open=false"
         class="relative"
     >
@@ -19,12 +20,15 @@
         </button>
 
         {{-- ФОН для клика поза меню на мобільних --}}
-        <div x-show="open" x-transition.opacity
+        <div x-show="open" 
+             x-cloak
+             x-transition.opacity
              class="fixed inset-0 z-40 lg:hidden"
              @click="open=false"></div>
 
         {{-- ДРОПДАУН --}}
         <div x-show="open"
+             x-cloak
              x-transition.origin.top.right
              @click.outside="open=false"
              @mouseenter="hover=true" @mouseleave="hover=false; setTimeout(()=>{ if(!hover) open=false }, 120)"
