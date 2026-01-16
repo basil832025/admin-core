@@ -157,7 +157,7 @@ Rows Data:
         } 
     }"
     @variant-selected="handleVariantSelected($event)"
-    class="desk:w-[378px] md:w-[360px] w-[355px] h-[650px] flex flex-col rounded-[12px] bg-white desk:gap-8 md:gap-4 p-3 shadow-[0_8px_20px_rgba(0,0,0,0.05)]"
+    class="desk:w-[378px] md:w-[360px] w-[355px] md:h-[650px] flex flex-col rounded-[12px] bg-white desk:gap-8 md:gap-4 p-3 shadow-[0_8px_20px_rgba(0,0,0,0.05)]"
     @if($pid) data-product-id="{{ $pid }}" @endif
 >
     <a href="{{ $url }}">
@@ -197,7 +197,7 @@ Rows Data:
         </div>
 
         @if(!empty($rows))
-            <div class="mt-auto rows-selector-container">
+            <div class="md:mt-auto rows-selector-container">
                 <x-ui.rows-selector
                     :rows="$rows"
                     :characteristics="$characteristics"

@@ -59,7 +59,7 @@
             }
         "
         @endif
-        class="mt-4"
+        class="md:mt-4"
     >
         {{-- КНОПКИ-«ПИЛЮЛИ»: на мобиле 1 кол., на md+ — 2 колонки, одинаковой ширины --}}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-2 min-w-[292px] text-xs">
