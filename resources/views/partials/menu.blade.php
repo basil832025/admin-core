@@ -4,9 +4,9 @@
     $brand = '#FF7500';
 @endphp
 
-<nav class="mt-6 " x-data="scrollTabs()" x-init="init">
+<nav class="sticky top-[68px] md:top-[64px] desk:top-[76px] z-40 bg-white shadow-sm mt-6" x-data="scrollTabs()" x-init="init">
     <!-- 16px паддинг контейнера как в макете -->
-    <div class=" relative  px-4">
+    <div class="relative px-4 py-2">
 
         <!-- левая стрелка -->
         <button
