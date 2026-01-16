@@ -118,8 +118,7 @@
                 </button>
                 <button type="button" class="w-5 h-5 hidden lg:flex items-center justify-center"
                         aria-label="Пошук" @click.stop="$store.search.open = !$store.search.open">
-                    <img src="{{ asset('images/search.svg') }}" class="w-5 h-5" alt="">
-                </button>
+                    <img src="{{ asset('images/search.svg') }}" class="w-5 h-5 shrink-0 flex-none" alt="">
 
                 {{-- Акції --}}
                 <a href="/discounts" class="flex items-center gap-1.5 text-sm font-medium text-[#19191A] hover:text-orange-600">
