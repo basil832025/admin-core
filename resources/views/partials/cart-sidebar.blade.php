@@ -27,6 +27,38 @@
                     $q     = (int) data_get($it, 'qty', 1);
                     $p     = (float) data_get($it, 'price', 0);
                     $sum   = (float) (data_get($it, 'subtotal') ?? ($q * $p));
+                    
+                    // Получаем характеристики с SVG иконками для размера и веса
+                    $variantChars = [];
+                    if ($pid) {
+                        $product = \App\Models\Shop\Product::with([
+                            'productCharacteristicValues.characteristic:id,slug,svg_image_id',
+                            'productCharacteristicValues.characteristic.svgImage',
+                            'productCharacteristicValues.characteristicValue'
+                        ])->find($pid);
+                        if ($product && $product->relationLoaded('productCharacteristicValues')) {
+                            $vals = $product->productCharacteristicValues;
+                            $keep = ['rozmir-pirogiv', 'vaga']; // размер и вес
+                            foreach ($vals as $v) {
+                                $char = $v->characteristic;
+                                if (!$char) continue;
+                                
+                                $slug = (string) ($char->slug ?? '');
+                                if ($slug === '' || !in_array($slug, $keep, true)) {
+                                    continue;
+                                }
+                                $text = $v->value_text ?: ($v->characteristicValue?->value ?? null);
+                                if ($text) {
+                                    $svgUrl = $char->svgImage?->url ?? null;
+                                    $variantChars[] = [
+                                        'slug' => $slug,
+                                        'value' => $text,
+                                        'svg' => $svgUrl,
+                                    ];
+                                }
+                            }
+                        }
+                    }
                 @endphp
 
                 <div
@@ -48,7 +80,23 @@
                                 </div>
                             @endif
 
-                            @if($var)
+                            @if(!empty($variantChars))
+                                <div class="flex flex-row md:flex-col items-center md:items-start gap-2 mt-1 text-xs text-gray-500">
+                                    @foreach($variantChars as $char)
+                                        <span class="inline-flex items-center gap-1">
+                                            @if($char['svg'])
+                                                <span aria-hidden="true" class="inline-block h-4 w-4 shrink-0"
+                                                      style="background-color: currentColor;
+                                                          mask-image:url('{{ $char['svg'] }}');-webkit-mask-image:url('{{ $char['svg'] }}');
+                                                          mask-repeat:no-repeat;-webkit-mask-repeat:no-repeat;
+                                                          mask-position:center;-webkit-mask-position:center;
+                                                          mask-size:contain;-webkit-mask-size:contain;"></span>
+                                            @endif
+                                            <span>{{ $char['value'] }}</span>
+                                        </span>
+                                    @endforeach
+                                </div>
+                            @elseif($var)
                                 <div class="text-xs text-gray-500 mt-1">{{ $var }}</div>
                             @endif
                         </div>

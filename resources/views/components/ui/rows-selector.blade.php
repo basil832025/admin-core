@@ -19,6 +19,10 @@
     $rootRow  = null;
     if ($rootId) foreach ($rows as $r) if (($r['product_id'] ?? null) === $rootId) { $rootRow = $r; break; }
     $rootRow ??= $rows[0] ?? ['price'=>$defaultPrice,'old_price'=>$defaultOldPrice,'product_id'=>null];
+    
+    // Для одного варианта уменьшаем отступы
+    $rowsCount = count($rows ?? []);
+    $isSingleVariant = $rowsCount <= 1;
 
     $p  = $fmt($rootRow['price'] ?? $defaultPrice);
     $op = ($rootRow['old_price'] ?? null) && ($rootRow['old_price'] > ($rootRow['price'] ?? 0)) ? $fmt($rootRow['old_price']) : null;
@@ -219,7 +223,7 @@
             }
         },
     }"
-        class="mt-3 text-[13px]"
+        class="{{ $isSingleVariant ? 'mt-1' : 'mt-3' }} text-[13px]"
     >
 
     @foreach ($rows as $r)
@@ -290,16 +294,16 @@
         @endforeach
 
         {{-- подвал цен + кнопка (для карточек-списка можно оставить; для детальной страницы — убрать) --}}
-        <div class="mt-4 flex items-center justify-between">
-            <div class="flex items-baseline gap-1">
-                <div class="flex items-baseline gap-1 text-neutral-400 line-through"
+        <div class="{{ $isSingleVariant ? 'mt-2' : 'mt-3' }} flex items-center justify-between">
+            <div class="flex items-baseline gap-1 whitespace-nowrap shrink-0">
+                <div class="flex items-baseline gap-1 text-neutral-400 line-through whitespace-nowrap"
                      x-show="prices[selected]?.old && prices[selected]?.old > prices[selected]?.price">
-                    <span class="font-semibold text-[20px] leading-[20px]" x-text="fmt(prices[selected]?.old).uah">{{ $op['uah'] ?? '' }}</span>
-                    <span class="relative -top-2 font-bold text-[12px] leading-[12px]" x-text="fmt(prices[selected]?.old).kop">{{ $op['kop'] ?? '' }}</span>
-                    <span class="text-[14px] leading-[14px]">{{ st('all.grn','грн') }}</span>
+                    <span class="font-semibold text-[16px] leading-[16px]" x-text="fmt(prices[selected]?.old).uah">{{ $op['uah'] ?? '' }}</span>
+                    <span class="relative -top-2 font-bold text-[11px] leading-[11px]" x-text="fmt(prices[selected]?.old).kop">{{ $op['kop'] ?? '' }}</span>
+                    <span class="text-[12px] leading-[12px]">{{ st('all.grn','грн') }}</span>
                 </div>
 
-                <div class="flex items-baseline gap-1 text-[#333333]">
+                <div class="flex items-baseline gap-1 text-[#333333] whitespace-nowrap">
                     <span class="font-bold text-[26px] leading-[32px]" x-text="fmt(prices[selected]?.price).uah">{{ $p['uah'] }}</span>
                     <span class="relative -top-3 font-bold text-[12px] leading-[12px]" x-text="fmt(prices[selected]?.price).kop">{{ $p['kop'] }}</span>
                     <span class="text-[14px] leading-[14px]">{{ st('all.grn','грн') }}</span>

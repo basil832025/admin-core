@@ -24,7 +24,7 @@
             ];
         }
         $defaultPrice = (float)($product['price'] ?? 0);
-        
+
         // расчет начальной скидки для начального варианта
         $initialDiscount = null;
         if ($rootKey && isset($priceMap[$rootKey])) {
@@ -49,9 +49,9 @@
                 fmt(v){ const n=Number(v||0); const parts=n.toFixed(2).split('.'); return { uah: parts[0].replace(/\B(?=(\d{3})+(?!\d))/g,' '), kop: parts[1] }; },
                 price(){ const p=this.prices[this.selected]; return p?.price ?? {{ $defaultPrice }}; },
                 old(){ const p=this.prices[this.selected]; return (p?.old && p.old > (p?.price ?? 0)) ? p.old : null; },
-                discountPercent(){ 
-                    const oldPrice = this.old(); 
-                    const currentPrice = this.price(); 
+                discountPercent(){
+                    const oldPrice = this.old();
+                    const currentPrice = this.price();
                     if (oldPrice && oldPrice > 0 && currentPrice > 0 && oldPrice > currentPrice) {
                         return Math.round(((oldPrice - currentPrice) / oldPrice) * 100);
                     }
@@ -97,7 +97,7 @@
             </nav>
 
             {{-- Кнопка "Назад" --}}
-            <a href="javascript:history.back()" 
+            <a href="javascript:history.back()"
                class="inline-flex items-center gap-2 text-[#333333] hover:text-[#FF7500] transition mb-4">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M15 18L9 12L15 6" stroke="#FF7500" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -118,7 +118,7 @@
                             $showBadge = $initialDiscount !== null && $initialDiscount > 0;
                         @endphp
                         @if($showBadge)
-                            <span 
+                            <span
                                 x-show="$store.sku.discountPercent() !== null && $store.sku.discountPercent() > 0"
                                 x-text="'Знижка –' + $store.sku.discountPercent() + '%'"
                                 style="display: block;"
@@ -126,7 +126,7 @@
                                 Знижка –{{ $initialDiscount }}%
                             </span>
                         @else
-                            <span 
+                            <span
                                 x-show="$store.sku.discountPercent() !== null && $store.sku.discountPercent() > 0"
                                 x-text="'Знижка –' + $store.sku.discountPercent() + '%'"
                                 x-cloak
@@ -168,7 +168,7 @@
                             async init() {
                                 // Проверяем количество в корзине при инициализации
                                 await this.checkCartQty();
-                                
+
                                 // Слушаем обновления корзины
                                 window.addEventListener('cart-updated', (e) => {
                                     const selectedId = $store.sku?.selected || '{{ $rootId ?? 0 }}';
@@ -181,7 +181,7 @@
                                         }
                                     }
                                 });
-                                
+
                                 // Обновляем количество при смене варианта товара
                                 $watch('$store.sku.selected', () => {
                                     this.checkCartQty();
@@ -209,7 +209,7 @@
                             async addToCart() {
                                 if (this.adding) return;
                                 this.adding = true;
-                                
+
                                 try {
                                     const pid = $store.sku?.selected || '{{ $rootId ?? 0 }}';
                                     const price = typeof $store.sku?.price === 'function'
@@ -231,7 +231,7 @@
                             async incrementQty() {
                                 if (this.adding) return;
                                 this.adding = true;
-                                
+
                                 try {
                                     const pid = $store.sku?.selected || '{{ $rootId ?? 0 }}';
                                     const price = typeof $store.sku?.price === 'function'
@@ -253,7 +253,7 @@
                             async decrementQty() {
                                 if (this.adding || this.cartQty <= 1) return;
                                 this.adding = true;
-                                
+
                                 try {
                                     const pid = $store.sku?.selected || '{{ $rootId ?? 0 }}';
                                     const price = typeof $store.sku?.price === 'function'
@@ -278,7 +278,7 @@
                                 x-show="cartQty === 0"
                                 x-cloak
                                 type="button"
-                                class="inline-flex items-center gap-2 w-full md:w-[218px] justify-center bg-[#FF7500] hover:bg-orange-600 text-white font-semibold px-5 py-3 rounded-lg transition disabled:opacity-60"
+                                class="inline-flex items-center gap-2 w-full md:w-[218px] justify-center bg-[#FF7500] hover:bg-orange-600 text-white font-semibold px-5 py-3 rounded-[4px] transition disabled:opacity-60"
                                 :disabled="adding"
                                 @click="addToCart"
                             >
@@ -294,7 +294,7 @@
                                 </template>
                                 {{ st('product.addcart','Додати в кошик') }}
                             </button>
-                            
+
                             {{-- Контролы количества --}}
                             <div x-show="cartQty > 0" x-cloak class="inline-flex items-center bg-[#FDDDA7] text-[#FF7500] h-10 rounded-[4px] px-1 shrink-0">
                                 <button
@@ -316,11 +316,9 @@
 
 
                     {{-- бонусы --}}
-                    <div class="mt-4 flex items-start text-[#A9A9A9] text-base" x-show="$store.sku.bonusEarn() > 0">
-                        <img src="{{ asset('images/svg/bonus.svg') }}" alt="" class="w-[22px] h-[19px] mr-2" aria-hidden="true">
-                        <span>{{ st('cart.za-pokupku-narahovano', 'За покупку вам будет начислено') }}</span>
-                        <span class="text-[#FF7500]">&nbsp;<span x-text="$store.sku.bonusEarn()"></span>&nbsp;</span>
-                        <span>{{ st('cart.balliv', 'баллов') }}</span>
+                    <div class="mt-4 flex items-center gap-1 text-[#A9A9A9] text-base" x-show="$store.sku.bonusEarn() > 0">
+                        <img src="{{ asset('images/svg/bonus.svg') }}" alt="" class="w-[22px] h-[19px] shrink-0" aria-hidden="true">
+                        <span class="whitespace-nowrap">{{ st('cart.za-pokupku-narahovano', 'За покупку вам будет начислено') }} <span class="text-[#FF7500] font-semibold" x-text="$store.sku.bonusEarn()"></span> {{ st('cart.balliv', 'баллов') }}</span>
                     </div>
 
                     {{-- Состав --}}
