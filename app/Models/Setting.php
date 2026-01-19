@@ -17,6 +17,7 @@ class Setting extends Model
         'admin_color_scheme',
         'admin_settings' ,
         'default_language_code',
+        'cart_auth_method',
     ];
     // Если соцссылки сохраняются как JSON
     protected $casts = [

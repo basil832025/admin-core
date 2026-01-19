@@ -41,6 +41,7 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
     public $social_links = [];
     public $default_language_code;
     public $admin_color_scheme;
+    public $cart_auth_method;
 
     public static function canAccess(): bool
     {
@@ -78,6 +79,7 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
             Tabs::make('settings_tabs')
                 ->tabs([
                     static::generalTab(),
+                    static::cartTab(),
                     static::adminTab(),
                 ])
                 ->persistTabInQueryString(),
@@ -154,6 +156,27 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
                         ->required(),
                 ])
                 ->columns(2),
+        ]);
+    }
+
+    /** Вкладка: Корзина */
+    protected static function cartTab(): Tab
+    {
+        return Tab::make('Корзина')->schema([
+            Section::make('Варианты авторизации на сайте')
+                ->description('Выберите способ авторизации пользователей на сайте:')
+                ->schema([
+                    Select::make('cart_auth_method')
+                        ->label('Варианты авторизации на сайте')
+                        ->options([
+                            'phone_sms' => 'Только телефон и SMS',
+                            'phone_password_sms' => 'Телефон и пароль (+ SMS)',
+                        ])
+                        ->default('phone_password_sms')
+                        ->required()
+                        ->helperText('Выберите способ авторизации: только по телефону с SMS-кодом или телефон + пароль с дополнительной SMS-подтверждением'),
+                ])
+                ->compact(),
         ]);
     }
 
