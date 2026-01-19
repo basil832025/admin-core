@@ -107,7 +107,7 @@ Route::get('/admin/switch-locale/{locale}', function (string $locale) {
     return redirect('/admin');
 })
     ->name('admin.switch-locale')
-    ->middleware(['web','auth']);         // доступ только залогиненному
+    ->middleware(['web', 'auth:admin']);         // доступ только залогиненному в админке
 
 Route::get('/admin/clear-cache', function () {
     $cleared = [];
