@@ -30,6 +30,11 @@ class SetLocaleFromSession
         // Определяем, находимся ли мы в админке
         $isAdmin = $request->is('admin*') || $request->is('*/admin*');
         
+        // Сохраняем текущий URL админки в сессии для редиректа после смены языка
+        if ($isAdmin && !$request->is('admin/switch-locale*') && !$request->is('admin/clear-cache*')) {
+            session(['admin_previous_url' => $request->fullUrl()]);
+        }
+        
         // Для админки используем отдельный ключ сессии, для фронтенда - обычный
         if ($isAdmin) {
             $locale = session('admin_locale')

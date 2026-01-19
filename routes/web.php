@@ -89,7 +89,22 @@ Route::get('/admin/switch-locale/{locale}', function (string $locale) {
         \Carbon\Carbon::setLocale($locale);
     }
     
-    return back();
+    // Редиректим обратно в админку, используя сохраненный URL из сессии
+    $previousUrl = session('admin_previous_url');
+    $referer = request()->header('referer');
+    
+    // Приоритет 1: Если referer содержит /admin, используем его
+    if ($referer && str_contains($referer, '/admin')) {
+        return redirect($referer);
+    }
+    
+    // Приоритет 2: Если есть сохраненный URL админки, используем его
+    if ($previousUrl && str_contains($previousUrl, '/admin')) {
+        return redirect($previousUrl);
+    }
+    
+    // Приоритет 3: Иначе редиректим на главную админки
+    return redirect('/admin');
 })
     ->name('admin.switch-locale')
     ->middleware(['web','auth']);         // доступ только залогиненному
