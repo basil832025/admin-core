@@ -114,7 +114,7 @@
         {
             return [
                 'id'       => $n->id,
-                'title'    => (string) $n->title,   // у вас поле переименовано на title — ок
+                'title'    => (string) $n->label,   // используем поле label из модели
                 // любые ваши поля...
                 'children' => $n->childrenRecursive
                     ? $n->childrenRecursive->map(fn ($c) => $this->mapNode($c))->values()->all()
@@ -169,7 +169,7 @@
 
 
             // для жесткой проверки выведем первые 5 root-записей:
-            $roots = (clone $q)->where('parent_id', -1)->orderBy('sort')->orderBy('id')->limit(5)->get(['id','parent_id','title']);
+            $roots = (clone $q)->where('parent_id', -1)->orderBy('sort')->orderBy('id')->limit(5)->get(['id','parent_id','label']);
 
             return $q;
         }
@@ -178,7 +178,7 @@
         public function getTreeRecordTitle(?Model $record = null): string
         {
             if (! $record) return '';
-            $raw = $record->title;
+            $raw = $record->label;
             $loc = app()->getLocale();
 
             $text = is_array($raw) ? ($raw[$loc] ?? reset($raw) ?? null) : (string) $raw;
@@ -191,13 +191,13 @@
         }
         protected function getTreeRecordTitleColumnName(): ?string
         {
-            return 'title';   // это accessor из модели
+            return 'label';   // это поле из модели
         }
 
     // для других версий (старое имя):
         protected function getRecordTitleAttributeName(): string
         {
-            return 'title';
+            return 'label';
         }
 
 
