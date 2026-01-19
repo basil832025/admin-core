@@ -35,28 +35,53 @@ class Pages extends Model
         'title',
         'content',
      ];
+    
+    /**
+     * Получить fallback локаль для Spatie Translatable
+     * Если для текущей локали перевода нет, будет использован украинский
+     */
+    public function getFallbackLocale(): ?string
+    {
+        return config('translatable.fallback_locale', 'uk');
+    }
     public function getRouteKeyName(): string
     {
         return 'slug';
     }
     /**
-     * Получить заголовок на текущем языке (код берётся из config('app.locale')).
+     * Получить заголовок на текущем языке с fallback на украинский
      */
     public function getTitleForLocale(string $locale = null): ?string
     {
         $locale ??= app()->getLocale();
+        $fallback = config('translatable.fallback_locale', 'uk');
+        
+        if (!is_array($this->title)) {
+            return null;
+        }
 
-        return $this->title[$locale] ?? null;
+        return $this->title[$locale] 
+            ?? $this->title[$fallback] 
+            ?? reset($this->title) 
+            ?? null;
     }
 
     /**
-     * Аналогично для контента.
+     * Аналогично для контента с fallback на украинский
      */
     public function getContentForLocale(string $locale = null): ?string
     {
         $locale ??= app()->getLocale();
+        $fallback = config('translatable.fallback_locale', 'uk');
+        
+        if (!is_array($this->content)) {
+            return null;
+        }
 
-        return $this->content[$locale] ?? null;
+        return $this->content[$locale] 
+            ?? $this->content[$fallback] 
+            ?? reset($this->content) 
+            ?? null;
     }
     // Чтение блока по слагу (под Builder)
     public function field(string $fieldSlug, ?string $locale = null, $default = null)
