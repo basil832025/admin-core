@@ -135,7 +135,7 @@
                                 {{-- Подъезд --}}
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">
-                                        {{ st('address.form.porch', 'Під\'їзд') }}
+                                        {{ st('address.form.porch', "Під'їзд") }}
                                     </label>
                                     <input type="text"
                                            name="entrance"

@@ -167,7 +167,7 @@
 
             <div>
                 <label class="tp-label tp-required">
-                    {{ st('address.form.porch', 'Під’їзд') }}
+                    {{ st('address.form.porch', "Під'їзд") }}
                 </label>
                 <input
                     name="addr[porch]"

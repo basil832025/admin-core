@@ -138,7 +138,7 @@ class SeedAddressesTranslations extends Command
             [
                 'group' => 'address',
                 'slug' => 'address.form.porch',
-                'value' => ['uk' => 'Під\'їзд', 'ru' => 'Подъезд', 'en' => 'Entrance'],
+                'value' => ['uk' => "Під'їзд", 'ru' => 'Подъезд', 'en' => 'Entrance'],
                 'description' => 'Поле формы: Подъезд',
             ],
             [

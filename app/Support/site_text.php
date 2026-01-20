@@ -33,10 +33,26 @@ if (! function_exists('st')) {
             $row = SiteText::query()
                 ->where('slug', $fullSlug)
                 ->first();
-            return $row?->getTranslation('value', $locale);
+            $translated = $row?->getTranslation('value', $locale);
+            // Если текст содержит HTML entities, декодируем их перед экранированием
+            // чтобы избежать двойного экранирования
+            if ($translated && is_string($translated)) {
+                $decoded = html_entity_decode($translated, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                // Проверяем, что декодирование что-то изменило (были HTML entities)
+                if ($decoded !== $translated) {
+                    $translated = $decoded;
+                }
+            }
+            return $translated;
         });
 
-        return e($text ?? $default ?? $slug);
+        // Возвращаем неэкранированный текст, так как Blade {{ }} сам экранирует
+        // Это предотвращает двойное экранирование
+        $result = $text ?? $default ?? $slug;
+        if ($result !== null) {
+            return (string)$result;
+        }
+        return '';
     }
 }
 
