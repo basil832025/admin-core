@@ -4,20 +4,52 @@
     x-cloak
     class="fixed inset-0 z-[9999] flex items-center justify-center p-4 pointer-events-none"
 >
-    <div class="relative z-[10000] w-full max-w-[1440px] h-[900px] max-h-[90vh] bg-white rounded-[24px] shadow-2xl overflow-visible my-4 md:flex pointer-events-auto">
+    <div class="relative z-[10000] w-full max-w-[1440px] h-[900px] max-h-[90vh] bg-white rounded-[24px] shadow-2xl overflow-visible my-4 pointer-events-auto">
+
         {{-- Кнопка закрытия --}}
         <button class="absolute right-6 top-6 text-3xl z-50 text-gray-600 hover:text-gray-800 transition-colors"
                 @click="open=false">&times;</button>
 
-        {{-- Левая часть - форма --}}
-        <div class="flex-1 flex flex-col justify-between p-8 md:p-12 lg:p-16 overflow-visible">
+        {{-- Обертка: мобилка колонка, десктоп РАЗВОРОТ ряда --}}
+        <div class="w-full h-full flex flex-col md:flex-row-reverse">
+
+            {{-- Картинка: мобилка сверху, десктоп справа --}}
+            <div class="md:flex-1 md:flex md:items-center md:justify-end">
+                {{-- Mobile: отступы 24px и высота 180px --}}
+                <div class="md:hidden px-6 pt-6">
+                    <div class="h-[180px] w-full overflow-hidden rounded-[20px] bg-[#F6E6C6]">
+                        <img
+                            src="{{ asset('images/svg/auth_right.png') }}"
+                            alt=""
+                            class="h-full w-full object-cover"
+                            draggable="false"
+                        >
+                    </div>
+                </div>
+
+                {{-- Desktop --}}
+                <div class="hidden md:flex w-full h-full max-w-[680px] pr-[48px] pt-[32px] pb-[32px] lg:w-[660px]">
+                    <div class="w-full flex-1 overflow-hidden rounded-[32px] bg-[#F6E6C6]">
+                        <img
+                            src="{{ asset('images/svg/auth_right.png') }}"
+                            alt=""
+                            class="h-full w-full object-cover"
+                            draggable="false"
+                        >
+                    </div>
+                </div>
+
+            </div>
+
+            {{-- Форма: мобилка снизу, десктоп слева --}}
+            <div class="flex-1 flex flex-col justify-between p-4 md:p-8 lg:p-12 xl:p-16 overflow-visible">
             {{-- Логотип и текст сверху --}}
-            <div class="mb-8">
-                <div class="flex items-center gap-3 mb-6">
-                    <img src="{{ asset('images/logo.svg') }}" alt="{{ st('header.logo_alt', 'Три пироги') }}" class="h-12 w-auto">
-                        <span class="inline-flex items-center gap-2 text-sm">
-                            <img src="{{ asset('images/fire.svg') }}" class="w-5 h-5 mx-auto" alt="">
-                            {{ st('header.wood-fired','Готуємо в дров’яній печі!') }}
+            <div class="mb-4 md:mb-8">
+                <div class="flex items-center gap-2 md:gap-3 mb-4 md:mb-6">
+                    <img src="{{ asset('images/logo.svg') }}" alt="{{ st('header.logo_alt', 'Три пироги') }}" class="h-8 md:h-12 w-auto">
+                        <span class="inline-flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+                            <img src="{{ asset('images/fire.svg') }}" class="w-4 h-4 md:w-5 md:h-5 mx-auto" alt="">
+                            {{ st('header.wood-fired',"Готуємо в дров'яній печі!") }}
                         </span>
                 </div>
 
@@ -27,34 +59,34 @@
             <div class="flex-1 flex flex-col justify-center max-w-md pt-8">
                 {{-- Первый шаг: Ввод телефона --}}
                 <div x-show="!loginPhoneSmsSent" x-cloak>
-                    <p class="text-lg md:text-xl text-gray-700 mb-8 leading-relaxed">
+                    <p class="text-sm md:text-lg lg:text-xl text-gray-700 mb-6 md:mb-8 leading-relaxed">
                         {{ st('auth.enter_phone_for_sms', 'Введите номер телефона, на этот номер поступит звонок или SMS:') }}
                     </p>
 
                     {{-- Поле телефона (код страны + номер) --}}
-                    <div class="space-y-4 mb-8">
-                        <div class="flex gap-3">
+                    <div class="space-y-4 mb-6 md:mb-8">
+                        <div class="flex gap-2 md:gap-3">
                             {{-- Код страны с флагом --}}
                             <div class="relative">
                                 <button
                                     type="button"
                                     @click="countryDropdownOpen = !countryDropdownOpen"
-                                    class="flex items-center gap-2 px-4 py-4 text-lg border-2 rounded-lg transition-colors min-w-[140px]"
+                                    class="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-3 md:py-4 text-sm md:text-lg border-2 rounded-lg transition-colors min-w-[100px] md:min-w-[140px]"
                                     :class="(typeof loginPhoneSmsError !== 'undefined' && loginPhoneSmsError) ? 'border-red-400 focus:border-red-500' : 'border-gray-300 focus:border-[#FF7500]'"
                                 >
                                     <template x-if="loginPhoneSmsData.countryFlag">
-                                        <div class="shrink-0" x-html="loginPhoneSmsData.countryFlag"></div>
+                                        <div class="shrink-0 w-4 h-3 md:w-6 md:h-[18px]" x-html="loginPhoneSmsData.countryFlag" style="transform: scale(0.85); transform-origin: left center;"></div>
                                     </template>
                                     <template x-if="!loginPhoneSmsData.countryFlag">
-                                        <div class="shrink-0">
-                                            <svg width="24" height="18" viewBox="0 0 24 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <div class="shrink-0 w-4 h-3 md:w-6 md:h-[18px]" style="transform: scale(0.85); transform-origin: left center;">
+                                            <svg width="100%" height="100%" viewBox="0 0 24 18" fill="none" xmlns="http://www.w3.org/2000/svg">
                                                 <rect width="24" height="9" fill="#005BBB"/>
                                                 <rect y="9" width="24" height="9" fill="#FFD700"/>
                                             </svg>
                                         </div>
                                     </template>
-                                    <span x-text="loginPhoneSmsData.countryCode || '+380'" class="font-medium"></span>
-                                    <svg class="w-4 h-4 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <span x-text="loginPhoneSmsData.countryCode || '+380'" class="font-medium text-xs md:text-base"></span>
+                                    <svg class="w-3 h-3 md:w-4 md:h-4 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                                     </svg>
                                 </button>
@@ -71,11 +103,11 @@
                                         <button
                                             type="button"
                                             @click="loginPhoneSmsData.countryCode = country.code; loginPhoneSmsData.countryFlag = country.flag; countryDropdownOpen = false"
-                                            class="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 transition-colors"
+                                            class="w-full flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1 md:py-1.5 hover:bg-gray-50 transition-colors"
                                         >
-                                            <div class="shrink-0 w-5 h-4 flex items-center justify-center overflow-hidden" x-html="country.flag" style="transform: scale(0.75); transform-origin: left center;"></div>
-                                            <span class="text-sm font-medium" x-text="country.name"></span>
-                                            <span class="ml-auto text-xs text-gray-500" x-text="country.code"></span>
+                                            <div class="shrink-0 w-3.5 h-2.5 md:w-5 md:h-4 flex items-center justify-center overflow-hidden" x-html="country.flag" style="transform: scale(0.65); transform-origin: left center;" class="md:scale-[0.75]"></div>
+                                            <span class="text-xs md:text-sm font-medium" x-text="country.name"></span>
+                                            <span class="ml-auto text-[10px] md:text-xs text-gray-500" x-text="country.code"></span>
                                         </button>
                                     </template>
                                 </div>
@@ -108,7 +140,7 @@
                                     @keydown.enter.prevent="if (typeof loginPhoneSmsLoading !== 'undefined' && typeof loginPhoneSmsSent !== 'undefined' && !loginPhoneSmsLoading && !loginPhoneSmsSent) sendLoginPhoneSms()"
                                     inputmode="numeric"
                                     dir="ltr"
-                                    class="w-full text-lg py-4 px-6 rounded-lg border-2 transition-colors"
+                                    class="w-full text-sm md:text-lg py-3 md:py-4 px-4 md:px-6 rounded-lg border-2 transition-colors"
                                     :class="(typeof loginPhoneSmsError !== 'undefined' && loginPhoneSmsError) ? 'border-red-400 focus:border-red-500' : 'border-gray-300 focus:border-[#FF7500]'"
                                     placeholder="__ ___ __ __"
                                     required
@@ -116,12 +148,12 @@
                             </div>
                         </div>
 
-                        <p x-show="typeof loginPhoneSmsError !== 'undefined' && loginPhoneSmsError" x-text="(typeof loginPhoneSmsError !== 'undefined' && loginPhoneSmsError) || ''" class="text-red-600 text-sm"></p>
+                        <p x-show="typeof loginPhoneSmsError !== 'undefined' && loginPhoneSmsError" x-text="(typeof loginPhoneSmsError !== 'undefined' && loginPhoneSmsError) || ''" class="text-red-600 text-xs md:text-sm"></p>
                     </div>
 
                     {{-- Кнопка отправки кода --}}
                     <button
-                        class="w-full py-4 px-6 rounded-lg bg-[#FF7500] text-white font-semibold text-lg hover:bg-[#e56700] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        class="w-full py-3 md:py-4 px-4 md:px-6 rounded-lg bg-[#FF7500] text-white font-semibold text-sm md:text-lg hover:bg-[#e56700] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         :disabled="typeof loginPhoneSmsLoading !== 'undefined' && loginPhoneSmsLoading"
                         @click="sendLoginPhoneSms"
                     >
@@ -151,21 +183,21 @@
 
                 {{-- Блок успешной авторизации --}}
                     <div x-show="typeof authSuccess !== 'undefined' && authSuccess" x-cloak class="space-y-4 text-center">
-                        <div class="mx-auto w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <div class="mx-auto w-12 h-12 md:w-16 md:h-16 rounded-full bg-green-100 flex items-center justify-center mb-3 md:mb-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 md:w-10 md:h-10 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                                 <path d="M5 13l4 4L19 7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                             </svg>
                         </div>
-                        <h3 class="text-xl font-semibold text-gray-900">{{ st('auth.success', 'Авторизация успешна!') }}</h3>
-                        <p class="text-gray-600">{{ st('auth.redirecting_wait', 'Ожидайте... пока идет переадресация') }}</p>
+                        <h3 class="text-base md:text-xl font-semibold text-gray-900">{{ st('auth.success', 'Авторизация успешна!') }}</h3>
+                        <p class="text-sm md:text-base text-gray-600">{{ st('auth.redirecting_wait', 'Ожидайте... пока идет переадресация') }}</p>
                     </div>
 
                     {{-- Поля для ввода кода (скрываем при успехе) --}}
                     <div x-show="typeof authSuccess === 'undefined' || !authSuccess" x-cloak>
-                        <p class="text-lg md:text-xl font-bold text-gray-700 mb-4">
+                        <p class="text-sm md:text-lg lg:text-xl font-bold text-gray-700 mb-3 md:mb-4">
                             {{ st('auth.enter_last_4_digits', 'Введите последние 4 цифры входящего номера или код из SMS:') }}
                         </p>
-                        <p class="text-base text-gray-600 mb-6">
+                        <p class="text-xs md:text-base text-gray-600 mb-4 md:mb-6">
                             {{ st('auth.to_number','На ваш номер') }} <span class="font-medium" x-text="sms.phoneFormatted || sms.phonePretty"></span> {{ st('auth.code_sent_valid_3min', 'отправлен код подтверждения. Срок действия вашего кода 3 минуты.') }}
                         </p>
                         <div class="flex gap-[10px] justify-center">
@@ -235,12 +267,12 @@
             ]"
 
                                     class="
-                w-[70px] h-[70px]
-                rounded-[10px]
+                w-12 h-12 md:w-[70px] md:h-[70px]
+                rounded-lg md:rounded-[10px]
                 border
                 bg-white
                 text-center
-                text-[26px] leading-[32px] font-bold
+                text-xl md:text-[26px] leading-6 md:leading-[32px] font-bold
                 text-gray-900
                 outline-none
                 transition
@@ -252,11 +284,11 @@
                         <p
                             x-show="otpError"
                             x-text="otpError || ''"
-                            class="mt-2 text-red-600 text-sm text-center"
+                            class="mt-2 text-red-600 text-xs md:text-sm text-center"
                         ></p>
 
                         <button
-                            class="block w-full text-center text-sm text-gray-600 hover:text-gray-800"
+                            class="block w-full text-center text-xs md:text-sm text-gray-600 hover:text-gray-800"
                             :disabled="sms.resendIn>0"
                             @click="resendCode()">
                             <span x-show="sms.resendIn===0">{{ st('auth.send_again','Надіслати код ще раз') }}</span>
@@ -264,7 +296,7 @@
                         </button>
 
                         <button
-                            class="block w-full text-center text-sm text-[#FF7500] hover:underline mt-2"
+                            class="block w-full text-center text-xs md:text-sm text-[#FF7500] hover:underline mt-2"
                             @click="changePhone"
                         >
                             {{ st('auth.change_phone', 'Изменить номер телефона') }}
@@ -272,24 +304,8 @@
                     </div>
                 </div>
             </div>
-
-
-        </div>
-
-
-        {{-- Правая часть - изображение (как в Figma: с отступами и радиусом) --}}
-        <div class="hidden md:block flex-1">
-            <div class="h-full pr-[48px] py-[32px]">
-                <div class="h-full w-full overflow-hidden rounded-[32px] bg-[#F6E6C6]">
-                    <img
-                        src="{{ asset('images/svg/auth_right.png') }}"
-                        alt=""
-                        class="h-full w-full object-cover"
-                        draggable="false"
-                    >
-                </div>
             </div>
-        </div>
 
+        </div>
     </div>
 </div>

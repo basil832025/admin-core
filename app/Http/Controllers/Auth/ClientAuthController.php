@@ -347,30 +347,43 @@ class ClientAuthController extends Controller
             ], 422);
         }
 
-        // Тестовый режим: используем код 1234 вместо отправки реального SMS
-        $testMode = config('app.env') === 'local';
-        $code = $testMode ? '1234' : (string) random_int(1000, 9999);
+        // Генерируем одноразовый код и сохраняем состояние
+        $code = (string) random_int(1000, 9999);
 
         Cache::put($key, [
-            'code'    => $code,
+            'code'      => $code,
             'client_id' => $client->id,
-            'attempts' => 0,
+            'attempts'  => 0,
         ], $ttl);
 
         Cache::put($key . ':resend_lock', 1, $resendAfter);
 
-        // В тестовом режиме не отправляем реальное SMS
-        if (!$testMode) {
-            $resp = $sms->sendCode($digits, $code);
-            if (($resp['status'] ?? 500) >= 300) {
-                Cache::forget($key);
-                Cache::forget($key . ':resend_lock');
-                return response()->json([
-                    'ok'      => false,
-                    'message' => 'Не вдалося відправити SMS. Перевірте відправника та баланс.',
-                ], 422);
-            }
+        // Реальная отправка SMS через API
+        $resp = $sms->sendCode($digits, $code);
+        if (($resp['status'] ?? 500) >= 300) {
+            // Логируем ошибку для отладки
+            Log::error('SMS отправка не удалась', [
+                'phone' => $digits,
+                'code' => $code,
+                'status' => $resp['status'] ?? 'unknown',
+                'body' => $resp['body'] ?? 'no body',
+                'esputnik_login' => config('services.esputnik.login') ? 'set' : 'not set',
+                'esputnik_password' => config('services.esputnik.password') ? 'set' : 'not set',
+            ]);
+            
+            Cache::forget($key);
+            Cache::forget($key . ':resend_lock');
+            return response()->json([
+                'ok'      => false,
+                'message' => 'Не вдалося відправити SMS. Перевірте відправника та баланс.',
+            ], 422);
         }
+        
+        // Логируем успешную отправку
+        Log::info('SMS код отправлен', [
+            'phone' => $digits,
+            'status' => $resp['status'] ?? 'unknown',
+        ]);
 
         return response()->json([
             'ok'        => true,
@@ -415,13 +428,8 @@ class ClientAuthController extends Controller
             ], 422);
         }
 
-        // Тестовый режим: всегда принимаем код 1234 в локальной среде
-        $testMode = config('app.env') === 'local';
-        
-        // Если введен код 1234 - всегда принимаем его (для тестирования)
-        if ((string) $data['code'] === '1234') {
-            // Код 1234 принят (тестовый режим)
-        } elseif ((string) $state['code'] !== (string) $data['code']) {
+        // Проверяем код из кэша
+        if ((string) $state['code'] !== (string) $data['code']) {
             $state['attempts'] = $attempts + 1;
             Cache::put($key, $state, now()->addMinutes(3));
             return response()->json([
