@@ -19,13 +19,20 @@ if (! function_exists('st')) {
     {
         $locale ??= app()->getLocale();
 
-        $cacheKey = "st:$group:$slug:$locale";
-        $text = Cache::remember($cacheKey, 3600, function () use ($slug, $group, $locale) {
+        // Если group не указан, пытаемся парсить из slug (например, 'auth.enter_phone' -> group='auth', slug='enter_phone')
+        // Если slug содержит точку и group не указан, используем slug как есть (полный путь)
+        if (!$group && strpos($slug, '.') !== false) {
+            // Если slug уже содержит группу (например, 'auth.enter_phone'), используем его как полный slug
+            $fullSlug = $slug;
+        } else {
+            $fullSlug = $group ? "$group.$slug" : $slug;
+        }
+
+        $cacheKey = "st:$fullSlug:$locale";
+        $text = Cache::remember($cacheKey, 3600, function () use ($fullSlug, $locale) {
             $row = SiteText::query()
-                ->when($group, fn($q) => $q->where('group', $group))
-                ->where('slug', $slug)
+                ->where('slug', $fullSlug)
                 ->first();
-           // dd($row);
             return $row?->getTranslation('value', $locale);
         });
 

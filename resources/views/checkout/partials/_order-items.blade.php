@@ -204,8 +204,8 @@ document.addEventListener('alpine:init', () => {
                 {{-- ПЕРВЫЙ РЯД: изображение + описание и размеры (мобильная версия) --}}
                 <div class="md:hidden flex items-start gap-3 w-full">
                     {{-- изображение --}}
-                    <img src="{{ $img }}" alt="" class="w-[120px] h-[96px] rounded-[8px] object-cover shrink-0">
-                    
+                <img src="{{ $img }}" alt="" class="w-[120px] h-[96px] rounded-[8px] object-cover shrink-0">
+
                     {{-- описание и размеры --}}
                     <div class="flex-1 min-w-0">
                         <div class="text-[10px] font-semibold text-[#272828] line-clamp-2">{{ $name }}</div>
@@ -227,12 +227,12 @@ document.addEventListener('alpine:init', () => {
                                 @endforeach
                             </div>
                         @elseif(!empty($it['meta_line']))
-                            <div class="mt-1 text-[12px] text-[#9CA3AF]">{!! $it['meta_line'] !!}</div>
-                        @elseif($var)
-                            <div class="mt-1 text-[12px] text-[#9CA3AF]">{{ $var }}</div>
-                        @endif
+                        <div class="mt-1 text-[12px] text-[#9CA3AF]">{!! $it['meta_line'] !!}</div>
+                    @elseif($var)
+                        <div class="mt-1 text-[12px] text-[#9CA3AF]">{{ $var }}</div>
+                    @endif
 
-                        <div class="mt-1 text-[12px] text-[#9CA3AF]">{{ $qty }} шт</div>
+                    <div class="mt-1 text-[12px] text-[#9CA3AF]">{{ $qty }} шт</div>
                     </div>
                 </div>
 
@@ -287,7 +287,7 @@ document.addEventListener('alpine:init', () => {
                                 </span>
                                 <sup class="align-top text-[12px] font-semibold tabular-nums">{{ $kop }}</sup>
                                 <span class="text-[14px]">{{ st('cart.summary.currency_short', 'грн.') }}</span>
-                            </div>
+                </div>
 
                             @if($old && $old > $price)
                                 <div class="text-[16px] text-[#9E9E9E] line-through tabular-nums">

@@ -141,9 +141,9 @@
                 </a>
 
                 {{-- Увійти --}}
-                <div class="shrink-0">
+
                     @include('partials.header-auth')
-                </div>
+
 
                 {{-- Обране --}}
                 <a

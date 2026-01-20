@@ -97,16 +97,7 @@ class ProductCardPresenter
         ]];
 
         foreach ($p->children ?? [] as $child) {
-            // ДИАГНОСТИКА: Проверяем, что old_price загружается
             $childOldPrice = $child->old_price;
-            // Логируем только если есть children и old_price null
-            if ($childOldPrice === null) {
-                \Log::debug('ProductCardPresenter: child old_price is null', [
-                    'parent_id' => $p->id,
-                    'child_id' => $child->id,
-                    'child_attributes' => $child->getAttributes(),
-                ]);
-            }
             
             $variantRows[] = [
                 'product_id'  => $child->id,

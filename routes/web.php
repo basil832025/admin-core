@@ -298,6 +298,12 @@ Route::middleware(['web'])->group(function () {
 
        Route::post('/auth/register', [ClientAuthController::class,'register'])->name('auth.register');
         Route::post('/auth/login',    [ClientAuthController::class,'login'])->name('auth.login');
+        
+        // Авторизация только по телефону + SMS (без пароля)
+        Route::post('/auth/phone-sms/send-code', [ClientAuthController::class,'loginPhoneSms'])
+            ->name('auth.phone-sms.send-code')->middleware('throttle:5,1');
+        Route::post('/auth/phone-sms/verify', [ClientAuthController::class,'verifyPhoneSms'])
+            ->name('auth.phone-sms.verify')->middleware('throttle:10,1');
 
      /*    Route::post('/auth/sms/send',   [ClientAuthController::class,'sendSms'])->name('auth.sms.send');
         Route::post('/auth/sms/verify', [ClientAuthController::class,'verifySms'])->name('auth.sms.verify');

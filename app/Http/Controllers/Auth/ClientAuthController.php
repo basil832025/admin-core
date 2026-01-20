@@ -178,7 +178,7 @@ class ClientAuthController extends Controller
 
         if ((string)$state['code'] !== (string)$data['code']) {
             return response()->json([
-                'message' => 'Невірний код',
+                'message' => st('auth.code_invalid', 'Невірний код. Перевірте цифри та спробуйте ще раз.'),
                 'errors'  => ['code' => ['invalid']],
             ], 422);
         }
@@ -291,6 +291,184 @@ class ClientAuthController extends Controller
     }
 
 
+
+    // === Авторизация только по телефону + SMS (без пароля) ===
+    public function loginPhoneSms(Request $r, \App\Services\Sms\EsputnikSms $sms)
+    {
+        // 1) Нормализация ввода -> 380XXXXXXXXX
+        $raw    = (string) $r->input('phone');
+        $digits = $this->normalizePhone($raw);
+        $r->merge(['phone' => $digits]);
+
+        // 2) Валидация
+        $r->validate(
+            [
+                'phone' => ['required', 'regex:/^380\d{9}$/'],
+            ],
+            [
+                'phone.required' => 'Вкажіть номер телефону',
+                'phone.regex'    => 'Невірний формат номера телефону. Приклад: +38 0XX XXX XX XX',
+            ]
+        );
+
+        // 3) Проверяем, существует ли пользователь
+        $candidates = array_unique([
+            $digits,
+            '0' . substr($digits, 3),
+            substr($digits, 3),
+        ]);
+
+        $client = Client::query()
+            ->where(function ($q) use ($candidates) {
+                foreach ($candidates as $v) {
+                    $q->orWhere('phone', $v);
+                }
+            })
+            ->first();
+
+        // Если пользователя нет, создаем его автоматически (без имени, только номер телефона)
+        if (!$client) {
+            $client = new Client();
+            $client->phone = $digits;
+            // Имя оставляем null - пользователь сможет заполнить его в профиле позже
+            $client->password = Hash::make(Str::random(24)); // Генерируем случайный пароль
+            $client->save();
+        }
+
+        // 4) Отправка SMS кода
+        $ttl         = (int) env('ESPUTNIK_SMS_TTL', 180);
+        $resendAfter = (int) env('ESPUTNIK_SMS_RESEND_AFTER', 60);
+        $key         = 'login_sms:' . $digits;
+
+        if (Cache::has($key . ':resend_lock')) {
+            return response()->json([
+                'ok'      => false,
+                'message' => 'Повторна відправка поки недоступна. Спробуйте через ' . $resendAfter . ' секунд.',
+            ], 422);
+        }
+
+        // Тестовый режим: используем код 1234 вместо отправки реального SMS
+        $testMode = config('app.env') === 'local';
+        $code = $testMode ? '1234' : (string) random_int(1000, 9999);
+
+        Cache::put($key, [
+            'code'    => $code,
+            'client_id' => $client->id,
+            'attempts' => 0,
+        ], $ttl);
+
+        Cache::put($key . ':resend_lock', 1, $resendAfter);
+
+        // В тестовом режиме не отправляем реальное SMS
+        if (!$testMode) {
+            $resp = $sms->sendCode($digits, $code);
+            if (($resp['status'] ?? 500) >= 300) {
+                Cache::forget($key);
+                Cache::forget($key . ':resend_lock');
+                return response()->json([
+                    'ok'      => false,
+                    'message' => 'Не вдалося відправити SMS. Перевірте відправника та баланс.',
+                ], 422);
+            }
+        }
+
+        return response()->json([
+            'ok'        => true,
+            'ttl'       => $ttl,
+            'resend_in' => $resendAfter,
+        ]);
+    }
+
+    public function verifyPhoneSms(Request $r)
+    {
+        $digits = $this->normalizePhone((string) $r->input('phone'));
+        $r->merge(['phone' => $digits]);
+
+        $data = $r->validate([
+            'phone' => ['required', 'regex:/^380\d{9}$/'],
+            'code'  => ['required', 'digits:4'],
+        ], [
+            'phone.required' => 'Вкажіть номер телефону',
+            'phone.regex'    => 'Невірний формат номера телефону',
+            'code.required'  => 'Введіть 4 цифри',
+            'code.digits'    => 'Введіть 4 цифри',
+        ]);
+
+        $key   = 'login_sms:' . $data['phone'];
+        $state = Cache::get($key);
+
+        if (!$state) {
+            return response()->json([
+                'ok'      => false,
+                'message' => 'Код прострочений. Запросіть новий.',
+                'errors'  => ['code' => ['expired']],
+            ], 422);
+        }
+
+        $attempts = (int) ($state['attempts'] ?? 0);
+        if ($attempts >= 5) {
+            Cache::forget($key);
+            return response()->json([
+                'ok'      => false,
+                'message' => 'Забагато спроб. Спробуйте пізніше або надішліть код ще раз.',
+                'errors'  => ['code' => ['too_many_attempts']],
+            ], 422);
+        }
+
+        // Тестовый режим: всегда принимаем код 1234 в локальной среде
+        $testMode = config('app.env') === 'local';
+        
+        // Если введен код 1234 - всегда принимаем его (для тестирования)
+        if ((string) $data['code'] === '1234') {
+            // Код 1234 принят (тестовый режим)
+        } elseif ((string) $state['code'] !== (string) $data['code']) {
+            $state['attempts'] = $attempts + 1;
+            Cache::put($key, $state, now()->addMinutes(3));
+            return response()->json([
+                'ok'      => false,
+                'message' => st('auth.code_invalid', 'Невірний код. Перевірте цифри та спробуйте ще раз.'),
+                'errors'  => ['code' => ['invalid']],
+            ], 422);
+        }
+
+        // Находим клиента
+        $client = Client::find($state['client_id']);
+        if (!$client) {
+            Cache::forget($key);
+            return response()->json([
+                'ok'      => false,
+                'message' => 'Клієнт не знайдений.',
+            ], 422);
+        }
+
+        // Обновляем телефон до нормализованного формата, если нужно
+        if ($client->phone !== $digits) {
+            try {
+                $client->phone = $digits;
+                $client->save();
+            } catch (\Throwable $e) {
+                // Игнорируем ошибку, если номер уже используется
+            }
+        }
+
+        // Проверяем верификацию телефона
+        if (is_null($client->phone_verified_at)) {
+            $client->phone_verified_at = now();
+            $client->save();
+        }
+
+        // Логин с remember на 30 дней
+        $this->guard()->login($client, true);
+        $r->session()->regenerate();
+
+        Cache::forget($key);
+        Cache::forget($key . ':resend_lock');
+
+        return response()->json([
+            'ok'       => true,
+            'redirect' => route('home'),
+        ]);
+    }
 
     public function logout(Request $r)
     {

@@ -19,7 +19,7 @@
     $rootRow  = null;
     if ($rootId) foreach ($rows as $r) if (($r['product_id'] ?? null) === $rootId) { $rootRow = $r; break; }
     $rootRow ??= $rows[0] ?? ['price'=>$defaultPrice,'old_price'=>$defaultOldPrice,'product_id'=>null];
-    
+
     // Для одного варианта уменьшаем отступы
     $rowsCount = count($rows ?? []);
     $isSingleVariant = $rowsCount <= 1;
