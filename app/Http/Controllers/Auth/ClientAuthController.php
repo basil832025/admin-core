@@ -20,6 +20,19 @@ class ClientAuthController extends Controller
 {
     protected function guard() { return Auth::guard('web'); }
 
+    /**
+     * Получить URL для редиректа после авторизации
+     * Если пользователь был на checkout - возвращаем туда, иначе - профиль
+     */
+    protected function getRedirectUrl(Request $request): string
+    {
+        $checkoutUrl = $request->session()->pull('auth.redirect_to_checkout');
+        if ($checkoutUrl && str_contains($checkoutUrl, '/checkout')) {
+            return $checkoutUrl;
+        }
+        return route('profile.index');
+    }
+
     // === Socialite ===
     public function redirect(string $provider)
     {
@@ -64,8 +77,10 @@ class ClientAuthController extends Controller
         $client->save();
 
         $this->guard()->login($client, true);
+        $request->session()->regenerate();
 
-        return redirect()->intended('/');
+        $redirectUrl = $this->getRedirectUrl($request);
+        return redirect($redirectUrl);
     }
 
     // === Реєстрація з підтвердженням телефону ===
@@ -205,7 +220,10 @@ class ClientAuthController extends Controller
         Cache::forget($key);
         Cache::forget($key.':resend_lock');
 
-        return response()->json(['ok'=>true, 'redirect'=>route('home')]);
+        return response()->json([
+            'ok' => true,
+            'redirect' => $this->getRedirectUrl($r),
+        ]);
     }
 
 
@@ -287,7 +305,10 @@ class ClientAuthController extends Controller
         $this->guard()->login($user, true);
         $r->session()->regenerate();
 
-        return response()->json(['ok' => true]);
+        return response()->json([
+            'ok' => true,
+            'redirect' => $this->getRedirectUrl($r),
+        ]);
     }
 
 
@@ -474,8 +495,20 @@ class ClientAuthController extends Controller
 
         return response()->json([
             'ok'       => true,
-            'redirect' => route('home'),
+            'redirect' => $this->getRedirectUrl($r),
         ]);
+    }
+
+    /**
+     * Сохранить URL checkout для редиректа после авторизации
+     */
+    public function saveCheckoutUrl(Request $request)
+    {
+        $url = $request->input('url');
+        if ($url && str_contains($url, '/checkout')) {
+            $request->session()->put('auth.redirect_to_checkout', $url);
+        }
+        return response()->json(['ok' => true]);
     }
 
     public function logout(Request $r)

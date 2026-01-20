@@ -395,6 +395,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const name  = nameInput  ? nameInput.value.trim()  : '';
         const phone = phoneInput ? phoneInput.value.trim() : '';
+        
+        // Сохраняем URL checkout в сессии перед показом модалки авторизации
+        const checkoutUrl = window.location.href;
+        fetch('/auth/save-checkout-url', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({ url: checkoutUrl }),
+        }).catch(() => {}); // Игнорируем ошибки, это не критично
+        
         window.dispatchEvent(
             new CustomEvent('show-auth-modal', {
                 detail: {

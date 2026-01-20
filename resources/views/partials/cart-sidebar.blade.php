@@ -167,10 +167,35 @@
     </div>
 
     <div class="p-4 pt-0">
-        <a href="{{ $checkoutUrl }}"
-           class="block w-full text-center bg-orange-500 text-white py-2 rounded-lg hover:bg-orange-600 transition">
-            {{ st('cart.actions.checkout', 'Оформити замовлення') }}
-        </a>
+        @auth
+            <a href="{{ $checkoutUrl }}"
+               class="block w-full text-center bg-orange-500 text-white py-2 rounded-lg hover:bg-orange-600 transition">
+                {{ st('cart.actions.checkout', 'Оформити замовлення') }}
+            </a>
+        @else
+            <button type="button"
+                    x-data
+                    @click.prevent="
+                        const checkoutUrl = '{{ $checkoutUrl }}';
+                        fetch('/auth/save-checkout-url', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name=&quot;csrf-token&quot;]')?.getAttribute('content') || '',
+                                'Accept': 'application/json',
+                            },
+                            body: JSON.stringify({ url: checkoutUrl }),
+                        }).catch(() => {});
+                        window.dispatchEvent(new CustomEvent('open-auth-modal', {
+                            detail: {
+                                message: 'Щоб оформити замовлення, увійдіть або зареєструйтесь.',
+                            },
+                        }));
+                    "
+                    class="block w-full text-center bg-orange-500 text-white py-2 rounded-lg hover:bg-orange-600 transition">
+                {{ st('cart.actions.checkout', 'Оформити замовлення') }}
+            </button>
+        @endauth
         <a href="{{ $cartUrl }}" class="block w-full text-center text-gray-600 mt-2 underline hover:no-underline">
             {{ st('cart.actions.goto_cart', 'Перейти в кошик') }}
         </a>

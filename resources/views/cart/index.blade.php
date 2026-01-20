@@ -161,10 +161,35 @@
                 </div>
 
                 <div class="px-4 md:px-6 pb-6">
-                    <a href="{{ $checkoutUrl }}"
-                       class="block w-full text-center bg-[#FF7500] text-white py-3 rounded-xl hover:opacity-90 transition">
-                        {{ st('cart.actions.checkout', 'Оформити замовлення') }}
-                    </a>
+                    @auth
+                        <a href="{{ $checkoutUrl }}"
+                           class="block w-full text-center bg-[#FF7500] text-white py-3 rounded-xl hover:opacity-90 transition">
+                            {{ st('cart.actions.checkout', 'Оформити замовлення') }}
+                        </a>
+                    @else
+                        <button type="button"
+                                x-data
+                                @click.prevent="
+                                    const checkoutUrl = '{{ $checkoutUrl }}';
+                                    fetch('/auth/save-checkout-url', {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'X-CSRF-TOKEN': document.querySelector('meta[name=&quot;csrf-token&quot;]')?.getAttribute('content') || '',
+                                            'Accept': 'application/json',
+                                        },
+                                        body: JSON.stringify({ url: checkoutUrl }),
+                                    }).catch(() => {});
+                                    window.dispatchEvent(new CustomEvent('open-auth-modal', {
+                                        detail: {
+                                            message: 'Щоб оформити замовлення, увійдіть або зареєструйтесь.',
+                                        },
+                                    }));
+                                "
+                                class="block w-full text-center bg-[#FF7500] text-white py-3 rounded-xl hover:opacity-90 transition">
+                            {{ st('cart.actions.checkout', 'Оформити замовлення') }}
+                        </button>
+                    @endauth
                 </div>
             </div>
         @endif

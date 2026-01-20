@@ -14,6 +14,19 @@ use Illuminate\Validation\ValidationException;
 
 class PhoneRegisterController extends Controller
 {
+    /**
+     * Получить URL для редиректа после авторизации
+     * Если пользователь был на checkout - возвращаем туда, иначе - профиль
+     */
+    protected function getRedirectUrl(Request $request): string
+    {
+        $checkoutUrl = $request->session()->pull('auth.redirect_to_checkout');
+        if ($checkoutUrl && str_contains($checkoutUrl, '/checkout')) {
+            return $checkoutUrl;
+        }
+        return route('profile.index');
+    }
+
     private function normalize(string $raw): string
     {
         $d = preg_replace('/\D+/', '', $raw);
@@ -186,6 +199,7 @@ class PhoneRegisterController extends Controller
         ]);
 
         Auth::guard('web')->login($client, true);
+        $r->session()->regenerate();
 
         Cache::forget($key);
         Cache::forget($key . ':resend_lock');
@@ -193,7 +207,7 @@ class PhoneRegisterController extends Controller
         return response()->json([
             'ok'       => true,
             'message'  => st('auth.phone_verified_account_created', 'Телефон підтверджено. Обліковий запис створено.'),
-            'redirect' => route('profile.index'),
+            'redirect' => $this->getRedirectUrl($r),
         ]);
     }
 }

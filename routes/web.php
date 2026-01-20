@@ -304,6 +304,10 @@ Route::middleware(['web'])->group(function () {
             ->name('auth.phone-sms.send-code')->middleware('throttle:5,1');
         Route::post('/auth/phone-sms/verify', [ClientAuthController::class,'verifyPhoneSms'])
             ->name('auth.phone-sms.verify')->middleware('throttle:10,1');
+        
+        // Сохранение URL checkout для редиректа после авторизации
+        Route::post('/auth/save-checkout-url', [ClientAuthController::class,'saveCheckoutUrl'])
+            ->name('auth.save-checkout-url');
 
      /*    Route::post('/auth/sms/send',   [ClientAuthController::class,'sendSms'])->name('auth.sms.send');
         Route::post('/auth/sms/verify', [ClientAuthController::class,'verifySms'])->name('auth.sms.verify');
