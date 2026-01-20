@@ -23,11 +23,13 @@ class Client extends Authenticatable
         'gender',
         'password',
         'photo',
+        'phone_verified_at',
     ];
     protected $hidden = ['password','remember_token'];
     protected $casts = [
         'birthday' => 'date',
         'is_active' => 'boolean',
+        'phone_verified_at' => 'datetime',
     ];
 
     protected static function booted(): void
