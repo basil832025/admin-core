@@ -1,14 +1,15 @@
 @php
+    $sessionData = $sessionData ?? [];
     $deliveryMode = $deliveryMode ?? old('delivery_mode', session('checkout.form_data.delivery_mode', 'asap'));
     $timeIntervals = $timeIntervals ?? [];
 @endphp
 <div
     x-data="deliveryBlock()"
     x-init="
-        mode = '{{ $deliveryMode }}';
+        mode = @js($deliveryMode);
         allTimeIntervals = @js($timeIntervals ?? []);
         availableTimeIntervals = allTimeIntervals || [];
-        savedTime = '{{ old('delivery_time', $sessionData['delivery_time'] ?? '') }}';
+        savedTime = @js(old('delivery_time', $sessionData['delivery_time'] ?? ''));
         init();
         $nextTick(() => {
             // Восстанавливаем значение после фильтрации интервалов
@@ -54,6 +55,7 @@
                 placeholder="{{ st('cart.delivery.date_label', 'Дата*') }}"
                 value="{{ old('delivery_date', $sessionData['delivery_date'] ?? '') }}"
                 :disabled="mode==='asap'"
+                :required="mode==='fixed'"
                 :class="[
                     'tp-input pr-10',
                     mode==='asap' ? 'bg-[#F9FAFB] text-[#9CA3AF] cursor-not-allowed' : ''
@@ -82,19 +84,13 @@
                 x-ref="time"
                 name="delivery_time"
                 :disabled="mode==='asap'"
+                :required="mode==='fixed'"
                 :class="[
                     'tp-input pr-10 appearance-none',
                     mode==='asap' ? 'bg-[#F9FAFB] text-[#9CA3AF] cursor-not-allowed' : ''
                 ]"
                 x-model="selectedTime"
-                @change="
-                    // Сохраняем в сессию при изменении
-                    const form = document.querySelector('[data-checkout-form]');
-                    if (form) {
-                        const event = new Event('change');
-                        form.dispatchEvent(event);
-                    }
-                "
+                @change="saveFormData()"
             >
                 <option value="">{{ st('cart.delivery.time_label', 'Час') }}</option>
                 <template x-for="interval in availableTimeIntervals" :key="interval">

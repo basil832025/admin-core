@@ -37,6 +37,8 @@ export default function authModal(opts = {}) {
         open: false,
         countryDropdownOpen: false, // для dropdown выбора страны
         authMethod: authMethod, // 'phone_sms' или 'phone_password_sms'
+        PREFIX: '+380 ', // Префикс номера телефона
+        get PREFIX_LEN() { return this.PREFIX.length; }, // Длина префикса
         get isPhoneSms() {
             return this.authMethod === 'phone_sms';
         },

@@ -71,8 +71,8 @@ function deliveryBlock() {
             this.$watch('mode', () => {
                 this.updateFieldsState();
                 // Сохраняем изменение в сессию
-                const event = new Event('change');
-                const form = document.querySelector('[data-checkout-form]');
+                let event = new Event('change');
+                let form = document.querySelector('[data-checkout-form]');
                 if (form) form.dispatchEvent(event);
             });
             
@@ -80,9 +80,7 @@ function deliveryBlock() {
             this.$watch('selectedTime', () => {
                 if (this.mode === 'fixed') {
                     // Сохраняем в сессию при изменении времени
-                    const event = new Event('change');
-                    const form = document.querySelector('[data-checkout-form]');
-                    if (form) form.dispatchEvent(event);
+                    this.saveFormData();
                 }
             });
         },
@@ -133,6 +131,14 @@ function deliveryBlock() {
             }
         },
 
+        saveFormData() {
+            let form = document.querySelector('[data-checkout-form]');
+            if (form) {
+                let event = new Event('change');
+                form.dispatchEvent(event);
+            }
+        },
+
         updateFieldsState() {
             const fixed = this.mode === 'fixed';
 
@@ -149,12 +155,24 @@ function deliveryBlock() {
                 altDate.classList.toggle('bg-[#F9FAFB]', !fixed);
                 altDate.classList.toggle('text-[#9CA3AF]', !fixed);
                 altDate.classList.toggle('cursor-not-allowed', !fixed);
+                // Добавляем/убираем required для даты
+                if (fixed) {
+                    altDate.setAttribute('required', 'required');
+                } else {
+                    altDate.removeAttribute('required');
+                }
             }
 
             // Обновляем select для времени
             const timeSelect = this.$refs.time;
             if (timeSelect) {
                 timeSelect.disabled = !fixed;
+                // Добавляем/убираем required для времени
+                if (fixed) {
+                    timeSelect.setAttribute('required', 'required');
+                } else {
+                    timeSelect.removeAttribute('required');
+                }
             }
 
             // Очищаем поля если переключились на asap

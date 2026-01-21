@@ -624,11 +624,24 @@ public function submit(Request $request)
 
         'shipping_method'  => 'required|in:delivery,pickup',
         'delivery_mode'    => 'required|in:asap,fixed',
+        'delivery_time'    => 'nullable|string|max:20',
 
         'payment_method'   => 'required|in:liqpay,card_on_delivery,cash',
 
         'agree'            => 'accepted',
     ]);
+    
+    // 2. Условная валидация: если выбран режим "fixed", дата и время обязательны
+    $deliveryMode = $request->input('delivery_mode', 'asap');
+    if ($deliveryMode === 'fixed') {
+        $request->validate([
+            'delivery_date' => 'required|string|max:50',
+            'delivery_time' => 'required|string|max:20',
+        ], [
+            'delivery_date.required' => st('cart.delivery.date_required', 'Оберіть дату доставки'),
+            'delivery_time.required' => st('cart.delivery.time_required', 'Оберіть час доставки'),
+        ]);
+    }
 
     // 2. Адрес: существующий или новый
     $useNew = $request->boolean('use_new_address')
@@ -706,12 +719,7 @@ public function submit(Request $request)
         $deliveryTime = trim(explode('-', $deliveryTimeRaw)[0]);
     }
 
-    if ($deliveryMode === 'fixed') {
-        $request->validate([
-            'delivery_date' => 'required|string|max:50',
-            'delivery_time' => 'required|string|max:50',
-        ]);
-    }
+    // Валидация даты и времени для режима "fixed" уже выполнена выше
 
     // 4. Способ оплаты -> enum
     $paymentEnum = match ($request->input('payment_method')) {
