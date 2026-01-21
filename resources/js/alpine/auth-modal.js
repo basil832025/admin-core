@@ -143,6 +143,33 @@ export default function authModal(opts = {}) {
                 }
             } catch (_) {}
         },
+        // Методы для старого поля логина (legacy modal) - для обратной совместимости
+        onLoginFocus(e) {
+            const el = e.target;
+            try {
+                if (!el || typeof el.value === 'undefined') return;
+                if (!el.value || el.value === '') {
+                    el.value = this.PREFIX;
+                }
+                if (typeof el.setSelectionRange === 'function') {
+                    const start = Math.max(this.PREFIX_LEN, el.selectionStart || this.PREFIX_LEN);
+                    el.setSelectionRange(start, start);
+                }
+            } catch (_) {}
+        },
+        onLoginClick(e) {
+            this.onLoginFocus(e);
+        },
+        onLoginBackspace(e) {
+            const el = e.target;
+            try {
+                if (!el || typeof el.selectionStart === 'undefined' || !el.setSelectionRange) return;
+                if (el.selectionStart <= this.PREFIX_LEN) {
+                    e.preventDefault();
+                    el.setSelectionRange(this.PREFIX_LEN, this.PREFIX_LEN);
+                }
+            } catch (_) {}
+        },
         focusLoginAfterOpen() {                                 // вызывать при открытии модалки
             this.$nextTick(() => {
                 requestAnimationFrame(() => {
