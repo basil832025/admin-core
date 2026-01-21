@@ -71,7 +71,7 @@
                  @guest('web')
                      <button
                          type="button"
-                         @click="$dispatch('open-auth-modal', { tab: 'login' })"
+                         onclick="window.location.href='{{ route('auth.show') }}'; return false;"
                          class="group flex items-center gap-3 rounded-xl px-3 py-2 transition-colors
                text-[#929292] hover:text-[#19191A]">
                          <x-icons.login class="w-6 h-6 text-[#929292] group-hover:text-[#FF7500]" />

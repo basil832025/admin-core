@@ -97,11 +97,11 @@
                 <div
                     x-show="!$store.search.open"
                     x-transition.opacity
-                    class="hidden lg:flex items-center ml-[100px] font-normal text-[13px] leading-4 text-[#19191A]"
+                    class="hidden desk:flex items-center ml-[100px] font-normal text-[13px] leading-4 text-[#19191A]"
                 >
                     <span class="inline-flex items-center gap-2">
                         <img src="{{ asset('images/fire.svg') }}" class="w-5 h-5 mx-auto" alt="">
-                        {{ st('header.wood-fired','Готуємо в дров’яній печі!') }}
+                        {{ st('header.wood-fired', "Готуємо в дров'яній печі!") }}
                     </span>
                 </div>
 

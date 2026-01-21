@@ -1,11 +1,21 @@
 @php
     $deliveryMode = $deliveryMode ?? old('delivery_mode', session('checkout.form_data.delivery_mode', 'asap'));
+    $timeIntervals = $timeIntervals ?? [];
 @endphp
 <div
     x-data="deliveryBlock()"
     x-init="
         mode = '{{ $deliveryMode }}';
+        allTimeIntervals = @js($timeIntervals ?? []);
+        availableTimeIntervals = allTimeIntervals || [];
+        savedTime = '{{ old('delivery_time', $sessionData['delivery_time'] ?? '') }}';
         init();
+        $nextTick(() => {
+            // Восстанавливаем значение после фильтрации интервалов
+            if (savedTime && availableTimeIntervals.includes(savedTime)) {
+                selectedTime = savedTime;
+            }
+        });
     "
     class="bg-white rounded shadow-[0_2px_10px_rgba(0,0,0,.08)] pt-3 pr-4 pb-3 pl-4"
 >
@@ -68,21 +78,29 @@
             <span class="sr-only">
                 {{ st('cart.delivery.time_label', 'Час') }}
             </span>
-            <input
+            <select
                 x-ref="time"
-                type="text"
                 name="delivery_time"
-                placeholder="{{ st('cart.delivery.time_label', 'Час') }}"
-                value="{{ old('delivery_time', $sessionData['delivery_time'] ?? '') }}"
                 :disabled="mode==='asap'"
                 :class="[
-                    'tp-input pr-10',
+                    'tp-input pr-10 appearance-none',
                     mode==='asap' ? 'bg-[#F9FAFB] text-[#9CA3AF] cursor-not-allowed' : ''
                 ]"
-                @click="if(mode==='fixed' && fpTime){ fpTime.open(); }"
-                @focus="if(mode==='fixed' && fpTime){ fpTime.open(); }"
-                readonly
+                x-model="selectedTime"
+                @change="
+                    // Сохраняем в сессию при изменении
+                    const form = document.querySelector('[data-checkout-form]');
+                    if (form) {
+                        const event = new Event('change');
+                        form.dispatchEvent(event);
+                    }
+                "
             >
+                <option value="">{{ st('cart.delivery.time_label', 'Час') }}</option>
+                <template x-for="interval in availableTimeIntervals" :key="interval">
+                    <option :value="interval" x-text="interval"></option>
+                </template>
+            </select>
             @error('delivery_time')
             <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
             @enderror

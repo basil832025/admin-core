@@ -127,8 +127,8 @@
                         </div>
 
                         {{-- сумма --}}
-                        <div class="order-2 ml-auto sm:ml-0 text-right">
-                            <div class="flex items-baseline gap-1 text-[#DC2626] font-bold">
+                        <div class="order-2 ml-auto sm:ml-0 text-right min-w-[100px] md:min-w-[120px] shrink-0">
+                            <div class="flex items-baseline gap-1 text-[#DC2626] font-bold whitespace-nowrap">
                                 <span class="text-[18px]" data-cart-line-total>
                                     {{ number_format($sum, 0, ',', ' ') }}
                                 </span>
@@ -186,7 +186,9 @@
                             },
                             body: JSON.stringify({ url: checkoutUrl }),
                         }).catch(() => {});
-                        window.dispatchEvent(new CustomEvent('open-auth-modal', {
+                                    window.location.href = '{{ route('auth.show') }}';
+                                    return;
+                                    window.dispatchEvent(new CustomEvent('open-auth-modal', {
                             detail: {
                                 message: 'Щоб оформити замовлення, увійдіть або зареєструйтесь.',
                             },

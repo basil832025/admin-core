@@ -17,7 +17,10 @@ function deliveryBlock() {
     return {
         mode: 'asap',
         fpDate: null,
-        fpTime: null,
+        allTimeIntervals: [],
+        availableTimeIntervals: [],
+        selectedTime: '',
+        savedTime: '',
 
         init() {
             const ruLocale = {
@@ -51,25 +54,19 @@ function deliveryBlock() {
                     inst.altInput.placeholder = this.$refs.date.placeholder || 'Дата*';
                 },
                 onChange: (sel) => {
-                    const ymd = sel.length ? this.fpDate.formatDate(sel[0], 'Y-m-d') : null;
-                    this.updateTimeMin(ymd);
+                    if (sel.length) {
+                        this.updateAvailableTimeIntervals();
+                    }
                 },
-            });
-
-            this.fpTime = flatpickr(this.$refs.time, {
-                enableTime: true,
-                noCalendar: true,
-                time_24hr: true,
-                minuteIncrement: 15,
-                dateFormat: 'H:i',
-                disableMobile: true,
-                clickOpens: false,
-                minTime: '09:00',
-                maxTime: '21:00',
             });
 
             // Устанавливаем начальное состояние при загрузке
             this.updateFieldsState();
+
+            // Обновляем доступные интервалы после инициализации
+            this.$nextTick(() => {
+                this.updateAvailableTimeIntervals();
+            });
 
             this.$watch('mode', () => {
                 this.updateFieldsState();
@@ -78,15 +75,72 @@ function deliveryBlock() {
                 const form = document.querySelector('[data-checkout-form]');
                 if (form) form.dispatchEvent(event);
             });
+            
+            // Отслеживаем изменение selectedTime для сохранения в сессию
+            this.$watch('selectedTime', () => {
+                if (this.mode === 'fixed') {
+                    // Сохраняем в сессию при изменении времени
+                    const event = new Event('change');
+                    const form = document.querySelector('[data-checkout-form]');
+                    if (form) form.dispatchEvent(event);
+                }
+            });
+        },
+
+        updateAvailableTimeIntervals() {
+            if (!this.$refs.date || !this.fpDate) {
+                this.availableTimeIntervals = this.allTimeIntervals || [];
+                return;
+            }
+
+            const selectedDate = this.fpDate.selectedDates[0];
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            // Сохраняем текущее выбранное время перед фильтрацией
+            const currentSelected = this.selectedTime;
+
+            // Если выбрана не сегодняшняя дата, показываем все интервалы
+            if (!selectedDate || selectedDate.getTime() !== today.getTime()) {
+                this.availableTimeIntervals = this.allTimeIntervals || [];
+                // Восстанавливаем сохраненное время, если оно есть в списке
+                if (currentSelected && this.availableTimeIntervals.includes(currentSelected)) {
+                    this.selectedTime = currentSelected;
+                }
+                return;
+            }
+
+            // Если выбрана сегодняшняя дата, фильтруем прошедшие интервалы
+            const now = new Date();
+            const nowMinutes = now.getHours() * 60 + now.getMinutes();
+            // Добавляем 1 час к текущему времени для минимального интервала доставки
+            const minMinutes = nowMinutes + 60;
+
+            this.availableTimeIntervals = (this.allTimeIntervals || []).filter(interval => {
+                // Парсим интервал вида "09:00-09:15"
+                const match = interval.match(/^(\d{2}):(\d{2})-/);
+                if (!match) return true;
+
+                const intervalStartMinutes = parseInt(match[1]) * 60 + parseInt(match[2]);
+                return intervalStartMinutes >= minMinutes;
+            });
+
+            // Если текущее выбранное время доступно, оставляем его
+            // Если нет - сбрасываем только если это не сохраненное значение из сессии
+            if (currentSelected && !this.availableTimeIntervals.includes(currentSelected)) {
+                // Не сбрасываем, если это сохраненное значение - оно будет восстановлено после фильтрации
+                // this.selectedTime = '';
+            }
         },
 
         updateFieldsState() {
             const fixed = this.mode === 'fixed';
-            
-            // Обновляем flatpickr
-            this.fpDate.set('clickOpens', fixed);
-            this.fpTime.set('clickOpens', fixed);
-            
+
+            // Обновляем flatpickr для даты
+            if (this.fpDate) {
+                this.fpDate.set('clickOpens', fixed);
+            }
+
             // Обновляем altInput для даты
             const altDate = this.fpDate?.altInput;
             if (altDate) {
@@ -96,57 +150,35 @@ function deliveryBlock() {
                 altDate.classList.toggle('text-[#9CA3AF]', !fixed);
                 altDate.classList.toggle('cursor-not-allowed', !fixed);
             }
-            
-            // Обновляем input для времени
-            const timeInput = this.$refs.time;
-            if (timeInput) {
-                timeInput.disabled = !fixed;
+
+            // Обновляем select для времени
+            const timeSelect = this.$refs.time;
+            if (timeSelect) {
+                timeSelect.disabled = !fixed;
             }
-            
+
             // Очищаем поля если переключились на asap
             if (!fixed) {
-                this.fpDate.clear();
-                this.fpTime.clear();
+                if (this.fpDate) {
+                    this.fpDate.clear();
+                }
+                if (timeSelect) {
+                    timeSelect.value = '';
+                    this.selectedTime = '';
+                }
             } else {
                 // Если переключились на fixed, устанавливаем дату по умолчанию
-                if (!this.$refs.date.value) {
+                if (this.fpDate && !this.$refs.date.value) {
                     const t = (() => {
                         const d = new Date();
                         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
                     })();
                     this.fpDate.setDate(t, true);
-                } else {
-                    this.updateTimeMin(this.$refs.date.value);
                 }
-            }
-        },
-
-        updateTimeMin(ymd) {
-            const step = 15;
-            const nowPlus1hRounded = () => {
-                const d = new Date();
-                d.setMinutes(d.getMinutes() + 60);
-                let h = d.getHours(), m = d.getMinutes();
-                const r = Math.ceil(m / step) * step;
-                if (r === 60) { h = (h + 1) % 24; m = 0; } else { m = r; }
-                return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-            };
-
-            const today = (new Date()).toISOString().slice(0, 10);
-
-            if (ymd === today) {
-                let min = nowPlus1hRounded();
-                if (min < '09:00') min = '09:00';
-                if (min > '21:00') min = '21:00';
-
-                this.fpTime.set('minTime', min);
-                this.fpTime.set('maxTime', '21:00');
-
-                const v = this.$refs.time.value;
-                if (!v || v < min) this.fpTime.setDate(min, true);
-            } else {
-                this.fpTime.set('minTime', '09:00');
-                this.fpTime.set('maxTime', '21:00');
+                // Обновляем доступные интервалы времени
+                this.$nextTick(() => {
+                    this.updateAvailableTimeIntervals();
+                });
             }
         }
     };
@@ -186,6 +218,8 @@ window.availablePromosComponent = function (initialSelected) { // 👈 NEW
                         }
 
                         // показываем маленький модал "Потрібна авторизація"
+                        window.location.href = '/auth';
+                        return;
                         window.dispatchEvent(new CustomEvent('show-auth-modal', {
                             detail: {
                                 message: data.message || 'Щоб застосувати акцію, увійдіть або зареєструйтесь.',
@@ -395,7 +429,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const name  = nameInput  ? nameInput.value.trim()  : '';
         const phone = phoneInput ? phoneInput.value.trim() : '';
-        
+
         // Сохраняем URL checkout в сессии перед показом модалки авторизации
         const checkoutUrl = window.location.href;
         fetch('/auth/save-checkout-url', {
@@ -407,7 +441,7 @@ document.addEventListener('DOMContentLoaded', () => {
             },
             body: JSON.stringify({ url: checkoutUrl }),
         }).catch(() => {}); // Игнорируем ошибки, это не критично
-        
+
         window.dispatchEvent(
             new CustomEvent('show-auth-modal', {
                 detail: {

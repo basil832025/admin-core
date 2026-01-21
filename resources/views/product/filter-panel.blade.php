@@ -1,7 +1,8 @@
 <div
     x-show="filterOpen"
     x-cloak
-    class="fixed inset-0 z-50 flex items-center justify-center"
+    class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto"
+    style="padding-top: 68px;"
     @keydown.escape.window="filterOpen = false"
 >
     @php
@@ -22,14 +23,14 @@
     @endphp
 
     {{-- фон --}}
-    <div class="absolute inset-0 bg-black/40" @click="filterOpen = false"></div>
+    <div class="fixed inset-0 bg-black/40 z-40" @click="filterOpen = false"></div>
 
     {{-- модальное окно --}}
     <div
         class="relative bg-white rounded-[12px] shadow-xl z-50
                w-full md:w-[90%] lg:w-[1192px]
-               max-h-[90vh] overflow-y-auto
-               p-4 md:p-6"
+               max-h-[calc(100vh-100px)] overflow-y-auto
+               p-4 md:p-6 my-4 mx-4"
         x-transition:enter="transition ease-out duration-200"
         x-transition:enter-start="opacity-0 scale-95"
         x-transition:enter-end="opacity-100 scale-100"

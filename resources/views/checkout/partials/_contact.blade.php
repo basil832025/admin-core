@@ -80,12 +80,7 @@
                             const authName  = document.getElementById('contact_name')?.value || '';
                             const authPhone = document.getElementById('contact_phone')?.value || '';
                             const authEmail = document.getElementById('contact_email')?.value || '';
-                            $dispatch('open-auth-modal', {
-                                tab: 'login',
-                                name: authName,
-                                phone: authPhone,
-                                email: authEmail,
-                            });
+                            window.location.href = '{{ route('auth.show') }}';
                         "
                     >
                         <span>{{ st('auth.login','Увійти') }}</span>

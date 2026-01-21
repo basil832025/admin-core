@@ -90,10 +90,10 @@ document.addEventListener('alpine:init', () => {
             async inc(payload) {
                 const id = (typeof payload === 'object') ? payload.id : payload;
                 const price = (typeof payload === 'object') ? payload.price : null;
-                const data = await sendRequest(addUrl, { 
-                    product_id: id, 
+                const data = await sendRequest(addUrl, {
+                    product_id: id,
                     qty: 1,
-                    price: price 
+                    price: price
                 });
                 updateDom(data, id);
                 return data;
@@ -101,10 +101,10 @@ document.addEventListener('alpine:init', () => {
             async dec(payload) {
                 const id = (typeof payload === 'object') ? payload.id : payload;
                 const price = (typeof payload === 'object') ? payload.price : null;
-                const data = await sendRequest(addUrl, { 
-                    product_id: id, 
+                const data = await sendRequest(addUrl, {
+                    product_id: id,
                     qty: -1,
-                    price: price 
+                    price: price
                 });
                 updateDom(data, id);
                 return data;
@@ -166,7 +166,7 @@ document.addEventListener('alpine:init', () => {
                                 $old = $oldPrice * $qty;
                             }
                         }
-                        
+
                         // Получаем характеристики
                         if ($product->relationLoaded('productCharacteristicValues')) {
                             $vals = $product->productCharacteristicValues;
@@ -174,7 +174,7 @@ document.addEventListener('alpine:init', () => {
                             foreach ($vals as $v) {
                                 $char = $v->characteristic;
                                 if (!$char) continue;
-                                
+
                                 $slug = (string) ($char->slug ?? '');
                                 if ($slug === '' || !in_array($slug, $keep, true)) {
                                     continue;
@@ -192,16 +192,20 @@ document.addEventListener('alpine:init', () => {
                         }
                     }
                 }
-                
+
                 // Если old_subtotal уже есть в данных, используем его
                 if (!isset($old) && isset($it['old_subtotal']) && $it['old_subtotal'] > 0) {
                     $old = (float)$it['old_subtotal'];
                 }
             @endphp
 
-            <div class="flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4 border border-[#F1F2F4] rounded-[12px]
-                        shadow-[0_2px_8px_rgba(0,0,0,.06)] p-3 md:p-2 md:h-[116px]" data-cart-item="{{ $pid }}">
-                {{-- ПЕРВЫЙ РЯД: изображение + описание и размеры (мобильная версия) --}}
+            <div class="flex flex-col md:grid md:grid-cols-[290px_90px_1fr] md:items-center gap-3 md:gap-4 border border-[#F1F2F4] rounded-[12px]
+            shadow-[0_2px_8px_rgba(0,0,0,.06)] p-3 md:p-2 md:min-h-[116px]"
+                 data-cart-item="{{ $pid }}">
+
+
+
+            {{-- ПЕРВЫЙ РЯД: изображение + описание и размеры (мобильная версия) --}}
                 <div class="md:hidden flex items-start gap-3 w-full">
                     {{-- изображение --}}
                 <img src="{{ $img }}" alt="" class="w-[120px] h-[96px] rounded-[8px] object-cover shrink-0">
@@ -236,58 +240,71 @@ document.addEventListener('alpine:init', () => {
                     </div>
                 </div>
 
-                {{-- КОЛОНКА 1: изображение (десктоп) --}}
-                <img src="{{ $img }}" alt="" class="hidden md:block w-[120px] h-[96px] rounded-[8px] object-cover shrink-0">
+                <div class="hidden md:flex items-start gap-3 w-[290px] min-w-[290px]">
+                    <img src="{{ $img }}" alt="" class="w-[120px] h-[96px] rounded-[8px] object-cover shrink-0">
 
-                {{-- КОЛОНКА 2: название и размеры с пиктограммами (десктоп) --}}
-                <div class="hidden md:flex flex-col flex-1 min-w-0 gap-1">
-                    <div class="text-[10px] font-semibold text-[#272828] line-clamp-2">{{ $name }}</div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-[10px] font-semibold text-[#272828] line-clamp-2">{{ $name }}</div>
 
-                    @if(!empty($variantChars))
-                        <div class="flex flex-row items-center gap-2 text-[12px] text-[#9CA3AF]">
-                            @foreach($variantChars as $char)
-                                <span class="inline-flex items-center gap-1">
-                                    @if($char['svg'])
-                                        <span aria-hidden="true" class="inline-block h-4 w-4 shrink-0"
-                                              style="background-color: currentColor;
-                                                  mask-image:url('{{ $char['svg'] }}');-webkit-mask-image:url('{{ $char['svg'] }}');
-                                                  mask-repeat:no-repeat;-webkit-mask-repeat:no-repeat;
-                                                  mask-position:center;-webkit-mask-position:center;
-                                                  mask-size:contain;-webkit-mask-size:contain;"></span>
-                                    @endif
-                                    <span>{{ $char['value'] }}</span>
-                                </span>
-                            @endforeach
-                        </div>
-                    @elseif(!empty($it['meta_line']))
-                        <div class="text-[12px] text-[#9CA3AF]">{!! $it['meta_line'] !!}</div>
-                    @elseif($var)
-                        <div class="text-[12px] text-[#9CA3AF]">{{ $var }}</div>
-                    @endif
+                        @if(!empty($variantChars))
+                            <div class="mt-1 flex flex-row items-center gap-2 text-[12px] text-[#9CA3AF]">
+                                @foreach($variantChars as $char)
+                                    <span class="inline-flex items-center gap-1">
+                        @if($char['svg'])
+                                            <span aria-hidden="true" class="inline-block h-4 w-4 shrink-0"
+                                                  style="background-color: currentColor;
+                                                      mask-image:url('{{ $char['svg'] }}');-webkit-mask-image:url('{{ $char['svg'] }}');
+                                                      mask-repeat:no-repeat;-webkit-mask-repeat:no-repeat;
+                                                      mask-position:center;-webkit-mask-position:center;
+                                                      mask-size:contain;-webkit-mask-size:contain;"></span>
+                                        @endif
+                        <span>{{ $char['value'] }}</span>
+                    </span>
+                                @endforeach
+                            </div>
+                        @elseif(!empty($it['meta_line']))
+                            <div class="mt-1 text-[12px] text-[#9CA3AF]">{!! $it['meta_line'] !!}</div>
+                        @elseif($var)
+                            <div class="mt-1 text-[12px] text-[#9CA3AF]">{{ $var }}</div>
+                        @endif
 
-                    <div class="text-[12px] text-[#9CA3AF]">{{ $qty }} шт</div>
+                        <div class="mt-1 text-[12px] text-[#9CA3AF]">{{ $qty }} шт</div>
+                    </div>
                 </div>
 
-                {{-- ВТОРОЙ РЯД: кнопки - и + (неактивные) и цена (мобильная версия) --}}
-                <div class="md:hidden flex items-center justify-between gap-3 w-full">
-                    {{-- Слева: контрол количества + цена --}}
-                    <div class="flex items-center gap-3 flex-1">
-                        {{-- контрол количества (неактивный) --}}
-                        <div class="inline-flex items-center bg-[#FDDDA7] h-10 rounded-[4px] px-1 shrink-0 opacity-50 cursor-not-allowed">
-                            <button type="button" disabled class="w-6 h-6 grid place-items-center text-[14px] leading-none cursor-not-allowed text-[#FF7500]">−</button>
-                            <div class="w-8 text-center font-semibold text-[#FF7500] text-[14px]">{{ $qty }}</div>
-                            <button type="button" disabled class="w-6 h-6 grid place-items-center text-[14px] leading-none cursor-not-allowed text-[#FF7500]">+</button>
-                        </div>
 
-                        {{-- цена --}}
+                {{-- ВТОРОЙ РЯД (моб): qty + цена + удалить --}}
+                <div class="md:hidden flex items-center justify-between gap-3 w-full">
+                    {{-- слева: количество --}}
+                    <div  class="inline-flex items-center justify-center w-[90px] h-[37px] bg-[#FDDDA7] rounded-[4px] px-[10px] gap-[8px] shrink-0">
+                        {{-- minus --}}
+                        <button type="button" disabled class="w-[12px] h-[12px] grid place-items-center">
+                            <svg viewBox="0 0 12 12" class="w-[11.67px] h-[11.67px] fill-[#FF7500]">
+                                <rect x="0" y="5" width="12" height="2" rx="1"/>
+                            </svg>
+                        </button>
+                        {{-- qty --}}
+                        <div class="text-[#FF7500] text-[14px] leading-[16px] font-bold text-center w-[16px]">{{ $qty }}</div>
+
+                        {{-- plus --}}
+                        <button type="button" disabled class="w-[12px] h-[12px] grid place-items-center">
+                            <svg viewBox="0 0 12 12" class="w-[11.67px] h-[11.67px] fill-[#FF7500]">
+                                <rect x="0" y="5" width="12" height="2" rx="1"/>
+                                <rect x="5" y="0" width="2" height="12" rx="1"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                    {{-- середина: цена --}}
+                    <div class="flex-1 min-w-0">
                         <div class="text-left whitespace-nowrap">
                             <div class="flex items-baseline gap-1 text-[#E44800] font-bold leading-none">
-                                <span class="text-[18px] tabular-nums" data-cart-line-total>
-                                    {{ number_format($uah, 0, ',', ' ') }}
-                                </span>
+                <span class="text-[18px] tabular-nums" data-cart-line-total>
+                    {{ number_format($uah, 0, ',', ' ') }}
+                </span>
                                 <sup class="align-top text-[12px] font-semibold tabular-nums">{{ $kop }}</sup>
                                 <span class="text-[14px]">{{ st('cart.summary.currency_short', 'грн.') }}</span>
-                </div>
+                            </div>
 
                             @if($old && $old > $price)
                                 <div class="text-[16px] text-[#9E9E9E] line-through tabular-nums">
@@ -297,7 +314,7 @@ document.addEventListener('alpine:init', () => {
                         </div>
                     </div>
 
-                    {{-- Справа: удалить --}}
+                    {{-- справа: удалить --}}
                     <div x-data="{ ask:false }" class="relative shrink-0">
                         <button
                             type="button"
@@ -306,8 +323,7 @@ document.addEventListener('alpine:init', () => {
                             aria-label="Видалити"
                             @click="ask = true"
                         >
-                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"
-                                 xmlns="http://www.w3.org/2000/svg">
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path fill-rule="evenodd" clip-rule="evenodd"
                                       d="M0.292893 0.292893C0.683417 -0.0976309 1.31658 -0.0976309 1.70711 0.292893L7 5.58579L12.2929 0.292893C12.6834 -0.0976311 13.3166 -0.0976311 13.7071 0.292893C14.0976 0.683417 14.0976 1.31658 13.7071 1.70711L8.41421 7L13.7071 12.2929C14.0976 12.6834 14.0976 13.3166 13.7071 13.7071C13.3166 14.0976 12.6834 14.0976 12.2929 13.7071L7 8.41421L1.70711 13.7071C1.31658 14.0976 0.683418 14.0976 0.292893 13.7071C-0.0976309 13.3166 -0.0976309 12.6834 0.292893 12.2929L5.58579 7L0.292893 1.70711C-0.0976311 1.31658 -0.0976311 0.683418 0.292893 0.292893Z"
                                       fill="#929292"/>
@@ -320,41 +336,39 @@ document.addEventListener('alpine:init', () => {
                             @click.outside="ask = false"
                             class="absolute right-0 top-full mt-2 bg-white shadow-lg rounded-md border border-gray-200 p-3 w-[180px] z-20"
                         >
-                            <div class="text-sm text-gray-800 mb-2 text-center">
-                                {{ st('cart.vydalyty-tsei-tovar-iz-zamovlennya', 'Видалити цей товар із замовлення') }}?
-                            </div>
-                            <div class="flex justify-center gap-2">
-                                <button
-                                    type="button"
-                                    class="px-3 py-1.5 rounded-md text-white bg-[#FF7500] hover:bg-[#e56700] text-sm font-semibold"
-                                    @click="$dispatch('cart-remove', { id: {{ $pid }} }); ask = false"
-                                >
-                                    {{ st('cart.yes', 'Так') }}
-                                </button>
-                                <button
-                                    type="button"
-                                    class="px-3 py-1.5 rounded-md text-gray-600 bg-gray-100 hover:bg-gray-200 text-sm font-medium"
-                                    @click="ask = false"
-                                >
-                                    {{ st('cart.no', 'Ні') }}
-                                </button>
-                            </div>
+                            ...
                         </div>
                     </div>
                 </div>
 
+
                 {{-- КОЛОНКА 3: кнопки - и + (неактивные, десктоп) --}}
-                <div class="hidden md:flex shrink-0">
-                    <div class="inline-flex items-center bg-[#FDDDA7] h-10 rounded-[4px] px-1 shrink-0 opacity-50 cursor-not-allowed">
-                        <button type="button" disabled class="w-6 h-6 grid place-items-center text-[14px] leading-none cursor-not-allowed text-[#FF7500]">−</button>
-                        <div class="w-8 text-center font-semibold text-[#FF7500] text-[14px]">{{ $qty }}</div>
-                        <button type="button" disabled class="w-6 h-6 grid place-items-center text-[14px] leading-none cursor-not-allowed text-[#FF7500]">+</button>
+                <div class="hidden md:flex items-start justify-self-center">
+
+                    {{-- слева: количество --}}
+                    <div  class="inline-flex items-center justify-center w-[90px] h-[37px] bg-[#FDDDA7] rounded-[4px] px-[10px] gap-[8px] shrink-0">
+                        {{-- minus --}}
+                        <button type="button" disabled class="w-[12px] h-[12px] grid place-items-center">
+                            <svg viewBox="0 0 12 12" class="w-[11.67px] h-[11.67px] fill-[#FF7500]">
+                                <rect x="0" y="5" width="12" height="2" rx="1"/>
+                            </svg>
+                        </button>   {{-- qty --}}
+                        <div class="text-[#FF7500] text-[14px] leading-[16px] font-bold text-center w-[16px]">{{ $qty }}</div>
+
+                        {{-- plus --}}
+                        <button type="button" disabled class="w-[12px] h-[12px] grid place-items-center">
+                            <svg viewBox="0 0 12 12" class="w-[11.67px] h-[11.67px] fill-[#FF7500]">
+                                <rect x="0" y="5" width="12" height="2" rx="1"/>
+                                <rect x="5" y="0" width="2" height="12" rx="1"/>
+                            </svg>
+                        </button>
                     </div>
                 </div>
 
                 {{-- КОЛОНКА 4: цена, старая цена и кнопка удалить (десктоп) --}}
-                <div class="hidden md:flex items-center gap-3 shrink-0">
-                    {{-- цена --}}
+                <div class="hidden md:flex items-start gap-3 justify-self-end">
+
+                {{-- цена --}}
                     <div class="text-right whitespace-nowrap">
                         <div class="flex items-baseline justify-end gap-1 text-[#E44800] font-bold leading-none">
                             <span class="text-[18px] tabular-nums" data-cart-line-total>

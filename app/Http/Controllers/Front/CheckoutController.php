@@ -38,6 +38,14 @@ class CheckoutController extends Controller
  */
 public function index()
 {
+    // Проверяем авторизацию - если не авторизован, перенаправляем на страницу авторизации
+    if (!Auth::check()) {
+        // Сохраняем URL checkout в сессии для редиректа после авторизации
+        session(['checkout.redirect_url' => request()->url()]);
+        
+        return redirect()->route('auth.show');
+    }
+
     // Загружаем сохраненные данные из сессии
     $sessionData = session('checkout.form_data', []);
     
@@ -89,6 +97,10 @@ public function index()
         ->filter(function (TimeDiscount $d) use ($productIds) {
             return $d->hasEligibleProducts($productIds);
         });
+
+    // Генерируем временные интервалы для доставки
+    $timeIntervals = $this->getDeliveryTimeIntervals($locations);
+
 // локаль сайта
     $locale = app()->getLocale();
     // приводим к единому массиву для шаблона
@@ -128,7 +140,115 @@ public function index()
         'locations' => $locations,
         'availablePromos' => $availablePromos,
         'sessionData' => $sessionData,
+        'timeIntervals' => $timeIntervals,
     ]);
+}
+
+/**
+ * Получить временные интервалы для доставки из графика работы
+ * 
+ * @param \Illuminate\Support\Collection $locations
+ * @return array Массив интервалов вида ["09:00-09:15", "09:15-09:30", ...]
+ */
+private function getDeliveryTimeIntervals($locations): array
+{
+    $startTime = '08:30';
+    $endTime = '21:00';
+
+    // Пытаемся найти график доставки во всех активных точках
+    if ($locations->isNotEmpty()) {
+        foreach ($locations as $location) {
+            $schedule = $location->schedule ?? null;
+            
+
+            if (is_array($schedule) && !empty($schedule)) {
+                // Ищем элемент со slug = "delivery"
+                foreach ($schedule as $index => $scheduleItem) {
+                    // Filament Repeater создает структуру с 'data' и верхним уровнем
+                    // Проверяем slug на верхнем уровне (обрезаем пробелы)
+                    $slug = trim($scheduleItem['slug'] ?? '');
+                    if ($slug !== 'delivery') {
+                        continue;
+                    }
+
+                    // Проверяем, активен ли график (сначала верхний уровень, потом data)
+                    $isActive = $scheduleItem['is_active'] ?? ($scheduleItem['data']['is_active'] ?? true);
+                    if ($isActive === false) {
+                        continue;
+                    }
+
+                    // Получаем время из украинского перевода по умолчанию
+                    // Сначала проверяем верхний уровень (там правильное значение)
+                    $timeData = $scheduleItem['time'] ?? $scheduleItem['data']['time'] ?? null;
+                    $timeStr = null;
+
+                    // time может быть массивом локализованных значений или строкой
+                    // Filament может создавать двойную вложенность: time[uk][uk]
+                    if (is_array($timeData)) {
+                        // Сначала пробуем двойную вложенность для uk (time[uk][uk])
+                        if (isset($timeData['uk']['uk']) && is_string($timeData['uk']['uk'])) {
+                            $timeStr = $timeData['uk']['uk'];
+                        } elseif (isset($timeData['uk']) && is_string($timeData['uk'])) {
+                            // Прямой доступ time[uk]
+                            $timeStr = $timeData['uk'];
+                        }
+                    } elseif (is_string($timeData)) {
+                        $timeStr = $timeData;
+                    }
+
+                    if ($timeStr) {
+                        // Парсим строку вида "з 09:00 до 21:00", "09:00-21:00", "с 09:00 до 21:00"
+                        // Ищем два времени в формате HH:MM
+                        if (preg_match_all('/(\d{1,2}):(\d{2})/u', $timeStr, $timeMatches, PREG_SET_ORDER)) {
+                            if (count($timeMatches) >= 2) {
+                                // Есть два времени - это начало и конец
+                                $startTime = sprintf('%02d:%02d', (int)$timeMatches[0][1], (int)$timeMatches[0][2]);
+                                $endTime = sprintf('%02d:%02d', (int)$timeMatches[1][1], (int)$timeMatches[1][2]);
+                                // Нашли нужный график, выходим из всех циклов
+                                break 2;
+                            } elseif (count($timeMatches) === 1) {
+                                // Если найдено только одно время, используем как начальное
+                                $startTime = sprintf('%02d:%02d', (int)$timeMatches[0][1], (int)$timeMatches[0][2]);
+                                break 2;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Генерируем интервалы по 15 минут
+    $intervals = [];
+    $start = $this->timeToMinutes($startTime);
+    $end = $this->timeToMinutes($endTime);
+
+    for ($current = $start; $current < $end; $current += 15) {
+        $time1 = $this->minutesToTime($current);
+        $time2 = $this->minutesToTime($current + 15);
+        $intervals[] = "{$time1}-{$time2}";
+    }
+
+    return $intervals;
+}
+
+/**
+ * Конвертировать время в минуты с начала дня
+ */
+private function timeToMinutes(string $time): int
+{
+    [$hours, $minutes] = explode(':', $time);
+    return (int)$hours * 60 + (int)$minutes;
+}
+
+/**
+ * Конвертировать минуты в формат HH:MM
+ */
+private function minutesToTime(int $minutes): string
+{
+    $hours = floor($minutes / 60);
+    $mins = $minutes % 60;
+    return sprintf('%02d:%02d', $hours, $mins);
 }
 
 /**
@@ -217,6 +337,71 @@ public function saveFormData(Request $request)
     $existingData = session('checkout.form_data', []);
     $mergedData = array_merge($existingData, $data);
     session(['checkout.form_data' => $mergedData]);
+
+    // Обновляем черновик заказа, если он существует
+    $client = Auth::user();
+    if ($client) {
+        $order = Order::where('clients_id', $client->id)
+            ->where('status', OrderStatus::Cart)
+            ->latest('id')
+            ->first();
+
+        if ($order) {
+            // Обновляем дату и время доставки в черновике
+            $deliveryMode = $mergedData['delivery_mode'] ?? 'asap';
+            $deliveryDate = $mergedData['delivery_date'] ?? null;
+            $deliveryTimeRaw = $mergedData['delivery_time'] ?? null;
+
+            // Извлекаем первое время из диапазона
+            $deliveryTime = $deliveryTimeRaw;
+            if ($deliveryTimeRaw && strpos($deliveryTimeRaw, '-') !== false) {
+                $deliveryTime = trim(explode('-', $deliveryTimeRaw)[0]);
+            }
+
+            // Обновляем дату доставки
+            if ($deliveryMode === 'fixed' && $deliveryDate) {
+                try {
+                    // Пробуем разные форматы даты
+                    // Формат от flatpickr altInput: d.m.Y (например, "21.01.2026")
+                    if (preg_match('/^\d{2}\.\d{2}\.\d{4}$/', $deliveryDate)) {
+                        $date = Carbon::createFromFormat('d.m.Y', $deliveryDate);
+                        $order->date_order = $date->toDateString();
+                    }
+                    // Формат от flatpickr dateFormat: Y-m-d (например, "2026-01-21")
+                    elseif (preg_match('/^\d{4}-\d{2}-\d{2}$/', $deliveryDate)) {
+                        $date = Carbon::createFromFormat('Y-m-d', $deliveryDate);
+                        $order->date_order = $date->toDateString();
+                    } else {
+                        // Пробуем автоматическое определение формата
+                        $date = Carbon::parse($deliveryDate);
+                        $order->date_order = $date->toDateString();
+                    }
+                } catch (\Throwable $e) {
+                    // Оставляем текущую дату при ошибке парсинга
+                    \Log::warning('Failed to parse delivery date in saveFormData', [
+                        'date' => $deliveryDate,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            } elseif ($deliveryMode === 'asap') {
+                // Если переключились на "как можно скорее", устанавливаем сегодняшнюю дату
+                $order->date_order = now()->toDateString();
+            }
+
+            // Обновляем время доставки
+            if ($deliveryMode === 'fixed' && $deliveryTime) {
+                $order->time_order = $deliveryTime;
+            } elseif ($deliveryMode === 'asap') {
+                // Если переключились на "как можно скорее", устанавливаем время через час
+                $order->time_order = now()->addMinutes(60)->format('H:i');
+            }
+
+            // Обновляем режим доставки
+            $order->as_soon_possible = $deliveryMode === 'asap';
+
+            $order->save();
+        }
+    }
 
     return response()->json(['ok' => true]);
 }
@@ -512,7 +697,14 @@ public function submit(Request $request)
     $shippingMethod = $request->input('shipping_method');
     $deliveryMode   = $request->input('delivery_mode', 'asap');
     $deliveryDate   = $request->input('delivery_date');
-    $deliveryTime   = $request->input('delivery_time');
+    $deliveryTimeRaw = $request->input('delivery_time'); // Диапазон типа "12:00-12:15"
+    
+    // Извлекаем первое время из диапазона для сохранения в базу
+    // Если формат "12:00-12:15", берем "12:00"
+    $deliveryTime = $deliveryTimeRaw;
+    if ($deliveryTimeRaw && strpos($deliveryTimeRaw, '-') !== false) {
+        $deliveryTime = trim(explode('-', $deliveryTimeRaw)[0]);
+    }
 
     if ($deliveryMode === 'fixed') {
         $request->validate([
@@ -888,12 +1080,88 @@ public function success(Order $order)
     // подгружаем позиции и связанные товары
     //$items = $order->items()->with('product')->get();
     $order->load(['items.product.parent']);   // имя связи parent можно поменять, см. ниже
+    
+    // Проверяем, рабочее ли сейчас время (для отображения разного текста)
+    $isWorkingHours = $this->isWorkingHours();
+    
+    // Получаем номер заказа
+    $orderNumber = $order->number ?? str_pad($order->id, 5, '0', STR_PAD_LEFT);
 
     $items = $order->items;
   //  $info   = $this->cart->info();
 
    // dd($items);
-    return view('checkout.success', compact('order', 'items'));
+    return view('checkout.success', compact('order', 'items', 'isWorkingHours', 'orderNumber'));
+}
+
+/**
+ * Проверяет, рабочее ли сейчас время (на основе графика доставки)
+ */
+private function isWorkingHours(): bool
+{
+    $locations = Location::query()
+        ->where('is_active', 1)
+        ->orderBy('sort')
+        ->get();
+
+    if ($locations->isEmpty()) {
+        // Если нет локаций, считаем рабочее время с 08:30 до 21:00
+        $now = now();
+        $currentTime = $now->format('H:i');
+        return $currentTime >= '08:30' && $currentTime <= '21:00';
+    }
+
+    foreach ($locations as $location) {
+        $schedule = $location->schedule ?? null;
+        
+        if (is_array($schedule) && !empty($schedule)) {
+            foreach ($schedule as $scheduleItem) {
+                $slug = trim($scheduleItem['slug'] ?? '');
+                if ($slug !== 'delivery') {
+                    continue;
+                }
+
+                $isActive = $scheduleItem['is_active'] ?? ($scheduleItem['data']['is_active'] ?? true);
+                if ($isActive === false) {
+                    continue;
+                }
+
+                $timeData = $scheduleItem['time'] ?? $scheduleItem['data']['time'] ?? null;
+                $timeStr = null;
+
+                if (is_array($timeData)) {
+                    if (isset($timeData['uk']['uk']) && is_string($timeData['uk']['uk'])) {
+                        $timeStr = $timeData['uk']['uk'];
+                    } elseif (isset($timeData['uk']) && is_string($timeData['uk'])) {
+                        $timeStr = $timeData['uk'];
+                    }
+                } elseif (is_string($timeData)) {
+                    $timeStr = $timeData;
+                }
+
+                if ($timeStr) {
+                    // Парсим время "з 09:00 до 21:00"
+                    if (preg_match_all('/(\d{1,2}):(\d{2})/u', $timeStr, $timeMatches, PREG_SET_ORDER)) {
+                        if (count($timeMatches) >= 2) {
+                            $startTime = sprintf('%02d:%02d', (int)$timeMatches[0][1], (int)$timeMatches[0][2]);
+                            $endTime = sprintf('%02d:%02d', (int)$timeMatches[1][1], (int)$timeMatches[1][2]);
+                            
+                            $now = now();
+                            $currentTime = $now->format('H:i');
+                            
+                            return $currentTime >= $startTime && $currentTime <= $endTime;
+                        }
+                    }
+                }
+                break;
+            }
+        }
+    }
+
+    // Если не нашли график, считаем рабочее время с 08:30 до 21:00
+    $now = now();
+    $currentTime = $now->format('H:i');
+    return $currentTime >= '08:30' && $currentTime <= '21:00';
 }
 
 

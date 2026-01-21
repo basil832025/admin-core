@@ -66,11 +66,8 @@
         </div>
     </div>
 @else
-    <button
-        id="openAuth"
-        type="button"
-        x-data
-        @click.prevent="$dispatch('open-auth-modal')"
+    <a
+        href="{{ route('auth.show') }}"
         class="inline-flex items-center gap-2 text-sm leading-none font-medium text-[#19191A] hover:text-orange-600 shrink-0"
     >
 
@@ -79,5 +76,5 @@
         <span class="hidden lg:inline whitespace-nowrap">
             {{ st('header.login','Увійти') }}
         </span>
-    </button>
+    </a>
 @endauth

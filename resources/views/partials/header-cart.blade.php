@@ -20,10 +20,18 @@ x-init="isOpen = false; url = null; $nextTick(() => { isOpen = false; close(); }
 >
 
     {{-- иконка --}}
-    <a href="#"
+    <a href="{{ route('cart.page') }}"
        class="relative flex items-center justify-center w-5 h-5"
        data-url="{{ route('cart.sidebar') }}"
-       @click.prevent="open($event.currentTarget.dataset.url)">
+       data-cart-page="{{ route('cart.page') }}"
+       @click.prevent="
+           const isMobile = window.innerWidth < 1024;
+           if (isMobile) {
+               window.location.href = $event.currentTarget.dataset.cartPage;
+           } else {
+               open($event.currentTarget.dataset.url);
+           }
+       ">
         <img src="{{ asset('images/cart.svg') }}" class="w-5 h-5 shrink-0 flex-none" width="20" height="20" alt="">
         <span x-cloak
               x-show="$store.cart && ($store.cart.qty > 0)"

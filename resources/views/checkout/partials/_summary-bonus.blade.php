@@ -1,3 +1,15 @@
+@php
+    $itemsTotal = $totals['items_total'] ?? ($totals['total_price'] ?? 0);
+    $discount   = $totals['discount']    ?? 0;
+
+    $bonusUsed  = $totals['bonus_used']  ?? 0;
+
+    $userBonusPoints = $totals['bonus_points'] ?? 0;
+    $bonusLimitMoney = $totals['bonus_limit']  ?? 0;
+
+    // если где-то у тебя используется именно bonus_limit_money
+    $bonusLimitMoney = $bonusLimitMoney ?: ($totals['bonus_limit_money'] ?? 0);
+@endphp
 {{-- Использовать бонусы --}}
 <div class="space-y-3">
     <label class="flex items-center gap-3 cursor-pointer">

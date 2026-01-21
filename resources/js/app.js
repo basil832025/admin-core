@@ -126,7 +126,10 @@ function registerAlpineComponents() {
     
     // Хранилище + событие открытия (если нужно)
     Alpine.store('authModal', { open:false });
-    window.addEventListener('open-auth-modal', () => Alpine.store('authModal').open = true);
+    window.addEventListener('open-auth-modal', () => {
+        // Перенаправляем на страницу авторизации вместо открытия модального окна
+        window.location.href = '/auth';
+    });
 }
 // Предзагружаем данные корзины сразу при загрузке страницы,
 // чтобы кеш был готов до инициализации карточек товаров

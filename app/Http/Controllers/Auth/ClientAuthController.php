@@ -21,6 +21,19 @@ class ClientAuthController extends Controller
     protected function guard() { return Auth::guard('web'); }
 
     /**
+     * Показать страницу авторизации (телефон + SMS)
+     */
+    public function show(Request $request)
+    {
+        // Если пользователь уже авторизован, редиректим
+        if (Auth::check()) {
+            return redirect()->route('profile.index');
+        }
+
+        return view('auth.phone-sms');
+    }
+
+    /**
      * Получить URL для редиректа после авторизации
      * Если пользователь был на checkout - возвращаем туда, иначе - профиль
      */

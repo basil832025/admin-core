@@ -13,5 +13,7 @@
 
     @include('checkout.partials._summary-bonus')
 
+
     @include('checkout.partials._summary-totals')
+    @include('checkout.partials._summary-submit')
 </div>

@@ -6,10 +6,10 @@
     $removeUrl = route('cart.remove');
     $client    = auth()->user();
     $addresses = $client ? $client->addresses()->orderByDesc('id')->get() : collect();
-    
+
     // Загружаем данные из сессии
     $sessionData = $sessionData ?? session('checkout.form_data', []);
-    
+
     // Определяем выбранный адрес и способ получения
     $selectedId = old('selected_address_id', $sessionData['selected_address_id'] ?? null) ?: ($addresses->first()->id ?? null);
     $useNewInitial = old('use_new_address', $sessionData['use_new_address'] ?? ($selectedId ? false : true));
@@ -69,29 +69,90 @@ document.addEventListener('alpine:init', () => {
                 x-data="checkoutForm"
                 class="mb-6"
             >
-                {{-- Переключатель способа получения + hidden --}}
-                @include('checkout.partials._shipping-toggle')
-
-                {{-- Весь блок внутри страницы "Мой заказ" --}}
-                <div class="flex flex-col-reverse lg:flex-row justify-center gap-4 md:gap-6 lg:gap-[32px] mt-4 md:mt-6">
-                    {{-- Левая колонка (форма) - на десктопе слева --}}
-                    <div class="w-full lg:w-[580px] space-y-4 md:space-y-6">
-                        @include('checkout.partials._contact', ['sessionData' => $sessionData])
-                        @include('checkout.partials._delivery-address', ['sessionData' => $sessionData, 'useNewInitial' => $useNewInitial, 'selectedId' => $selectedId])
-                        @include('checkout.partials._pickup-locations')
-                        @include('checkout.partials._delivery-conditions', ['sessionData' => $sessionData, 'deliveryMode' => $deliveryMode])
-                        @include('checkout.partials._promotions')
-                        @include('checkout.partials._payment-methods', ['sessionData' => $sessionData, 'paymentMethod' => $paymentMethod])
-                        @include('checkout.partials._extras', ['sessionData' => $sessionData])
-                    </div>
-
-                    {{-- Правая колонка (корзина, промокод, итоги) - на десктопе справа --}}
-                    <div class="w-full lg:w-[585px] space-y-4 md:space-y-6">
-                        @include('checkout.partials._order-items')
-                        @include('checkout.partials._summary')
-                        @include('checkout.partials._bonus-earned')
-                    </div>
+                {{-- Переключатель способа получения + hidden
+                --}}
+                <div id="blk-toggle" class="mt-4 md:mt-6">
+                    @include('checkout.partials._shipping-toggle')
                 </div>
+                {{-- Весь блок внутри страницы "Мій заказ" --}}
+                <div class="mt-4 md:mt-6 flex flex-col lg:flex-row justify-center gap-4 md:gap-6 lg:gap-[32px]">
+
+                    {{-- Левая колонка (форма) --}}
+                    <div class="w-full lg:w-[580px] space-y-4 md:space-y-6" id="col-left">
+
+                        <div id="blk-contact">
+                            @include('checkout.partials._contact', ['sessionData' => $sessionData])
+                        </div>
+
+                        <div id="blk-address">
+                            @include('checkout.partials._delivery-address', [
+                                'sessionData' => $sessionData,
+                                'useNewInitial' => $useNewInitial,
+                                'selectedId' => $selectedId
+                            ])
+                            @include('checkout.partials._pickup-locations')
+                        </div>
+
+                        <div id="blk-extras">
+                            @include('checkout.partials._extras', ['sessionData' => $sessionData])
+                        </div>
+
+                        <div id="blk-conditions">
+                            @include('checkout.partials._delivery-conditions', [
+                                'sessionData' => $sessionData,
+                                'deliveryMode' => $deliveryMode,
+                                'timeIntervals' => $timeIntervals ?? []
+                            ])
+                        </div>
+
+                        {{-- Акции --}}
+                        <div id="blk-promotions">
+                            @include('checkout.partials._promotions')
+                        </div>
+
+                        {{-- Способ оплаты --}}
+                        <div id="blk-pay">
+                            @include('checkout.partials._payment-methods', [
+                                'sessionData' => $sessionData,
+                                'paymentMethod' => $paymentMethod
+                            ])
+                        </div>
+
+                    </div>
+
+                    {{-- Правая колонка (корзина+итоги) --}}
+                    <div class="w-full lg:w-[585px] space-y-4 md:space-y-6" id="col-right">
+
+                        <div id="blk-items">
+                            @include('checkout.partials._order-items')
+                        </div>
+
+                        {{-- Промокод --}}
+                        <div id="blk-promocode">
+                            @include('checkout.partials._summary-promo')
+                        </div>
+
+                        {{-- Бонусы --}}
+                        <div id="blk-bonus">
+                            @include('checkout.partials._summary-bonus')
+                        </div>
+
+                        {{-- Сумма --}}
+                        <div id="blk-totals">
+                            @include('checkout.partials._summary-totals')
+                        </div>
+
+                        {{-- Согласие + кнопка --}}
+                        <div id="blk-submit">
+                            @include('checkout.partials._summary-submit')
+                        </div>
+                        <div id="blk-earned">
+                            @include('checkout.partials._bonus-earned')
+                        </div>
+                    </div>
+
+                </div>
+
             </div>
         </form>
         <style>
@@ -171,18 +232,18 @@ document.addEventListener('alpine:init', () => {
         const contactName = document.getElementById('contact_name')?.value || '';
         const contactPhone = document.getElementById('contact_phone')?.value || '';
         const contactEmail = document.getElementById('contact_email')?.value || '';
-        
+
         // Способ получения (из Alpine.js или из hidden input)
         const shippingMethodEl = form.querySelector('[name="shipping_method"]');
         const shippingMethod = shippingMethodEl?.value || '';
-        
+
         // Выбранный адрес
         const selectedAddressId = form.querySelector('[name="selected_address_id"]:checked')?.value || '';
-        
+
         // Использовать новый адрес (из Alpine.js или из hidden input)
         const useNewAddressEl = form.querySelector('[name="use_new_address"]');
         const useNewAddress = useNewAddressEl?.value || '0';
-        
+
         // Данные нового адреса
         const addrStreet = document.getElementById('checkout-address-street')?.value || '';
         const addrHouse = document.getElementById('checkout-address-house')?.value || '';
@@ -193,15 +254,15 @@ document.addEventListener('alpine:init', () => {
         const addrComment = form.querySelector('[name="addr[comment]"]')?.value || '';
         const addrIsPrivateHouse = form.querySelector('[name="addr[is_private_house]"]')?.checked ? '1' : '0';
         const addrType = form.querySelector('[name="addr[type]"]')?.value || '';
-        
+
         // Условия доставки
         const deliveryMode = form.querySelector('[name="delivery_mode"]')?.value || '';
         const deliveryDate = form.querySelector('[name="delivery_date"]')?.value || '';
         const deliveryTime = form.querySelector('[name="delivery_time"]')?.value || '';
-        
+
         // Способ оплаты
         const paymentMethod = form.querySelector('[name="payment_method"]:checked')?.value || '';
-        
+
         // Комментарии
         const commentKitchen = form.querySelector('[name="comment_kitchen"]')?.value || '';
         const commentCourier = form.querySelector('[name="comment_courier"]')?.value || '';
@@ -283,7 +344,7 @@ document.addEventListener('alpine:init', () => {
 
         const streetInput = document.getElementById('checkout-address-street');
         const houseInput = document.getElementById('checkout-address-house');
-        
+
         if (!streetInput) {
             // Поле еще не доступно, попробуем позже (но не более maxAttempts раз)
             initAttempts++;
@@ -361,7 +422,7 @@ document.addEventListener('alpine:init', () => {
                         houseInput.focus();
                         setTimeout(() => houseInput.blur(), 50);
                     }
-                    
+
                     // Дополнительно скрываем dropdown на случай, если он все еще виден
                     const pacContainer = document.querySelector('.pac-container');
                     if (pacContainer) {
@@ -431,4 +492,76 @@ document.addEventListener('alpine:init', () => {
     }
 })();
 </script>
+<script>
+    (function () {
+        // Мобильный порядок (строго по твоему списку)
+        const mobileOrder = [
+            'blk-items',       // Мой заказ
+            'blk-toggle',      // доставка/самовывоз
+            'blk-contact',     // контактные
+            'blk-address',     // адрес
+            'blk-extras',      // комментарии
+            'blk-conditions',  // условия доставки
+            'blk-promocode',   // промокод
+            'blk-promotions',  // акции
+            'blk-bonus',       // бонусы
+            'blk-totals',      // сумма
+            'blk-pay',         // способ оплаты
+            'blk-submit',      // согласие + кнопка
+            'blk-earned',
+
+        ];
+
+        // Desktop-раскладка: toggle сверху, форма слева, итог справа
+        const desktopLeft  = ['blk-contact','blk-address','blk-extras','blk-conditions','blk-promotions','blk-pay'];
+        const desktopRight = ['blk-items','blk-promocode','blk-bonus','blk-totals','blk-submit','blk-earned'];
+
+        function applyLayout() {
+            const isMobile = window.matchMedia('(max-width: 1023px)').matches;
+
+            const left   = document.getElementById('col-left');
+            const right  = document.getElementById('col-right');
+            const toggle = document.getElementById('blk-toggle');
+
+            if (!left || !right || !toggle) return;
+
+            if (isMobile) {
+                // На мобилке: прячем правую колонку и складываем ВСЁ в левую по нужному порядку
+                right.style.display = 'none';
+
+                mobileOrder.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) left.appendChild(el);
+                });
+
+            } else {
+                // На десктопе: возвращаем правую колонку и раскладываем обратно
+                right.style.display = '';
+
+                // toggle должен быть НАД колонками (как ты хочешь)
+                // он уже там в DOM — просто убедимся, что он стоит перед блоком колонок
+                const colsWrap = left.parentElement; // общий wrapper колонок
+                if (colsWrap && colsWrap.parentElement) {
+                    colsWrap.parentElement.insertBefore(toggle, colsWrap);
+                }
+
+                desktopLeft.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) left.appendChild(el);
+                });
+
+                desktopRight.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) right.appendChild(el);
+                });
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', applyLayout);
+        window.addEventListener('resize', applyLayout);
+    })();
+</script>
+
+
+
 @endpush

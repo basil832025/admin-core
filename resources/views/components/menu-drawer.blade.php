@@ -114,7 +114,7 @@
             <!-- Кнопка входа -->
             <div class="px-3 py-5">
                 <a href="#"
-                   @click="$dispatch('open-auth-modal', { tab: 'login' })"
+                   onclick="window.location.href='{{ route('auth.show') }}'; return false;"
 
                    class="block text-center rounded-[4px] bg-[#FF7500] text-white font-semibold py-3">
                     {{ st('auth.login','Увійти') }}

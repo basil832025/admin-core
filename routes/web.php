@@ -290,6 +290,8 @@ Route::middleware(['web'])->group(function () {
     // либо так: Route::view('/login', 'pages.stub')->name('login')->defaults('title','Увійти');
 
     Route::middleware('guest')->group(function () {
+        Route::get('/auth', [ClientAuthController::class,'show'])->name('auth.show');
+        
         Route::get('/auth/redirect/{provider}', [ClientAuthController::class,'redirect'])
             ->whereIn('provider',['google','facebook','apple'])->name('auth.redirect');
 

@@ -29,7 +29,7 @@
     }
     /* Десктоп: ≥1344 */
     @screen lg {
-        .banner-swiper { 
+        .banner-swiper {
             --swiper-navigation-sides-offset: 46px;
             overflow: visible !important; /* чтобы их не обрезало */
             width: 100%;
@@ -47,7 +47,7 @@
         }
     }
     @screen desktop {
-        .banner-swiper { 
+        .banner-swiper {
             --swiper-navigation-sides-offset: 66px;
             overflow: visible !important; /* чтобы их не обрезало */
             width: 100%;
@@ -81,14 +81,14 @@
     .banner-swiper .swiper-slide-duplicate-next { transform-origin: left center; }
     /* на всякий случай поднимем над слайдом */
     .banner-swiper .swiper-button-prev,
-    .banner-swiper .swiper-button-next { 
+    .banner-swiper .swiper-button-next {
         @apply z-10;
         position: absolute !important;
         top: 50% !important;
         transform: translateY(-50%) !important;
         margin-top: 0 !important;
     }
-    
+
     @screen lg {
         .banner-swiper .swiper-button-prev {
             left: 46px !important;
@@ -99,7 +99,7 @@
             left: auto !important;
         }
     }
-    
+
     @screen desktop {
         .banner-swiper .swiper-button-prev {
             left: 66px !important;
@@ -227,7 +227,7 @@ div[x-show*="$store.search.open"][x-cloak] {
         background-repeat: no-repeat;
     }
     .tp-textarea { @apply tp-input min-h-[92px] py-2 align-top; }
-    .tp-radio    { @apply text-[#FF7500] border-gray-300 focus:ring-[#FF7500]; }
+   /* .tp-radio    { @apply text-[#FF7500] border-gray-300 focus:ring-[#FF7500]; }*/
     .tp-check    { @apply rounded text-[#FF7500] border-gray-300 focus:ring-[#FF7500]; }
 
     /* Состояния */
@@ -276,6 +276,8 @@ input.tp-input:-webkit-autofill:focus {
     background-position: center;
     background-repeat: no-repeat;
 }
+
+
 
 .tp-ico-left{
     position:absolute; left:12px; top:50%; transform:translateY(-50%);

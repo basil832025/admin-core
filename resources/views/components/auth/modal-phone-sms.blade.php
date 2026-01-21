@@ -66,51 +66,17 @@
                     {{-- Поле телефона (код страны + номер) --}}
                     <div class="space-y-4 mb-6 md:mb-8">
                         <div class="flex gap-2 md:gap-3">
-                            {{-- Код страны с флагом --}}
-                            <div class="relative">
-                                <button
-                                    type="button"
-                                    @click="countryDropdownOpen = !countryDropdownOpen"
-                                    class="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-3 md:py-4 text-sm md:text-lg border-2 rounded-lg transition-colors min-w-[100px] md:min-w-[140px]"
-                                    :class="(typeof loginPhoneSmsError !== 'undefined' && loginPhoneSmsError) ? 'border-red-400 focus:border-red-500' : 'border-gray-300 focus:border-[#FF7500]'"
-                                >
-                                    <template x-if="loginPhoneSmsData.countryFlag">
-                                        <div class="shrink-0 w-4 h-3 md:w-6 md:h-[18px]" x-html="loginPhoneSmsData.countryFlag" style="transform: scale(0.85); transform-origin: left center;"></div>
-                                    </template>
-                                    <template x-if="!loginPhoneSmsData.countryFlag">
-                                        <div class="shrink-0 w-4 h-3 md:w-6 md:h-[18px]" style="transform: scale(0.85); transform-origin: left center;">
-                                            <svg width="100%" height="100%" viewBox="0 0 24 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <rect width="24" height="9" fill="#005BBB"/>
-                                                <rect y="9" width="24" height="9" fill="#FFD700"/>
-                                            </svg>
-                                        </div>
-                                    </template>
-                                    <span x-text="loginPhoneSmsData.countryCode || '+380'" class="font-medium text-xs md:text-base"></span>
-                                    <svg class="w-3 h-3 md:w-4 md:h-4 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            {{-- Код страны с флагом (только Украина, без выпадающего списка) --}}
+                            <div class="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-3 md:py-4 text-sm md:text-lg border-2 rounded-lg min-w-[100px] md:min-w-[140px]"
+                                 :class="(typeof loginPhoneSmsError !== 'undefined' && loginPhoneSmsError) ? 'border-red-400' : 'border-gray-300'"
+                            >
+                                <div class="shrink-0 w-4 h-3 md:w-6 md:h-[18px]" style="transform: scale(0.85); transform-origin: left center;">
+                                    <svg width="100%" height="100%" viewBox="0 0 24 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <rect width="24" height="9" fill="#005BBB"/>
+                                        <rect y="9" width="24" height="9" fill="#FFD700"/>
                                     </svg>
-                                </button>
-
-                                {{-- Dropdown со странами --}}
-                                <div
-                                    x-show="countryDropdownOpen"
-                                    @click.away="countryDropdownOpen = false"
-                                    x-cloak
-                                    x-transition
-                                    class="absolute top-full left-0 mt-2 w-full bg-white border-2 border-gray-300 rounded-lg shadow-lg z-[10001] max-h-[300px] overflow-y-auto"
-                                >
-                                    <template x-for="country in phoneCountries" :key="country.code">
-                                        <button
-                                            type="button"
-                                            @click="loginPhoneSmsData.countryCode = country.code; loginPhoneSmsData.countryFlag = country.flag; countryDropdownOpen = false"
-                                            class="w-full flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1 md:py-1.5 hover:bg-gray-50 transition-colors"
-                                        >
-                                            <div class="shrink-0 w-3.5 h-2.5 md:w-5 md:h-4 flex items-center justify-center overflow-hidden" x-html="country.flag" style="transform: scale(0.65); transform-origin: left center;" class="md:scale-[0.75]"></div>
-                                            <span class="text-xs md:text-sm font-medium" x-text="country.name"></span>
-                                            <span class="ml-auto text-[10px] md:text-xs text-gray-500" x-text="country.code"></span>
-                                        </button>
-                                    </template>
                                 </div>
+                                <span class="font-medium text-xs md:text-base">+380</span>
                             </div>
 
                             {{-- Поле номера телефона --}}
