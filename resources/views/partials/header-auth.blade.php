@@ -1,16 +1,33 @@
 @auth
     <div
-        x-data="{ open:false, hover:false }"
-        x-init="open = false; hover = false; window.addEventListener('popstate', () => { open = false; hover = false; }); document.addEventListener('visibilitychange', () => { if (!document.hidden && open) { open = false; hover = false; } });"
-        @keydown.escape.window="open=false"
+        x-data="{
+    open:false,
+    hover:false,
+    justOpened:false,
+    canHover: window.matchMedia('(hover:hover)').matches
+  }"
+        x-init="
+    const mq = window.matchMedia('(hover:hover)');
+    const upd = () => canHover = mq.matches;
+    upd();
+    mq.addEventListener ? mq.addEventListener('change', upd) : mq.addListener(upd);
+
+    window.addEventListener('popstate', () => { open=false; hover=false; justOpened=false; });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && open) { open=false; hover=false; justOpened=false; } });
+  "
+        @keydown.escape.window="open=false; justOpened=false"
         class="relative shrink-0"
     >
         {{-- ТРИГЕР --}}
         <button
             type="button"
-            @click="open = !open"
-            @mouseenter="hover=true; open=true"
-            @mouseleave="hover=false; setTimeout(()=>{ if(!hover) open=false }, 120)"
+            @click.stop="
+      justOpened = true;
+      open = !open;
+      $nextTick(() => setTimeout(() => justOpened = false, 200));
+    "
+            @mouseenter="if (canHover) { hover=true; open=true }"
+            @mouseleave="if (canHover) { hover=false; setTimeout(()=>{ if(!hover) open=false }, 120) }"
             class="inline-flex items-center gap-2 text-sm leading-none font-medium text-[#19191A] hover:text-orange-600 shrink-0"
             aria-haspopup="menu"
             :aria-expanded="open"
@@ -45,20 +62,36 @@
         <div
             x-show="open"
             x-cloak
-            x-transition.opacity
-            class="fixed inset-0 z-40 lg:hidden"
-            @click="open=false"
+            x-transition:enter="transition ease-out duration-100"
+            x-transition:enter-start="opacity-0"
+            x-transition:enter-end="opacity-100"
+            x-transition:leave="transition ease-in duration-75"
+            x-transition:leave-start="opacity-100"
+            x-transition:leave-end="opacity-0"
+            class="fixed inset-0 z-40 lg:hidden bg-black/20"
+            @click="if (!justOpened) { open = false; justOpened = false; }"
         ></div>
 
         {{-- ДРОПДАУН --}}
         <div
             x-show="open"
             x-cloak
-            x-transition.origin.top.right
-            @click.outside="open=false"
+            x-transition:enter="transition ease-out duration-100"
+            x-transition:enter-start="opacity-0 scale-95"
+            x-transition:enter-end="opacity-100 scale-100"
+            x-transition:leave="transition ease-in duration-75"
+            x-transition:leave-start="opacity-100 scale-100"
+            x-transition:leave-end="opacity-0 scale-95"
+            @click.stop
             @mouseenter="hover=true"
             @mouseleave="hover=false; setTimeout(()=>{ if(!hover) open=false }, 120)"
-            class="absolute right-0 mt-3 w-72 rounded-lg bg-white shadow-xl ring-1 ring-black/10 z-50"
+            class="
+    absolute mt-3 z-50 pointer-events-auto
+    right-4 left-auto
+    w-72 max-w-[calc(100vw-2rem)]
+    rounded-lg bg-white shadow-xl ring-1 ring-black/10
+    lg:right-0 lg:left-auto lg:w-72
+  "
             role="menu"
             aria-label="Меню профілю"
         >
