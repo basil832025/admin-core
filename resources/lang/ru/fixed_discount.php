@@ -10,6 +10,7 @@ return [
 
     'fields' => [
         'name'          => 'Название',
+        'description'   => 'Описания скидки',
         'percent'       => 'Скидка %',
         'is_active'     => 'Активна',
         'applies_to'    => 'Применяется к',

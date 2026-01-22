@@ -10,6 +10,7 @@ return [
 
     'fields' => [
         'name'          => 'Name',
+        'description' => 'Discount description',
         'percent'       => 'Discount %',
         'is_active'     => 'Active',
         'applies_to'    => 'Applies to',

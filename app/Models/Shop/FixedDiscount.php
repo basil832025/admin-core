@@ -18,6 +18,7 @@ protected $table = 'bs_shop_fixed_discounts';
 
 protected $fillable = [
 'name',
+'description',
 'percent',
 'is_active',
 'applies_to',
@@ -27,12 +28,13 @@ protected $fillable = [
 'note',
 ];
     public $translatable = [
-        'name',
-  ];
+        'name', 'description',
+    ];
 protected $casts = [
 'percent'        => 'decimal:2',
 'is_active'      => 'boolean',
 'applies_payload'=> 'array',
+'description'=> 'array',
 'starts_at'      => 'datetime',
 'ends_at'        => 'datetime',
 'name' => 'array',

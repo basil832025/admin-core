@@ -15,6 +15,7 @@ return [
 
     'fields' => [
         'name'              => 'Name',
+        'description' => 'Discount description',
         'is_active'         => 'Active',
         'days'              => 'Weekdays',
         'time_from'         => 'Time from',

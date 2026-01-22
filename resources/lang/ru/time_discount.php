@@ -15,6 +15,7 @@ return [
 
     'fields' => [
         'name'              => 'Название',
+        'description'   => 'Описания скидки',
         'is_active'         => 'Активна',
         'days'              => 'Дни недели',
         'time_from'         => 'Время с',

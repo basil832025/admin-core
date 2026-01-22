@@ -10,6 +10,7 @@ return [
 
     'fields' => [
         'name'          => 'Назва',
+        'description'   => 'Опис знижки',
         'percent'       => 'Знижка %',
         'is_active'     => 'Активна',
         'applies_to'    => 'Застосовується до',

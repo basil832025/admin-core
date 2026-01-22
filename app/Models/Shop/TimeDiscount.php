@@ -21,6 +21,7 @@ class TimeDiscount extends Model
 
     protected $fillable = [
         'name',
+        'description',
         'days',
         'time_from',
         'time_to',
@@ -33,7 +34,7 @@ class TimeDiscount extends Model
         'note',
     ];
     public $translatable = [
-        'name',
+        'name', 'description',
     ];
     protected $casts = [
         'days'      => 'array',     // JSON <-> array
@@ -41,6 +42,7 @@ class TimeDiscount extends Model
         'is_active' => 'boolean',
         'starts_at' => 'datetime',
         'ends_at'   => 'datetime',
+        'description' => 'array',
     ];
 
     /** Скоуп активных по флагу и датам проверяет, активна ли скидка сейчас (флаг is_active, дата начала/окончания) . */

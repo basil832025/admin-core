@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Shop;
 use AmidEsfahani\FilamentTinyEditor\TinyEditor;
 use App\Models\Setting;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
@@ -65,7 +66,9 @@ class FixedDiscountResource extends Resource
                         ->label(__('fixed_discount.fields.name'))
                         ->maxLength(128)
                         ->required($locale === $defaultLocale),
-
+                            Textarea::make('description')
+                                ->label(__('fixed_discount.fields.description'))
+                                ->columnSpanFull(),
                 ]),
 
 

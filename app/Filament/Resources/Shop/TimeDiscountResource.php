@@ -78,6 +78,10 @@ class TimeDiscountResource extends Resource
                                 ->label(__('time_discount.fields.name'))
                                 ->maxLength(160)
                                 ->required($locale === $defaultLocale),
+                            Forms\Components\Textarea::make('description')
+                                ->label(__('time_discount.fields.description'))
+                                ->rows(4)
+                                ->columnSpanFull(),
                         ]),
 
                     Forms\Components\Toggle::make('is_active')

@@ -15,6 +15,7 @@ return [
 
     'fields' => [
         'name'              => 'Назва',
+        'description'   => 'Опис знижки',
         'is_active'         => 'Активна',
         'days'              => 'Дні тижня',
         'time_from'         => 'Час з',
