@@ -362,10 +362,29 @@ document.addEventListener('alpine:init', () => {
                         <div
                             x-show="ask"
                             x-transition
+                            x-cloak
                             @click.outside="ask = false"
-                            class="absolute right-0 top-full mt-2 bg-white shadow-lg rounded-md border border-gray-200 p-3 w-[180px] z-20"
+                            class="absolute right-0 top-full mt-2 bg-white shadow-lg rounded-md border border-gray-200 p-3 w-[180px] z-[100]"
                         >
-                            ...
+                            <div class="text-sm text-gray-800 mb-2 text-center">
+                                {{ st('cart.vydalyty-tsei-tovar-iz-zamovlennya', 'Видалити цей товар із замовлення') }}?
+                            </div>
+                            <div class="flex justify-center gap-2">
+                                <button
+                                    type="button"
+                                    class="px-3 py-1.5 rounded-md text-white bg-[#FF7500] hover:bg-[#e56700] text-sm font-semibold"
+                                    @click="$dispatch('cart-remove', { id: {{ $pid }} }); ask = false"
+                                >
+                                    {{ st('cart.yes', 'Так') }}
+                                </button>
+                                <button
+                                    type="button"
+                                    class="px-3 py-1.5 rounded-md text-gray-600 bg-gray-100 hover:bg-gray-200 text-sm font-medium"
+                                    @click="ask = false"
+                                >
+                                    {{ st('cart.no', 'Ні') }}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
