@@ -76,27 +76,23 @@
         <div
             x-show="open"
             x-cloak
-            x-transition:enter="transition ease-out duration-100"
-            x-transition:enter-start="opacity-0 scale-95"
-            x-transition:enter-end="opacity-100 scale-100"
-            x-transition:leave="transition ease-in duration-75"
-            x-transition:leave-start="opacity-100 scale-100"
-            x-transition:leave-end="opacity-0 scale-95"
             @click.stop
-            @mouseenter="hover=true"
-            @mouseleave="hover=false; setTimeout(()=>{ if(!hover) open=false }, 120)"
+            @mouseenter="if (canHover) hover=true"
+            @mouseleave="if (canHover) { hover=false; setTimeout(()=>{ if(!hover) open=false }, 120) }"
             class="
-    absolute mt-3 z-50 pointer-events-auto
-    right-4 left-auto
-    w-72 max-w-[calc(100vw-2rem)]
-    rounded-lg bg-white shadow-xl ring-1 ring-black/10
-    lg:right-0 lg:left-auto lg:w-72
+    z-50 pointer-events-auto rounded-lg bg-white shadow-xl ring-1 ring-black/10 overflow-hidden
+
+    fixed left-4 right-4
+    top-[72px]
+
+    lg:absolute lg:top-auto lg:left-auto lg:right-0 lg:mt-3 lg:w-72 lg:max-w-[288px]
   "
             role="menu"
             aria-label="Меню профілю"
         >
             @include('pages.menu.profile-menu')
         </div>
+
     </div>
 @else
     <a

@@ -58,13 +58,13 @@
 
             @endphp
             <a href="{{ $href }}"
-               class="group flex items-center gap-3 rounded-xl px-3 py-2 transition-colors
-              {{ $isActive ? 'text-[#FF7500] font-semibold bg-[#FFF9ED]' : 'text-[#929292]  hover:text-[#19191A]' }}">
+               class="group flex items-center gap-3 rounded-xl px-3 py-2 transition-colors w-full min-w-0
+  {{ $isActive ? 'text-[#FF7500] font-semibold bg-[#FFF9ED]' : 'text-[#929292]  hover:text-[#19191A]' }}">
                 <x-dynamic-component
                     :component="$it['icon']"
                     class="w-6 h-6 flex-shrink-0 {{ $isActive ? 'text-[#FF7500]' : 'text-[#929292] group-hover:text-[#FF7500]' }}"
                 />
-                <span class="flex-1 text-left">{{ $it['label'] }}</span>
+                <span class="min-w-0 flex-1 text-left truncate">{{ $it['label'] }}</span>
             </a>
             @endforeach
 
