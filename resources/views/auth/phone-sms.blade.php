@@ -92,7 +92,7 @@
                                         @keydown.enter.prevent="if (!loginPhoneSmsLoading && !loginPhoneSmsSent) sendLoginPhoneSms()"
                                         inputmode="numeric"
                                         dir="ltr"
-                                        class="w-full text-sm md:text-lg py-3 md:py-4 px-4 md:px-6 rounded-lg border-2 transition-colors"
+                                        class="w-full text-base md:text-lg py-3 md:py-4 px-4 md:px-6 rounded-lg border-2 transition-colors"
                                         :class="loginPhoneSmsError ? 'border-red-400 focus:border-red-500' : 'border-gray-300 focus:border-[#FF7500]'"
                                         placeholder="__ ___ __ __"
                                         required
@@ -265,7 +265,7 @@ document.addEventListener('alpine:init', () => {
     Alpine.data('authPhoneSmsPage', () => {
         // Импортируем логику из auth-modal.js
         const authModal = Alpine.store('authModal');
-        
+
         return {
             // Инициализация данных
             loginPhoneSmsData: {
@@ -393,7 +393,7 @@ document.addEventListener('alpine:init', () => {
                     }
 
                     this.authSuccess = true;
-                    
+
                     // Редирект после успешной авторизации
                     if (data.redirect) {
                         setTimeout(() => {
