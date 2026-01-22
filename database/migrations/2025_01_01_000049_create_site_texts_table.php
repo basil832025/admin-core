@@ -10,6 +10,9 @@ return new class extends Migration
     {
         Schema::create('bs_site_texts', function (Blueprint $table) {
             $table->id();
+            $table->unsignedBigInteger('group_id')
+                ->nullable()
+                ->index();
             $table->string('group')->nullable()->index(); // напр. 'header', 'footer'
             $table->string('slug')->unique();             // напр. 'menu.all_pies'
             $table->json('value');                        // переводы (Spatie Translatable)

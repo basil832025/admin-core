@@ -202,7 +202,7 @@ class SiteTextResource extends Resource
                     }),
                 Tables\Columns\TextColumn::make('updated_at')->dateTime('Y-m-d H:i')->label(__('site_text.columns.updated_at'))->sortable(),
             ])
-            ->filters([  Tables\Filters\SelectFilter::make('group_id')
+            ->filters([  Tables\Filters\SelectFilter::make('group')
                 ->label(__('site_text.filters.group_id'))
                 ->options(fn() => \App\Models\SiteTextGroup::query()
                     ->orderBy('position')

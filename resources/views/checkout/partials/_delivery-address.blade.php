@@ -185,12 +185,12 @@
 
         <div>
             <label class="tp-label">
-                {{ st('address.form.comment', 'Коментар для кур’єра') }}
+                {{ st('address.form.comment', 'Коментар для кур’єра1') }}
             </label>
             <input
                 name="addr[comment]"
                 class="tp-input"
-                placeholder="{{ st('address.form.comment', 'Коментар для кур’єра') }}"
+                placeholder="{{ st('address.form.comment', 'Коментар для кур’єра2') }}"
                 :disabled="!useNew"
                 value="{{ old('addr.comment', $sessionData['addr_comment'] ?? '') }}"
             >

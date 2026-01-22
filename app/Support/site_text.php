@@ -18,7 +18,7 @@ if (! function_exists('st')) {
     function st(string $slug, ?string $default = null, ?string $locale = null, ?string $group = null): string
     {
         $locale ??= app()->getLocale();
-
+       // dump($locale);
         // Если group не указан, пытаемся парсить из slug (например, 'auth.enter_phone' -> group='auth', slug='enter_phone')
         // Если slug содержит точку и group не указан, используем slug как есть (полный путь)
         if (!$group && strpos($slug, '.') !== false) {
