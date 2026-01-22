@@ -42,20 +42,20 @@
                             .finally(() => this.loading = false);
                     },
                 });
-                
+
                 // Гарантируем, что поиск закрыт при инициализации и при навигации
                 const searchStore = Alpine.store('search');
                 if (searchStore) {
                     searchStore.open = false;
                     // Закрываем поиск при навигации
-                    window.addEventListener('popstate', () => { 
-                        if (searchStore) searchStore.open = false; 
+                    window.addEventListener('popstate', () => {
+                        if (searchStore) searchStore.open = false;
                     });
                     // Закрываем поиск при видимости страницы
-                    document.addEventListener('visibilitychange', () => { 
-                        if (!document.hidden && searchStore && searchStore.open) { 
-                            searchStore.open = false; 
-                        } 
+                    document.addEventListener('visibilitychange', () => {
+                        if (!document.hidden && searchStore && searchStore.open) {
+                            searchStore.open = false;
+                        }
                     });
                 }
             })
@@ -71,7 +71,7 @@
 >
     {{-- DESKTOP: центральное поле --}}
 
-    <div x-show="$store.search.open" 
+    <div x-show="$store.search.open"
          x-cloak
          x-transition class="hidden lg:flex w-full px-3">
         <div class="relative w-full mx-auto" style="width: {{ $maxWidth }};">
@@ -80,7 +80,7 @@
                     <img src="{{ asset('images/search.svg') }}" class="w-5 h-5" alt="">
                     <input x-ref="dInput" x-model="$store.search.q" type="text" name="q"
                            placeholder="{{ $placeholder }}" autocomplete="off"
-                           class="w-full bg-transparent outline-none text-sm"
+                           class="w-full bg-transparent outline-none text-base"
                            x-init="$watch('$store.search.open', v => { if (v) $nextTick(()=> $refs.dInput?.focus()) })">
                     <button type="button" class="p-1" aria-label="Закрити" @click="$store.search.open=false">
                         <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><path d="M6.3 6.3a1 1 0 011.4 0L10 8.6l2.3-2.3a1 1 0 111.4 1.4L11.4 10l2.3 2.3a1 1 0 01-1.4 1.4L10 11.4l-2.3 2.3a1 1 0 01-1.4-1.4L8.6 10 6.3 7.7a1 1 0 010-1.4z"/></svg>
@@ -149,7 +149,7 @@
     </div>
 
     {{-- MOBILE/TABLET OVERLAY --}}
-    <div x-show="$store.search.open" 
+    <div x-show="$store.search.open"
          x-cloak
          x-transition.opacity class="fixed inset-0 z-50 lg:hidden">
         <div class="absolute inset-0 bg-black/40 backdrop-blur-[1px]" @click="$store.search.open=false"></div>
@@ -160,7 +160,7 @@
                 <img src="{{ asset('images/search.svg') }}" class="w-5 h-5" alt="">
                 <input x-ref="mInput" x-model="$store.search.q" type="text" name="q" autocomplete="off"
                        placeholder="{{ $placeholder }}"
-                       class="w-full bg-transparent outline-none text-sm"
+                       class="w-full bg-transparent outline-none text-base"
                        x-init="$watch('$store.search.open', v => { if (v) $nextTick(()=> $refs.mInput?.focus()) })">
                 <button type="button" class="p-1" aria-label="Закрити" @click="$store.search.open=false">
                     <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><path d="M6.3 6.3a1 1 0 011.4 0L10 8.6l2.3-2.3a1 1 0 111.4 1.4L11.4 10l2.3 2.3a1 1 0 01-1.4 1.4L10 11.4l-2.3 2.3a1 1 0 01-1.4-1.4L8.6 10 6.3 7.7a1 1 0 010-1.4z"/></svg>
