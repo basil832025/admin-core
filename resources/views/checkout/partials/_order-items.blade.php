@@ -145,15 +145,18 @@ document.addEventListener('alpine:init', () => {
                 $uah   = floor($price);
                 $kop   = sprintf('%02d', (int)round(($price - $uah) * 100));
 
-                // Получаем характеристики с SVG иконками для размера и веса, а также старую цену
+                // Получаем характеристики с SVG иконками для размера и веса, а также старую цену и ссылку на товар
                 $variantChars = [];
                 $old = null;
+                $productUrl = null;
                 if ($pid) {
                     $product = \App\Models\Shop\Product::with([
                         'productCharacteristicValues.characteristic:id,slug,svg_image_id',
                         'productCharacteristicValues.characteristic.svgImage',
                         'productCharacteristicValues.characteristicValue',
-                        'parent'
+                        'parent',
+                        'parent.mainCategory:id,slug',
+                        'mainCategory:id,slug',
                     ])->find($pid);
                     if ($product) {
                         // Получаем старую цену из продукта или родителя
@@ -165,6 +168,12 @@ document.addEventListener('alpine:init', () => {
                             if ($oldPrice > $currentUnitPrice) {
                                 $old = $oldPrice * $qty;
                             }
+                        }
+
+                        // Ссылка на страницу товара (категория — у продукта или у родителя)
+                        $cat = $product->mainCategory ?? $product->parent?->mainCategory;
+                        if ($cat && $product->slug) {
+                            $productUrl = route('product.show', ['categorySlug' => $cat->slug, 'itemSlug' => $product->slug]);
                         }
 
                         // Получаем характеристики
@@ -207,12 +216,22 @@ document.addEventListener('alpine:init', () => {
 
             {{-- ПЕРВЫЙ РЯД: изображение + описание и размеры (мобильная версия) --}}
                 <div class="md:hidden flex items-start gap-3 w-full">
-                    {{-- изображение --}}
-                <img src="{{ $img }}" alt="" class="w-[120px] h-[96px] rounded-[8px] object-cover shrink-0">
+                    {{-- изображение (клик — переход на товар) --}}
+                    @if($productUrl)
+                        <a href="{{ $productUrl }}" class="shrink-0 rounded-[8px] overflow-hidden hover:opacity-90 transition-opacity" aria-label="{{ $name }}">
+                            <img src="{{ $img }}" alt="" class="w-[120px] h-[96px] rounded-[8px] object-cover">
+                        </a>
+                    @else
+                        <img src="{{ $img }}" alt="" class="w-[120px] h-[96px] rounded-[8px] object-cover shrink-0">
+                    @endif
 
                     {{-- описание и размеры --}}
                     <div class="flex-1 min-w-0">
-                        <div class="text-[10px] font-semibold text-[#272828] line-clamp-2">{{ $name }}</div>
+                        @if($productUrl)
+                            <a href="{{ $productUrl }}" class="text-[10px] font-semibold text-[#272828] line-clamp-2 hover:text-[#FF7500] transition-colors block">{{ $name }}</a>
+                        @else
+                            <div class="text-[10px] font-semibold text-[#272828] line-clamp-2">{{ $name }}</div>
+                        @endif
 
                         @if(!empty($variantChars))
                             <div class="mt-1 flex flex-row items-center gap-2 text-[12px] text-[#9CA3AF]">
@@ -241,10 +260,20 @@ document.addEventListener('alpine:init', () => {
                 </div>
 
                 <div class="hidden md:flex items-start gap-3 w-[290px] min-w-[290px]">
-                    <img src="{{ $img }}" alt="" class="w-[120px] h-[96px] rounded-[8px] object-cover shrink-0">
+                    @if($productUrl)
+                        <a href="{{ $productUrl }}" class="shrink-0 rounded-[8px] overflow-hidden hover:opacity-90 transition-opacity" aria-label="{{ $name }}">
+                            <img src="{{ $img }}" alt="" class="w-[120px] h-[96px] rounded-[8px] object-cover">
+                        </a>
+                    @else
+                        <img src="{{ $img }}" alt="" class="w-[120px] h-[96px] rounded-[8px] object-cover shrink-0">
+                    @endif
 
                     <div class="flex-1 min-w-0">
-                        <div class="text-[10px] font-semibold text-[#272828] line-clamp-2">{{ $name }}</div>
+                        @if($productUrl)
+                            <a href="{{ $productUrl }}" class="text-[10px] font-semibold text-[#272828] line-clamp-2 hover:text-[#FF7500] transition-colors block">{{ $name }}</a>
+                        @else
+                            <div class="text-[10px] font-semibold text-[#272828] line-clamp-2">{{ $name }}</div>
+                        @endif
 
                         @if(!empty($variantChars))
                             <div class="mt-1 flex flex-row items-center gap-2 text-[12px] text-[#9CA3AF]">
