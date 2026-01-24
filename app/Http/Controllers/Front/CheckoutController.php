@@ -1146,15 +1146,21 @@ public function sendOrderToEmail(Request $request, Order $order)
         $originalLocale = app()->getLocale();
         app()->setLocale('uk');
         
+        \Log::info('Sending order email to client', [
+            'order_id' => $order->id,
+            'email' => $clientEmail,
+            'locale' => app()->getLocale(),
+            'mail_driver' => config('mail.default'),
+        ]);
+        
         Mail::to($clientEmail)->send(new OrderClientMail($order));
         
         // Восстанавливаем исходную локаль
         app()->setLocale($originalLocale);
         
-        \Log::info('Order email sent to client', [
+        \Log::info('Order email sent to client successfully', [
             'order_id' => $order->id,
             'email' => $clientEmail,
-            'locale' => 'uk',
         ]);
 
         return response()->json([

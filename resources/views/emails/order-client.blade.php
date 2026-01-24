@@ -1,8 +1,3 @@
-@php
-    // Устанавливаем украинскую локаль для всего email
-    $originalLocale = app()->getLocale();
-    app()->setLocale('uk');
-@endphp
 <x-mail::message>
 # {{ st('order.email.thank_you', 'Дякуємо за ваше замовлення!') }}
 
@@ -214,9 +209,3 @@
 
 {{ st('order.email.signature', 'З повагою, команда «Три Пироги»') }}
 </x-mail::message>
-@php
-    // Восстанавливаем исходную локаль после рендеринга email
-    if (isset($originalLocale)) {
-        app()->setLocale($originalLocale);
-    }
-@endphp
