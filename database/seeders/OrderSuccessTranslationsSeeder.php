@@ -150,12 +150,32 @@ class OrderSuccessTranslationsSeeder extends Seeder
                     'uk' => 'Спосіб оплати',
                     'ru' => 'Способ оплаты',
                     'en' => 'Payment method',
+                    ],
+                    'description' => 'Метка для способа оплаты',
                 ],
-                'description' => 'Метка для способа оплаты',
-            ],
-        ];
+                [
+                    'group' => 'order',
+                    'slug' => 'order.success.send_to_email',
+                    'value' => [
+                        'uk' => 'Продублювати заказ на Email',
+                        'ru' => 'Продублировать заказ на Email',
+                        'en' => 'Duplicate order to Email',
+                    ],
+                    'description' => 'Кнопка отправки заказа на email',
+                ],
+                [
+                    'group' => 'order',
+                    'slug' => 'order.success.sending',
+                    'value' => [
+                        'uk' => 'Відправка...',
+                        'ru' => 'Отправка...',
+                        'en' => 'Sending...',
+                    ],
+                    'description' => 'Текст кнопки во время отправки',
+                ],
+            ];
 
-        $this->command->info('Добавление переводов для страницы успешного оформления заказа...');
+            $this->command->info('Добавление переводов для страницы успешного оформления заказа...');
 
         foreach ($translations as $data) {
             SiteText::updateOrCreate(

@@ -14,21 +14,40 @@ class SeedCommonBackTranslation extends Command
     {
         $this->info('Добавление перевода для кнопки "Назад"...');
 
-        SiteText::updateOrCreate(
-            ['slug' => 'common.back'],
+        $translations = [
             [
-                'group' => 'common',
+                'slug' => 'common.back',
                 'value' => [
                     'uk' => 'Назад',
                     'ru' => 'Назад',
                     'en' => 'Back',
                 ],
                 'description' => 'Кнопка "Назад" на странице товара',
-            ]
-        );
+            ],
+            [
+                'slug' => 'common.ok',
+                'value' => [
+                    'uk' => 'ОК',
+                    'ru' => 'ОК',
+                    'en' => 'OK',
+                ],
+                'description' => 'Кнопка "ОК" в модальных окнах',
+            ],
+        ];
 
-        $this->line("✓ Добавлен/обновлен: common.back");
-        $this->info('✅ Перевод успешно добавлен!');
+        foreach ($translations as $data) {
+            SiteText::updateOrCreate(
+                ['slug' => $data['slug']],
+                [
+                    'group' => 'common',
+                    'value' => $data['value'],
+                    'description' => $data['description'],
+                ]
+            );
+            $this->line("✓ Добавлен/обновлен: {$data['slug']}");
+        }
+
+        $this->info('✅ Переводы успешно добавлены!');
         return 0;
     }
 }

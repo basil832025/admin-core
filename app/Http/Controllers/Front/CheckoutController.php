@@ -22,6 +22,7 @@ use App\Models\Shop\FixedDiscount;
 use App\Models\Shop\TimeDiscount;
 use App\Services\LiqPayService;
 use App\Mail\OrderNotificationMail;
+use App\Mail\OrderClientMail;
 use Illuminate\Support\Facades\Mail;
 
 
@@ -1100,6 +1101,78 @@ public function success(Order $order)
 
    // dd($items);
     return view('checkout.success', compact('order', 'items', 'isWorkingHours', 'orderNumber'));
+}
+
+/**
+ * Отправка заказа на email клиенту
+ */
+public function sendOrderToEmail(Request $request, Order $order)
+{
+    // Защита от чужих заказов
+    if ($order->clients_id) {
+        $orderClientId = (int) $order->clients_id;
+        $currentUserId = auth()->check() ? (int) auth()->id() : null;
+        
+        if (!$currentUserId || $currentUserId !== $orderClientId) {
+            abort(403);
+        }
+    }
+
+    // Загружаем связь clients если не загружена
+    if (!$order->relationLoaded('clients')) {
+        $order->load('clients');
+    }
+
+    // Получаем email клиента
+    $clientEmail = null;
+    if ($order->clients && !empty($order->clients->email)) {
+        $clientEmail = $order->clients->email;
+    } elseif ($request->has('email') && filter_var($request->input('email'), FILTER_VALIDATE_EMAIL)) {
+        $clientEmail = $request->input('email');
+    } elseif (auth()->check() && auth()->user()->email) {
+        // Если пользователь авторизован, используем его email
+        $clientEmail = auth()->user()->email;
+    }
+
+    if (!$clientEmail) {
+        return response()->json([
+            'success' => false,
+            'message' => st('order.email.no_email', 'Email не указан'),
+        ], 400);
+    }
+
+    try {
+        // Устанавливаем украинскую локаль для email клиенту
+        $originalLocale = app()->getLocale();
+        app()->setLocale('uk');
+        
+        Mail::to($clientEmail)->send(new OrderClientMail($order));
+        
+        // Восстанавливаем исходную локаль
+        app()->setLocale($originalLocale);
+        
+        \Log::info('Order email sent to client', [
+            'order_id' => $order->id,
+            'email' => $clientEmail,
+            'locale' => 'uk',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => st('order.email.sent_success', 'Замовлення відправлено на email'),
+        ]);
+    } catch (\Throwable $e) {
+        \Log::error('Failed to send order email to client: ' . $e->getMessage(), [
+            'order_id' => $order->id,
+            'email' => $clientEmail,
+            'trace' => $e->getTraceAsString(),
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => st('order.email.sent_error', 'Помилка відправки email'),
+        ], 500);
+    }
 }
 
 /**

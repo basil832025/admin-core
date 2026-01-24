@@ -59,46 +59,81 @@
 
                             {{-- ======= Редактирование ======= --}}
                             <div x-show="editing" class="mt-3">
-                                <form method="post" action="{{ route('profile.update') }}"
-                                      class="flex flex-nowrap items-center gap-3">
+                                <form method="post" action="{{ route('profile.update') }}" id="name-form-{{ $user->id }}"
+                                      class="flex flex-col gap-3"
+                                      @submit.prevent="
+                                        const form = $el;
+                                        const submitBtn = form.querySelector('button[type=\'submit\']');
+                                        if (submitBtn) submitBtn.disabled = true;
+                                        const csrfToken = document.querySelector('meta[name=\'csrf-token\']')?.content || '';
+                                        fetch(form.action, {
+                                            method: 'POST',
+                                            body: new FormData(form),
+                                            headers: {
+                                                'X-Requested-With': 'XMLHttpRequest',
+                                                'Accept': 'application/json',
+                                                'X-CSRF-TOKEN': csrfToken
+                                            }
+                                        })
+                                        .then(res => res.json())
+                                        .then(data => {
+                                            if (data.success || !data.errors) {
+                                                editing = false;
+                                                // Обновляем значение из ответа или оставляем текущее
+                                                if (data.name) value = data.name;
+                                            } else {
+                                                alert(data.message || 'Помилка збереження');
+                                            }
+                                        })
+                                        .catch(err => {
+                                            console.error(err);
+                                            // Fallback: обычная отправка формы
+                                            form.submit();
+                                        })
+                                        .finally(() => {
+                                            if (submitBtn) submitBtn.disabled = false;
+                                        });
+                                      ">
                                     @csrf @method('PUT')
                                     <input type="hidden" name="field" value="name">
 
-                                    <!-- Поле фиксированной ширины -->
-                                    <div class="relative inline-block w-full md:w-[400px] xl:w-[450px]">
-      <span class="absolute -top-2 left-3 px-1 bg-white text-xs text-gray-500 z-10">
-        {{ st('profile.name','Імʼя') }} <span class="text-red-500">*</span>
-      </span>
+                                    <div class="flex flex-nowrap items-center gap-3">
+                                        <!-- Поле фиксированной ширины -->
+                                        <div class="relative inline-block w-full md:w-[400px] xl:w-[450px]">
+                                          <span class="absolute -top-2 left-3 px-1 bg-white text-xs text-gray-500 z-10">
+                                            {{ st('profile.name','Імʼя') }} <span class="text-red-500">*</span>
+                                          </span>
 
-                                        <input type="text" name="name" x-model="value"
-                                               class="h-12 w-full pl-3 pr-28 rounded-lg ring-1 ring-black/10 bg-white outline-none text-[15px] focus:ring-black/20"
-                                               placeholder="{{ st('profile.name','Імʼя') }} ">
+                                            <input type="text" name="name" x-model="value"
+                                                   class="h-12 w-full pl-3 pr-28 rounded-lg ring-1 ring-black/10 bg-white outline-none text-[15px] focus:ring-black/20"
+                                                   placeholder="{{ st('profile.name','Імʼя') }} ">
 
-                                        <!-- Зберегти внутри инпута -->
-                                        <button type="submit"
-                                                class="hidden md:block absolute right-3 top-1/2 -translate-y-1/2 text-[15px] font-semibold text-[#27AE60]">
-                                            {{ st('profile.save','Зберегти') }}
+                                            <!-- Зберегти внутри инпута (desktop) -->
+                                            <button type="submit"
+                                                    class="hidden md:block absolute right-3 top-1/2 -translate-y-1/2 text-[15px] font-semibold text-[#27AE60]">
+                                                {{ st('profile.save','Зберегти') }}
+                                            </button>
+                                        </div>
+
+                                        <!-- Скасувати справа в одной строке (desktop) -->
+                                        <button type="button"
+                                                class="hidden sm:inline text-[15px]  mx-6 font-semibold text-[#19191A] whitespace-nowrap"
+                                                @click="value=@js($user->name); editing=false">
+                                            {{ st('profile.cancel','Скасувати') }}
                                         </button>
                                     </div>
 
-                                    <!-- Скасувати справа в одной строке -->
-                                    <button type="button"
-                                            class="hidden sm:inline text-[15px]  mx-6 font-semibold text-[#19191A] whitespace-nowrap"
-                                            @click="value=@js($user->name); editing=false">
-                                        {{ st('profile.cancel','Скасувати') }}
-                                    </button>
+                                    <!-- Мобилка: кнопки снизу -->
+                                    <div class="flex justify-between items-center gap-4 sm:hidden">
+                                        <button type="button" class="text-[15px] font-semibold text-[#19191A]"
+                                                @click="value=@js($user->name); editing=false">
+                                            {{ st('profile.cancel','Скасувати') }}
+                                        </button>
+                                        <button type="submit" class="text-[15px] font-semibold text-[#27AE60]">
+                                            {{ st('profile.save','Зберегти') }}
+                                        </button>
+                                    </div>
                                 </form>
-
-                                <!-- Мобилка: кнопки снизу -->
-                                <div class="flex justify-between items-center gap-4 mt-3 sm:hidden">
-                                    <button type="button" class="text-[15px] font-semibold text-[#19191A]"
-                                            @click="value=@js($user->name); editing=false">
-                                        {{ st('profile.cancel','Скасувати') }}
-                                    </button>
-                                    <button type="submit" class="text-[15px] font-semibold text-[#27AE60]">
-                                        {{ st('profile.save','Зберегти') }}
-                                    </button>
-                                </div>
                             </div>
 
 
@@ -149,35 +184,66 @@
 
                             {{-- редактирование --}}
                             <div x-show="editing" class="mt-3">
-                                <form method="post" action="{{ route('profile.update') }}"
-                                      >
+                                <form method="post" action="{{ route('profile.update') }}" id="email-form-{{ $user->id }}"
+                                      class="flex flex-col gap-3"
+                                      @submit.prevent="
+                                        const form = $el;
+                                        const submitBtn = form.querySelector('button[type=\'submit\']');
+                                        if (submitBtn) submitBtn.disabled = true;
+                                        const csrfToken = document.querySelector('meta[name=\'csrf-token\']')?.content || '';
+                                        fetch(form.action, {
+                                            method: 'POST',
+                                            body: new FormData(form),
+                                            headers: {
+                                                'X-Requested-With': 'XMLHttpRequest',
+                                                'Accept': 'application/json',
+                                                'X-CSRF-TOKEN': csrfToken
+                                            }
+                                        })
+                                        .then(res => res.json())
+                                        .then(data => {
+                                            if (data.success || !data.errors) {
+                                                editing = false;
+                                                // Обновляем значение из ответа или оставляем текущее
+                                                if (data.email) value = data.email;
+                                            } else {
+                                                alert(data.message || 'Помилка збереження');
+                                            }
+                                        })
+                                        .catch(err => {
+                                            console.error(err);
+                                            // Fallback: обычная отправка формы
+                                            form.submit();
+                                        })
+                                        .finally(() => {
+                                            if (submitBtn) submitBtn.disabled = false;
+                                        });
+                                      ">
                                     @csrf @method('PUT')
                                     <input type="hidden" name="field" value="email">
+                                    
                                     <div class="flex flex-nowrap items-center gap-3">
+                                        <div class="relative inline-block w-full md:w-[400px] xl:w-[450px]">
+                                            <span class="absolute -top-2 left-3 px-1 bg-white text-xs text-gray-500">Email</span>
+                                            <input type="email" name="email" x-model="value"
+                                                   class="h-12 w-full pl-3 pr-28 rounded-lg ring-1 ring-black/10 bg-white outline-none text-[15px] focus:ring-black/20"
+                                                   placeholder="you@example.com">
+                                            {{-- desktop: сохранить внутри --}}
+                                            <button type="submit"
+                                                    class="hidden md:block absolute right-3 top-1/2 -translate-y-1/2 text-[15px] font-semibold text-[#27AE60]">
+                                                {{ st('profile.save','Зберегти') }}
+                                            </button>
+                                        </div>
 
-                                    <div class="relative inline-block w-full md:w-[400px] xl:w-[450px]">
-                                        <span class="absolute -top-2 left-3 px-1 bg-white text-xs text-gray-500">Email</span>
-                                        <input type="email" name="email" x-model="value"
-                                               class="h-12 w-full pl-3 pr-28 rounded-lg ring-1 ring-black/10 bg-white outline-none text-[15px] focus:ring-black/20"
-                                               placeholder="you@example.com">
-                                        {{-- desktop: сохранить внутри --}}
-                                        <button type="submit"
-                                                class="hidden md:block absolute right-3 top-1/2 -translate-y-1/2 text-[15px] font-semibold text-[#27AE60]">
-                                            {{ st('profile.save','Зберегти') }}
+                                        <button type="button"
+                                                class="hidden sm:inline text-[15px]  mx-6 font-semibold text-[#19191A] whitespace-nowrap"
+                                                @click="value=@js($user->email); editing=false">
+                                            {{ st('profile.cancel','Скасувати') }}
                                         </button>
-
-
-
                                     </div>
-
-                                    <button type="button"
-                                            class="hidden sm:inline text-[15px]  mx-6 font-semibold text-[#19191A] whitespace-nowrap"
-                                            @click="value=@js($user->email); editing=false">
-                                        {{ st('profile.cancel','Скасувати') }}
-                                    </button>
-                                    </div>
+                                    
                                     {{-- mobile: кнопки снизу --}}
-                                    <div class="flex justify-between items-center gap-4 mt-3 md:hidden">
+                                    <div class="flex justify-between items-center gap-4 md:hidden">
                                         <button type="button" class="text-[15px] font-semibold text-[#19191A]"
                                                 @click="value=@js($user->email); editing=false">
                                             {{ st('profile.cancel','Скасувати') }}
@@ -185,11 +251,8 @@
                                         <button type="submit" class="text-[15px] font-semibold text-[#27AE60]">
                                             {{ st('profile.save','Зберегти') }}
                                         </button>
-
                                     </div>
                                 </form>
-
-
                             </div>
                         </div>
                         {{-- ===== Пароль (просмотр → карандаш → редактирование) =====
@@ -412,11 +475,12 @@
                                     @endif
                                 </div>
 
-                                <form method="post" action="{{ route('profile.update') }}" enctype="multipart/form-data">
+                                <form method="post" action="{{ route('profile.update') }}" enctype="multipart/form-data" id="photo-form-{{ $user->id }}">
                                     @csrf @method('PUT')
                                     <input type="hidden" name="field" value="photo">
                                     <label class="inline-flex">
-                                        <input type="file" name="photo" class="hidden" accept="image/*" onchange="this.form.submit()">
+                                        <input type="file" name="photo" class="hidden" accept="image/*" 
+                                               onchange="const form = document.getElementById('photo-form-{{ $user->id }}'); if(form) form.submit();">
                                         <span class="inline-flex h-11 items-center px-5 text-[15px] rounded-[10px] ring-1 ring-black/10 bg-white shadow-sm cursor-pointer">
                        {{ st('profile.add_photo','Додати фото') }}
                 </span>

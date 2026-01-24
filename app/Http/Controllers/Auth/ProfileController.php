@@ -94,6 +94,16 @@ class ProfileController extends Controller
 
         $user->save();
 
+        // Если это AJAX запрос, возвращаем JSON
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => __('Зміни збережено'),
+                'name' => $user->name,
+                'email' => $user->email,
+            ]);
+        }
+
         return back(303)->with('success', __('Зміни збережено'));
     }
 }
