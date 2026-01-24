@@ -1,24 +1,44 @@
 {{-- Согласие --}}
-<label class="mt-1 flex items-start gap-3 text-[11px] leading-[16px] text-[#4B5563]">
-    <span class="relative inline-flex items-center pt-[2px]">
-        <input type="checkbox" name="agree" value="1" class="peer sr-only" required>
-        <span class="w-4 h-4 rounded-[4px] border border-[#9CA3AF]
-                     peer-checked:bg-[#FF7500] peer-checked:border-[#FF7500]
-                     grid place-items-center transition">
-            <svg class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none"
-                 xmlns="http://www.w3.org/2000/svg">
-                <path d="M5 13L9 17L19 7"
-                      stroke="currentColor" stroke-width="2"
-                      stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
+<div data-field-wrap="agree">
+    <label class="mt-1 flex items-start gap-3 text-[11px] leading-[16px] text-[#4B5563] cursor-pointer">
+        <span class="relative inline-flex items-center pt-[2px] checkbox-wrap">
+            <input
+                type="checkbox"
+                name="agree"
+                value="1"
+                class="peer sr-only"
+                data-required
+                data-label="Согласие"
+            >
+
+            <span
+                class="w-6 h-6 rounded-[4px] border border-[#9CA3AF]
+                       peer-checked:bg-[#FF7500] peer-checked:border-[#FF7500]
+                       grid place-items-center transition"
+            >
+                <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none"
+                     xmlns="http://www.w3.org/2000/svg">
+                    <path d="M5 13L9 17L19 7"
+                          stroke="currentColor" stroke-width="2"
+                          stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </span>
         </span>
-    </span>
 
-    <span>
-        {{ st('cart.agree.text', 'Я согласен с политикой конфиденциальности, пользовательским соглашением и даю разрешение на обработку персональных данных.') }}
-    </span>
-</label>
+        <span>
+            {{ st('cart.agree.text', 'Я согласен с политикой конфиденциальности, пользовательским соглашением и даю разрешение на обработку персональных данных.') }}
+        </span>
+    </label>
 
+    <p class="mt-1 text-[11px] text-red-500 hidden" data-error-for="agree">
+        {{ st('form.required','Це обов’язкове поле') }}
+    </p>
+</div>
+
+{{-- Ошибка строго снизу --}}
+<p class="mt-1 text-[11px] text-red-500 hidden" data-error-for="agree">
+    {{ st('form.required','Це обов’язкове поле') }}
+</p>
 {{-- Кнопка оформления --}}
 <button
     type="submit"

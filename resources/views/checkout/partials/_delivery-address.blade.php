@@ -64,137 +64,221 @@
         @enderror
 
         {{-- Управление новым адресом --}}
-        <div class="flex items-center gap-4">
-            <button type="button"
-                    class="text-[#272828] font-medium flex items-center gap-2"
-                    @click="useNew = true">
-                <span class="text-xl leading-none">+</span>
+        {{-- Кнопка открытия формы нового адреса (только когда форма закрыта) --}}
+        <div x-show="!useNew" x-cloak>
+            <button
+                type="button"
+                @click="useNew = true"
+                class="flex items-center gap-2 text-[#EF4444] font-semibold text-[14px]
+               hover:text-[#DC2626] transition"
+            >
+                <span class="text-[20px] leading-none">+</span>
                 {{ st('cart.address.add_new', 'Додати нову адресу') }}
             </button>
-
-            <button type="button"
-                    class="text-[#EF4444] text-sm font-medium"
-                    @click="useNew = false">
-                {{ st('cart.address.do_not_use_new', '✕ Не використовувати нову адресу') }}
-            </button>
         </div>
+
+
     @endif
 
     {{-- Флаг для бэка: использовать новый адрес или нет --}}
+    <input type="hidden" name="shipping_method" :value="method">
     <input type="hidden" name="use_new_address" :value="useNew ? 1 : 0">
 
     {{-- Поля нового адреса --}}
-    <div class="space-y-4" x-show="useNew" x-cloak>
+    <div class="space-y-4" x-show="useNew" x-cloak
+         x-data="{ isPrivate: @json((bool) old('addr.is_private_house', !empty($sessionData['addr_is_private_house']))) }"
+    >
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div class="input-required">
-                <label class="tp-label tp-required">
-                    {{ st('address.form.street', 'Вулиця') }}
-                </label>
-                <input
-                    id="checkout-address-street"
-                    name="addr[street]"
-                    class="tp-input"
-                    placeholder="{{ st('address.form.street', 'Вулиця') }}"
-                    :disabled="!useNew || (typeof method !== 'undefined' && method === 'pickup')"
-                    :required="useNew && (typeof method !== 'undefined' && method === 'delivery')"
-                    value="{{ old('addr.street', $sessionData['addr_street'] ?? '') }}"
-                >
+            <div class="input-required"
+                 x-data="{ focused:false }"
+                 data-field-wrap="addr[street]"
+            >
+                <div class="tp-float-wrap">
+                    <input
+                        id="checkout-address-street"
+                        name="addr[street]"
+                        class="tp-float-input"
+                        placeholder=" "
+                        :disabled="!useNew || (typeof method !== 'undefined' && method === 'pickup')"
+                        data-required
+                        data-required-if="shipping_method=delivery;use_new_address=1"
+                        @focus="focused=true"
+                        @blur="focused=false"
+                        value="{{ old('addr.street', $sessionData['addr_street'] ?? '') }}"
+                    >
+                    <label for="checkout-address-street" class="tp-float-label">
+                        {{ st('address.form.street', 'Вулиця') }}<span class="tp-asterisk">*</span>
+                    </label>
+                </div>
+
+                <p class="tp-error hidden" data-error-for="addr[street]">
+                    {{ st('form.required','Це обов’язкове поле') }}
+                </p>
+
                 @error('addr.street')
                 <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
                 @enderror
             </div>
 
-            <div class="input-required">
-                <label class="tp-label tp-required">
-                    {{ st('address.form.house', 'Дім') }}
-                </label>
-                <input
-                    id="checkout-address-house"
-                    name="addr[house]"
-                    class="tp-input"
-                    placeholder="{{ st('address.form.house', 'Дім') }}"
-                    :disabled="!useNew || (typeof method !== 'undefined' && method === 'pickup')"
-                    :required="useNew && (typeof method !== 'undefined' && method === 'delivery')"
-                    value="{{ old('addr.house', $sessionData['addr_house'] ?? '') }}"
+
+            <div class="input-required"
+                 x-data="{ focused:false }"
+                 data-field-wrap="addr[house]"
+            >
+                {{-- ВАЖНО: label внутри рамки --}}
+                <div class="tp-float-wrap"
+                     :class="{
+            'is-focused': focused,
+         }"
                 >
+                    <input
+                        id="checkout-address-house"
+                        name="addr[house]"
+                        class="tp-float-input"
+                        placeholder=" " {{-- обязательно пробел, чтобы работал :placeholder-shown --}}
+                        :disabled="!useNew || (typeof method !== 'undefined' && method === 'pickup')"
+                        data-required
+                        data-required-if="shipping_method=delivery;use_new_address=1"
+                        @focus="focused=true"
+                        @blur="focused=false"
+                        value="{{ old('addr.house', $sessionData['addr_house'] ?? '') }}"
+                    >
+
+                    <label for="checkout-address-house" class="tp-float-label">
+                        {{ st('address.form.house', 'Дім') }}<span class="tp-asterisk">*</span>
+                    </label>
+                </div>
+
+                <p class="tp-error hidden" data-error-for="addr[house]">
+                    {{ st('form.required','Це обов’язкове поле') }}
+                </p>
+
                 @error('addr.house')
                 <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
                 @enderror
             </div>
 
-            <div>
-                <label class="tp-label">
-                    {{ st('address.form.intercom', 'Домофон') }}
-                </label>
-                <input
-                    name="addr[intercom]"
-                    class="tp-input"
-                    placeholder="{{ st('address.form.intercom', 'Домофон') }}"
-                    :disabled="!useNew"
-                    value="{{ old('addr.intercom', $sessionData['addr_intercom'] ?? '') }}"
-                >
+         <div x-show="!isPrivate" x-cloak>
+            <div data-field-wrap="addr[intercom]">
+                <div class="tp-float-wrap">
+                    <input
+                        id="checkout-address-intercom"
+                        name="addr[intercom]"
+                        class="tp-float-input"
+                        placeholder=" "
+                        :disabled="!useNew || isPrivate"
+                        value="{{ old('addr.intercom', $sessionData['addr_intercom'] ?? '') }}"
+                    >
+                    <label for="checkout-address-intercom" class="tp-float-label">
+                        {{ st('address.form.intercom', 'Домофон') }}
+                    </label>
+                </div>
+            </div>
+         </div>
+          <div x-show="!isPrivate" x-cloak>
+            <div class="input-required"
+                 x-data="{ focused:false }"
+                 data-field-wrap="addr[apartment]"
+            >
+                <div class="tp-float-wrap">
+
+                    <input
+                        id="checkout-address-apartment"
+                        name="addr[apartment]"
+                        class="tp-float-input"
+                        placeholder=" "
+                        :disabled="!useNew || (typeof method !== 'undefined' && method === 'pickup') || isPrivate"
+                        data-required
+                        data-required-if="shipping_method=delivery;use_new_address=1"
+                        @focus="focused=true"
+                        @blur="focused=false"
+                        value="{{ old('addr.apartment', $sessionData['addr_apartment'] ?? '') }}"
+                    >
+                    <label for="checkout-address-apartment" class="tp-float-label">
+                        {{ st('address.form.apartment', 'Квартира') }}<span class="tp-asterisk">*</span>
+                    </label>
+                </div>
             </div>
 
-            <div>
-                <label class="tp-label tp-required">
-                    {{ st('address.form.apartment', 'Квартира') }}
-                </label>
-                <input
-                    name="addr[apartment]"
-                    class="tp-input"
-                    placeholder="{{ st('address.form.apartment', 'Квартира') }}"
-                    :disabled="!useNew || (typeof method !== 'undefined' && method === 'pickup')"
-                    :required="useNew && (typeof method !== 'undefined' && method === 'delivery')"
-                    value="{{ old('addr.apartment', $sessionData['addr_apartment'] ?? '') }}"
-                >
+                <p class="tp-error hidden" data-error-for="addr[apartment]">
+                    {{ st('form.required','Це обов’язкове поле') }}
+                </p>
+
                 @error('addr.apartment')
                 <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
                 @enderror
             </div>
 
-            <div>
-                <label class="tp-label">
-                    {{ st('address.form.floor', 'Поверх') }}
-                </label>
-                <input
-                    name="addr[floor]"
-                    class="tp-input"
-                    placeholder="{{ st('address.form.floor', 'Поверх') }}"
-                    :disabled="!useNew"
-                    value="{{ old('addr.floor', $sessionData['addr_floor'] ?? '') }}"
-                >
-            </div>
+          <div x-show="!isPrivate" x-cloak>
 
-            <div>
-                <label class="tp-label tp-required">
-                    {{ st('address.form.porch', "Під'їзд") }}
-                </label>
-                <input
-                    name="addr[porch]"
-                    class="tp-input"
-                    placeholder="{{ st('address.form.porch', 'Під’їзд') }}"
-                    :disabled="!useNew || (typeof method !== 'undefined' && method === 'pickup')"
-                    :required="useNew && (typeof method !== 'undefined' && method === 'delivery')"
-                    value="{{ old('addr.porch', $sessionData['addr_porch'] ?? '') }}"
-                >
+            <div data-field-wrap="addr[floor]">
+                <div class="tp-float-wrap">
+                    <input
+                        id="checkout-address-floor"
+                        name="addr[floor]"
+                        class="tp-float-input"
+                        placeholder=" "
+                        :disabled="!useNew || isPrivate"
+                        value="{{ old('addr.floor', $sessionData['addr_floor'] ?? '') }}"
+                    >
+                    <label for="checkout-address-floor" class="tp-float-label">
+                        {{ st('address.form.floor', 'Поверх') }}
+                    </label>
+                </div>
+            </div>
+          </div>
+
+         <div x-show="!isPrivate" x-cloak>
+            <div class="input-required"
+                 x-data="{ focused:false }"
+                 data-field-wrap="addr[porch]"
+            >
+                <div class="tp-float-wrap">
+                    <input
+                        id="checkout-address-porch"
+                        name="addr[porch]"
+                        class="tp-float-input"
+                        placeholder=" "
+                        :disabled="!useNew || (typeof method !== 'undefined' && method === 'pickup') || isPrivate"
+                        data-required
+                        data-required-if="shipping_method=delivery;use_new_address=1"
+                        @focus="focused=true"
+                        @blur="focused=false"
+                        value="{{ old('addr.porch', $sessionData['addr_porch'] ?? '') }}"
+                    >
+                    <label for="checkout-address-porch" class="tp-float-label">
+                        {{ st('address.form.porch', "Під'їзд") }}<span class="tp-asterisk">*</span>
+                    </label>
+                </div>
+
+                <p class="tp-error hidden" data-error-for="addr[porch]">
+                    {{ st('form.required','Це обов’язкове поле') }}
+                </p>
+
                 @error('addr.porch')
                 <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
                 @enderror
             </div>
+         </div>
+
         </div>
 
-        <div>
-            <label class="tp-label">
-                {{ st('address.form.comment', 'Коментар для кур’єра1') }}
-            </label>
-            <input
-                name="addr[comment]"
-                class="tp-input"
-                placeholder="{{ st('address.form.comment', 'Коментар для кур’єра2') }}"
-                :disabled="!useNew"
-                value="{{ old('addr.comment', $sessionData['addr_comment'] ?? '') }}"
-            >
+        <div data-field-wrap="addr[comment]">
+            <div class="tp-float-wrap">
+                <input
+                    id="checkout-address-comment"
+                    name="addr[comment]"
+                    class="tp-float-input"
+                    placeholder=" "
+                    :disabled="!useNew"
+                    value="{{ old('addr.comment', $sessionData['addr_comment'] ?? '') }}"
+                >
+                <label for="checkout-address-comment" class="tp-float-label">
+                    {{ st('address.form.comment', 'Коментар для кур’єра') }}
+                </label>
+            </div>
         </div>
+
 
         <label class="inline-flex items-center gap-2">
             <input
@@ -203,12 +287,13 @@
                 name="addr[is_private_house]"
                 value="1"
                 :disabled="!useNew"
-                @checked(old('addr.is_private_house', !empty($sessionData['addr_is_private_house'])))
+                x-model="isPrivate"
             >
             <span class="text-sm text-gray-700">
-                {{ st('address.form.private_house', 'Це приватний будинок') }}
-            </span>
+        {{ st('address.form.private_house', 'Це приватний будинок') }}
+    </span>
         </label>
+
 
         {{-- Тип адреса: дом / работа / друзья --}}
         <div
@@ -244,5 +329,14 @@
                 {{ st('address.type.friends', 'Друзі') }}
             </button>
         </div>
+        <div class="pt-2" x-show="useNew" x-cloak>
+            <button type="button"
+                    class="text-[#EF4444] text-sm font-medium"
+                    @click="useNew=false; resetNewAddress($el)">
+                 {{ st('cart.address.do_not_use_new', 'Не використовувати нову адресу') }}
+            </button>
+
+        </div>
+
     </div>
 </div>

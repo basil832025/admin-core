@@ -62,7 +62,8 @@ document.addEventListener('alpine:init', () => {
 </script>
 @endpush
 
-        <form action="{{ route('checkout.submit') }}" method="POST" class="space-y-6" data-checkout-form >
+        <form action="{{ route('checkout.submit') }}"
+              method="POST" class="space-y-6" data-checkout-form novalidate >
             @csrf
 
             <div
@@ -561,6 +562,163 @@ document.addEventListener('alpine:init', () => {
         window.addEventListener('resize', applyLayout);
     })();
 </script>
+<script>
+    (function () {
+        function getFieldValue(form, name) {
+            const els = form.querySelectorAll('[name="' + CSS.escape(name) + '"]');
+            if (!els.length) return '';
+
+            const first = els[0];
+            if (first.type === 'radio') {
+                const checked = form.querySelector('[name="' + CSS.escape(name) + '"]:checked');
+                return checked ? (checked.value || '') : '';
+            }
+            if (first.type === 'checkbox') {
+                return first.checked ? '1' : '';
+            }
+            return (first.value || '').trim();
+        }
+
+        function shouldValidate(form, field) {
+            const rule = field.getAttribute('data-required-if');
+            if (!rule) return true;
+
+            const parts = rule.split(';').map(s => s.trim()).filter(Boolean);
+            for (const p of parts) {
+                const [depName, depVal] = p.split('=').map(s => (s || '').trim());
+                if (!depName) continue;
+                if (String(getFieldValue(form, depName)) !== String(depVal)) return false;
+            }
+            return true;
+        }
+
+        function getWrap(form, name) {
+            return form.querySelector('[data-field-wrap="'+CSS.escape(name)+'"] .tp-float-wrap');
+        }
+
+        function showError(form, name) {
+            const err = form.querySelector('[data-error-for="'+CSS.escape(name)+'"]');
+            if (err) err.classList.remove('hidden');
+
+            // float
+            const wrap = form.querySelector('[data-field-wrap="'+CSS.escape(name)+'"] .tp-float-wrap');
+            if (wrap) { wrap.classList.add('is-invalid'); return; }
+
+            // обычные inputs/select
+            const el = form.querySelector('[name="'+CSS.escape(name)+'"]');
+            if (el) el.classList.add('is-invalid');
+        }
+
+        function clearError(form, name) {
+            const err = form.querySelector('[data-error-for="'+CSS.escape(name)+'"]');
+            if (err) err.classList.add('hidden');
+
+            const wrap = form.querySelector('[data-field-wrap="'+CSS.escape(name)+'"] .tp-float-wrap');
+            if (wrap) { wrap.classList.remove('is-invalid'); return; }
+
+            const el = form.querySelector('[name="'+CSS.escape(name)+'"]');
+            if (el) el.classList.remove('is-invalid');
+        }
+
+
+
+        function focusField(form, name) {
+            const el = form.querySelector('[name="'+CSS.escape(name)+'"]') || document.getElementById(name);
+            if (!el) return;
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(() => el.focus(), 150);
+        }
+
+        function validateForm(form) {
+            // очистка
+            form.querySelectorAll('[data-error-for]').forEach(p => p.classList.add('hidden'));
+            form.querySelectorAll('.tp-float-wrap.is-invalid').forEach(w => w.classList.remove('is-invalid'));
+
+            let firstInvalidName = null;
+
+            const requiredFields = form.querySelectorAll('[data-required]');
+            requiredFields.forEach(field => {
+                if (!shouldValidate(form, field)) return;
+
+                const name = field.getAttribute('name') || field.getAttribute('id');
+                if (!name) return;
+
+                // не валидируем disabled
+                if (field.disabled) return;
+
+                const val = field.type === 'checkbox'
+                    ? (field.checked ? '1' : '')
+                    : (field.type === 'radio' ? getFieldValue(form, field.name) : (field.value || '').trim());
+
+                if (!val) {
+                    showError(form, name);
+                    if (!firstInvalidName) firstInvalidName = name;
+                }
+            });
+
+            if (firstInvalidName) {
+                focusField(form, firstInvalidName);
+                return false;
+            }
+
+            return true;
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const form = document.querySelector('[data-checkout-form]');
+            if (!form) return;
+
+            // 1) Перехват сабмита: если ошибки — НЕ отправляем на сервер
+            form.addEventListener('submit', function (e) {
+                if (!validateForm(form)) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            }, true);
+
+            // 2) При вводе — убираем ошибку с конкретного поля
+            form.addEventListener('input', function (e) {
+                const t = e.target;
+                if (!t) return;
+                const name = t.getAttribute('name') || t.getAttribute('id');
+                if (name) clearError(form, name);
+            });
+
+            form.addEventListener('change', function (e) {
+                const t = e.target;
+                if (!t) return;
+                const name = t.getAttribute('name') || t.getAttribute('id');
+                if (name) clearError(form, name);
+            });
+        });
+    })();
+</script>
+<script>
+    window.resetNewAddress = function(btn){
+        const form = btn.closest('form');
+        if (!form) return;
+
+        // закрыть форму: если есть Alpine useNew/isPrivate — дернем через closest root
+        const root = btn.closest('[x-data]');
+        try {
+            // если Alpine доступен, можно дернуть напрямую:
+            // Alpine.$data(root).useNew = false; Alpine.$data(root).isPrivate = false;
+        } catch(e){}
+
+        const names = ['addr[street]','addr[house]','addr[apartment]','addr[porch]','addr[intercom]','addr[floor]','addr[comment]'];
+        names.forEach((name) => {
+            const el = form.querySelector('[name="'+name+'"]');
+            if (el) { el.value=''; el.dispatchEvent(new Event('input',{bubbles:true})); }
+        });
+
+        const priv = form.querySelector('[name="addr[is_private_house]"]');
+        if (priv) priv.checked = false;
+
+        form.querySelectorAll('.tp-error').forEach(p => p.classList.add('hidden'));
+        form.querySelectorAll('.tp-float-wrap.is-invalid').forEach(w => w.classList.remove('is-invalid'));
+    }
+</script>
+
 
 
 

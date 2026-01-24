@@ -76,20 +76,15 @@
         </label>
 
         {{-- Время --}}
-        <label class="block relative">
-            <span class="sr-only">
-                {{ st('cart.delivery.time_label', 'Час') }}
-            </span>
+        <div data-field-wrap="delivery_time" class="relative">
             <select
                 x-ref="time"
                 name="delivery_time"
                 :disabled="mode==='asap'"
-                :required="mode==='fixed'"
-                :class="[
-                    'tp-input pr-10 appearance-none',
-                    mode==='asap' ? 'bg-[#F9FAFB] text-[#9CA3AF] cursor-not-allowed' : ''
-                ]"
+                class="tp-input pr-10 appearance-none"
                 x-model="selectedTime"
+                data-required
+                data-required-if="delivery_mode=fixed"
                 @change="saveFormData()"
             >
                 <option value="">{{ st('cart.delivery.time_label', 'Час') }}</option>
@@ -97,15 +92,19 @@
                     <option :value="interval" x-text="interval"></option>
                 </template>
             </select>
-            @error('delivery_time')
-            <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-            @enderror
-            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] pointer-events-none">
-                <svg viewBox="0 0 24 24" class="w-5 h-5">
-                    <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.5"
-                          stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-            </span>
-        </label>
+
+            <p class="tp-error hidden" data-error-for="delivery_time">
+                {{ st('form.required','Це обов’язкове поле') }}
+            </p>
+
+            <span class="absolute inset-y-0 right-3 flex items-center text-[#9CA3AF] pointer-events-none">
+    <svg viewBox="0 0 24 24" class="w-5 h-5">
+        <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.5"
+              stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+</span>
+
+        </div>
+
     </div>
 </div>

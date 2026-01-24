@@ -276,6 +276,106 @@ input.tp-input:-webkit-autofill:focus {
     background-position: center;
     background-repeat: no-repeat;
 }
+/* красная звездочка у обязательных */
+.tp-label.tp-required::after{
+    content: " *";
+    color: #EF4444;
+    font-weight: 600;
+}
+
+/* поле с ошибкой */
+.tp-input.is-invalid{
+    border-color: #EF4444 !important;
+    box-shadow: 0 0 0 1px #EF4444;
+}
+
+/* текст ошибки */
+.tp-error{
+    margin-top: 4px;
+    font-size: 11px;
+    line-height: 16px;
+    color: #EF4444;
+}
+.tp-float-wrap{
+    position: relative;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    background: #fff;
+    transition: border-color .15s, box-shadow .15s;
+}
+
+.tp-float-input{
+    width: 100%;
+    height: 56px;
+    padding: 18px 14px 10px 14px;
+    border: 0;
+    outline: none;
+    background: transparent;
+    font-size: 16px;
+    color: #111827;
+}
+
+.tp-float-label{
+    position: absolute;
+    left: 14px;
+    top: 18px;
+    font-size: 16px;
+    color: #6B7280;
+    pointer-events: none;
+    transition: all .15s ease;
+    background: #fff;
+    padding: 0 6px;
+}
+
+/* “всплывание” лейбла: при фокусе или если уже что-то введено */
+.tp-float-input:focus + .tp-float-label,
+.tp-float-input:not(:placeholder-shown) + .tp-float-label{
+    top: -9px;
+    font-size: 12px;
+    color: #111827;
+}
+
+/* фокус-рамка */
+.tp-float-wrap:has(.tp-float-input:focus){
+    border-color: #FF7500;
+    box-shadow: 0 0 0 1px #FF7500;
+}
+
+.tp-asterisk{ color:#EF4444; font-weight:600; }
+
+/* INVALID состояние */
+.tp-float-wrap.is-invalid{
+    border-color:#EF4444 !important;
+    box-shadow: 0 0 0 1px #EF4444 !important;
+}
+
+.tp-float-wrap.is-invalid .tp-float-label{
+    color:#EF4444;
+}
+.tp-float-wrap.is-invalid .tp-asterisk{
+    color:#EF4444;
+}
+
+.tp-error{
+    margin-top: 6px;
+    font-size: 11px;
+    line-height: 16px;
+    color: #EF4444;
+}
+/* чекбокс с ошибкой */
+.checkbox-wrap.is-invalid > span{
+    border-color: #EF4444 !important;
+    box-shadow: 0 0 0 1px #EF4444;
+}
+
+/* если вдруг был отмечен и потом снят */
+.checkbox-wrap.is-invalid svg{
+    display: none;
+}
+.tp-input.is-invalid{
+    border-color:#EF4444 !important;
+    box-shadow: 0 0 0 1px #EF4444 !important;
+}
 
 
 

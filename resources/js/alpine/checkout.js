@@ -22,6 +22,9 @@ function deliveryBlock() {
         selectedTime: '',
         savedTime: '',
 
+        // сколько минут “подготовки” (у тебя было +60)
+        leadMinutes: 60,
+
         init() {
             const ruLocale = {
                 firstDayOfWeek: 1,
@@ -36,9 +39,50 @@ function deliveryBlock() {
             };
 
             const pad = n => String(n).padStart(2, '0');
-            const todayStr = () => {
-                const d = new Date();
-                return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+            const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+            const todayStr = () => ymd(new Date());
+            const tomorrowStr = () => { const d = new Date(); d.setDate(d.getDate() + 1); return ymd(d); };
+
+            const parseStartMinutes = (interval) => {
+                // "09:00-09:15" -> 540
+                const m = String(interval || '').match(/^(\d{2}):(\d{2})-/);
+                if (!m) return null;
+                return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+            };
+
+            const autoPickTimeIfNeeded = () => {
+                if (this.mode !== 'fixed') return;
+
+                // если пользователь уже выбрал — не трогаем
+                if (this.selectedTime) return;
+
+                // если есть сохранённое и оно доступно — ставим его
+                if (this.savedTime && this.availableTimeIntervals.includes(this.savedTime)) {
+                    this.selectedTime = this.savedTime;
+                    return;
+                }
+
+                // иначе ставим первый доступный
+                if (this.availableTimeIntervals.length) {
+                    this.selectedTime = this.availableTimeIntervals[0];
+                }
+            };
+
+            const moveToTomorrowIfNoIntervalsToday = () => {
+                // если сегодня и после фильтрации пусто — переносим дату на завтра
+                if (!this.fpDate) return;
+
+                const sel = this.fpDate.selectedDates?.[0];
+                if (!sel) return;
+
+                const today = new Date();
+                today.setHours(0,0,0,0);
+                const sel0 = new Date(sel);
+                sel0.setHours(0,0,0,0);
+
+                if (sel0.getTime() === today.getTime() && (!this.availableTimeIntervals || this.availableTimeIntervals.length === 0)) {
+                    this.fpDate.setDate(tomorrowStr(), true); // триггерит onChange -> updateAvailableTimeIntervals
+                }
             };
 
             this.fpDate = flatpickr(this.$refs.date, {
@@ -56,6 +100,11 @@ function deliveryBlock() {
                 onChange: (sel) => {
                     if (sel.length) {
                         this.updateAvailableTimeIntervals();
+                        // после обновления — автоподбор времени
+                        this.$nextTick(() => {
+                            moveToTomorrowIfNoIntervalsToday();
+                            autoPickTimeIfNeeded();
+                        });
                     }
                 },
             });
@@ -66,21 +115,43 @@ function deliveryBlock() {
             // Обновляем доступные интервалы после инициализации
             this.$nextTick(() => {
                 this.updateAvailableTimeIntervals();
+                this.$nextTick(() => {
+                    moveToTomorrowIfNoIntervalsToday();
+                    autoPickTimeIfNeeded();
+                });
             });
 
             this.$watch('mode', () => {
                 this.updateFieldsState();
+
+                // если включили fixed — сразу автоставим время
+                if (this.mode === 'fixed') {
+                    this.$nextTick(() => {
+                        this.updateAvailableTimeIntervals();
+                        this.$nextTick(() => {
+                            moveToTomorrowIfNoIntervalsToday();
+                            autoPickTimeIfNeeded();
+                        });
+                    });
+                }
+
                 // Сохраняем изменение в сессию
                 let event = new Event('change');
                 let form = document.querySelector('[data-checkout-form]');
                 if (form) form.dispatchEvent(event);
             });
-            
+
             // Отслеживаем изменение selectedTime для сохранения в сессию
             this.$watch('selectedTime', () => {
                 if (this.mode === 'fixed') {
-                    // Сохраняем в сессию при изменении времени
                     this.saveFormData();
+                }
+            });
+
+            // если пересчитались интервалы — попробуем поставить дефолт
+            this.$watch('availableTimeIntervals', () => {
+                if (this.mode === 'fixed') {
+                    this.$nextTick(() => autoPickTimeIfNeeded());
                 }
             });
         },
@@ -101,7 +172,6 @@ function deliveryBlock() {
             // Если выбрана не сегодняшняя дата, показываем все интервалы
             if (!selectedDate || selectedDate.getTime() !== today.getTime()) {
                 this.availableTimeIntervals = this.allTimeIntervals || [];
-                // Восстанавливаем сохраненное время, если оно есть в списке
                 if (currentSelected && this.availableTimeIntervals.includes(currentSelected)) {
                     this.selectedTime = currentSelected;
                 }
@@ -111,11 +181,9 @@ function deliveryBlock() {
             // Если выбрана сегодняшняя дата, фильтруем прошедшие интервалы
             const now = new Date();
             const nowMinutes = now.getHours() * 60 + now.getMinutes();
-            // Добавляем 1 час к текущему времени для минимального интервала доставки
-            const minMinutes = nowMinutes + 60;
+            const minMinutes = nowMinutes + (this.leadMinutes || 0);
 
             this.availableTimeIntervals = (this.allTimeIntervals || []).filter(interval => {
-                // Парсим интервал вида "09:00-09:15"
                 const match = interval.match(/^(\d{2}):(\d{2})-/);
                 if (!match) return true;
 
@@ -123,10 +191,11 @@ function deliveryBlock() {
                 return intervalStartMinutes >= minMinutes;
             });
 
-            // Если текущее выбранное время доступно, оставляем его
-            // Если нет - сбрасываем только если это не сохраненное значение из сессии
-            if (currentSelected && !this.availableTimeIntervals.includes(currentSelected)) {
-                // Не сбрасываем, если это сохраненное значение - оно будет восстановлено после фильтрации
+            // если выбранное время ещё доступно — оставляем
+            if (currentSelected && this.availableTimeIntervals.includes(currentSelected)) {
+                this.selectedTime = currentSelected;
+            } else {
+                // не сбрасываем принудительно — автоподбор сделает своё
                 // this.selectedTime = '';
             }
         },
@@ -142,12 +211,10 @@ function deliveryBlock() {
         updateFieldsState() {
             const fixed = this.mode === 'fixed';
 
-            // Обновляем flatpickr для даты
             if (this.fpDate) {
                 this.fpDate.set('clickOpens', fixed);
             }
 
-            // Обновляем altInput для даты
             const altDate = this.fpDate?.altInput;
             if (altDate) {
                 altDate.readOnly = !fixed;
@@ -155,52 +222,63 @@ function deliveryBlock() {
                 altDate.classList.toggle('bg-[#F9FAFB]', !fixed);
                 altDate.classList.toggle('text-[#9CA3AF]', !fixed);
                 altDate.classList.toggle('cursor-not-allowed', !fixed);
-                // Добавляем/убираем required для даты
-                if (fixed) {
-                    altDate.setAttribute('required', 'required');
-                } else {
-                    altDate.removeAttribute('required');
-                }
+
+                if (fixed) altDate.setAttribute('required', 'required');
+                else altDate.removeAttribute('required');
             }
 
-            // Обновляем select для времени
             const timeSelect = this.$refs.time;
             if (timeSelect) {
                 timeSelect.disabled = !fixed;
-                // Добавляем/убираем required для времени
-                if (fixed) {
-                    timeSelect.setAttribute('required', 'required');
-                } else {
-                    timeSelect.removeAttribute('required');
-                }
+                if (fixed) timeSelect.setAttribute('required', 'required');
+                else timeSelect.removeAttribute('required');
             }
 
-            // Очищаем поля если переключились на asap
             if (!fixed) {
-                if (this.fpDate) {
-                    this.fpDate.clear();
-                }
+                if (this.fpDate) this.fpDate.clear();
                 if (timeSelect) {
                     timeSelect.value = '';
                     this.selectedTime = '';
                 }
             } else {
-                // Если переключились на fixed, устанавливаем дату по умолчанию
+                // Если переключились на fixed, устанавливаем дату по умолчанию (сегодня)
                 if (this.fpDate && !this.$refs.date.value) {
-                    const t = (() => {
-                        const d = new Date();
-                        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                    })();
+                    const d = new Date();
+                    const t = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
                     this.fpDate.setDate(t, true);
                 }
-                // Обновляем доступные интервалы времени
+
                 this.$nextTick(() => {
                     this.updateAvailableTimeIntervals();
+                    this.$nextTick(() => {
+                        // если на сегодня уже нет интервалов — fpDate сам поставит завтра (через onChange)
+                        const sel = this.fpDate?.selectedDates?.[0];
+                        if (sel) {
+                            const today = new Date(); today.setHours(0,0,0,0);
+                            const sel0 = new Date(sel); sel0.setHours(0,0,0,0);
+                            if (sel0.getTime() === today.getTime() && this.availableTimeIntervals.length === 0) {
+                                const d2 = new Date(); d2.setDate(d2.getDate() + 1);
+                                const tom = `${d2.getFullYear()}-${String(d2.getMonth() + 1).padStart(2,'0')}-${String(d2.getDate()).padStart(2,'0')}`;
+                                this.fpDate.setDate(tom, true);
+                                return; // onChange дальше сделает автоподбор
+                            }
+                        }
+
+                        // иначе подставим ближайшее
+                        if (!this.selectedTime) {
+                            if (this.savedTime && this.availableTimeIntervals.includes(this.savedTime)) {
+                                this.selectedTime = this.savedTime;
+                            } else if (this.availableTimeIntervals.length) {
+                                this.selectedTime = this.availableTimeIntervals[0];
+                            }
+                        }
+                    });
                 });
             }
         }
     };
 }
+
 
 /* ===== NEW: Alpine component для "Доступные акции" ===== */
 window.availablePromosComponent = function (initialSelected) { // 👈 NEW

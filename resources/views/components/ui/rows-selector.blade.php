@@ -75,7 +75,7 @@
                     price: this.prices[newVal]?.price ?? null,
                     oldPrice: this.prices[newVal]?.old ?? null,
                 };
-                
+
                 // Отправляем событие на родительский элемент (article)
                 const parentCard = this.$el.closest('article[x-data]');
                 if (parentCard && window.Alpine) {
@@ -84,14 +84,14 @@
                         cardData.handleVariantSelected({ detail });
                     }
                 }
-                
+
                 // Также отправляем всплывающее событие для надежности
                 this.$dispatch('variant-selected', detail);
-                
+
                 // При смене варианта проверяем количество в корзине
                 this.checkCartQty();
             });
-            
+
             // Отправляем начальное событие после инициализации
             // Откладываем checkCartQty на небольшую задержку, чтобы кеш успел загрузиться
             this.$nextTick(() => {
@@ -100,7 +100,7 @@
                     price: this.prices[this.selected]?.price ?? null,
                     oldPrice: this.prices[this.selected]?.old ?? null,
                 };
-                
+
                 const parentCard = this.$el.closest('article[x-data]');
                 if (parentCard && window.Alpine) {
                     const cardData = window.Alpine.$data(parentCard);
@@ -108,16 +108,16 @@
                         cardData.handleVariantSelected({ detail });
                     }
                 }
-                
+
                 this.$dispatch('variant-selected', detail);
-                
+
                 // Откладываем проверку корзины, чтобы все карточки не запрашивали одновременно
                 // Используем небольшую случайную задержку для батчинга запросов
                 setTimeout(() => {
                     this.checkCartQty();
                 }, Math.random() * 50 + 10); // 10-60ms случайная задержка
             });
-            
+
             // Слушаем обновления корзины
             window.addEventListener('cart-updated', (e) => {
                 if (e?.detail?.item?.product_id === parseInt(this.selected)) {
@@ -146,7 +146,7 @@
                     this.cartQty = item?.qty ?? 0;
                     return;
                 }
-                
+
                 const data = await cache.get();
                 const item = (data?.items ?? []).find(i => parseInt(i.product_id) === parseInt(this.selected));
                 this.cartQty = item?.qty ?? 0;
@@ -310,45 +310,54 @@
                 </div>
             </div>
 
-            {{-- Кнопка "Добавить в корзину" --}}
-            <button
-                type="button"
-                x-show="cartQty === 0"
-                x-cloak
-                class="inline-flex items-center text-[12px] w-[173px] h-[36px] gap-2 rounded bg-[#FF7500] px-4 font-semibold text-white shadow-[0_4px_12px_rgba(255,117,0,.35)] transition
+            {{-- Правая зона (кнопка / qty) фиксированной ширины как в Figma --}}
+            <div class="w-[173px] shrink-0">
+                {{-- Кнопка "Добавить в корзину" --}}
+                <button
+                    type="button"
+                    x-show="cartQty === 0"
+                    x-cloak
+                    class="w-full inline-flex items-center justify-center text-[12px] h-[36px] gap-2 rounded bg-[#FF7500] px-4 font-semibold text-white shadow-[0_4px_12px_rgba(255,117,0,.35)] transition
                hover:bg-[#ff841f] active:bg-[#e66700] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FF7500]/50 disabled:opacity-60"
-                x-bind:data-product-id="selected"
-                @click="addToCart"
-                x-bind:disabled="adding"
-            >
-                <template x-if="!adding">
-                    <x-icons.cart class="h-5 w-5" />
-                </template>
-                <template x-if="adding">
-                    <svg class="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor"
-                              d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-                    </svg>
-                </template>
-                {{ $cartText }}
-            </button>
-
-            {{-- Контролы количества --}}
-            <div x-show="cartQty > 0" x-cloak class="inline-flex items-center bg-[#FDDDA7] text-[#FF7500] h-10 rounded-[4px] px-1 shrink-0">
-                <button
-                    type="button"
-                    class="w-6 h-6 grid place-items-center text-xl leading-none"
-                    @click="decrementQty"
-                    x-bind:disabled="adding || cartQty <= 1"
-                >−</button>
-                <div class="w-8 text-center font-semibold" x-text="cartQty">1</div>
-                <button
-                    type="button"
-                    class="w-6 h-6 grid place-items-center text-xl leading-none"
-                    @click="incrementQty"
+                    x-bind:data-product-id="selected"
+                    @click="addToCart"
                     x-bind:disabled="adding"
-                >+</button>
+                >
+                    <template x-if="!adding">
+                        <x-icons.cart class="h-5 w-5" />
+                    </template>
+                    <template x-if="adding">
+                        <svg class="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor"
+                                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                        </svg>
+                    </template>
+                    {{ $cartText }}
+                </button>
+
+                {{-- Контролы количества (той же ширины, что и кнопка) --}}
+                <div
+                    x-show="cartQty > 0"
+                    x-cloak
+                    class="w-full inline-flex items-center justify-between bg-[#FDDDA7] text-[#FF7500] h-[36px] rounded px-2"
+                >
+                    <button
+                        type="button"
+                        class="w-8 h-8 grid place-items-center text-[22px] leading-none rounded disabled:opacity-40"
+                        @click="decrementQty"
+                        x-bind:disabled="adding || cartQty <= 1"
+                    >−</button>
+
+                    <div class="flex-1 text-center font-semibold text-[14px]" x-text="cartQty">1</div>
+
+                    <button
+                        type="button"
+                        class="w-8 h-8 grid place-items-center text-[22px] leading-none rounded disabled:opacity-40"
+                        @click="incrementQty"
+                        x-bind:disabled="adding"
+                    >+</button>
+                </div>
             </div>
 
         </div>
