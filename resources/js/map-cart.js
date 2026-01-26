@@ -66,7 +66,41 @@ function initMap() {
 
     infoWindow = new google.maps.InfoWindow();
 
+    // Функция для получения параметров зоны из базы данных
+    function getZoneParams(zoneKey) {
+        // Определяем группу зоны по префиксу (Green_, Blue_, Red_, Brown_)
+        const zoneGroup = zoneKey.split('_')[0];
+        
+        // Получаем параметры зоны из базы данных (window.DELIVERY_ZONES)
+        if (typeof window !== 'undefined' && window.DELIVERY_ZONES && window.DELIVERY_ZONES[zoneGroup]) {
+            const zone = window.DELIVERY_ZONES[zoneGroup];
+            // Используем данные из базы данных
+            return {
+                price: parseFloat(zone.delivery_price) || 0,
+                time: [parseInt(zone.delivery_time_min) || 30, parseInt(zone.delivery_time_max) || 60],
+                free: parseFloat(zone.free_delivery_from) || 0,
+                color: zone.color || deliveryAreas[zoneKey]?.color || '#000000',
+            };
+        }
+        
+        // Fallback: используем старые жестко прописанные значения (только если данные из БД недоступны)
+        return {
+            price: delivery_cost[zoneKey] || 0,
+            time: delivery_time[zoneKey] || [30, 60],
+            free: freeshipping_cost[zoneKey] || 0,
+            color: deliveryAreas[zoneKey]?.color || '#000000',
+        };
+    }
+
     for (const key in deliveryAreas) {
+        // Получаем параметры зоны из базы данных
+        const zoneParams = getZoneParams(key);
+        
+        // Обновляем цвет зоны из базы данных, если он есть
+        if (zoneParams.color && zoneParams.color !== deliveryAreas[key].color) {
+            deliveryAreas[key].color = zoneParams.color;
+        }
+        
         deliveryAreas[key].polygon = new google.maps.Polygon({
             path: deliveryAreas[key].area,
             geodesic: true,
@@ -77,19 +111,40 @@ function initMap() {
             fillOpacity: 0.35,
             map,
         });
-        deliveryAreas[key].price = delivery_cost[key];
-        deliveryAreas[key].time = delivery_time[key];
-        deliveryAreas[key].free = freeshipping_cost[key];
+        
+        // Используем параметры из базы данных (принудительно перезаписываем)
+        deliveryAreas[key].price = zoneParams.price;
+        deliveryAreas[key].time = zoneParams.time;
+        deliveryAreas[key].free = zoneParams.free;
+        
+        // Отладочная информация (можно удалить после проверки)
+        if (typeof console !== 'undefined' && console.log && key === 'Blue_1') {
+            console.log('Zone', key, 'params from DB:', zoneParams);
+            console.log('deliveryAreas[' + key + '].price =', deliveryAreas[key].price);
+        }
 
         deliveryAreas[key].polygon.addListener('click', (event) => {
-            infoWindow.setContent(
-                `${deliveryPrice[lang]} ${deliveryAreas[key].price} UAH<br/>` +
-                `${preDeliveryTime[lang]}${deliveryTime[lang][0]} ${deliveryAreas[key].time[0]} ` +
-                `${deliveryTime[lang][1]} ${deliveryAreas[key].time[1]} ${deliveryTime[lang][2]}<br/>` +
-                `${freeShipping[lang]} ${deliveryAreas[key].free} UAH`
-            );
+            // Перебираем все области и находим ту, в которой находится точка клика
+            // Это важно, так как полигоны могут перекрываться
+            for (const areaKey in deliveryAreas) {
+                if (
+                    deliveryAreas[areaKey].polygon &&
+                    google.maps.geometry.poly.containsLocation(
+                        event.latLng,
+                        deliveryAreas[areaKey].polygon
+                    )
+                ) {
+                    infoWindow.setContent(
+                        `${deliveryPrice[lang]} ${deliveryAreas[areaKey].price} UAH<br/>` +
+                        `${preDeliveryTime[lang]}${deliveryTime[lang][0]} ${deliveryAreas[areaKey].time[0]} ` +
+                        `${deliveryTime[lang][1]} ${deliveryAreas[areaKey].time[1]} ${deliveryTime[lang][2]}<br/>` +
+                        `${freeShipping[lang]} ${deliveryAreas[areaKey].free} UAH`
+                    );
+                    break; // Нашли нужную область, выходим из цикла
+                }
+            }
             infoWindow.setPosition(event.latLng);
-            infoWindow.open(map);                   // ← открываем окно
+            infoWindow.open(map); // Открываем окно с информацией
         });
     }
     
@@ -335,7 +390,24 @@ function initMap() {
 }
 
 
-const lang = $('.b-lang__item .active').data('lang');
+// Определяем язык: берем из window.APP_LOCALE (передается из Laravel), 
+// затем из атрибута lang HTML элемента, затем из jQuery селектора, или используем значение по умолчанию
+// Приоритет: 1) window.APP_LOCALE, 2) атрибут lang HTML, 3) jQuery селектор, 4) значение по умолчанию 'uk'
+let lang = 'uk';
+if (typeof window !== 'undefined' && window.APP_LOCALE) {
+    lang = window.APP_LOCALE.toLowerCase();
+} else if (typeof document !== 'undefined' && document.documentElement && document.documentElement.lang) {
+    lang = document.documentElement.lang.substring(0, 2).toLowerCase();
+} else if (typeof $ !== 'undefined' && $('.b-lang__item .active').length) {
+    const langFromSelector = $('.b-lang__item .active').data('lang');
+    if (langFromSelector) {
+        lang = langFromSelector.toLowerCase();
+    }
+}
+// Нормализуем значение: если не uk/ru/en, используем 'uk'
+if (!['uk', 'ru', 'en'].includes(lang)) {
+    lang = 'uk';
+}
 
 var map;
 var marker;

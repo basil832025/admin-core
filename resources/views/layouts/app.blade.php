@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html lang="{{ app()->getLocale() }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -82,6 +82,7 @@
     <script>
         // Глобальная переменная для Google Maps API ключа
         window.GOOGLE_MAPS_API_KEY = '{{ config("services.google_maps.key") }}';
+        window.APP_LOCALE = '{{ app()->getLocale() }}';
     </script>
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicon.png') }}">

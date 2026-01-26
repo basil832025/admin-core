@@ -224,6 +224,26 @@ document.addEventListener('alpine:init', () => {
 @push('scripts')
 {{-- jQuery необходим для map-cart.js --}}
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script>
+    // Передаем данные зон доставки из базы данных в JavaScript
+    @php
+        $zones = \App\Models\DeliveryZone::where('is_active', true)
+            ->orderBy('sort_order')
+            ->get()
+            ->keyBy('name')
+            ->map(function($zone) {
+                return [
+                    'name' => $zone->name,
+                    'color' => $zone->color,
+                    'delivery_price' => (float)$zone->delivery_price,
+                    'delivery_time_min' => (int)$zone->delivery_time_min,
+                    'delivery_time_max' => (int)$zone->delivery_time_max,
+                    'free_delivery_from' => (float)$zone->free_delivery_from,
+                ];
+            });
+    @endphp
+    window.DELIVERY_ZONES = @json($zones);
+</script>
 {{-- Загружаем Google Maps API асинхронно, чтобы не блокировать Alpine.js --}}
 <script>
 (function() {

@@ -36,11 +36,7 @@ function showAddressErrorModal(message) {
                     </svg>
                 </button>
                 <div class="flex justify-center mb-4">
-                    <div class="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
-                        <svg class="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </div>
+
                 </div>
                 <div class="text-center">
                     <h3 class="text-lg md:text-xl font-semibold mb-2 text-red-600" id="address-error-modal-message"></h3>
@@ -1048,7 +1044,7 @@ function initAddressAutocomplete(options = {}) {
 
                                         // НЕ вызываем blur() - пусть пользователь сам переходит на другое поле
                                         // Это предотвратит преждевременное срабатывание валидации
-                                        
+
                                         // Сбрасываем флаг выбора после большой задержки
                                         setTimeout(() => {
                                             isSelectingFromGoogle = false;
@@ -1072,7 +1068,7 @@ function initAddressAutocomplete(options = {}) {
             if (isSelectingFromGoogle) {
                 return;
             }
-            
+
             clearTimeout(blurTimeout);
             blurTimeout = setTimeout(() => {
                 const relatedTarget = e.relatedTarget || document.activeElement;
@@ -1104,7 +1100,7 @@ function initAddressAutocomplete(options = {}) {
                 if (isSelectingFromGoogle) {
                     return;
                 }
-                
+
                 if (isClickingDropdown) {
                     return;
                 }

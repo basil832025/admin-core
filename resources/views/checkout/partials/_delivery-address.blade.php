@@ -89,9 +89,9 @@
          x-data="{ isPrivate: @json((bool) old('addr.is_private_house', !empty($sessionData['addr_is_private_house']))) }"
     >
         {{-- Скрытое поле для города (заполняется автоматически из Google Autocomplete) --}}
-        <input type="hidden" 
-               id="checkout-address-city" 
-               name="addr[city]" 
+        <input type="hidden"
+               id="checkout-address-city"
+               name="addr[city]"
                value="{{ old('addr.city', $sessionData['addr_city'] ?? '') }}"
         >
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -269,39 +269,39 @@
 
         </div>
 
-        <div data-field-wrap="addr[comment]">
-            <div class="tp-float-wrap">
+        {{--    <div data-field-wrap="addr[comment]">
+                <div class="tp-float-wrap">
+                    <input
+                        id="checkout-address-comment"
+                        name="addr[comment]"
+                        class="tp-float-input"
+                        placeholder=" "
+                        :disabled="!useNew"
+                        value="{{ old('addr.comment', $sessionData['addr_comment'] ?? '') }}"
+                    >
+                    <label for="checkout-address-comment" class="tp-float-label">
+                        {{ st('address.form.comment', 'Коментар для кур’єра') }}
+                    </label>
+                </div>
+            </div> --}}
+
+
+            <label class="inline-flex items-center gap-2">
                 <input
-                    id="checkout-address-comment"
-                    name="addr[comment]"
-                    class="tp-float-input"
-                    placeholder=" "
+                    type="checkbox"
+                    class="tp-check"
+                    name="addr[is_private_house]"
+                    value="1"
                     :disabled="!useNew"
-                    value="{{ old('addr.comment', $sessionData['addr_comment'] ?? '') }}"
+                    x-model="isPrivate"
                 >
-                <label for="checkout-address-comment" class="tp-float-label">
-                    {{ st('address.form.comment', 'Коментар для кур’єра') }}
-                </label>
-            </div>
-        </div>
+                <span class="text-sm text-gray-700">
+            {{ st('address.form.private_house', 'Це приватний будинок') }}
+        </span>
+            </label>
 
 
-        <label class="inline-flex items-center gap-2">
-            <input
-                type="checkbox"
-                class="tp-check"
-                name="addr[is_private_house]"
-                value="1"
-                :disabled="!useNew"
-                x-model="isPrivate"
-            >
-            <span class="text-sm text-gray-700">
-        {{ st('address.form.private_house', 'Це приватний будинок') }}
-    </span>
-        </label>
-
-
-        {{-- Тип адреса: дом / работа / друзья --}}
+            {{-- Тип адреса: дом / работа / друзья --}}
         <div
             class="flex flex-wrap gap-2"
             x-data="{ t: '{{ old('addr.type', $sessionData['addr_type'] ?? 'home') }}' }"
