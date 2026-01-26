@@ -833,15 +833,23 @@ function initAddressAutocomplete(options = {}) {
 
             if (query.length < 2) {
                 hideCustomDropdown();
-                isPlaceSelected = false;
-                selectedStreetValue = '';
+                // НЕ сбрасываем isPlaceSelected, если пользователь случайно удалил символ
+                // isPlaceSelected = false;
+                // selectedStreetValue = '';
                 return;
             }
 
             // Если адрес был выбран, но пользователь начал редактировать, сбрасываем флаг
-            if (isPlaceSelected && query !== selectedStreetValue) {
-                isPlaceSelected = false;
-                selectedStreetValue = '';
+            // Но только если изменение значительное (не просто удаление пробела в конце)
+            if (isPlaceSelected && selectedStreetValue && query !== selectedStreetValue) {
+                // Проверяем, не является ли это просто обрезкой пробелов или незначительным изменением
+                const trimmedQuery = query.trim();
+                const trimmedSelected = selectedStreetValue.trim();
+                if (trimmedQuery !== trimmedSelected && !trimmedSelected.startsWith(trimmedQuery)) {
+                    // Значительное изменение - сбрасываем флаг
+                    isPlaceSelected = false;
+                    selectedStreetValue = '';
+                }
             }
 
             // Показываем индикатор загрузки
@@ -993,12 +1001,12 @@ function initAddressAutocomplete(options = {}) {
 
                                         // Устанавливаем флаги ПЕРЕД заполнением полей
                                         isSelectingFromGoogle = true;
+                                        isPlaceSelected = true; // Устанавливаем сразу, чтобы blur не сработал
 
                                         // Заполняем поля
                                         if (fullStreetValue) {
                                             streetInput.value = fullStreetValue;
                                             selectedStreetValue = fullStreetValue;
-                                            isPlaceSelected = true;
                                         }
 
                                         if (streetNumber && houseInput) {
@@ -1031,12 +1039,13 @@ function initAddressAutocomplete(options = {}) {
                                             });
                                         }
 
-                                        // Сбрасываем флаг выбора после задержки, чтобы blur не сработал раньше
+                                        // НЕ вызываем blur() - пусть пользователь сам переходит на другое поле
+                                        // Это предотвратит преждевременное срабатывание валидации
+                                        
+                                        // Сбрасываем флаг выбора после большой задержки
                                         setTimeout(() => {
                                             isSelectingFromGoogle = false;
-                                        }, 500); // Увеличиваем задержку до 500ms
-
-                                        streetInput.blur();
+                                        }, 2000); // Увеличиваем задержку до 2000ms
                                 });
 
                                 customDropdown.appendChild(element);
@@ -1052,6 +1061,11 @@ function initAddressAutocomplete(options = {}) {
         // Скрываем dropdown при потере фокуса
         let blurTimeout = null;
         streetInput.addEventListener('blur', (e) => {
+            // Если идет процесс выбора из Google Places, не скрываем dropdown сразу
+            if (isSelectingFromGoogle) {
+                return;
+            }
+            
             clearTimeout(blurTimeout);
             blurTimeout = setTimeout(() => {
                 const relatedTarget = e.relatedTarget || document.activeElement;
@@ -1077,12 +1091,13 @@ function initAddressAutocomplete(options = {}) {
 
         // Валидация ручного ввода (та же логика, что и в стандартном режиме)
         streetInput.addEventListener('blur', function(e) {
+            // Используем более длинную задержку, чтобы дать время всем событиям завершиться
             setTimeout(() => {
                 // Если идет процесс выбора из Google Places, не валидируем
                 if (isSelectingFromGoogle) {
                     return;
                 }
-
+                
                 if (isClickingDropdown) {
                     return;
                 }
@@ -1091,12 +1106,18 @@ function initAddressAutocomplete(options = {}) {
 
                 // Если адрес был выбран из Google Places, не валидируем
                 if (isPlaceSelected && selectedStreetValue) {
-                    // Проверяем, что значение соответствует выбранному
-                    if (currentValue !== selectedStreetValue) {
-                        // Восстанавливаем выбранное значение
-                        e.target.value = selectedStreetValue;
+                    // Проверяем, что значение соответствует выбранному (с небольшой толерантностью)
+                    if (currentValue && currentValue.trim() !== '' && currentValue !== selectedStreetValue) {
+                        // Если значение отличается, но похоже на выбранное (может быть обрезано), не показываем ошибку
+                        if (selectedStreetValue.includes(currentValue.trim()) || currentValue.trim().includes(selectedStreetValue)) {
+                            // Значения похожи, восстанавливаем полное значение
+                            e.target.value = selectedStreetValue;
+                        } else {
+                            // Значения сильно отличаются, восстанавливаем выбранное значение
+                            e.target.value = selectedStreetValue;
+                        }
                     }
-                    return;
+                    return; // Всегда выходим, если адрес был выбран
                 }
 
                 // Если адрес не был выбран из Google Places, но есть значение - очищаем и показываем ошибку
@@ -1104,7 +1125,7 @@ function initAddressAutocomplete(options = {}) {
                     e.target.value = '';
                     showAddressErrorModal(addressText('manual_input_not_allowed'));
                 }
-            }, 500); // Увеличиваем задержку до 500ms, чтобы дать время событию выбора сработать
+            }, 1500); // Увеличиваем задержку до 1500ms, чтобы дать время событию выбора сработать и флагам установиться
         });
 
         streetInput.addEventListener('paste', function(e) {

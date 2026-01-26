@@ -45,10 +45,10 @@ export default function authModal(opts = {}) {
 
         init() {
             // console.log('authModal init', {
-                raw: opts.authMethod,
-                normalized: this.authMethod,
-                isPhoneSms: this.isPhoneSms,
-            });
+            //     raw: opts.authMethod,
+            //     normalized: this.authMethod,
+            //     isPhoneSms: this.isPhoneSms,
+            // });
         },
         successMessage: '',
         smsRefs:    [],   // refs для SMS кода (4 инпута)
@@ -844,7 +844,7 @@ export default function authModal(opts = {}) {
         },
         stopResendTimer(){
             if (this._timer) { clearInterval(this._timer); this._timer = null; }
-        },
+        }
     };
 }
 
