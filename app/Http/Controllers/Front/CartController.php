@@ -23,13 +23,17 @@ class CartController extends Controller
             return back()->with('cart_error', 'Не передан идентификатор товара.');
         }
 
-        // Добавляем/изменяем количество (может быть отрицательным для уменьшения)
         $qty   = (int) $r->input('qty', 1);
         $price = $r->has('price') ? (float) $r->input('price') : null;
 
-        // Используем ту же логику, что и при добавлении из списка (CartService::add)
-        // CartService::add поддерживает отрицательные значения для уменьшения количества
-        $payload = $this->cart->add($pid, $qty, $price);
+        // Если передан параметр set=true, устанавливаем абсолютное количество
+        if ($r->boolean('set', false)) {
+            $payload = $this->cart->setQty($pid, $qty, $price);
+        } else {
+            // Иначе добавляем/уменьшаем количество (может быть отрицательным для уменьшения)
+            // CartService::add поддерживает отрицательные значения для уменьшения количества
+            $payload = $this->cart->add($pid, $qty, $price);
+        }
 
         // Для AJAX/JSON-запросов возвращаем JSON как раньше
         if ($r->expectsJson() || $r->wantsJson() || $r->ajax()) {

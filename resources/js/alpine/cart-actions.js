@@ -125,14 +125,29 @@ export default function registerCartActions(Alpine) {
         findQtyInput(id) {
             return document.querySelector(`[data-cart-item="${id}"] [data-cart-qty-input]`);
         },
-        // ❗ при ручном вводе — минимум 1
+        // При ручном вводе разрешаем пустое значение, валидация только при blur
         onQtyInput(id, el) {
-            let qty = this.normalizeQty(el.value);
-            if (qty < 1) qty = 1;
+            // Разрешаем пустое значение во время ввода
+            const value = el.value.trim();
+            if (value === '') {
+                // Поле пустое - не отправляем запрос, просто разрешаем пустое значение
+                return;
+            }
+            
+            // Если есть значение, нормализуем его, но не форсируем минимум 1
+            let qty = this.normalizeQty(value);
+            // Если значение 0 или отрицательное, оставляем как есть (пользователь может стереть)
+            if (qty === 0) {
+                // Значение 0 - не отправляем запрос, позволяем пользователю продолжить ввод
+                return;
+            }
+            
+            // Если значение валидное и > 0, обновляем отображение и отправляем
             el.value = String(qty);
             this.set(id, qty);
         },
         onQtyBlur(id, el) {
+            // При потере фокуса валидируем и устанавливаем минимум 1
             let qty = this.normalizeQty(el.value);
             if (qty < 1) qty = 1;
             el.value = String(qty);
