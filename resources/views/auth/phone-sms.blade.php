@@ -42,7 +42,7 @@
                 <div
                     class="flex-1 flex flex-col justify-start md:justify-between
            p-4 md:p-8 lg:p-12 xl:p-16 overflow-visible
-           pt-4 pb-[calc(40vh+env(safe-area-inset-bottom))] md:pt-8 md:pb-8"
+           pt-4 pb-[calc(50vh+env(safe-area-inset-bottom))] md:pt-8 md:pb-8"
                     x-data="authPhoneSmsPage()"
                 >
                     {{-- Форма входа --}}
