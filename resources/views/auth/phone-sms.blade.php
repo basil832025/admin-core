@@ -352,7 +352,7 @@
                         this.loginPhoneSmsLoading = false;
 
                         // Запускаем таймер для повторной отправки
-                        this.sms.resendIn = 180;
+                        this.sms.resendIn = 60;
                         const timer = setInterval(() => {
                             this.sms.resendIn--;
                             if (this.sms.resendIn <= 0) {
