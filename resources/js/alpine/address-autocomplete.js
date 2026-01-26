@@ -79,7 +79,14 @@ function initAddressAutocomplete(options = {}) {
                 setupKyivOnlyPacFilter();
             }
 
+            // Сохраняем выбранное значение улицы из Google Places
+            let selectedStreetValue = '';
+            let isPlaceSelected = false;
+            let isSelectingFromGoogle = false; // Флаг, что идет процесс выбора из Google Places
+
             autocomplete.addListener('place_changed', function () {
+                // Устанавливаем флаг, что выбор происходит из Google Places
+                isSelectingFromGoogle = true;
                 const place = autocomplete.getPlace();
                 if (!place || !place.geometry || !place.geometry.location) return;
 
@@ -105,6 +112,8 @@ function initAddressAutocomplete(options = {}) {
                     if (!city || !/київ|kyiv|киев/i.test(city)) {
                         streetInput.value = '';
                         if (houseInput) houseInput.value = '';
+                        selectedStreetValue = '';
+                        isPlaceSelected = false;
                         alert('Доставка зараз працює тільки по Києву. Будь ласка, оберіть адресу в межах Києва.');
                         return;
                     }
@@ -119,6 +128,15 @@ function initAddressAutocomplete(options = {}) {
                 // Заполняем поле улицы (только название улицы без номера)
                 if (street) {
                     streetInput.value = street;
+                    selectedStreetValue = street;
+                    isPlaceSelected = true;
+                    // Сбрасываем флаг выбора после небольшой задержки, чтобы blur не сработал раньше
+                    setTimeout(() => {
+                        isSelectingFromGoogle = false;
+                    }, 100);
+                } else {
+                    // Если улица не найдена, сбрасываем флаг
+                    isSelectingFromGoogle = false;
                 }
 
                 // Заполняем поле дома, если номер дома есть
@@ -168,6 +186,116 @@ function initAddressAutocomplete(options = {}) {
                     }
                 }, 50);
             });
+
+            // Отслеживаем ручной ввод и запрещаем сохранение значения, не выбранного из Google Places
+            let isTypingForSearch = false; // Флаг, что пользователь вводит для поиска в Google Places
+            
+            // Отслеживаем клики по элементам из списка Google Places
+            document.addEventListener('click', function(e) {
+                // Если клик по элементу из списка Google Places
+                const pacItem = e.target.closest('.pac-item');
+                if (pacItem) {
+                    isSelectingFromGoogle = true;
+                    // Сбрасываем флаг через 500ms, если выбор не произошел
+                    setTimeout(() => {
+                        if (isSelectingFromGoogle) {
+                            isSelectingFromGoogle = false;
+                        }
+                    }, 500);
+                }
+            }, true); // Используем capture phase для раннего перехвата
+            
+            // Разрешаем ввод для поиска, но запрещаем сохранение значения, не выбранного из списка
+            streetInput.addEventListener('input', function(e) {
+                const currentValue = e.target.value;
+                
+                // Если адрес был выбран из Google Places
+                if (isPlaceSelected && selectedStreetValue) {
+                    // Если пользователь начал редактировать выбранный адрес
+                    if (currentValue !== selectedStreetValue) {
+                        // Сбрасываем флаг выбора, разрешаем ввод для нового поиска
+                        isPlaceSelected = false;
+                        selectedStreetValue = '';
+                        isTypingForSearch = true;
+                        isSelectingFromGoogle = false;
+                    }
+                } else {
+                    // Пользователь вводит для поиска
+                    isTypingForSearch = true;
+                }
+            });
+
+            // При потере фокуса проверяем, что значение было выбрано из Google Places
+            streetInput.addEventListener('blur', function(e) {
+                // Добавляем задержку, чтобы дать время событию place_changed сработать
+                setTimeout(() => {
+                    // Если идет процесс выбора из Google Places, не валидируем
+                    if (isSelectingFromGoogle) {
+                        return;
+                    }
+                    
+                    const currentValue = e.target.value;
+                    
+                    // Если адрес был выбран из Google Places, но значение изменилось - восстанавливаем
+                    if (isPlaceSelected && selectedStreetValue && currentValue !== selectedStreetValue) {
+                        e.target.value = selectedStreetValue;
+                        return;
+                    }
+                    
+                    // Если адрес не был выбран из Google Places, но есть значение - очищаем
+                    if (!isPlaceSelected && currentValue && currentValue.trim() !== '') {
+                        e.target.value = '';
+                        alert('Будь ласка, оберіть адресу зі списку Google. Ручний ввід адреси не дозволено.');
+                    }
+                    
+                    isTypingForSearch = false;
+                }, 300); // Задержка 300ms, чтобы дать время place_changed сработать
+            });
+
+            // При вставке (paste) запрещаем, если адрес не выбран из Google Places
+            streetInput.addEventListener('paste', function(e) {
+                // Если адрес уже выбран из Google Places, разрешаем вставку только если это то же значение
+                if (isPlaceSelected && selectedStreetValue) {
+                    // Разрешаем вставку, но проверим после события paste
+                    setTimeout(() => {
+                        if (streetInput.value !== selectedStreetValue) {
+                            streetInput.value = selectedStreetValue;
+                            alert('Будь ласка, оберіть адресу зі списку Google. Вставка адреси не дозволена.');
+                        }
+                    }, 0);
+                } else {
+                    // Если адрес не выбран, запрещаем вставку
+                    e.preventDefault();
+                    alert('Будь ласка, оберіть адресу зі списку Google. Вставка адреси не дозволена.');
+                }
+            });
+
+            // Добавляем валидацию при отправке формы
+            const form = streetInput.closest('form');
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    const currentValue = streetInput.value;
+                    
+                    // Если адрес не был выбран из Google Places, но есть значение - блокируем отправку
+                    if (!isPlaceSelected && currentValue && currentValue.trim() !== '') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        alert('Будь ласка, оберіть адресу зі списку Google. Ручний ввід адреси не дозволено.');
+                        streetInput.focus();
+                        return false;
+                    }
+                    
+                    // Если адрес был выбран, но значение изменилось - блокируем отправку
+                    if (isPlaceSelected && selectedStreetValue && currentValue !== selectedStreetValue) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        streetInput.value = selectedStreetValue;
+                        alert('Будь ласка, оберіть адресу зі списку Google. Ручний ввід адреси не дозволено.');
+                        streetInput.focus();
+                        return false;
+                    }
+                }, true); // Используем capture phase для раннего перехвата
+            }
 
             // Закрываем dropdown при потере фокуса
             streetInput.addEventListener('blur', function() {
