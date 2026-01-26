@@ -222,6 +222,31 @@ document.addEventListener('alpine:init', () => {
 @endsection
 
 @push('scripts')
+{{-- jQuery необходим для map-cart.js --}}
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+{{-- Загружаем Google Maps API асинхронно, чтобы не блокировать Alpine.js --}}
+<script>
+(function() {
+    // Флаг для отслеживания загрузки Google Maps API
+    window.__googleMapsLoading = true;
+    window.__googleMapsLoaded = false;
+    
+    // Callback для инициализации после загрузки Google Maps
+    window.__onGoogleMapsLoaded = function() {
+        window.__googleMapsLoaded = true;
+        window.__googleMapsLoading = false;
+    };
+    
+    // Загружаем Google Maps API асинхронно
+    const script = document.createElement('script');
+    script.src = 'https://maps.googleapis.com/maps/api/js?key={{ config('services.google_maps.key') }}&libraries=places,geometry&callback=__onGoogleMapsLoaded';
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+})();
+</script>
+{{-- Загружаем map-cart.js для доступа к deliveryAreas --}}
+@vite(['resources/js/map-cart.js'])
 <script>
 (function() {
     // Сохранение данных формы в сессию
@@ -334,28 +359,73 @@ document.addEventListener('alpine:init', () => {
     });
 })();
 
-// Инициализация автозаполнения адреса для checkout (только Киев)
+// Инициализация автозаполнения адреса для checkout с фильтрацией по зонам доставки
 (function() {
     function initCheckoutAutocomplete() {
-        if (typeof window.initAddressAutocomplete !== 'undefined') {
+        // Проверяем, что все зависимости загружены
+        if (typeof window.initAddressAutocomplete === 'undefined') {
+            setTimeout(initCheckoutAutocomplete, 200);
+            return;
+        }
+        
+        // Ждем загрузки Google Maps API (если еще не загружен)
+        if (typeof google === 'undefined' || !google.maps || !google.maps.places) {
+            // Проверяем флаг загрузки
+            if (window.__googleMapsLoading && !window.__googleMapsLoaded) {
+                setTimeout(initCheckoutAutocomplete, 200);
+                return;
+            }
+            // Если Google Maps не загружается, используем стандартное автозаполнение
+            console.warn('Google Maps API не загружен, используем стандартное автозаполнение');
             window.initAddressAutocomplete({
                 streetInputId: 'checkout-address-street',
                 houseInputId: 'checkout-address-house',
-                kyivOnly: true, // Ограничиваем только Киевом
+                cityInputSelector: '#checkout-address-city',
+                kyivOnly: true,
+                filterByDeliveryZone: false,
                 googleMapsKey: window.GOOGLE_MAPS_API_KEY,
             });
+            return;
+        }
+        
+        // Используем единую логику с фильтрацией по зонам доставки
+        window.initAddressAutocomplete({
+            streetInputId: 'checkout-address-street',
+            houseInputId: 'checkout-address-house',
+            cityInputSelector: '#checkout-address-city', // Передаем селектор скрытого поля города
+            kyivOnly: true,
+            filterByDeliveryZone: true, // Включаем фильтрацию по зонам доставки
+            googleMapsKey: window.GOOGLE_MAPS_API_KEY,
+        });
+    }
+    
+    // Ждем загрузки DOM и всех зависимостей
+    function waitForDependencies() {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                setTimeout(initCheckoutAutocomplete, 500);
+            });
         } else {
-            // Если библиотека еще не загружена, ждем немного и пробуем снова
             setTimeout(initCheckoutAutocomplete, 500);
         }
     }
     
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function() {
-            setTimeout(initCheckoutAutocomplete, 500);
-        });
+    // Если Google Maps загружается асинхронно, ждем его загрузки
+    if (window.__googleMapsLoading) {
+        const checkGoogleMaps = setInterval(function() {
+            if (window.__googleMapsLoaded || (typeof google !== 'undefined' && google.maps && google.maps.places)) {
+                clearInterval(checkGoogleMaps);
+                waitForDependencies();
+            }
+        }, 200);
+        
+        // Таймаут на случай, если Google Maps не загрузится
+        setTimeout(function() {
+            clearInterval(checkGoogleMaps);
+            waitForDependencies();
+        }, 10000);
     } else {
-        setTimeout(initCheckoutAutocomplete, 500);
+        waitForDependencies();
     }
 })();
 </script>

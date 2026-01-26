@@ -2,20 +2,58 @@ let allSumm = 0;        // ← добавить
 //var center = new google.maps.LatLng(50.4590851, 30.4182548);
 const CENTER = { lat: 50.4590851, lng: 30.4182548 }; // литерал безопасен до загрузки API
 function resolveAreaByLatLng(latLng) {
+    // Проверяем, что Google Maps API загружен
+    if (typeof google === 'undefined' || !google.maps || !google.maps.geometry || !google.maps.geometry.poly) {
+        console.warn('Google Maps API не загружен, resolveAreaByLatLng не может работать');
+        return null;
+    }
+    
+    // Проверяем, что deliveryAreas определен
+    if (typeof deliveryAreas === 'undefined') {
+        console.warn('deliveryAreas не определен');
+        return null;
+    }
+    
     for (const key in deliveryAreas) {
-        if (google.maps.geometry.poly.containsLocation(latLng, deliveryAreas[key].polygon)) {
+        if (deliveryAreas[key].polygon && google.maps.geometry.poly.containsLocation(latLng, deliveryAreas[key].polygon)) {
             return deliveryAreas[key]; // { price, time: [min,max], free, ... }
         }
     }
     return null;
 }
 
+// Делаем функцию доступной глобально для использования в других модулях
+if (typeof window !== 'undefined') {
+    window.resolveAreaByLatLng = resolveAreaByLatLng;
+}
+
 function initMap() {
-    let map, marker, bounds, infoWindow;   // ← объявили infoWindow
-    const center = CENTER;
-    bounds = new google.maps.LatLngBounds();
+    // Проверяем, что Google Maps API загружен
+    if (typeof google === 'undefined' || !google.maps || !google.maps.Map) {
+        console.warn('Google Maps API не загружен, initMap не может работать');
+        // Делаем deliveryAreas доступным глобально даже без Google Maps API
+        if (typeof window !== 'undefined' && typeof deliveryAreas !== 'undefined') {
+            window.deliveryAreas = deliveryAreas;
+        }
+        return;
+    }
+    
+    // Проверяем наличие элемента карты (может отсутствовать на страницах без карты)
+    const mapElement = document.getElementById('map');
+    if (!mapElement) {
+        // Элемента карты нет, но делаем deliveryAreas доступным глобально
+        if (typeof window !== 'undefined' && typeof deliveryAreas !== 'undefined') {
+            window.deliveryAreas = deliveryAreas;
+        }
+        return;
+    }
+    
+    try {
+        let map, marker, bounds, infoWindow;   // ← объявили infoWindow
+        const center = CENTER;
+        bounds = new google.maps.LatLngBounds();
     // 1) СОЗДАЁМ КАРТУ
-    map = new google.maps.Map(document.getElementById('map'), {
+    map = new google.maps.Map(mapElement, {
         center,
         zoom: 11,
         mapTypeControl: true,
@@ -54,15 +92,70 @@ function initMap() {
             infoWindow.open(map);                   // ← открываем окно
         });
     }
+    
+    // Делаем deliveryAreas доступным глобально для использования в других модулях
+    if (typeof window !== 'undefined') {
+        window.deliveryAreas = deliveryAreas;
+    }
 
     var input = /** @type {!HTMLInputElement} */ (
         document.getElementById('address-input')
     );
-    var options = {
-        componentRestrictions: { country: 'ua' },
-    };
+    
+    // Используем библиотеку address-autocomplete с фильтрацией по зонам доставки
+    // Передаем существующую карту и функцию проверки зон
+    if (typeof window.initAddressAutocomplete !== 'undefined') {
+        window.initAddressAutocomplete({
+            streetInputId: 'address-input',
+            kyivOnly: true,
+            filterByDeliveryZone: true,
+            checkDeliveryZone: resolveAreaByLatLng,
+            map: map, // Используем существующую карту
+            googleMapsKey: window.GOOGLE_MAPS_API_KEY,
+            onPlaceSelected: function(data) {
+                const place = data.place;
+                if (!place || !place.geometry || !place.geometry.location) return;
 
-    var autocomplete = new google.maps.places.Autocomplete(input, options);
+                // Обновляем маркер и карту
+                const loc = place.geometry.location;
+                marker.setMap(map);
+                marker.setPosition(loc);
+                map.panTo(loc);
+                map.setZoom(13);
+
+                const area = resolveAreaByLatLng(loc);
+                updatePriceBanner(area);
+
+                // Вызываем существующий обработчик
+                if (typeof handlePlaceChange === 'function') {
+                    handlePlaceChange(place);
+                }
+            }
+        });
+    }
+    
+    // Создаем фиктивный Autocomplete для обратной совместимости
+    var autocomplete = {
+        set: function(key, value) {
+            if (key === 'place') {
+                this._place = value;
+            }
+        },
+        get: function(key) {
+            if (key === 'place') {
+                return this._place;
+            }
+        },
+        getPlace: function() {
+            return this._place;
+        },
+        addListener: function(event, callback) {
+            // Сохраняем callback для вызова
+            if (event === 'place_changed') {
+                this._placeChangedCallback = callback;
+            }
+        }
+    };
 
     autocomplete.addListener('place_changed', function () {
         const place = autocomplete.getPlace();
@@ -98,19 +191,25 @@ function initMap() {
     // Обработчики для элементов, влияющих на цену доставки
 
     $('.js-qty-minus, .js-qty-plus').click(function () {
-        setTimeout(handlePlaceChange, 200); //
+        setTimeout(function() { handlePlaceChange(); }, 200); //
     });
     $('.radio-custom').on('click', function () {
-        setTimeout(handlePlaceChange, 400);
+        setTimeout(function() { handlePlaceChange(); }, 400);
     });
 
     // Основная функция расчета доставки
 
-    function handlePlaceChange() {
+    function handlePlaceChange(placeParam) {
        // marker.setMap(null);
-        var place = autocomplete.getPlace();
+        var place = placeParam || autocomplete.getPlace();
+        if (!place) {
+            console.warn('handlePlaceChange: place is undefined');
+            return;
+        }
         console.log(place);
-        $('#placeId').val(place.place_id);
+        if (place.place_id) {
+            $('#placeId').val(place.place_id);
+        }
         var newBounds = bounds;
         var dell = $('#orderPrice').attr('data-delivery');
         var price = $('#prices').val();
@@ -224,6 +323,13 @@ function initMap() {
                     'Вибачте, ми не доставляэмо за обраною адресою.'
                 );
             }
+        }
+    }
+    } catch (e) {
+        console.error('Ошибка в initMap:', e);
+        // Делаем deliveryAreas доступным глобально даже при ошибке
+        if (typeof window !== 'undefined' && typeof deliveryAreas !== 'undefined') {
+            window.deliveryAreas = deliveryAreas;
         }
     }
 }
@@ -816,6 +922,7 @@ const deliveryPrice = {
 };
 
 
+// Делаем deliveryAreas доступным глобально сразу после определения
 var deliveryAreas = {
   Brown_1: {
     area: [
@@ -9248,4 +9355,11 @@ var deliveryAreas = {
     color: '#A52714',
   },
 };
+
+// Делаем deliveryAreas доступным глобально сразу после определения объекта
+// Это нужно для использования на страницах, где initMap() не вызывается
+if (typeof window !== 'undefined') {
+    window.deliveryAreas = deliveryAreas;
+}
+
 window.onload = initMap;

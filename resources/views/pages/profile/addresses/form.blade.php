@@ -226,21 +226,92 @@
     </div>
 
     @push('scripts')
+    {{-- jQuery необходим для map-cart.js --}}
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    {{-- Загружаем Google Maps API синхронно перед map-cart.js --}}
+    <script src="https://maps.googleapis.com/maps/api/js?key={{ config('services.google_maps.key') }}&libraries=places,geometry"></script>
+    {{-- Загружаем map-cart.js для доступа к deliveryAreas --}}
+    @vite(['resources/js/map-cart.js'])
     <script>
-    // Инициализация автозаполнения адреса для профиля (только Киев)
+    // Инициализация автозаполнения адреса для профиля с фильтрацией по зонам доставки
     (function() {
         function initProfileAutocomplete() {
-            if (typeof window.initAddressAutocomplete !== 'undefined') {
+            if (typeof window.initAddressAutocomplete === 'undefined' || typeof window.deliveryAreas === 'undefined') {
+                setTimeout(initProfileAutocomplete, 200);
+                return;
+            }
+            
+            // Создаем скрытую карту для проверки зон доставки
+            const hiddenMapDiv = document.createElement('div');
+            hiddenMapDiv.id = 'hidden-map-for-profile';
+            hiddenMapDiv.style.cssText = 'display: none; width: 1px; height: 1px; position: absolute; left: -9999px;';
+            document.body.appendChild(hiddenMapDiv);
+            
+            let hiddenMap = null;
+            let resolveAreaByLatLng = null;
+            
+            try {
+                hiddenMap = new google.maps.Map(hiddenMapDiv, {
+                    center: { lat: 50.4590851, lng: 30.4182548 },
+                    zoom: 11,
+                    disableDefaultUI: true,
+                });
+            } catch (e) {
+                console.error('Ошибка создания скрытой карты:', e);
+                return;
+            }
+            
+            // Создаем полигоны зон доставки
+            const deliveryAreas = window.deliveryAreas;
+            if (deliveryAreas) {
+                for (const key in deliveryAreas) {
+                    if (!deliveryAreas[key].polygon && deliveryAreas[key].area) {
+                        deliveryAreas[key].polygon = new google.maps.Polygon({
+                            path: deliveryAreas[key].area,
+                            geodesic: true,
+                            map: null,
+                        });
+                    }
+                }
+            }
+            
+            // Создаем функцию проверки зон
+            if (typeof window.resolveAreaByLatLng !== 'undefined') {
+                resolveAreaByLatLng = window.resolveAreaByLatLng;
+            } else if (deliveryAreas) {
+                resolveAreaByLatLng = function(latLng) {
+                    for (const key in deliveryAreas) {
+                        if (deliveryAreas[key].polygon && 
+                            google.maps.geometry.poly.containsLocation(latLng, deliveryAreas[key].polygon)) {
+                            return deliveryAreas[key];
+                        }
+                    }
+                    return null;
+                };
+            }
+            
+            // Используем ту же логику, что и на checkout - с фильтрацией по зонам доставки
+            if (resolveAreaByLatLng && hiddenMap) {
                 window.initAddressAutocomplete({
                     streetInputId: 'profile-address-street',
                     houseInputId: 'profile-address-house',
                     cityInputSelector: 'input[name="city"]',
-                    kyivOnly: true, // Ограничиваем только Киевом
+                    kyivOnly: true, // Ограничиваем поиск только Киевом
+                    filterByDeliveryZone: true, // Включаем фильтрацию по зонам доставки
+                    checkDeliveryZone: resolveAreaByLatLng,
+                    map: hiddenMap,
                     googleMapsKey: window.GOOGLE_MAPS_API_KEY,
                 });
             } else {
-                // Если библиотека еще не загружена, ждем немного и пробуем снова
-                setTimeout(initProfileAutocomplete, 500);
+                // Fallback: используем стандартное автозаполнение без фильтрации
+                window.initAddressAutocomplete({
+                    streetInputId: 'profile-address-street',
+                    houseInputId: 'profile-address-house',
+                    cityInputSelector: 'input[name="city"]',
+                    kyivOnly: true,
+                    filterByDeliveryZone: false,
+                    googleMapsKey: window.GOOGLE_MAPS_API_KEY,
+                });
             }
         }
         

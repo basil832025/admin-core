@@ -88,6 +88,12 @@
     <div class="space-y-4" x-show="useNew" x-cloak
          x-data="{ isPrivate: @json((bool) old('addr.is_private_house', !empty($sessionData['addr_is_private_house']))) }"
     >
+        {{-- Скрытое поле для города (заполняется автоматически из Google Autocomplete) --}}
+        <input type="hidden" 
+               id="checkout-address-city" 
+               name="addr[city]" 
+               value="{{ old('addr.city', $sessionData['addr_city'] ?? '') }}"
+        >
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div class="input-required"
                  x-data="{ focused:false }"

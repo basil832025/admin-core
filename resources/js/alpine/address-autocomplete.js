@@ -10,7 +10,7 @@
 function showAddressErrorModal(message) {
     // Проверяем, существует ли уже модальное окно
     let modal = document.getElementById('address-error-modal');
-    
+
     if (!modal) {
         // Создаем модальное окно, если его нет
         modal = document.createElement('div');
@@ -43,7 +43,7 @@ function showAddressErrorModal(message) {
             </div>
         `;
         document.body.appendChild(modal);
-        
+
         // Обработчики закрытия
         const closeModal = () => {
             modal.classList.remove('show');
@@ -52,11 +52,11 @@ function showAddressErrorModal(message) {
                 modal.style.display = 'none';
             }, 200);
         };
-        
+
         document.getElementById('address-error-modal-close').addEventListener('click', closeModal);
         document.getElementById('address-error-modal-ok').addEventListener('click', closeModal);
         document.getElementById('address-error-modal-backdrop').addEventListener('click', closeModal);
-        
+
         // Закрытие по Escape
         const escapeHandler = (e) => {
             if (e.key === 'Escape' && modal.style.display !== 'none') {
@@ -65,19 +65,200 @@ function showAddressErrorModal(message) {
         };
         document.addEventListener('keydown', escapeHandler);
     }
-    
+
     // Устанавливаем сообщение
     const messageEl = document.getElementById('address-error-modal-message');
     if (messageEl) {
         messageEl.textContent = message;
     }
-    
+
     // Показываем модальное окно
     modal.style.display = 'flex';
     // Добавляем класс для анимации
     setTimeout(() => {
         modal.classList.add('show');
     }, 10);
+}
+
+/**
+ * Загружает зависимости для фильтрации по зонам доставки (Google Maps API, jQuery, map-cart.js)
+ * @param {Function} callback - Функция, которая будет вызвана после загрузки всех зависимостей
+ */
+function loadDeliveryZoneDependencies(callback) {
+    let googleMapsLoaded = false;
+    let jqueryLoaded = false;
+    let mapCartLoaded = false;
+    let allChecksDone = false;
+    
+    // Проверяем, что уже загружено
+    if (typeof google !== 'undefined' && google.maps && google.maps.places && google.maps.geometry) {
+        googleMapsLoaded = true;
+    }
+    if (typeof $ !== 'undefined' && typeof jQuery !== 'undefined') {
+        jqueryLoaded = true;
+    }
+    if (typeof window.deliveryAreas !== 'undefined') {
+        mapCartLoaded = true;
+    }
+    
+    // Если все уже загружено, вызываем callback
+    if (googleMapsLoaded && mapCartLoaded) {
+        callback();
+        return;
+    }
+    
+    // Функция проверки готовности
+    function checkAllLoaded() {
+        if (allChecksDone) return;
+        
+        // Google Maps API обязателен
+        if (!googleMapsLoaded) return;
+        
+        // jQuery не обязателен, если deliveryAreas уже доступен
+        // map-cart.js обязателен (через deliveryAreas)
+        if (typeof window.deliveryAreas !== 'undefined') {
+            mapCartLoaded = true;
+            allChecksDone = true;
+            callback();
+        } else {
+            // Ждем загрузки map-cart.js (максимум 10 секунд)
+            let attempts = 0;
+            const maxAttempts = 50;
+            const interval = setInterval(function() {
+                attempts++;
+                if (typeof window.deliveryAreas !== 'undefined') {
+                    mapCartLoaded = true;
+                    allChecksDone = true;
+                    clearInterval(interval);
+                    callback();
+                } else if (attempts >= maxAttempts) {
+                    clearInterval(interval);
+                    allChecksDone = true;
+                    console.warn('map-cart.js не загрузился, фильтрация по зонам недоступна');
+                    callback(); // Вызываем callback даже если map-cart.js не загрузился
+                }
+            }, 200);
+        }
+    }
+    
+    // Загружаем Google Maps API (только если еще не загружен)
+    if (!googleMapsLoaded) {
+        // Проверяем, не загружается ли уже скрипт
+        const existingScript = document.querySelector('script[src*="maps.googleapis.com/maps/api/js"]');
+        if (existingScript) {
+            // Скрипт уже есть, ждем его загрузки
+            const checkInterval = setInterval(function() {
+                if (typeof google !== 'undefined' && google.maps && google.maps.places && google.maps.geometry) {
+                    googleMapsLoaded = true;
+                    clearInterval(checkInterval);
+                    checkAllLoaded();
+                }
+            }, 200);
+            
+            // Таймаут на случай, если скрипт не загрузится
+            setTimeout(function() {
+                clearInterval(checkInterval);
+                if (!googleMapsLoaded) {
+                    console.warn('Google Maps API не загрузился в течение 10 секунд');
+                    callback();
+                }
+            }, 10000);
+        } else {
+            // Загружаем Google Maps API
+            const googleScript = document.createElement('script');
+            googleScript.src = `https://maps.googleapis.com/maps/api/js?key=${window.GOOGLE_MAPS_API_KEY || ''}&libraries=places,geometry`;
+            googleScript.async = true;
+            googleScript.defer = true;
+            googleScript.onload = function() {
+                googleMapsLoaded = true;
+                checkAllLoaded();
+            };
+            googleScript.onerror = function() {
+                console.error('Ошибка загрузки Google Maps API');
+                googleMapsLoaded = false;
+                callback(); // Вызываем callback даже при ошибке
+            };
+            document.head.appendChild(googleScript);
+        }
+    } else {
+        checkAllLoaded();
+    }
+    
+    // Загружаем jQuery (не обязателен, но может быть нужен для map-cart.js)
+    if (!jqueryLoaded && typeof window.deliveryAreas === 'undefined') {
+        // Проверяем, не загружается ли уже jQuery
+        const existingJQuery = document.querySelector('script[src*="jquery"]');
+        if (existingJQuery) {
+            // jQuery уже загружается, ждем
+            const checkJQueryInterval = setInterval(function() {
+                if (typeof $ !== 'undefined' && typeof jQuery !== 'undefined') {
+                    jqueryLoaded = true;
+                    clearInterval(checkJQueryInterval);
+                }
+            }, 200);
+            
+            setTimeout(function() {
+                clearInterval(checkJQueryInterval);
+            }, 5000);
+        } else {
+            // Загружаем jQuery
+            const jqueryScript = document.createElement('script');
+            jqueryScript.src = 'https://code.jquery.com/jquery-3.7.1.min.js';
+            jqueryScript.onload = function() {
+                jqueryLoaded = true;
+            };
+            jqueryScript.onerror = function() {
+                console.warn('Ошибка загрузки jQuery, продолжаем без него');
+            };
+            document.head.appendChild(jqueryScript);
+        }
+    }
+}
+
+/**
+ * Создает функцию проверки зоны доставки на основе deliveryAreas
+ * @param {Object} map - Объект карты Google Maps
+ * @returns {Function|null} Функция проверки зоны или null
+ */
+function createDeliveryZoneChecker(map) {
+    if (typeof window.deliveryAreas === 'undefined' || !map) {
+        return null;
+    }
+    
+    const deliveryAreas = window.deliveryAreas;
+    
+    // Создаем полигоны зон доставки, если они еще не созданы
+    for (const key in deliveryAreas) {
+        if (!deliveryAreas[key].polygon && deliveryAreas[key].area) {
+            try {
+                deliveryAreas[key].polygon = new google.maps.Polygon({
+                    path: deliveryAreas[key].area,
+                    geodesic: true,
+                    map: null, // Не показываем на карте
+                });
+            } catch (e) {
+                console.error('Ошибка создания полигона зоны доставки:', e);
+            }
+        }
+    }
+    
+    // Используем глобальную функцию или создаем свою
+    if (typeof window.resolveAreaByLatLng !== 'undefined') {
+        return window.resolveAreaByLatLng;
+    } else {
+        return function(latLng) {
+            if (typeof google === 'undefined' || !google.maps || !google.maps.geometry || !google.maps.geometry.poly) {
+                return null;
+            }
+            for (const key in deliveryAreas) {
+                if (deliveryAreas[key].polygon && 
+                    google.maps.geometry.poly.containsLocation(latLng, deliveryAreas[key].polygon)) {
+                    return deliveryAreas[key];
+                }
+            }
+            return null;
+        };
+    }
 }
 
 /**
@@ -89,6 +270,11 @@ function showAddressErrorModal(message) {
  * @param {boolean} options.kyivOnly - Ограничить поиск только Киевом (по умолчанию false)
  * @param {string} options.googleMapsKey - API ключ Google Maps (если не передан, берется из window.GOOGLE_MAPS_API_KEY)
  * @param {Function} options.onPlaceSelected - Callback при выборе адреса (опционально)
+ * @param {Function} options.checkDeliveryZone - Функция для проверки попадания адреса в зону доставки (опционально)
+ *   Принимает google.maps.LatLng и возвращает объект зоны или null
+ * @param {Object} options.map - Объект карты Google Maps (необходим для работы с PlacesService, опционально)
+ * @param {boolean} options.filterByDeliveryZone - Фильтровать результаты по зонам доставки (по умолчанию false)
+ *   Если true, автоматически загрузит зависимости и создаст скрытую карту если нужно
  */
 function initAddressAutocomplete(options = {}) {
     const {
@@ -98,6 +284,9 @@ function initAddressAutocomplete(options = {}) {
         kyivOnly = false,
         googleMapsKey = null,
         onPlaceSelected = null,
+        checkDeliveryZone = null,
+        map = null,
+        filterByDeliveryZone = false,
     } = options;
 
     if (!streetInputId) {
@@ -149,12 +338,78 @@ function initAddressAutocomplete(options = {}) {
         }
 
         try {
-            const autocomplete = new google.maps.places.Autocomplete(streetInput, autocompleteOptions);
-
-            // Если нужно ограничить только Киевом, настраиваем фильтр для dropdown
-            if (kyivOnly) {
-                setupKyivOnlyPacFilter();
+            // Если нужна фильтрация по зонам доставки, загружаем зависимости и инициализируем
+            if (filterByDeliveryZone) {
+                loadDeliveryZoneDependencies(function() {
+                    // Создаем скрытую карту, если не передана
+                    let actualMap = map;
+                    if (!actualMap) {
+                        const hiddenMapDiv = document.createElement('div');
+                        hiddenMapDiv.id = `hidden-map-${streetInputId}`;
+                        hiddenMapDiv.style.cssText = 'display: none; width: 1px; height: 1px; position: absolute; left: -9999px;';
+                        document.body.appendChild(hiddenMapDiv);
+                        
+                        try {
+                            actualMap = new google.maps.Map(hiddenMapDiv, {
+                                center: { lat: 50.4590851, lng: 30.4182548 },
+                                zoom: 11,
+                                disableDefaultUI: true,
+                            });
+                        } catch (e) {
+                            console.error('Ошибка создания скрытой карты:', e);
+                            // Fallback: без фильтрации по зонам
+                            initStandardAutocomplete();
+                            return;
+                        }
+                    }
+                    
+                    // Создаем функцию проверки зон
+                    const actualCheckDeliveryZone = checkDeliveryZone || createDeliveryZoneChecker(actualMap);
+                    
+                    if (actualCheckDeliveryZone && actualMap) {
+                        initAutocompleteWithDeliveryZoneFilter(streetInput, houseInput, cityInputSelector, kyivOnly, onPlaceSelected, actualCheckDeliveryZone, actualMap);
+                    } else {
+                        console.warn('Не удалось создать функцию проверки зон, используем стандартное автозаполнение');
+                        initStandardAutocomplete();
+                    }
+                });
+                return;
             }
+            
+            // Стандартная инициализация без фильтрации по зонам
+            initStandardAutocomplete();
+        } catch (e) {
+            console.error('Error initializing Google Places Autocomplete:', e);
+        }
+    }
+    
+    function initStandardAutocomplete() {
+        const streetInput = document.getElementById(streetInputId);
+        const houseInput = houseInputId ? document.getElementById(houseInputId) : null;
+        
+        if (!streetInput) {
+            return;
+        }
+        
+        // Настройки для автозаполнения
+        const autocompleteOptions = {
+            componentRestrictions: { country: 'ua' },
+            types: ['address'],
+        };
+
+        // Если нужно ограничить только Киевом
+        if (kyivOnly) {
+            // Прямоугольник вокруг Киева
+            const kyivBounds = new google.maps.LatLngBounds(
+                new google.maps.LatLng(50.213273, 30.239440), // SW
+                new google.maps.LatLng(50.590798, 30.825941)  // NE
+            );
+            autocompleteOptions.bounds = kyivBounds;
+            autocompleteOptions.strictBounds = true;
+        }
+
+        try {
+            const autocomplete = new google.maps.places.Autocomplete(streetInput, autocompleteOptions);
 
             // Сохраняем выбранное значение улицы из Google Places
             let selectedStreetValue = '';
@@ -171,10 +426,14 @@ function initAddressAutocomplete(options = {}) {
                 let street = '';
                 let streetNumber = '';
                 let city = '';
+                let administrativeArea = '';
 
                 for (const c of comps) {
                     if (c.types.includes('locality')) {
                         city = c.long_name || '';
+                    }
+                    if (c.types.includes('administrative_area_level_1')) {
+                        administrativeArea = c.long_name || '';
                     }
                     if (c.types.includes('route')) {
                         street = c.long_name;
@@ -185,7 +444,7 @@ function initAddressAutocomplete(options = {}) {
                 }
 
                 // Если ограничение по Киеву - проверяем город
-                if (kyivOnly) {
+        /*        if (kyivOnly) {
                     if (!city || !/київ|kyiv|киев/i.test(city)) {
                         streetInput.value = '';
                         if (houseInput) houseInput.value = '';
@@ -194,7 +453,7 @@ function initAddressAutocomplete(options = {}) {
                         showAddressErrorModal('Доставка зараз працює тільки по Києву. Будь ласка, оберіть адресу в межах Києва.');
                         return;
                     }
-                }
+                }*/
 
                 // Закрываем dropdown ПЕРЕД изменением значения
                 const pacContainer = document.querySelector('.pac-container');
@@ -202,10 +461,36 @@ function initAddressAutocomplete(options = {}) {
                     pacContainer.style.display = 'none';
                 }
 
-                // Заполняем поле улицы (только название улицы без номера)
-                if (street) {
-                    streetInput.value = street;
-                    selectedStreetValue = street;
+                // Формируем строку города: если не Киев, добавляем область
+                let cityValue = '';
+                if (city) {
+                    // Проверяем, является ли это Киевом
+                    const isKyiv = city.toLowerCase().includes('київ') || 
+                                  city.toLowerCase().includes('киев') || 
+                                  city.toLowerCase().includes('kyiv');
+                    
+                    if (isKyiv) {
+                        cityValue = 'Київ';
+                    } else {
+                        // Для других городов добавляем область
+                        cityValue = city;
+                        if (administrativeArea) {
+                            cityValue += ' ' + administrativeArea;
+                        }
+                    }
+                }
+
+                // Формируем полный адрес для поля улицы
+                let fullStreetValue = street;
+                if (cityValue && cityValue !== 'Київ') {
+                    // Если город не Киев, добавляем его к адресу улицы
+                    fullStreetValue = street + (street ? ', ' : '') + cityValue;
+                }
+
+                // Заполняем поле улицы (полный адрес, если не Киев)
+                if (fullStreetValue) {
+                    streetInput.value = fullStreetValue;
+                    selectedStreetValue = fullStreetValue;
                     isPlaceSelected = true;
                     // Сбрасываем флаг выбора после небольшой задержки, чтобы blur не сработал раньше
                     setTimeout(() => {
@@ -223,10 +508,10 @@ function initAddressAutocomplete(options = {}) {
                 }
 
                 // Заполняем поле города, если оно есть
-                if (city && cityInputSelector) {
+                if (cityValue && cityInputSelector) {
                     const cityInput = document.querySelector(cityInputSelector);
-                    if (cityInput && !cityInput.value) {
-                        cityInput.value = city;
+                    if (cityInput) {
+                        cityInput.value = cityValue;
                         cityInput.dispatchEvent(new Event('input', { bubbles: true }));
                     }
                 }
@@ -266,7 +551,7 @@ function initAddressAutocomplete(options = {}) {
 
             // Отслеживаем ручной ввод и запрещаем сохранение значения, не выбранного из Google Places
             let isTypingForSearch = false; // Флаг, что пользователь вводит для поиска в Google Places
-            
+
             // Отслеживаем клики по элементам из списка Google Places
             document.addEventListener('click', function(e) {
                 // Если клик по элементу из списка Google Places
@@ -281,11 +566,11 @@ function initAddressAutocomplete(options = {}) {
                     }, 500);
                 }
             }, true); // Используем capture phase для раннего перехвата
-            
+
             // Разрешаем ввод для поиска, но запрещаем сохранение значения, не выбранного из списка
             streetInput.addEventListener('input', function(e) {
                 const currentValue = e.target.value;
-                
+
                 // Если адрес был выбран из Google Places
                 if (isPlaceSelected && selectedStreetValue) {
                     // Если пользователь начал редактировать выбранный адрес
@@ -310,21 +595,21 @@ function initAddressAutocomplete(options = {}) {
                     if (isSelectingFromGoogle) {
                         return;
                     }
-                    
+
                     const currentValue = e.target.value;
-                    
+
                     // Если адрес был выбран из Google Places, но значение изменилось - восстанавливаем
                     if (isPlaceSelected && selectedStreetValue && currentValue !== selectedStreetValue) {
                         e.target.value = selectedStreetValue;
                         return;
                     }
-                    
+
                     // Если адрес не был выбран из Google Places, но есть значение - очищаем
                     if (!isPlaceSelected && currentValue && currentValue.trim() !== '') {
                         e.target.value = '';
                         showAddressErrorModal('Будь ласка, оберіть адресу зі списку Google. Ручний ввід адреси не дозволено.');
                     }
-                    
+
                     isTypingForSearch = false;
                 }, 300); // Задержка 300ms, чтобы дать время place_changed сработать
             });
@@ -352,7 +637,7 @@ function initAddressAutocomplete(options = {}) {
             if (form) {
                 form.addEventListener('submit', function(e) {
                     const currentValue = streetInput.value;
-                    
+
                     // Если адрес не был выбран из Google Places, но есть значение - блокируем отправку
                     if (!isPlaceSelected && currentValue && currentValue.trim() !== '') {
                         e.preventDefault();
@@ -361,7 +646,7 @@ function initAddressAutocomplete(options = {}) {
                         streetInput.focus();
                         return false;
                     }
-                    
+
                     // Если адрес был выбран, но значение изменилось - блокируем отправку
                     if (isPlaceSelected && selectedStreetValue && currentValue !== selectedStreetValue) {
                         e.preventDefault();
@@ -396,6 +681,459 @@ function initAddressAutocomplete(options = {}) {
         } catch (e) {
             console.error('Error initializing Google Places Autocomplete:', e);
         }
+    }
+
+    // Функция для инициализации автозаполнения с фильтрацией по зонам доставки
+    function initAutocompleteWithDeliveryZoneFilter(streetInput, houseInput, cityInputSelector, kyivOnly, onPlaceSelected, checkDeliveryZone, map) {
+        // Проверяем, что Google Maps API полностью загружен
+        if (typeof google === 'undefined' || !google.maps || !google.maps.places || !google.maps.places.AutocompleteService) {
+            console.error('Google Maps API не полностью загружен для фильтрации по зонам');
+            return;
+        }
+        
+        // Проверяем, что map валиден
+        if (!map) {
+            console.error('Map объект не передан для фильтрации по зонам');
+            return;
+        }
+        
+        try {
+            const autocompleteService = new google.maps.places.AutocompleteService();
+            const placesService = new google.maps.places.PlacesService(map);
+
+        // Ограничиваем поиск только Киевом через bounds
+        const kyivBounds = new google.maps.LatLngBounds(
+            new google.maps.LatLng(50.213273, 30.239440), // SW
+            new google.maps.LatLng(50.590798, 30.825941)  // NE
+        );
+
+        // Переменные для управления кастомным dropdown
+        let customDropdown = null;
+        let inputTimeout = null;
+        let isProcessing = false;
+        let currentQuery = '';
+        let isClickingDropdown = false;
+        let selectedStreetValue = '';
+        let isPlaceSelected = false;
+        let isSelectingFromGoogle = false; // Флаг, что идет процесс выбора из Google Places
+
+        // Создаем кастомный dropdown (без "powered by Google")
+        function createCustomDropdown() {
+            if (customDropdown && customDropdown.parentNode) {
+                customDropdown.remove();
+            }
+            customDropdown = document.createElement('div');
+            customDropdown.id = `custom-address-dropdown-${streetInputId}`;
+            customDropdown.className = 'pac-container';
+            customDropdown.setAttribute('data-custom', 'true');
+            customDropdown.style.cssText = 'display: none; position: absolute; z-index: 10000; background: white; border: 1px solid #d4d4d4; border-radius: 2px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); max-height: 300px; overflow-y: auto; font-family: Roboto, Arial, sans-serif;';
+            document.body.appendChild(customDropdown);
+            
+            // Скрываем стандартный "powered by Google" если он появится
+            const hideGoogleLogo = function() {
+                const pacLogos = document.querySelectorAll('.pac-logo, .pac-container:not([data-custom="true"])');
+                pacLogos.forEach(logo => {
+                    if (logo !== customDropdown) {
+                        logo.style.display = 'none';
+                    }
+                });
+            };
+            setInterval(hideGoogleLogo, 100);
+
+            customDropdown.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                isClickingDropdown = true;
+            });
+
+            customDropdown.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+        }
+
+        function showCustomDropdown() {
+            if (!customDropdown) createCustomDropdown();
+
+            const inputRect = streetInput.getBoundingClientRect();
+            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+
+            customDropdown.style.top = (inputRect.bottom + scrollTop) + 'px';
+            customDropdown.style.left = (inputRect.left + scrollLeft) + 'px';
+            customDropdown.style.width = inputRect.width + 'px';
+            customDropdown.style.display = 'block';
+        }
+
+        function hideCustomDropdown() {
+            if (customDropdown) {
+                customDropdown.style.display = 'none';
+            }
+        }
+
+        // Функция для фильтрации предсказаний по зонам доставки
+        function filterPredictionsByDeliveryZone(predictions, callback) {
+            if (!predictions || predictions.length === 0) {
+                callback([]);
+                return;
+            }
+
+            const filtered = [];
+            let checkedCount = 0;
+            const total = predictions.length;
+
+            predictions.forEach((prediction) => {
+                placesService.getDetails(
+                    {
+                        placeId: prediction.place_id,
+                        fields: ['geometry', 'address_components', 'formatted_address', 'place_id']
+                    },
+                    (place, status) => {
+                        checkedCount++;
+
+                        if (status === google.maps.places.PlacesServiceStatus.OK && place && place.geometry) {
+                            // Используем переданную функцию проверки зоны доставки
+                            const area = checkDeliveryZone(place.geometry.location);
+
+                            if (area) {
+                                filtered.push({
+                                    prediction: prediction,
+                                    place: place,
+                                    area: area
+                                });
+                            }
+                        }
+
+                        if (checkedCount === total) {
+                            callback(filtered);
+                        }
+                    }
+                );
+            });
+        }
+
+        // Перехватываем ввод текста
+        streetInput.addEventListener('input', function() {
+            clearTimeout(inputTimeout);
+
+            const query = streetInput.value.trim();
+            currentQuery = query;
+
+            // Если адрес был выбран из списка и значение не изменилось, не показываем dropdown
+            if (isPlaceSelected && selectedStreetValue && query === selectedStreetValue) {
+                return;
+            }
+
+            if (query.length < 2) {
+                hideCustomDropdown();
+                isPlaceSelected = false;
+                selectedStreetValue = '';
+                return;
+            }
+
+            // Если адрес был выбран, но пользователь начал редактировать, сбрасываем флаг
+            if (isPlaceSelected && query !== selectedStreetValue) {
+                isPlaceSelected = false;
+                selectedStreetValue = '';
+            }
+
+            // Показываем индикатор загрузки
+            if (!customDropdown) createCustomDropdown();
+            customDropdown.innerHTML = '<div style="padding: 10px; text-align: center; color: #999;">Завантаження...</div>';
+            showCustomDropdown();
+
+            inputTimeout = setTimeout(() => {
+                const currentValue = streetInput.value.trim();
+
+                if (currentValue !== currentQuery) {
+                    return;
+                }
+
+                if (isProcessing) return;
+                isProcessing = true;
+
+                const autocompleteOptions = {
+                    input: currentValue,
+                    componentRestrictions: { country: 'ua' },
+                };
+
+                if (kyivOnly) {
+                    autocompleteOptions.bounds = kyivBounds;
+                    autocompleteOptions.strictBounds = true;
+                }
+
+                autocompleteService.getPlacePredictions(
+                    autocompleteOptions,
+                    (predictions, status) => {
+                        isProcessing = false;
+
+                        const latestValue = streetInput.value.trim();
+                        if (latestValue !== currentQuery) {
+                            return;
+                        }
+
+                        if (status !== google.maps.places.PlacesServiceStatus.OK || !predictions || predictions.length === 0) {
+                            if (customDropdown) {
+                                customDropdown.innerHTML = '<div style="padding: 10px; text-align: center; color: #999;">Адреси не знайдено</div>';
+                                showCustomDropdown();
+                            }
+                            return;
+                        }
+
+                        // Фильтруем по зонам доставки
+                        filterPredictionsByDeliveryZone(predictions, (filtered) => {
+                            const finalValue = streetInput.value.trim();
+                            if (finalValue !== currentQuery) {
+                                return;
+                            }
+
+                            if (!customDropdown) createCustomDropdown();
+
+                            if (filtered.length === 0) {
+                                customDropdown.innerHTML = '<div style="padding: 10px; text-align: center; color: #999;">Адреси не знайдено в зоні доставки</div>';
+                                showCustomDropdown();
+                                return;
+                            }
+
+                            customDropdown.innerHTML = '';
+
+                            filtered.forEach((item) => {
+                                const prediction = item.prediction;
+                                const element = document.createElement('div');
+                                element.className = 'pac-item';
+                                element.style.cssText = 'padding: 0 4px; cursor: pointer; font-size: 15px; line-height: 30px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;';
+
+                                element.innerHTML = `
+                                    <span class="pac-icon pac-icon-marker" style="width: 15px; height: 15px; margin-right: 7px; display: inline-block; vertical-align: middle;"></span>
+                                    <span class="pac-item-query" style="color: #000;">
+                                        <span class="pac-matched" style="font-weight: 500;">${prediction.structured_formatting.main_text}</span>
+                                        <span class="pac-item-query" style="color: #999;">${prediction.structured_formatting.secondary_text || ''}</span>
+                                    </span>
+                                `;
+
+                                element.addEventListener('mouseenter', () => {
+                                    element.style.backgroundColor = '#f5f5f5';
+                                });
+                                element.addEventListener('mouseleave', () => {
+                                    element.style.backgroundColor = 'transparent';
+                                });
+
+                                element.addEventListener('mousedown', (e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    isClickingDropdown = true;
+                                });
+
+                                    element.addEventListener('click', (e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        isClickingDropdown = false;
+
+                                        const place = item.place;
+                                        const prediction = item.prediction;
+                                        
+                                        // Добавляем place_id к объекту place, если его нет
+                                        if (!place.place_id && prediction && prediction.place_id) {
+                                            place.place_id = prediction.place_id;
+                                        }
+                                        
+                                        const comps = place.address_components || [];
+                                        let street = '';
+                                        let streetNumber = '';
+                                        let city = '';
+                                        let administrativeArea = '';
+
+                                        for (const c of comps) {
+                                            if (c.types.includes('locality')) {
+                                                city = c.long_name || '';
+                                            }
+                                            if (c.types.includes('administrative_area_level_1')) {
+                                                administrativeArea = c.long_name || '';
+                                            }
+                                            if (c.types.includes('route')) {
+                                                street = c.long_name;
+                                            }
+                                            if (c.types.includes('street_number')) {
+                                                streetNumber = c.long_name;
+                                            }
+                                        }
+
+                                        // Формируем строку города: если не Киев, добавляем область
+                                        let cityValue = '';
+                                        if (city) {
+                                            // Проверяем, является ли это Киевом
+                                            const isKyiv = city.toLowerCase().includes('київ') || 
+                                                          city.toLowerCase().includes('киев') || 
+                                                          city.toLowerCase().includes('kyiv');
+                                            
+                                            if (isKyiv) {
+                                                cityValue = 'Київ';
+                                            } else {
+                                                // Для других городов добавляем область
+                                                cityValue = city;
+                                                if (administrativeArea) {
+                                                    cityValue += ' ' + administrativeArea;
+                                                }
+                                            }
+                                        }
+
+                                        // Формируем полный адрес для поля улицы
+                                        let fullStreetValue = street;
+                                        if (cityValue && cityValue !== 'Київ') {
+                                            // Если город не Киев, добавляем его к адресу улицы
+                                            fullStreetValue = street + (street ? ', ' : '') + cityValue;
+                                        }
+
+                                        // Устанавливаем флаги ПЕРЕД заполнением полей
+                                        isSelectingFromGoogle = true;
+                                        
+                                        // Заполняем поля
+                                        if (fullStreetValue) {
+                                            streetInput.value = fullStreetValue;
+                                            selectedStreetValue = fullStreetValue;
+                                            isPlaceSelected = true;
+                                        }
+
+                                        if (streetNumber && houseInput) {
+                                            houseInput.value = streetNumber;
+                                            houseInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                        }
+
+                                        if (cityValue && cityInputSelector) {
+                                            const cityInput = document.querySelector(cityInputSelector);
+                                            if (cityInput) {
+                                                cityInput.value = cityValue;
+                                                cityInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                            }
+                                        }
+
+                                        // Не вызываем событие input для streetInput, чтобы не открывался dropdown повторно
+                                        // streetInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+                                        // Скрываем dropdown перед вызовом callback
+                                        hideCustomDropdown();
+
+                                        if (onPlaceSelected && typeof onPlaceSelected === 'function') {
+                                            onPlaceSelected({
+                                                place,
+                                                street: fullStreetValue, // Передаем полный адрес
+                                                streetNumber,
+                                                city: cityValue, // Передаем сформированный город
+                                                streetInput,
+                                                houseInput,
+                                            });
+                                        }
+
+                                        // Сбрасываем флаг выбора после задержки, чтобы blur не сработал раньше
+                                        setTimeout(() => {
+                                            isSelectingFromGoogle = false;
+                                        }, 500); // Увеличиваем задержку до 500ms
+
+                                        streetInput.blur();
+                                });
+
+                                customDropdown.appendChild(element);
+                            });
+
+                            showCustomDropdown();
+                        });
+                    }
+                );
+            }, 400);
+        });
+
+        // Скрываем dropdown при потере фокуса
+        let blurTimeout = null;
+        streetInput.addEventListener('blur', (e) => {
+            clearTimeout(blurTimeout);
+            blurTimeout = setTimeout(() => {
+                const relatedTarget = e.relatedTarget || document.activeElement;
+                if (!isClickingDropdown && (!relatedTarget || !customDropdown || !customDropdown.contains(relatedTarget))) {
+                    hideCustomDropdown();
+                }
+                isClickingDropdown = false;
+            }, 200);
+        });
+
+        streetInput.addEventListener('focus', () => {
+            clearTimeout(blurTimeout);
+        });
+
+        // Обрабатываем клик вне dropdown
+        document.addEventListener('click', (e) => {
+            if (customDropdown && customDropdown.style.display !== 'none') {
+                if (!streetInput.contains(e.target) && !customDropdown.contains(e.target)) {
+                    hideCustomDropdown();
+                }
+            }
+        });
+
+        // Валидация ручного ввода (та же логика, что и в стандартном режиме)
+        streetInput.addEventListener('blur', function(e) {
+            setTimeout(() => {
+                // Если идет процесс выбора из Google Places, не валидируем
+                if (isSelectingFromGoogle) {
+                    return;
+                }
+                
+                if (isClickingDropdown) {
+                    return;
+                }
+
+                const currentValue = e.target.value;
+
+                // Если адрес был выбран из Google Places, не валидируем
+                if (isPlaceSelected && selectedStreetValue) {
+                    // Проверяем, что значение соответствует выбранному
+                    if (currentValue !== selectedStreetValue) {
+                        // Восстанавливаем выбранное значение
+                        e.target.value = selectedStreetValue;
+                    }
+                    return;
+                }
+
+                // Если адрес не был выбран из Google Places, но есть значение - очищаем и показываем ошибку
+                if (!isPlaceSelected && currentValue && currentValue.trim() !== '') {
+                    e.target.value = '';
+                    showAddressErrorModal('Будь ласка, оберіть адресу зі списку Google. Ручний ввід адреси не дозволено.');
+                }
+            }, 500); // Увеличиваем задержку до 500ms, чтобы дать время событию выбора сработать
+        });
+
+        streetInput.addEventListener('paste', function(e) {
+            if (!isPlaceSelected) {
+                e.preventDefault();
+                showAddressErrorModal('Будь ласка, оберіть адресу зі списку Google. Вставка адреси не дозволена.');
+            }
+        });
+
+        const form = streetInput.closest('form');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                const currentValue = streetInput.value;
+
+                if (!isPlaceSelected && currentValue && currentValue.trim() !== '') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    showAddressErrorModal('Будь ласка, оберіть адресу зі списку Google. Ручний ввід адреси не дозволено.');
+                    streetInput.focus();
+                    return false;
+                }
+
+                if (isPlaceSelected && selectedStreetValue && currentValue !== selectedStreetValue) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    streetInput.value = selectedStreetValue;
+                    showAddressErrorModal('Будь ласка, оберіть адресу зі списку Google. Ручний ввід адреси не дозволено.');
+                    streetInput.focus();
+                    return false;
+                }
+            }, true);
+        }
+    } catch (e) {
+        console.error('Ошибка инициализации автозаполнения с фильтрацией по зонам:', e);
+        // Fallback: используем стандартное автозаполнение
+        initStandardAutocomplete();
+    }
     }
 
     // Функция для фильтрации dropdown только по Киеву
