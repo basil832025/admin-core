@@ -734,7 +734,7 @@ function initAddressAutocomplete(options = {}) {
             customDropdown.id = `custom-address-dropdown-${streetInputId}`;
             customDropdown.className = 'pac-container';
             customDropdown.setAttribute('data-custom', 'true');
-            customDropdown.style.cssText = 'display: none; position: absolute; z-index: 10000; background: white; border: 1px solid #d4d4d4; border-radius: 2px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); max-height: 300px; overflow-y: auto; font-family: Roboto, Arial, sans-serif;';
+            customDropdown.style.cssText = 'display: none; position: absolute; z-index: 10000; background: white; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.1); max-height: 400px; overflow-y: auto; font-family: Roboto, Arial, sans-serif; padding: 8px 0;';
             document.body.appendChild(customDropdown);
 
             // Скрываем стандартный "powered by Google" если он появится
@@ -854,7 +854,7 @@ function initAddressAutocomplete(options = {}) {
 
             // Показываем индикатор загрузки
             if (!customDropdown) createCustomDropdown();
-            customDropdown.innerHTML = '<div style="padding: 10px; text-align: center; color: #999;">Завантаження...</div>';
+            customDropdown.innerHTML = '<div style="padding: 16px; text-align: center; color: #6b7280; font-size: 14px;">Завантаження...</div>';
             showCustomDropdown();
 
             inputTimeout = setTimeout(() => {
@@ -889,7 +889,7 @@ function initAddressAutocomplete(options = {}) {
 
                         if (status !== google.maps.places.PlacesServiceStatus.OK || !predictions || predictions.length === 0) {
                             if (customDropdown) {
-                                customDropdown.innerHTML = '<div style="padding: 10px; text-align: center; color: #999;">Адреси не знайдено</div>';
+                                customDropdown.innerHTML = '<div style="padding: 16px; text-align: center; color: #6b7280; font-size: 14px;">Адреси не знайдено</div>';
                                 showCustomDropdown();
                             }
                             return;
@@ -905,7 +905,7 @@ function initAddressAutocomplete(options = {}) {
                             if (!customDropdown) createCustomDropdown();
 
                             if (filtered.length === 0) {
-                                customDropdown.innerHTML = '<div style="padding: 10px; text-align: center; color: #999;">Адреси не знайдено в зоні доставки</div>';
+                                customDropdown.innerHTML = '<div style="padding: 16px; text-align: center; color: #6b7280; font-size: 14px;">Адреси не знайдено в зоні доставки</div>';
                                 showCustomDropdown();
                                 return;
                             }
@@ -916,21 +916,28 @@ function initAddressAutocomplete(options = {}) {
                                 const prediction = item.prediction;
                                 const element = document.createElement('div');
                                 element.className = 'pac-item';
-                                element.style.cssText = 'padding: 0 4px; cursor: pointer; font-size: 15px; line-height: 30px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;';
+                                element.style.cssText = 'padding: 12px 16px; margin: 2px 8px; cursor: pointer; font-size: 15px; line-height: 20px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; border-radius: 8px; transition: background-color 0.2s ease, box-shadow 0.2s ease; min-height: 44px; display: flex; align-items: center;';
 
                                 element.innerHTML = `
-                                    <span class="pac-icon pac-icon-marker" style="width: 15px; height: 15px; margin-right: 7px; display: inline-block; vertical-align: middle;"></span>
-                                    <span class="pac-item-query" style="color: #000;">
-                                        <span class="pac-matched" style="font-weight: 500;">${prediction.structured_formatting.main_text}</span>
-                                        <span class="pac-item-query" style="color: #999;">${prediction.structured_formatting.secondary_text || ''}</span>
+                                    <span class="pac-icon pac-icon-marker" style="width: 18px; height: 18px; margin-right: 12px; display: inline-block; vertical-align: middle; flex-shrink: 0; color: #6b7280;">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                            <circle cx="12" cy="10" r="3"></circle>
+                                        </svg>
+                                    </span>
+                                    <span class="pac-item-query" style="color: #111827; flex: 1; min-width: 0;">
+                                        <span class="pac-matched" style="font-weight: 500; display: block; margin-bottom: 2px;">${prediction.structured_formatting.main_text}</span>
+                                        <span class="pac-item-query" style="color: #6b7280; font-size: 13px; display: block;">${prediction.structured_formatting.secondary_text || ''}</span>
                                     </span>
                                 `;
 
                                 element.addEventListener('mouseenter', () => {
-                                    element.style.backgroundColor = '#f5f5f5';
+                                    element.style.backgroundColor = '#fef3e8';
+                                    element.style.boxShadow = '0 2px 4px rgba(0,0,0,0.08)';
                                 });
                                 element.addEventListener('mouseleave', () => {
                                     element.style.backgroundColor = 'transparent';
+                                    element.style.boxShadow = 'none';
                                 });
 
                                 element.addEventListener('mousedown', (e) => {
