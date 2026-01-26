@@ -4,6 +4,83 @@
  */
 
 /**
+ * Показывает модальное окно с сообщением об ошибке
+ * @param {string} message - Текст сообщения
+ */
+function showAddressErrorModal(message) {
+    // Проверяем, существует ли уже модальное окно
+    let modal = document.getElementById('address-error-modal');
+    
+    if (!modal) {
+        // Создаем модальное окно, если его нет
+        modal = document.createElement('div');
+        modal.id = 'address-error-modal';
+        modal.className = 'fixed inset-0 z-[100] flex items-center justify-center p-4 pointer-events-none';
+        modal.style.display = 'none';
+        modal.innerHTML = `
+            <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100]" id="address-error-modal-backdrop"></div>
+            <div class="relative bg-white rounded-[12px] shadow-xl z-[101] pointer-events-auto w-full max-w-[400px] p-6 md:p-8" id="address-error-modal-content">
+                <button type="button" id="address-error-modal-close" class="absolute right-4 top-4 text-gray-400 hover:text-gray-600 transition-colors" aria-label="Закрыть">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+                <div class="flex justify-center mb-4">
+                    <div class="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
+                        <svg class="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </div>
+                </div>
+                <div class="text-center">
+                    <h3 class="text-lg md:text-xl font-semibold mb-2 text-red-600" id="address-error-modal-message"></h3>
+                </div>
+                <div class="mt-6 flex justify-center">
+                    <button type="button" id="address-error-modal-ok" class="px-6 py-2 bg-[#FF7500] text-white rounded-lg hover:bg-orange-600 transition">
+                        ОК
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        // Обработчики закрытия
+        const closeModal = () => {
+            modal.classList.remove('show');
+            // Убираем модальное окно после завершения анимации
+            setTimeout(() => {
+                modal.style.display = 'none';
+            }, 200);
+        };
+        
+        document.getElementById('address-error-modal-close').addEventListener('click', closeModal);
+        document.getElementById('address-error-modal-ok').addEventListener('click', closeModal);
+        document.getElementById('address-error-modal-backdrop').addEventListener('click', closeModal);
+        
+        // Закрытие по Escape
+        const escapeHandler = (e) => {
+            if (e.key === 'Escape' && modal.style.display !== 'none') {
+                closeModal();
+            }
+        };
+        document.addEventListener('keydown', escapeHandler);
+    }
+    
+    // Устанавливаем сообщение
+    const messageEl = document.getElementById('address-error-modal-message');
+    if (messageEl) {
+        messageEl.textContent = message;
+    }
+    
+    // Показываем модальное окно
+    modal.style.display = 'flex';
+    // Добавляем класс для анимации
+    setTimeout(() => {
+        modal.classList.add('show');
+    }, 10);
+}
+
+/**
  * Инициализация автозаполнения адреса
  * @param {Object} options - Параметры инициализации
  * @param {string} options.streetInputId - ID поля ввода улицы
@@ -114,7 +191,7 @@ function initAddressAutocomplete(options = {}) {
                         if (houseInput) houseInput.value = '';
                         selectedStreetValue = '';
                         isPlaceSelected = false;
-                        alert('Доставка зараз працює тільки по Києву. Будь ласка, оберіть адресу в межах Києва.');
+                        showAddressErrorModal('Доставка зараз працює тільки по Києву. Будь ласка, оберіть адресу в межах Києва.');
                         return;
                     }
                 }
@@ -245,7 +322,7 @@ function initAddressAutocomplete(options = {}) {
                     // Если адрес не был выбран из Google Places, но есть значение - очищаем
                     if (!isPlaceSelected && currentValue && currentValue.trim() !== '') {
                         e.target.value = '';
-                        alert('Будь ласка, оберіть адресу зі списку Google. Ручний ввід адреси не дозволено.');
+                        showAddressErrorModal('Будь ласка, оберіть адресу зі списку Google. Ручний ввід адреси не дозволено.');
                     }
                     
                     isTypingForSearch = false;
@@ -260,7 +337,7 @@ function initAddressAutocomplete(options = {}) {
                     setTimeout(() => {
                         if (streetInput.value !== selectedStreetValue) {
                             streetInput.value = selectedStreetValue;
-                            alert('Будь ласка, оберіть адресу зі списку Google. Вставка адреси не дозволена.');
+                            showAddressErrorModal('Будь ласка, оберіть адресу зі списку Google. Вставка адреси не дозволена.');
                         }
                     }, 0);
                 } else {
@@ -280,7 +357,7 @@ function initAddressAutocomplete(options = {}) {
                     if (!isPlaceSelected && currentValue && currentValue.trim() !== '') {
                         e.preventDefault();
                         e.stopPropagation();
-                        alert('Будь ласка, оберіть адресу зі списку Google. Ручний ввід адреси не дозволено.');
+                        showAddressErrorModal('Будь ласка, оберіть адресу зі списку Google. Ручний ввід адреси не дозволено.');
                         streetInput.focus();
                         return false;
                     }
@@ -290,7 +367,7 @@ function initAddressAutocomplete(options = {}) {
                         e.preventDefault();
                         e.stopPropagation();
                         streetInput.value = selectedStreetValue;
-                        alert('Будь ласка, оберіть адресу зі списку Google. Ручний ввід адреси не дозволено.');
+                        showAddressErrorModal('Будь ласка, оберіть адресу зі списку Google. Ручний ввід адреси не дозволено.');
                         streetInput.focus();
                         return false;
                     }
@@ -417,6 +494,7 @@ function initAddressAutocomplete(options = {}) {
 // Делаем доступным глобально для использования в Blade шаблонах
 if (typeof window !== 'undefined') {
     window.initAddressAutocomplete = initAddressAutocomplete;
+    window.showAddressErrorModal = showAddressErrorModal;
 }
 
 // Экспортируем для использования в других модулях (ES6)
