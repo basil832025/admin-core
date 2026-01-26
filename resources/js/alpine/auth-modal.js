@@ -44,7 +44,7 @@ export default function authModal(opts = {}) {
         },
 
         init() {
-            console.log('authModal init', {
+            // console.log('authModal init', {
                 raw: opts.authMethod,
                 normalized: this.authMethod,
                 isPhoneSms: this.isPhoneSms,
@@ -647,7 +647,7 @@ export default function authModal(opts = {}) {
                         codeKey === 'invalid' ? t('auth.code_invalid', 'Невірний код. Перевірте цифри та спробуйте ще раз.') :
                             t('auth.verify_error', 'Ошибка верификации'));
                     
-                    console.log('OTP Error set:', this.otpError);
+                    // console.log('OTP Error set:', this.otpError);
                     this.verifying = false;
                     return;
                 }
@@ -790,12 +790,12 @@ export default function authModal(opts = {}) {
                 this.switchTab('sms');
                 
                 // Отладка
-                console.log('SMS code sent:', {
-                    loginPhoneSmsSent: this.loginPhoneSmsSent,
-                    tab: this.tab,
-                    phoneFormatted: this.sms.phoneFormatted,
-                    phonePretty: this.sms.phonePretty
-                });
+                // console.log('SMS code sent:', {
+                //     loginPhoneSmsSent: this.loginPhoneSmsSent,
+                //     tab: this.tab,
+                //     phoneFormatted: this.sms.phoneFormatted,
+                //     phonePretty: this.sms.phonePretty
+                // });
                 
                 this.startResendTimer();
                 

@@ -27,7 +27,13 @@ class ClientAuthController extends Controller
     {
         // Если пользователь уже авторизован, редиректим
         if (Auth::check()) {
-            return redirect()->route('profile.index');
+            return redirect($this->getRedirectUrl($request));
+        }
+
+        // Если есть параметр redirect_to_checkout, сохраняем URL checkout в сессию
+        if ($request->has('redirect_to_checkout')) {
+            $checkoutUrl = route('checkout');
+            $request->session()->put('auth.redirect_to_checkout', $checkoutUrl);
         }
 
         return view('auth.phone-sms');
@@ -40,6 +46,14 @@ class ClientAuthController extends Controller
     protected function getRedirectUrl(Request $request): string
     {
         $checkoutUrl = $request->session()->pull('auth.redirect_to_checkout');
+        
+        // Логируем для отладки
+        \Log::info('getRedirectUrl called', [
+            'checkoutUrl' => $checkoutUrl,
+            'session_id' => $request->session()->getId(),
+            'all_session_keys' => array_keys($request->session()->all()),
+        ]);
+        
         if ($checkoutUrl && str_contains($checkoutUrl, '/checkout')) {
             return $checkoutUrl;
         }
@@ -53,7 +67,7 @@ class ClientAuthController extends Controller
         return Socialite::driver($provider)->scopes($scopes)->redirect();
     }
 
-    public function callback(string $provider)
+    public function callback(string $provider, Request $request)
     {
         $social = Socialite::driver($provider)->user();
 
@@ -518,8 +532,21 @@ class ClientAuthController extends Controller
     public function saveCheckoutUrl(Request $request)
     {
         $url = $request->input('url');
+        
+        // Логируем для отладки
+        \Log::info('saveCheckoutUrl called', [
+            'url' => $url,
+            'session_id' => $request->session()->getId(),
+        ]);
+        
         if ($url && str_contains($url, '/checkout')) {
             $request->session()->put('auth.redirect_to_checkout', $url);
+            
+            // Логируем после сохранения
+            \Log::info('saveCheckoutUrl saved', [
+                'saved_url' => $request->session()->get('auth.redirect_to_checkout'),
+                'session_id' => $request->session()->getId(),
+            ]);
         }
         return response()->json(['ok' => true]);
     }

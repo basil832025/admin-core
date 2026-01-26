@@ -144,7 +144,7 @@ function loadDeliveryZoneDependencies(callback) {
                 } else if (attempts >= maxAttempts) {
                     clearInterval(interval);
                     allChecksDone = true;
-                    console.warn('map-cart.js не загрузился, фильтрация по зонам недоступна');
+                    // console.warn('map-cart.js не загрузился, фильтрация по зонам недоступна');
                     callback(); // Вызываем callback даже если map-cart.js не загрузился
                 }
             }, 200);
@@ -169,7 +169,7 @@ function loadDeliveryZoneDependencies(callback) {
             setTimeout(function() {
                 clearInterval(checkInterval);
                 if (!googleMapsLoaded) {
-                    console.warn('Google Maps API не загрузился в течение 10 секунд');
+                    // console.warn('Google Maps API не загрузился в течение 10 секунд');
                     callback();
                 }
             }, 10000);
@@ -184,7 +184,7 @@ function loadDeliveryZoneDependencies(callback) {
                 checkAllLoaded();
             };
             googleScript.onerror = function() {
-                console.error('Ошибка загрузки Google Maps API');
+                // console.error('Ошибка загрузки Google Maps API');
                 googleMapsLoaded = false;
                 callback(); // Вызываем callback даже при ошибке
             };
@@ -218,7 +218,7 @@ function loadDeliveryZoneDependencies(callback) {
                 jqueryLoaded = true;
             };
             jqueryScript.onerror = function() {
-                console.warn('Ошибка загрузки jQuery, продолжаем без него');
+                // console.warn('Ошибка загрузки jQuery, продолжаем без него');
             };
             document.head.appendChild(jqueryScript);
         }
@@ -247,7 +247,7 @@ function createDeliveryZoneChecker(map) {
                     map: null, // Не показываем на карте
                 });
             } catch (e) {
-                console.error('Ошибка создания полигона зоны доставки:', e);
+                // console.error('Ошибка создания полигона зоны доставки:', e);
             }
         }
     }
@@ -300,7 +300,7 @@ function initAddressAutocomplete(options = {}) {
     } = options;
 
     if (!streetInputId) {
-        console.error('address-autocomplete: streetInputId is required');
+        // console.error('address-autocomplete: streetInputId is required');
         return;
     }
 
@@ -366,7 +366,7 @@ function initAddressAutocomplete(options = {}) {
                                 disableDefaultUI: true,
                             });
                         } catch (e) {
-                            console.error('Ошибка создания скрытой карты:', e);
+                            // console.error('Ошибка создания скрытой карты:', e);
                             // Fallback: без фильтрации по зонам
                             initStandardAutocomplete();
                             return;
@@ -379,7 +379,7 @@ function initAddressAutocomplete(options = {}) {
                     if (actualCheckDeliveryZone && actualMap) {
                         initAutocompleteWithDeliveryZoneFilter(streetInput, houseInput, cityInputSelector, kyivOnly, onPlaceSelected, actualCheckDeliveryZone, actualMap);
                     } else {
-                        console.warn('Не удалось создать функцию проверки зон, используем стандартное автозаполнение');
+                        // console.warn('Не удалось создать функцию проверки зон, используем стандартное автозаполнение');
                         initStandardAutocomplete();
                     }
                 });
@@ -389,7 +389,7 @@ function initAddressAutocomplete(options = {}) {
             // Стандартная инициализация без фильтрации по зонам
             initStandardAutocomplete();
         } catch (e) {
-            console.error('Error initializing Google Places Autocomplete:', e);
+            // console.error('Error initializing Google Places Autocomplete:', e);
         }
     }
 
@@ -687,7 +687,7 @@ function initAddressAutocomplete(options = {}) {
 
             autocompleteInitialized = true;
         } catch (e) {
-            console.error('Error initializing Google Places Autocomplete:', e);
+            // console.error('Error initializing Google Places Autocomplete:', e);
         }
     }
 
@@ -695,13 +695,13 @@ function initAddressAutocomplete(options = {}) {
     function initAutocompleteWithDeliveryZoneFilter(streetInput, houseInput, cityInputSelector, kyivOnly, onPlaceSelected, checkDeliveryZone, map) {
         // Проверяем, что Google Maps API полностью загружен
         if (typeof google === 'undefined' || !google.maps || !google.maps.places || !google.maps.places.AutocompleteService) {
-            console.error('Google Maps API не полностью загружен для фильтрации по зонам');
+            // console.error('Google Maps API не полностью загружен для фильтрации по зонам');
             return;
         }
 
         // Проверяем, что map валиден
         if (!map) {
-            console.error('Map объект не передан для фильтрации по зонам');
+            // console.error('Map объект не передан для фильтрации по зонам');
             return;
         }
 
@@ -1137,7 +1137,7 @@ function initAddressAutocomplete(options = {}) {
             }, true);
         }
     } catch (e) {
-        console.error('Ошибка инициализации автозаполнения с фильтрацией по зонам:', e);
+        // console.error('Ошибка инициализации автозаполнения с фильтрацией по зонам:', e);
         // Fallback: используем стандартное автозаполнение
         initStandardAutocomplete();
     }
@@ -1208,7 +1208,7 @@ function initAddressAutocomplete(options = {}) {
         // Получаем API ключ
         const apiKey = googleMapsKey || window.GOOGLE_MAPS_API_KEY || null;
         if (!apiKey) {
-            console.error('address-autocomplete: Google Maps API key is required. Set window.GOOGLE_MAPS_API_KEY or pass googleMapsKey option.');
+            // console.error('address-autocomplete: Google Maps API key is required. Set window.GOOGLE_MAPS_API_KEY or pass googleMapsKey option.');
             return;
         }
 

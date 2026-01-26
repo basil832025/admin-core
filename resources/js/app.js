@@ -11,7 +11,7 @@ import Inputmask from "inputmask";
 
 // Версия скрипта для проверки загрузки (обновлять при каждом изменении)
 window.APP_SCRIPT_VERSION = '2026-01-16-15:00';
-console.log('App script loaded, version:', window.APP_SCRIPT_VERSION);
+// console.log('App script loaded, version:', window.APP_SCRIPT_VERSION);
 
 import registerFavoriteButton from './components/favoriteButton.js'
 // ⬇️ новый импорт
@@ -191,7 +191,7 @@ if (window.Alpine) {
 function initBannerSwiper() {
     const bannerEl = document.querySelector('.banner-swiper');
     if (!bannerEl) {
-        console.warn('Banner swiper element not found');
+        // console.warn('Banner swiper element not found');
         return;
     }
     
@@ -370,18 +370,18 @@ window.dispatchEvent(new Event('ua-phone-mask-ready'));
                     return response.clone().json()
                         .then(data => {
                             if (data && data.reload) {
-                                console.log('Session expired, reloading page...');
+                                // console.log('Session expired, reloading page...');
                                 window.location.reload();
                                 return Promise.reject(new Error('Session expired'));
                             }
                             // Если нет флага reload, все равно перезагружаем
-                            console.log('CSRF token expired, reloading page...');
+                            // console.log('CSRF token expired, reloading page...');
                             window.location.reload();
                             return Promise.reject(new Error('CSRF token expired'));
                         })
                         .catch(() => {
                             // Если не удалось распарсить JSON, просто перезагружаем
-                            console.log('CSRF token expired, reloading page...');
+                            // console.log('CSRF token expired, reloading page...');
                             window.location.reload();
                             return Promise.reject(new Error('CSRF token expired'));
                         });
@@ -409,7 +409,7 @@ window.dispatchEvent(new Event('ua-phone-mask-ready'));
     XMLHttpRequest.prototype.send = function(...args) {
         this.addEventListener('load', function() {
             if (this.status === 419) {
-                console.log('CSRF token expired (XHR), reloading page...');
+                // console.log('CSRF token expired (XHR), reloading page...');
                 window.location.reload();
             }
         });

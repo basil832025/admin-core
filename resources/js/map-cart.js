@@ -4,13 +4,13 @@ const CENTER = { lat: 50.4590851, lng: 30.4182548 }; // литерал безо�
 function resolveAreaByLatLng(latLng) {
     // Проверяем, что Google Maps API загружен
     if (typeof google === 'undefined' || !google.maps || !google.maps.geometry || !google.maps.geometry.poly) {
-        console.warn('Google Maps API не загружен, resolveAreaByLatLng не может работать');
+        // console.warn('Google Maps API не загружен, resolveAreaByLatLng не может работать');
         return null;
     }
     
     // Проверяем, что deliveryAreas определен
     if (typeof deliveryAreas === 'undefined') {
-        console.warn('deliveryAreas не определен');
+        // console.warn('deliveryAreas не определен');
         return null;
     }
     
@@ -30,7 +30,7 @@ if (typeof window !== 'undefined') {
 function initMap() {
     // Проверяем, что Google Maps API загружен
     if (typeof google === 'undefined' || !google.maps || !google.maps.Map) {
-        console.warn('Google Maps API не загружен, initMap не может работать');
+        // console.warn('Google Maps API не загружен, initMap не может работать');
         // Делаем deliveryAreas доступным глобально даже без Google Maps API
         if (typeof window !== 'undefined' && typeof deliveryAreas !== 'undefined') {
             window.deliveryAreas = deliveryAreas;
@@ -203,10 +203,10 @@ function initMap() {
        // marker.setMap(null);
         var place = placeParam || autocomplete.getPlace();
         if (!place) {
-            console.warn('handlePlaceChange: place is undefined');
+            // console.warn('handlePlaceChange: place is undefined');
             return;
         }
-        console.log(place);
+        // console.log(place);
         if (place.place_id) {
             $('#placeId').val(place.place_id);
         }
@@ -239,7 +239,7 @@ function initMap() {
                 // $("#address-input").click(function () {
                 //     $('#js-delivery-price').text('Выберите значение из выпадающего списка с номером дома');
                 // });
-                console.log($('#in_Delyvery').val());
+                // console.log($('#in_Delyvery').val());
                 $('#in_Delyvery').val(0);
                 $('#sp_Delyvery').text(0);
                 $('#in_freeDelivery').val(0);
@@ -269,21 +269,21 @@ function initMap() {
                     var dates = $('#deliveryDate').val();
                     var all_count = $('#all_count').val();
                     var in_delivery = $('#in_Delyvery').val();
-                    console.log(
-                        'freeShipp:' +
-                        freeShipp +
-                        ' deliveryCost:' +
-                        deliveryCost +
-                        ' all_count:' +
-                        all_count +
-                        ' indelivery:' +
-                        in_delivery
-                    );
+                    // console.log(
+                    //     'freeShipp:' +
+                    //     freeShipp +
+                    //     ' deliveryCost:' +
+                    //     deliveryCost +
+                    //     ' all_count:' +
+                    //     all_count +
+                    //     ' indelivery:' +
+                    //     in_delivery
+                    // );
                     if (
                         Number((summa - discount).toFixed(2)) < freeShipp &&
                         Number(summa.toFixed(2)) != 0
                     ) {
-                        console.log(1);
+                        // console.log(1);
                         $('#in_Delyvery').val(deliveryCost);
                         $('#sp_Delyvery').text(deliveryCost);
                         $('#orderPrice').attr('data-delivery', deliveryCost);
@@ -293,7 +293,7 @@ function initMap() {
                             `${deliveryPrice[lang]} ${deliveryAreas[key].price} UAH. ${preDeliveryTime[lang]}${deliveryTime[lang][0]} ${deliveryAreas[key].time[0]} ${deliveryTime[lang][1]} ${deliveryAreas[key].time[1]} ${deliveryTime[lang][2]} ${freeShipping[lang]} ${deliveryAreas[key].free} UAH `
                         );
                     } else {
-                        console.log(3);
+                        // console.log(3);
                         $('#in_Delyvery').val(0);
                         $('#sp_Delyvery').text(0);
                         $('#all_count').val(Number(summa.toFixed(2)));
@@ -301,7 +301,7 @@ function initMap() {
                         $('#orderPrice').attr('data-delivery', 0);
                         $('#js-delivery-price').text(`${freeShippings[lang]} `);
                     }
-                    console.log(4);
+                    // console.log(4);
                     $('#DlvDate').val(dates);
                     $('#orderPrice').text(Number(allSumm.toFixed(2)));
                     $('.js-backet-price').text(Number(allSumm.toFixed(2)));
@@ -310,7 +310,7 @@ function initMap() {
 
                     break;
                 }
-                console.log(5);
+                // console.log(5);
                 $('#in_Delyvery').val(0);
                 $('#sp_Delyvery').text(0);
                 $('#in_freeDelivery').val(0);
@@ -326,7 +326,7 @@ function initMap() {
         }
     }
     } catch (e) {
-        console.error('Ошибка в initMap:', e);
+        // console.error('Ошибка в initMap:', e);
         // Делаем deliveryAreas доступным глобально даже при ошибке
         if (typeof window !== 'undefined' && typeof deliveryAreas !== 'undefined') {
             window.deliveryAreas = deliveryAreas;

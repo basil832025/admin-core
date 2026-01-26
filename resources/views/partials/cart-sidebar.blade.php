@@ -184,15 +184,16 @@
                                 'X-CSRF-TOKEN': document.querySelector('meta[name=&quot;csrf-token&quot;]')?.getAttribute('content') || '',
                                 'Accept': 'application/json',
                             },
+                            credentials: 'same-origin',
                             body: JSON.stringify({ url: checkoutUrl }),
-                        }).catch(() => {});
-                                    window.location.href = '{{ route('auth.show') }}';
-                                    return;
-                                    window.dispatchEvent(new CustomEvent('open-auth-modal', {
-                            detail: {
-                                message: 'Щоб оформити замовлення, увійдіть або зареєструйтесь.',
-                            },
-                        }));
+                        })
+                        .then(() => {
+                            window.location.href = '{{ route('auth.show') }}?redirect_to_checkout=1';
+                        })
+                        .catch(() => {
+                            // Если запрос не удался, все равно редиректим, но с параметром
+                            window.location.href = '{{ route('auth.show') }}?redirect_to_checkout=1';
+                        });
                     "
                     class="block w-full text-center bg-orange-500 text-white py-2 rounded-lg hover:bg-orange-600 transition">
                 {{ st('cart.actions.checkout', 'Оформити замовлення') }}

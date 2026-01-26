@@ -28,7 +28,7 @@
         id="authModal"
         x-data="authModal({ i18n: @js($authI18n), authMethod: @js($cartAuthMethod) })"
         x-show="open"
-        x-init="open = false; console.log('AuthModal init:', { authMethod, open })"
+        x-init="open = false; /* console.log('AuthModal init:', { authMethod, open }) */"
         x-transition.opacity
         x-cloak
 
@@ -68,23 +68,23 @@
 
     // открыть модалку
     open = true;
-    console.log('OPEN', {
-  authMethod,
-  normalized: (authMethod ?? '').toString().trim(),
-});
-$nextTick(() => {
-  const el = document.getElementById('login-phone-sms-new');
-  console.log('NEW WINDOW INPUT exists?', !!el, el?.offsetParent);
-});
+    // console.log('OPEN', {
+    //     authMethod,
+    //     normalized: (authMethod ?? '').toString().trim(),
+    // });
+    $nextTick(() => {
+        const el = document.getElementById('login-phone-sms-new');
+        // console.log('NEW WINDOW INPUT exists?', !!el, el?.offsetParent);
+    });
     loginLoading = false;
 
     // Отладка в консоль
-    console.log('AuthModal Opening:', {
-        authMethod: authMethod,
-        open: open,
-        condition: (authMethod === 'phone_sms' && open),
-        loginPhoneSmsData: typeof loginPhoneSmsData !== 'undefined' ? loginPhoneSmsData : 'undefined'
-    });
+    // console.log('AuthModal Opening:', {
+    //     authMethod: authMethod,
+    //     open: open,
+    //     condition: (authMethod === 'phone_sms' && open),
+    //     loginPhoneSmsData: typeof loginPhoneSmsData !== 'undefined' ? loginPhoneSmsData : 'undefined'
+    // });
 
     // вкладка: login / register (после подстановки данных)
     if (payload.tab) {
