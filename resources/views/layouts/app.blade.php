@@ -5,6 +5,46 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <script>
+        // Обновляем CSRF токен при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            const metaToken = document.querySelector('meta[name="csrf-token"]');
+            if (metaToken) {
+                const newToken = metaToken.getAttribute('content');
+                if (newToken) {
+                    document.querySelectorAll('input[name="_token"]').forEach(input => {
+                        input.value = newToken;
+                    });
+                }
+            }
+        });
+        
+        // Периодически обновляем CSRF токен (каждые 30 минут)
+        setInterval(function() {
+            fetch('/csrf-token', {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.token) {
+                    const metaToken = document.querySelector('meta[name="csrf-token"]');
+                    if (metaToken) {
+                        metaToken.setAttribute('content', data.token);
+                    }
+                    document.querySelectorAll('input[name="_token"]').forEach(input => {
+                        input.value = data.token;
+                    });
+                }
+            })
+            .catch(() => {
+                // Игнорируем ошибки при обновлении токена
+            });
+        }, 30 * 60 * 1000); // 30 минут
+        
         window.isGuestCheckout = {{ auth()->check() ? 'false' : 'true' }};
         
         // Защита от ошибок с undefined key в обработчиках клавиатуры
@@ -39,6 +79,10 @@
     </script>
     <title>@yield('title', 'Доставка осетинських пирогів')</title>
     @vite(['resources/css/app.css','resources/js/app.js'])
+    <script>
+        // Глобальная переменная для Google Maps API ключа
+        window.GOOGLE_MAPS_API_KEY = '{{ config("services.google_maps.key") }}';
+    </script>
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicon.png') }}">
     <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('favicon-16x16.png') }}">

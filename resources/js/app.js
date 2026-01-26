@@ -6,6 +6,7 @@ import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 import 'swiper/css/autoplay';
 import './alpine/checkout';
+import './alpine/address-autocomplete';
 import Inputmask from "inputmask";
 
 // Версия скрипта для проверки загрузки (обновлять при каждом изменении)
@@ -355,6 +356,66 @@ window.applyUaPhoneMask = function (el) {
 
 // Сообщаем, что функция готова (на случай раннего x-init)
 window.dispatchEvent(new Event('ua-phone-mask-ready'));
+
+// Глобальный обработчик 419 ошибок (CSRF token expired) - автоматическая перезагрузка
+(function() {
+    // Перехватываем все fetch запросы
+    const originalFetch = window.fetch;
+    window.fetch = function(...args) {
+        return originalFetch.apply(this, args)
+            .then(response => {
+                // Если получили 419 ошибку, перезагружаем страницу
+                if (response.status === 419) {
+                    // Пробуем получить JSON ответ
+                    return response.clone().json()
+                        .then(data => {
+                            if (data && data.reload) {
+                                console.log('Session expired, reloading page...');
+                                window.location.reload();
+                                return Promise.reject(new Error('Session expired'));
+                            }
+                            // Если нет флага reload, все равно перезагружаем
+                            console.log('CSRF token expired, reloading page...');
+                            window.location.reload();
+                            return Promise.reject(new Error('CSRF token expired'));
+                        })
+                        .catch(() => {
+                            // Если не удалось распарсить JSON, просто перезагружаем
+                            console.log('CSRF token expired, reloading page...');
+                            window.location.reload();
+                            return Promise.reject(new Error('CSRF token expired'));
+                        });
+                }
+                return response;
+            })
+            .catch(error => {
+                // Если это ошибка перезагрузки, игнорируем
+                if (error.message === 'Session expired' || error.message === 'CSRF token expired') {
+                    return Promise.reject(error);
+                }
+                throw error;
+            });
+    };
+
+    // Перехватываем XMLHttpRequest
+    const originalXHROpen = XMLHttpRequest.prototype.open;
+    const originalXHRSend = XMLHttpRequest.prototype.send;
+    
+    XMLHttpRequest.prototype.open = function(method, url, ...args) {
+        this._url = url;
+        return originalXHROpen.apply(this, [method, url, ...args]);
+    };
+    
+    XMLHttpRequest.prototype.send = function(...args) {
+        this.addEventListener('load', function() {
+            if (this.status === 419) {
+                console.log('CSRF token expired (XHR), reloading page...');
+                window.location.reload();
+            }
+        });
+        return originalXHRSend.apply(this, args);
+    };
+})();
 
 // Закрываем корзину и меню пользователя при навигации по ссылкам
 document.addEventListener('DOMContentLoaded', () => {

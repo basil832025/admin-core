@@ -20,7 +20,21 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function ($exceptions) {
-        //
+        // Обработка 419 ошибки (CSRF token expired) - автоматическая перезагрузка
+        $exceptions->render(function (\Illuminate\Session\TokenMismatchException $e, $request) {
+            // Для AJAX запросов возвращаем JSON с флагом для перезагрузки
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'error' => 'session_expired',
+                    'message' => 'Сессия истекла. Страница будет перезагружена.',
+                    'reload' => true
+                ], 419);
+            }
+            
+            // Для обычных запросов возвращаем редирект на текущую страницу
+            // Это обновит CSRF токен и перезагрузит страницу
+            return redirect($request->fullUrl())->with('_token', csrf_token());
+        });
     })
     ->withProviders([
         AdminPanelProvider::class,

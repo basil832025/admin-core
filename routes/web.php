@@ -30,6 +30,13 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+// Роут для получения актуального CSRF токена (для периодического обновления)
+Route::get('/csrf-token', function () {
+    return response()->json([
+        'token' => csrf_token()
+    ]);
+})->name('csrf.token');
+
 Route::get('/lang/{locale}', function (string $locale) {
     $allowed = ['uk','ru','en'];             // список поддерживаемых
     abort_unless(in_array($locale, $allowed, true), 404);

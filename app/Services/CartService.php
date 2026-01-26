@@ -502,15 +502,29 @@ class CartService
 
     protected function getOrCreateDraftOrder(Authenticatable $user, bool $createIfMissing = true): ?Order
     {
+        $clientId = $user->getAuthIdentifier();
+        
+        // Проверяем, что клиент существует в базе данных
+        $clientExists = \App\Models\Shop\Client::where('id', $clientId)->exists();
+        
+        // Если клиента нет, устанавливаем clients_id = null (для гостевых заказов)
+        if (!$clientExists) {
+            \Log::warning('Client not found when creating draft order', [
+                'client_id' => $clientId,
+                'user_class' => get_class($user),
+            ]);
+            $clientId = null;
+        }
+        
         /** @var Order|null $order */
         $order = Order::query()
-            ->where('clients_id', $user->getAuthIdentifier())
+            ->where('clients_id', $clientId)
             ->where('status', OrderStatus::Cart)
             ->first();
 
         if (!$order && $createIfMissing) {
             $order = new Order();
-            $order->clients_id  = $user->getAuthIdentifier();
+            $order->clients_id  = $clientId; // Может быть null, если клиент не существует
             $order->status      = OrderStatus::Cart;
             $order->total_price = 0;
             $order->currency    = 'UAH'; // Значение по умолчанию для валюты

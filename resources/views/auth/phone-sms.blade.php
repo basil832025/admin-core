@@ -15,14 +15,14 @@
             <div class="md:flex-1 md:flex md:items-center md:justify-end">
                 {{-- Mobile: отступы 24px и высота 180px --}}
                 <div class="md:hidden px-6 pt-4">
-                    <div class="h-[180px] w-full overflow-hidden rounded-[20px] bg-[#F6E6C6]">
-                        <img
-                            src="{{ asset('images/svg/auth_right.png') }}"
-                            alt=""
-                            class="h-full w-full object-cover"
-                            draggable="false"
-                        >
-                    </div>
+                    {{--    <div class="h-[180px] w-full overflow-hidden rounded-[20px] bg-[#F6E6C6]">
+                           <img
+                               src="{{ asset('images/svg/auth_right.png') }}"
+                               alt=""
+                               class="h-full w-full object-cover"
+                               draggable="false"
+                           >
+                       </div>--}}
                 </div>
 
                 {{-- Desktop --}}

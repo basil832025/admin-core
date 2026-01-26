@@ -742,10 +742,37 @@ public function submit(Request $request)
     // 6. Ищем черновик заказа клиента, если есть
     $order = null;
     if ($client) {
-        $order = Order::where('clients_id', $client->id)
-            ->where('status', OrderStatus::Cart)
-            ->latest('id')
-            ->first();
+        // Проверяем, что клиент существует в базе данных
+        $clientExists = \App\Models\Shop\Client::where('id', $client->id)->exists();
+        
+        if ($clientExists) {
+            $order = Order::where('clients_id', $client->id)
+                ->where('status', OrderStatus::Cart)
+                ->latest('id')
+                ->first();
+        } else {
+            \Log::warning('Client not found when searching for draft order', [
+                'client_id' => $client->id,
+            ]);
+        }
+    }
+    
+    // Если заказа нет, создаем новый
+    if (!$order) {
+        $order = new Order();
+        $order->status = OrderStatus::Cart;
+        $order->total_price = 0;
+        $order->currency = 'UAH';
+        
+        // Устанавливаем clients_id только если клиент существует
+        if ($client) {
+            $clientExists = \App\Models\Shop\Client::where('id', $client->id)->exists();
+            $order->clients_id = $clientExists ? $client->id : null;
+        } else {
+            $order->clients_id = null; // Гостевой заказ
+        }
+        
+        $order->save();
     }
 
     $cartInfo = $this->cart->info();

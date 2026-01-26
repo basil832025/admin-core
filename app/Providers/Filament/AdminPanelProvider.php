@@ -30,6 +30,7 @@ use Filament\Navigation\NavigationItem;
 use Filament\Enums\ThemeMode;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Filament\View\PanelsRenderHook;
 // ← ВАЖНО
 class AdminPanelProvider extends PanelProvider
 {
@@ -212,6 +213,13 @@ class AdminPanelProvider extends PanelProvider
         if ($hasSettings && ($w = Setting::admin('layout.max_content_width'))) {
             $panel->maxContentWidth($w); // например '7xl' | 'full'
         }
+        
+        // Добавляем обработчик 419 ошибок для автоматической перезагрузки
+        $panel->renderHook(
+            PanelsRenderHook::HEAD_END,
+            fn () => view('filament.hooks.csrf-handler')
+        );
+        
     return $panel;
     }
     /** Безопасная проверка наличия таблицы (не падает в package:discover). */

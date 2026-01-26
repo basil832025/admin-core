@@ -227,150 +227,29 @@
 
     @push('scripts')
     <script>
+    // Инициализация автозаполнения адреса для профиля (только Киев)
     (function() {
-        let autocompleteInitialized = false;
-
-        function initProfileAddressAutocomplete() {
-            if (autocompleteInitialized) return;
-
-            const streetInput = document.getElementById('profile-address-street');
-            const houseInput = document.getElementById('profile-address-house');
-            
-            if (!streetInput) {
-                return;
-            }
-
-            if (typeof google === 'undefined' || !google.maps || !google.maps.places) {
-                return;
-            }
-
-            var options = {
-                componentRestrictions: { country: 'ua' },
-                types: ['address'],
-            };
-
-            try {
-                var autocomplete = new google.maps.places.Autocomplete(streetInput, options);
-
-                autocomplete.addListener('place_changed', function () {
-                    const place = autocomplete.getPlace();
-                    if (!place || !place.geometry || !place.geometry.location) return;
-
-                    const comps = place.address_components || [];
-                    let street = '';
-                    let streetNumber = '';
-
-                    for (const c of comps) {
-                        if (c.types.includes('route')) {
-                            street = c.long_name;
-                        }
-                        if (c.types.includes('street_number')) {
-                            streetNumber = c.long_name;
-                        }
-                        // Также извлекаем город
-                        if (c.types.includes('locality') || c.types.includes('administrative_area_level_1')) {
-                            const cityInput = document.querySelector('input[name="city"]');
-                            if (cityInput && !cityInput.value) {
-                                cityInput.value = c.long_name;
-                            }
-                        }
-                    }
-
-                    // Закрываем dropdown ПЕРЕД изменением значения
-                    const pacContainer = document.querySelector('.pac-container');
-                    if (pacContainer) {
-                        pacContainer.style.display = 'none';
-                    }
-
-                    // Заполняем поле улицы (только название улицы без номера)
-                    if (street) {
-                        streetInput.value = street;
-                    }
-
-                    // Заполняем поле дома, если номер дома есть
-                    if (streetNumber && houseInput) {
-                        houseInput.value = streetNumber;
-                        houseInput.dispatchEvent(new Event('input', { bubbles: true }));
-                    }
-
-                    // Триггерим событие для Alpine.js
-                    streetInput.dispatchEvent(new Event('input', { bubbles: true }));
-
-                    // Убираем фокус с поля и перемещаем на другое поле
-                    setTimeout(function() {
-                        streetInput.blur();
-                        if (houseInput && streetNumber) {
-                            houseInput.focus();
-                        } else if (houseInput) {
-                            houseInput.focus();
-                            setTimeout(() => houseInput.blur(), 50);
-                        }
-                        
-                        // Дополнительно скрываем dropdown на случай, если он все еще виден
-                        const pacContainer = document.querySelector('.pac-container');
-                        if (pacContainer) {
-                            pacContainer.style.display = 'none';
-                        }
-                    }, 50);
+        function initProfileAutocomplete() {
+            if (typeof window.initAddressAutocomplete !== 'undefined') {
+                window.initAddressAutocomplete({
+                    streetInputId: 'profile-address-street',
+                    houseInputId: 'profile-address-house',
+                    cityInputSelector: 'input[name="city"]',
+                    kyivOnly: true, // Ограничиваем только Киевом
+                    googleMapsKey: window.GOOGLE_MAPS_API_KEY,
                 });
-
-                // Закрываем dropdown при потере фокуса
-                streetInput.addEventListener('blur', function() {
-                    setTimeout(function() {
-                        const pacContainer = document.querySelector('.pac-container');
-                        if (pacContainer) {
-                            pacContainer.style.display = 'none';
-                        }
-                    }, 200);
-                });
-
-                // Дополнительно: закрываем dropdown при клике вне его
-                document.addEventListener('click', function(e) {
-                    const pacContainer = document.querySelector('.pac-container');
-                    if (pacContainer && !pacContainer.contains(e.target) && e.target !== streetInput) {
-                        pacContainer.style.display = 'none';
-                    }
-                });
-
-                autocompleteInitialized = true;
-            } catch (e) {
-                console.error('Error initializing Google Places Autocomplete:', e);
+            } else {
+                // Если библиотека еще не загружена, ждем немного и пробуем снова
+                setTimeout(initProfileAutocomplete, 500);
             }
         }
-
-        // Функция для загрузки Google Maps API
-        function loadGoogleMapsAPI() {
-            if (typeof google !== 'undefined' && google.maps && google.maps.places) {
-                initProfileAddressAutocomplete();
-                return;
-            }
-
-            // Проверяем, не загружается ли уже скрипт
-            if (document.querySelector('script[src*="maps.googleapis.com/maps/api/js"]')) {
-                // Скрипт уже есть, просто ждем его загрузки
-                setTimeout(initProfileAddressAutocomplete, 1000);
-                return;
-            }
-
-            // Создаем callback функцию глобально
-            window.initProfileAddressAutocompleteCallback = function() {
-                initProfileAddressAutocomplete();
-            };
-
-            const script = document.createElement('script');
-            script.src = 'https://maps.googleapis.com/maps/api/js?key={{ config("services.google_maps.key") }}&libraries=places&callback=initProfileAddressAutocompleteCallback';
-            script.defer = true;
-            script.async = true;
-            document.head.appendChild(script);
-        }
-
-        // Инициализируем после загрузки DOM
+        
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', function() {
-                setTimeout(loadGoogleMapsAPI, 500);
+                setTimeout(initProfileAutocomplete, 500);
             });
         } else {
-            setTimeout(loadGoogleMapsAPI, 500);
+            setTimeout(initProfileAutocomplete, 500);
         }
     })();
     </script>
