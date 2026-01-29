@@ -672,7 +672,7 @@ public function submit(Request $request)
         'delivery_mode'    => 'required|in:asap,fixed',
         'delivery_time'    => 'nullable|string|max:20',
 
-        'payment_method'   => 'required|in:liqpay,card_on_delivery,cash',
+        'payment_method'   => 'required|in:liqpay,card_on_delivery,cash,invoice',
 
         'agree'            => 'accepted',
     ]);
@@ -777,6 +777,7 @@ public function submit(Request $request)
         'liqpay'          => PaymentMethodEnum::LIQPAY,
         'card_on_delivery'=> PaymentMethodEnum::CARD,
         'cash'            => PaymentMethodEnum::CASH,
+        'invoice'         => PaymentMethodEnum::INVOICE,
         default           => PaymentMethodEnum::CASH,
     };
 

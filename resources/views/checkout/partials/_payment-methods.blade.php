@@ -51,6 +51,20 @@
             </span>
         </label>
 
+        {{-- Рахунок-фактура (для юридичних осіб) --}}
+        <label class="flex items-center gap-3 cursor-pointer">
+            <input type="radio" name="payment_method" value="invoice" class="tp-radio" @checked($paymentMethod === 'invoice')>
+            <span class="flex items-center gap-3 text-[16px] leading-[22px] text-[#272828]">
+                <span class="text-[#FF7500]" aria-hidden="true">
+                    {{-- иконка документа/счета --}}
+                    <svg width="21" height="19" viewBox="0 0 21 19" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M18.6667 0H2.33333C1.04467 0 0 1.04467 0 2.33333V16.6667C0 17.9553 1.04467 19 2.33333 19H18.6667C19.9553 19 21 17.9553 21 16.6667V2.33333C21 1.04467 19.9553 0 18.6667 0ZM18.6667 16.6667H2.33333V2.33333H18.6667V16.6667ZM15.1667 4.66667H5.83333V7H15.1667V4.66667ZM13.4167 8.5H5.83333V10.8333H13.4167V8.5ZM13.4167 12.3333H5.83333V14.6667H13.4167V12.3333Z" fill="#FF7500"/>
+                    </svg>
+                </span>
+                {{ st('cart.payment.invoice', 'Рахунок-фактура (для юридичних осіб)') }}
+            </span>
+        </label>
+
         @error('payment_method')
         <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
         @enderror
