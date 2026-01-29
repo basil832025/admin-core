@@ -102,7 +102,7 @@
 {{-- Header --}}
 @include('partials.header')
 
-<main class="container mx-auto mt-8 ">
+<main class="container mx-auto mt-4 ">
     <x-menu-drawer event="open-mobile-menu" />
     @yield('content')
 </main>

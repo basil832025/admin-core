@@ -21,6 +21,7 @@ return [
         'slug'          => 'Слаг',
         'lat'           => 'Широта',
         'lng'           => 'Довгота',
+        'google_map_link' => 'Посилання на точку Google карти',
         'svg_image_id'  => 'SVG-іконка для карти',
         'svg_preview'   => 'Прев\'ю іконки',
         'map_preview'   => 'Карта (Google)',

@@ -76,13 +76,23 @@ class LocationResource extends Resource
                             ->label(__('location.fields.address')),
                     ]),
 
-                Forms\Components\Grid::make(3)->schema([
+                Forms\Components\Grid::make(4)->schema([
                     Forms\Components\TextInput::make('slug')
-                        ->label(__('location.fields.slug'))->required()->unique(ignoreRecord: true),
+                        ->label(__('location.fields.slug'))
+                        ->required()
+                        ->unique(ignoreRecord: true),
                     Forms\Components\TextInput::make('lat')
-                        ->label(__('location.fields.lat'))->numeric()->step('0.0000001'),
+                        ->label(__('location.fields.lat'))
+                        ->numeric()
+                        ->step('0.0000001'),
                     Forms\Components\TextInput::make('lng')
-                        ->label(__('location.fields.lng'))->numeric()->step('0.0000001'),
+                        ->label(__('location.fields.lng'))
+                        ->numeric()
+                        ->step('0.0000001'),
+                    Forms\Components\TextInput::make('google_map_link')
+                        ->label(__('location.fields.google_map_link'))
+                        ->placeholder('https://maps.google.com/...')
+                        ->columnSpan(2),
                 ]),
 
                 Forms\Components\Select::make('svg_image_id')

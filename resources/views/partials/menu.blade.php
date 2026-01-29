@@ -2,6 +2,9 @@
 
     $activeIndex = 0; // временно
     $brand = '#FF7500';
+    // Подсветку активного пункта (например «Все пироги») показываем
+    // только на главной странице и на страницах /pies...
+    $isCatalogPage = request()->is('/') || request()->is('pies') || request()->is('pies/*');
 @endphp
 
 <nav class="sticky top-[68px] md:top-[64px] desk:top-[76px] z-40 bg-white shadow-sm mt-6" x-data="scrollTabs()" x-init="init">
@@ -49,7 +52,16 @@
                 gap-4 md:gap-[70px]           {{-- 16px мобайл, ~70px на md+ --}}
                 h-10">
                 @foreach ($MainMenuItems as $i => $item)
-                    @php $active = $i === $MenuactiveIndex; @endphp
+                    @php
+                        // Особый случай только для первого пункта («Все пироги»):
+                        // он считается активным только на главной и /pies.
+                        if ($i === 0) {
+                            $active = $isCatalogPage && ($i === $MenuactiveIndex);
+                        } else {
+                            // Для остальных пунктов оставляем старую логику:
+                            $active = ($i === $MenuactiveIndex);
+                        }
+                    @endphp
                     <li class="shrink-0 h-10">
                         <a href="{{ $item['url'] }}"
                            @class([

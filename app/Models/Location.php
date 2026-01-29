@@ -11,9 +11,19 @@ class Location extends Model
     protected $table = 'bs_locations';
 
     protected $fillable = [
-        'title','city','address','lat','lng',
-        'svg_image_id','phones','emails','schedule',
-        'is_active','sort','slug',
+        'title',
+        'city',
+        'address',
+        'lat',
+        'lng',
+        'google_map_link',
+        'svg_image_id',
+        'phones',
+        'emails',
+        'schedule',
+        'is_active',
+        'sort',
+        'slug',
     ];
 
     protected $casts = [

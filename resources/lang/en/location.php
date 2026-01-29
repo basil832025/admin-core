@@ -21,6 +21,7 @@ return [
         'slug'          => 'Slug',
         'lat'           => 'Latitude',
         'lng'           => 'Longitude',
+        'google_map_link' => 'Google Maps link',
         'svg_image_id'  => 'SVG icon for map',
         'svg_preview'   => 'Icon preview',
         'map_preview'   => 'Map (Google)',

@@ -20,7 +20,7 @@
 
         <section class="max-w-screen-xl mx-auto ">
             @foreach($categorySections as $section)
-               <div class="space-y-14 mt-12">
+               <div class="space-y-14 mt-4">
                     <x-product.section :title="$section['title']"
                                        :favoriteIds="$favoriteIds ?? []"
                                        :items="$section['items']" />

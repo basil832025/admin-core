@@ -12,15 +12,21 @@
             const input = document.querySelector('input[name=pickup_location_id]:checked');
             if (!input) return;
 
+            const googleLink = input.dataset.googleLink;
             const lat = input.dataset.lat;
             const lng = input.dataset.lng;
             const address = input.dataset.address;
 
             let url = null;
 
-            if (lat && lng) {
+            // 1) Приоритет — готовая ссылка из админки
+            if (googleLink) {
+                url = googleLink;
+            } else if (lat && lng) {
+                // 2) Если ссылки нет — собираем URL по координатам
                 url = `https://www.google.com/maps?q=${lat},${lng}`;
             } else if (address) {
+                // 3) Фоллбек — поиск по адресу
                 url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
             }
 
@@ -125,6 +131,7 @@
                 data-lat="{{ $loc->lat }}"
                 data-lng="{{ $loc->lng }}"
                 data-address="{{ $line }}"
+                data-google-link="{{ $loc->google_map_link }}"
                 >
                 <span>
                     <span class="block">

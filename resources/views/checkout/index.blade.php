@@ -20,7 +20,7 @@
 @endphp
 
 @section('content')
-    <div class="mx-auto desk:w-[1208px] px-4 py-6 md:p-6 max-w-full">
+    <div class="mx-auto desk:w-[1208px] px-4  md:p-6 max-w-full">
         <h1 class="text-[26px] md:text-2xl font-semibold mb-4 md:mb-6">{{ st('cart.miy-zakaz', 'Мій заказ') }}</h1>
 
 @push('scripts')
