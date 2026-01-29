@@ -13,7 +13,15 @@
 
     // Определяем выбранный адрес и способ получения
     $selectedId = old('selected_address_id', $sessionData['selected_address_id'] ?? null) ?: ($addresses->first()->id ?? null);
-    $useNewInitial = old('use_new_address', $sessionData['use_new_address'] ?? ($selectedId ? false : true));
+
+    // Если у клиента НЕТ сохранённых адресов — всегда показываем форму нового адреса
+    if (! $client || $addresses->count() === 0) {
+        $selectedId = null;
+        $useNewInitial = true;
+    } else {
+        // Иначе уважаем сохранённый флаг / старую логику
+        $useNewInitial = old('use_new_address', $sessionData['use_new_address'] ?? ($selectedId ? false : true));
+    }
     $shippingMethod = old('shipping_method', $sessionData['shipping_method'] ?? 'delivery');
     $deliveryMode = old('delivery_mode', $sessionData['delivery_mode'] ?? 'asap');
     $paymentMethod = old('payment_method', $sessionData['payment_method'] ?? 'liqpay');

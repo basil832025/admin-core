@@ -708,20 +708,25 @@ public function submit(Request $request)
             'addr.comment'          => 'nullable|string|max:500',
             'addr.is_private_house' => 'nullable|boolean',
             'addr.type'             => 'nullable|string|in:home,work,friends',
+            'addr.lat'              => 'nullable|numeric',
+            'addr.lng'              => 'nullable|numeric',
         ]);
 
         $addrData = [
-            'client_id'       => $client?->id,
+            'client_id'        => $client?->id,
             'street'           => $addr['addr']['street'],
             'house'            => $addr['addr']['house'],
             'apartment'        => $addr['addr']['apartment'] ?? null,
             'intercom'         => $addr['addr']['intercom'] ?? null,
             'floor'            => $addr['addr']['floor'] ?? null,
             'entrance'         => $addr['addr']['porch'] ?? null,
-            'comment'          => $addr['addr']['comment'] ?? null,
+            'note'             => $addr['addr']['comment'] ?? null,
             'is_private_house' => !empty($addr['addr']['is_private_house']),
             'type'             => $addr['addr']['type'] ?? null,
             'city'             => 'Київ',
+            // координаты из формы checkout (заполняются Google Autocomplete)
+            'latitude'         => $addr['addr']['lat'] ?? null,
+            'longitude'        => $addr['addr']['lng'] ?? null,
         ];
 
         $address   = ClientAddress::create($addrData);

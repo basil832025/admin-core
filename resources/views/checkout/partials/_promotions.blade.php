@@ -47,9 +47,9 @@
                         @if(!empty($promo['description']))
                             <span class="ml-2 relative" x-data="{ open:false }">
                                 <button type="button"
-                                        @mouseenter="open=true" @mouseleave="open=false" @click="open=!open"
-                                        class="text-[#FF7500] focus:outline-none">
-                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                        @click.stop="open = !open"
+                                        class="flex items-center justify-center w-6 h-6 rounded-full text-[#FF7500] focus:outline-none">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                         <circle cx="12" cy="12" r="10"/>
                                         <text x="12" y="16" text-anchor="middle"
                                               font-size="13" fill="#fff"
@@ -58,9 +58,10 @@
                                 </button>
                                 <div x-show="open"
                                      x-transition
-                                     @click.outside="open=false"
-                                     class="absolute z-10 left-1/2 -translate-x-1/2 top-6
-                                            w-48 bg-white border border-gray-200 rounded-lg shadow-lg
+                                     x-cloak
+                                     @click.outside="open = false"
+                                     class="absolute z-10 left-1/2 -translate-x-1/2 top-7
+                                            w-52 bg-white border border-gray-200 rounded-lg shadow-lg
                                             text-xs text-gray-700 p-2">
                                     {{ $promo['description'] }}
                                 </div>

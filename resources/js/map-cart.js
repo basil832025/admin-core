@@ -185,16 +185,19 @@ function initMap() {
                 if (typeof handlePlaceChange === 'function') {
                     handlePlaceChange(place);
                 }
-                // ✅ закрыть выпадашку Google после выбора
+                // ✅ закрыть выпадашку Google после выбора и удобно перевести фокус
+                // address-autocomplete передаёт сюда ссылки на реальные элементы
                 setTimeout(() => {
-                    const streetEl = document.getElementById(opts.streetInputId);
-                    const houseEl  = document.getElementById(opts.houseInputId);
+                    const streetEl = data.streetInput || document.getElementById('address-input');
+                    const houseEl  = data.houseInput || null;
 
                     // blur закрывает .pac-container
-                    streetEl?.blur();
+                    if (streetEl) streetEl.blur();
 
-                    // UX: сразу перекинуть фокус на дом
-                    if (houseEl && !houseEl.disabled) houseEl.focus();
+                    // UX: сразу перекинуть фокус на дом (если он есть и не disabled)
+                    if (houseEl && !houseEl.disabled) {
+                        houseEl.focus();
+                    }
                 }, 0);
 
             }

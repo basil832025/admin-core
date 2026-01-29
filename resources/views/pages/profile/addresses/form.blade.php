@@ -150,6 +150,24 @@
                                 </div>
                             </div>
 
+                            {{-- Скрытые поля для координат и дополнительной информации Google Places --}}
+                            <input type="hidden"
+                                   id="profile-address-lat"
+                                   name="latitude"
+                                   value="{{ old('latitude', $address->latitude) }}">
+                            <input type="hidden"
+                                   id="profile-address-lng"
+                                   name="longitude"
+                                   value="{{ old('longitude', $address->longitude) }}">
+                            <input type="hidden"
+                                   id="profile-address-place-id"
+                                   name="street_place_id"
+                                   value="{{ old('street_place_id', $address->street_place_id) }}">
+                            <input type="hidden"
+                                   id="profile-address-formatted"
+                                   name="formatted_address"
+                                   value="{{ old('formatted_address', $address->formatted_address) }}">
+
                             {{-- Тип адреса --}}
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
@@ -234,7 +252,7 @@
     @vite(['resources/js/map-cart.js'])
     <script>
     // Инициализация автозаполнения адреса для профиля с фильтрацией по зонам доставки
-    (function() {
+                (function() {
         function initProfileAutocomplete() {
             if (typeof window.initAddressAutocomplete === 'undefined' || typeof window.deliveryAreas === 'undefined') {
                 setTimeout(initProfileAutocomplete, 200);
@@ -301,6 +319,27 @@
                     checkDeliveryZone: resolveAreaByLatLng,
                     map: hiddenMap,
                     googleMapsKey: window.GOOGLE_MAPS_API_KEY,
+                    onPlaceSelected: function(data) {
+                        if (!data || !data.place || !data.place.geometry || !data.place.geometry.location) return;
+                        const place = data.place;
+                        const loc = place.geometry.location;
+
+                        const latInput  = document.getElementById('profile-address-lat');
+                        const lngInput  = document.getElementById('profile-address-lng');
+                        const faInput   = document.getElementById('profile-address-formatted');
+                        const pidInput  = document.getElementById('profile-address-place-id');
+
+                        if (latInput && lngInput) {
+                            latInput.value = loc.lat();
+                            lngInput.value = loc.lng();
+                        }
+                        if (faInput) {
+                            faInput.value = place.formatted_address || '';
+                        }
+                        if (pidInput) {
+                            pidInput.value = place.place_id || '';
+                        }
+                    },
                 });
             } else {
                 // Fallback: используем стандартное автозаполнение без фильтрации
@@ -311,6 +350,27 @@
                     kyivOnly: true,
                     filterByDeliveryZone: false,
                     googleMapsKey: window.GOOGLE_MAPS_API_KEY,
+                    onPlaceSelected: function(data) {
+                        if (!data || !data.place || !data.place.geometry || !data.place.geometry.location) return;
+                        const place = data.place;
+                        const loc = place.geometry.location;
+
+                        const latInput  = document.getElementById('profile-address-lat');
+                        const lngInput  = document.getElementById('profile-address-lng');
+                        const faInput   = document.getElementById('profile-address-formatted');
+                        const pidInput  = document.getElementById('profile-address-place-id');
+
+                        if (latInput && lngInput) {
+                            latInput.value = loc.lat();
+                            lngInput.value = loc.lng();
+                        }
+                        if (faInput) {
+                            faInput.value = place.formatted_address || '';
+                        }
+                        if (pidInput) {
+                            pidInput.value = place.place_id || '';
+                        }
+                    },
                 });
             }
         }

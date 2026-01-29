@@ -211,8 +211,6 @@ x-cloak
                name="addr[city]"
                value="{{ old('addr.city', $sessionData['addr_city'] ?? '') }}"
         >
-        <input type="hidden" id="checkout-addr-lat" name="addr[lat]" value="{{ old('addr.lat', $sessionData['addr_lat'] ?? '') }}">
-        <input type="hidden" id="checkout-addr-lng" name="addr[lng]" value="{{ old('addr.lng', $sessionData['addr_lng'] ?? '') }}">
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div class="input-required"

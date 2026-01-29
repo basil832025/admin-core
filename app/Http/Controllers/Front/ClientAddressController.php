@@ -41,16 +41,20 @@ class ClientAddressController extends Controller
         $client = Auth::user();
 
         $validated = $request->validate([
-            'city' => 'nullable|string|max:255',
-            'street' => 'required|string|max:255',
-            'house' => 'required|string|max:50',
-            'apartment' => 'nullable|string|max:50',
-            'intercom' => 'nullable|string|max:255',
-            'floor' => 'nullable|integer',
-            'entrance' => 'nullable|string|max:255',
-            'note' => 'nullable|string|max:500',
-            'is_private_house' => 'boolean',
-            'type' => 'nullable|string|max:50',
+            'city'              => 'nullable|string|max:255',
+            'street'            => 'required|string|max:255',
+            'house'             => 'required|string|max:50',
+            'apartment'         => 'nullable|string|max:50',
+            'intercom'          => 'nullable|string|max:255',
+            'floor'             => 'nullable|integer',
+            'entrance'          => 'nullable|string|max:255',
+            'note'              => 'nullable|string|max:500',
+            'is_private_house'  => 'boolean',
+            'type'              => 'nullable|string|max:50',
+            'latitude'          => 'nullable|numeric',
+            'longitude'         => 'nullable|numeric',
+            'street_place_id'   => 'nullable|string|max:255',
+            'formatted_address' => 'nullable|string|max:255',
         ]);
 
         $validated['client_id'] = $client->id;
@@ -109,16 +113,20 @@ class ClientAddressController extends Controller
         }
 
         $validated = $request->validate([
-            'city' => 'nullable|string|max:255',
-            'street' => 'required|string|max:255',
-            'house' => 'required|string|max:50',
-            'apartment' => 'nullable|string|max:50',
-            'intercom' => 'nullable|string|max:255',
-            'floor' => 'nullable|integer',
-            'entrance' => 'nullable|string|max:255',
-            'note' => 'nullable|string|max:500',
-            'is_private_house' => 'boolean',
-            'type' => 'nullable|string|max:50',
+            'city'              => 'nullable|string|max:255',
+            'street'            => 'required|string|max:255',
+            'house'             => 'required|string|max:50',
+            'apartment'         => 'nullable|string|max:50',
+            'intercom'          => 'nullable|string|max:255',
+            'floor'             => 'nullable|integer',
+            'entrance'          => 'nullable|string|max:255',
+            'note'              => 'nullable|string|max:500',
+            'is_private_house'  => 'boolean',
+            'type'              => 'nullable|string|max:50',
+            'latitude'          => 'nullable|numeric',
+            'longitude'         => 'nullable|numeric',
+            'street_place_id'   => 'nullable|string|max:255',
+            'formatted_address' => 'nullable|string|max:255',
         ]);
 
         $validated['is_private_house'] = $request->boolean('is_private_house', false);
