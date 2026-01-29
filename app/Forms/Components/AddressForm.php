@@ -21,6 +21,24 @@ final class AddressForm
             ->statePath($statePath)
             ->schema([
                 Grid::make(2)->schema([
+                    // Используем TextInput вместо Select, так как серверные запросы не работают из-за ограничений по referer
+                    // Автокомплит будет инициализирован через клиентский JavaScript
+                    TextInput::make('street_place_id')
+                        ->label(__('order.fields.address_street_place'))
+                        ->live(onBlur: false) // Отключаем live на blur, чтобы значение не сбрасывалось
+                        ->dehydrated()
+                        ->extraAttributes([
+                            'id' => 'filament-address-street-input',
+                            'data-address-autocomplete' => 'true',
+                        ])
+                        ->afterStateUpdated(function ($state, callable $set) {
+                            // Это поле будет заполняться через JavaScript, но оставляем колбэк для совместимости
+                            // Не сбрасываем значение, если оно было установлено через автокомплит
+                        })
+                        ->columnSpan(2),
+                    
+                    // Старое поле Select закомментировано, так как серверные запросы не работают
+                    /*
                     Select::make('street_place_id')
                         ->label(__('order.fields.address_street_place'))
                         ->live()
@@ -232,11 +250,19 @@ final class AddressForm
 
                             $set('street', $street);
                             $set('formatted_address', $res['formatted_address'] ?? null);
-                            $set('latitude', data_get($res, 'geometry.location.lat'));
-                            $set('longitude', data_get($res, 'geometry.location.lng'));
+                            $lat = data_get($res, 'geometry.location.lat');
+                            $lng = data_get($res, 'geometry.location.lng');
+                            $set('latitude', $lat);
+                            $set('longitude', $lng);
+                            
+                            // Триггерим обновление поля доставки при изменении координат
+                            if ($lat && $lng) {
+                                $set('delivery_price_display', $lat);
+                            }
                         })
                         ->columnSpan(2),
-
+                    */
+                    
                     TextInput::make('street')->label(__('order.fields.address_street'))->columnSpan(2),
                     TextInput::make('house')->label(__('order.fields.address_house'))->required(),
                     TextInput::make('apartment')->label(__('order.fields.address_apartment')),
@@ -244,8 +270,66 @@ final class AddressForm
                     TextInput::make('floor')->label(__('order.fields.address_floor')),
                     TextInput::make('entrance')->label(__('order.fields.address_entrance')),
                     TextInput::make('city')->label(__('order.fields.address_city'))->default('Київ'),
-                    Hidden::make('latitude')->dehydrated(),
-                    Hidden::make('longitude')->dehydrated(),
+                    Hidden::make('latitude')
+                        ->dehydrated()
+                        ->live()
+                        ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                            \Log::info('AddressForm: latitude afterStateUpdated called', [
+                                'latitude' => $state,
+                                'state_type' => gettype($state),
+                            ]);
+                            
+                            // Триггерим обновление поля доставки при изменении координат
+                            $longitude = $get('address.longitude');
+                            \Log::info('AddressForm: longitude from get', [
+                                'longitude' => $longitude,
+                                'longitude_type' => gettype($longitude),
+                            ]);
+                            
+                            if ($state && $longitude) {
+                                // Создаем уникальный ключ на основе координат для принудительного обновления
+                                $updateKey = 'coords_' . $state . '_' . $longitude . '_' . time();
+                                \Log::info('AddressForm: Setting delivery_coords_trigger', [
+                                    'updateKey' => $updateKey,
+                                ]);
+                                $set('delivery_coords_trigger', $updateKey);
+                            } else {
+                                \Log::warning('AddressForm: latitude afterStateUpdated - missing data', [
+                                    'has_latitude' => !empty($state),
+                                    'has_longitude' => !empty($longitude),
+                                ]);
+                            }
+                        }),
+                    Hidden::make('longitude')
+                        ->dehydrated()
+                        ->live()
+                        ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                            \Log::info('AddressForm: longitude afterStateUpdated called', [
+                                'longitude' => $state,
+                                'state_type' => gettype($state),
+                            ]);
+                            
+                            // Триггерим обновление поля доставки при изменении координат
+                            $latitude = $get('address.latitude');
+                            \Log::info('AddressForm: latitude from get', [
+                                'latitude' => $latitude,
+                                'latitude_type' => gettype($latitude),
+                            ]);
+                            
+                            if ($state && $latitude) {
+                                // Создаем уникальный ключ на основе координат для принудительного обновления
+                                $updateKey = 'coords_' . $latitude . '_' . $state . '_' . time();
+                                \Log::info('AddressForm: Setting delivery_coords_trigger', [
+                                    'updateKey' => $updateKey,
+                                ]);
+                                $set('delivery_coords_trigger', $updateKey);
+                            } else {
+                                \Log::warning('AddressForm: longitude afterStateUpdated - missing data', [
+                                    'has_latitude' => !empty($latitude),
+                                    'has_longitude' => !empty($state),
+                                ]);
+                            }
+                        }),
                     TextInput::make('formatted_address')->label(__('order.fields.address_formatted'))->dehydrated()->columnSpan(2),
                     Select::make('type')->label(__('order.fields.address_type'))->options([
                         'home'    => __('order.address_types.home'),

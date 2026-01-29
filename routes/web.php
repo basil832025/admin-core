@@ -215,6 +215,11 @@ Route::get('/checkout/success/{order}', [CheckoutController::class, 'success'])
     ->name('checkout.success');
 Route::post('/checkout/success/{order}/send-email', [CheckoutController::class, 'sendOrderToEmail'])
     ->name('checkout.success.send-email');
+
+// API для определения зоны доставки (используется в админке)
+Route::post('/api/delivery-zone/resolve', [\App\Http\Controllers\Admin\DeliveryZoneController::class, 'resolveZone'])
+    ->name('api.delivery-zone.resolve')
+    ->middleware(['web', 'auth:admin']);
 Route::post('/cart/add',    [CartController::class, 'add'])->name('cart.add');
 Route::post('/cart/remove', [CartController::class, 'remove'])->name('cart.remove');
 Route::post('/cart/clear',  [CartController::class, 'clear'])->name('cart.clear');

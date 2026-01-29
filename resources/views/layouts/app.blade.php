@@ -17,7 +17,7 @@
                 }
             }
         });
-        
+
         // Периодически обновляем CSRF токен (каждые 30 минут)
         setInterval(function() {
             fetch('/csrf-token', {
@@ -44,9 +44,9 @@
                 // Игнорируем ошибки при обновлении токена
             });
         }, 30 * 60 * 1000); // 30 минут
-        
+
         window.isGuestCheckout = {{ auth()->check() ? 'false' : 'true' }};
-        
+
         // Защита от ошибок с undefined key в обработчиках клавиатуры
         // Обертываем обработчики событий перед инициализацией Alpine.js
         const originalAddEventListener = EventTarget.prototype.addEventListener;
@@ -84,7 +84,7 @@
         window.GOOGLE_MAPS_API_KEY = '{{ config("services.google_maps.key") }}';
         window.APP_LOCALE = '{{ app()->getLocale() }}';
     </script>
-    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
     <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicon.png') }}">
     <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('favicon-16x16.png') }}">
     <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('apple-touch-icon.png') }}">
@@ -97,7 +97,7 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ru.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/uk.js"></script>
 </head>
-<body class="antialiased text-gray-900 overflow-x-hidden">
+<body data-page="@yield('page','')" class="antialiased text-gray-900 overflow-x-hidden">
 @include('components.auth.modal')
 {{-- Header --}}
 @include('partials.header')

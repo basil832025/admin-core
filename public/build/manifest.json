@@ -1,11 +1,11 @@
 {
   "resources/css/app.css": {
-    "file": "assets/app-ZzVVvOar.css",
+    "file": "assets/app-gahi6upe.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
   "resources/css/filament/admin/theme.css": {
-    "file": "assets/theme-DEtBN9TF.css",
+    "file": "assets/theme-DC50B_S6.css",
     "src": "resources/css/filament/admin/theme.css",
     "isEntry": true
   },
@@ -17,17 +17,26 @@
     "file": "assets/intro_regular-Bi5raiqJ.ttf",
     "src": "resources/fonts/intro/intro_regular.ttf"
   },
+  "resources/js/alpine/checkout.js": {
+    "file": "assets/checkout-TjSsza0x.js",
+    "name": "checkout",
+    "src": "resources/js/alpine/checkout.js",
+    "isDynamicEntry": true
+  },
   "resources/js/app.js": {
-    "file": "assets/app-BKoxBodp.js",
+    "file": "assets/app-DPOlI7S4.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
+    "dynamicImports": [
+      "resources/js/alpine/checkout.js"
+    ],
     "css": [
       "assets/app-DHTUK0JL.css"
     ]
   },
   "resources/js/map-cart.js": {
-    "file": "assets/map-cart-CZ4BODGQ.js",
+    "file": "assets/map-cart-CEsb5KMK.js",
     "name": "map-cart",
     "src": "resources/js/map-cart.js",
     "isEntry": true

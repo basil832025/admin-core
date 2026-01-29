@@ -1,31 +1,121 @@
-// resources/js/checkout.js
-//import flatpickr from 'flatpickr';
-//import 'flatpickr/dist/flatpickr.css';
+/* =========================================================
+ * checkout.js — Checkout page logic
+ * Alpine components + totals + promos + autosave + delivery
+ * ======================================================= */
 
-/* ===== Alpine components for checkout page ===== */
+document.addEventListener('alpine:init', () => {
+    Alpine.data('deliveryBlock', deliveryBlock);
+
+    // promoComponent у тебя объявлен как window.promoComponent
+    Alpine.data('promoComponent', window.promoComponent);
+
+    Alpine.data('tooltip', tooltip);
+    // Alpine.data('couponComponent', window.couponComponent);
+});
+
+
+
+
+/* =========================================================
+ * Helpers
+ * ======================================================= */
+
+
+const Money = {
+    /**
+     * Parses money from DOM text like "1 234,50 грн" => 1234.5
+     */
+    parse(text) {
+        text = (text || '').toString().replace(/[^\d,.\-]/g, '').replace(/\s+/g, '');
+        // prefer dot as decimal separator
+        const lastComma = text.lastIndexOf(',');
+        const lastDot = text.lastIndexOf('.');
+        const decPos = Math.max(lastComma, lastDot);
+
+        if (decPos !== -1) {
+            const intPart = text.slice(0, decPos).replace(/[.,]/g, '');
+            const fracPart = text.slice(decPos + 1).replace(/[^\d]/g, '');
+            text = intPart + '.' + fracPart;
+        } else {
+            text = text.replace(/[^\d\-]/g, '');
+        }
+
+        const n = parseFloat(text);
+        return isNaN(n) ? 0 : n;
+    },
+
+    /**
+     * Formats number into UA format "1 234,50"
+     */
+    format(n) {
+        n = Number(n || 0);
+        try {
+            return new Intl.NumberFormat('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+        } catch (e) {
+            return (Math.round(n * 100) / 100).toFixed(2).replace('.', ',');
+        }
+    },
+};
+
+function debounce(fn, wait) {
+    let t;
+    return (...args) => {
+        clearTimeout(t);
+        t = setTimeout(() => fn(...args), wait);
+    };
+}
+
+
+/* =========================================================
+ * Debug helpers (enable via: localStorage.checkoutDebug="1")
+ * ======================================================= */
+const CHECKOUT_DEBUG = (localStorage.getItem('checkoutDebug') === '1');
+
+function dlog(...args) {
+    if (CHECKOUT_DEBUG) console.log('[checkout]', ...args);
+}
+function dwarn(...args) {
+    if (CHECKOUT_DEBUG) console.warn('[checkout]', ...args);
+}
+function derr(...args) {
+    if (CHECKOUT_DEBUG) console.error('[checkout]', ...args);
+}
+
+/* =========================================================
+ * Alpine: tooltip
+ * ======================================================= */
+
 function tooltip(text = '') {
     return {
         open: false,
         text,
         toggle() { this.open = !this.open; },
-        show()   { this.open = true; },
-        hide()   { this.open = false; },
+        show() { this.open = true; },
+        hide() { this.open = false; },
     };
 }
+
+/* =========================================================
+ * Alpine: deliveryBlock (date + time)
+ * IMPORTANT: keeps flatpickr behavior and formatting
+ * ======================================================= */
 
 function deliveryBlock() {
     return {
         mode: 'asap',
         fpDate: null,
+
         allTimeIntervals: [],
         availableTimeIntervals: [],
+
         selectedTime: '',
         savedTime: '',
 
-        // сколько минут “подготовки” (у тебя было +60)
+        // minutes needed for preparation
         leadMinutes: 60,
 
         init() {
+            // flatpickr locale (RU)
             const ruLocale = {
                 firstDayOfWeek: 1,
                 weekdays: {
@@ -43,33 +133,25 @@ function deliveryBlock() {
             const todayStr = () => ymd(new Date());
             const tomorrowStr = () => { const d = new Date(); d.setDate(d.getDate() + 1); return ymd(d); };
 
-            const parseStartMinutes = (interval) => {
-                // "09:00-09:15" -> 540
-                const m = String(interval || '').match(/^(\d{2}):(\d{2})-/);
-                if (!m) return null;
-                return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
-            };
-
             const autoPickTimeIfNeeded = () => {
                 if (this.mode !== 'fixed') return;
 
-                // если пользователь уже выбрал — не трогаем
+                // if user already selected something — keep
                 if (this.selectedTime) return;
 
-                // если есть сохранённое и оно доступно — ставим его
+                // try restore saved time
                 if (this.savedTime && this.availableTimeIntervals.includes(this.savedTime)) {
                     this.selectedTime = this.savedTime;
                     return;
                 }
 
-                // иначе ставим первый доступный
+                // else pick first available
                 if (this.availableTimeIntervals.length) {
                     this.selectedTime = this.availableTimeIntervals[0];
                 }
             };
 
             const moveToTomorrowIfNoIntervalsToday = () => {
-                // если сегодня и после фильтрации пусто — переносим дату на завтра
                 if (!this.fpDate) return;
 
                 const sel = this.fpDate.selectedDates?.[0];
@@ -77,14 +159,17 @@ function deliveryBlock() {
 
                 const today = new Date();
                 today.setHours(0,0,0,0);
+
                 const sel0 = new Date(sel);
                 sel0.setHours(0,0,0,0);
 
+                // If selected today but no intervals — move to tomorrow
                 if (sel0.getTime() === today.getTime() && (!this.availableTimeIntervals || this.availableTimeIntervals.length === 0)) {
-                    this.fpDate.setDate(tomorrowStr(), true); // триггерит onChange -> updateAvailableTimeIntervals
+                    this.fpDate.setDate(tomorrowStr(), true);
                 }
             };
 
+            // init flatpickr
             this.fpDate = flatpickr(this.$refs.date, {
                 minDate: todayStr(),
                 dateFormat: 'Y-m-d',
@@ -94,25 +179,27 @@ function deliveryBlock() {
                 locale: ruLocale,
                 disableMobile: true,
                 clickOpens: false,
+
                 onReady: (_, __, inst) => {
                     inst.altInput.placeholder = this.$refs.date.placeholder || 'Дата*';
                 },
+
                 onChange: (sel) => {
-                    if (sel.length) {
-                        this.updateAvailableTimeIntervals();
-                        // после обновления — автоподбор времени
-                        this.$nextTick(() => {
-                            moveToTomorrowIfNoIntervalsToday();
-                            autoPickTimeIfNeeded();
-                        });
-                    }
+                    if (!sel.length) return;
+
+                    this.updateAvailableTimeIntervals();
+
+                    this.$nextTick(() => {
+                        moveToTomorrowIfNoIntervalsToday();
+                        autoPickTimeIfNeeded();
+                    });
                 },
             });
 
-            // Устанавливаем начальное состояние при загрузке
+            // initial state
             this.updateFieldsState();
 
-            // Обновляем доступные интервалы после инициализации
+            // initial intervals
             this.$nextTick(() => {
                 this.updateAvailableTimeIntervals();
                 this.$nextTick(() => {
@@ -121,10 +208,10 @@ function deliveryBlock() {
                 });
             });
 
+            // watchers
             this.$watch('mode', () => {
                 this.updateFieldsState();
 
-                // если включили fixed — сразу автоставим время
                 if (this.mode === 'fixed') {
                     this.$nextTick(() => {
                         this.updateAvailableTimeIntervals();
@@ -135,27 +222,22 @@ function deliveryBlock() {
                     });
                 }
 
-                // Сохраняем изменение в сессию
-                let event = new Event('change');
-                let form = document.querySelector('[data-checkout-form]');
-                if (form) form.dispatchEvent(event);
+                // persist (autosave trigger)
+                this.saveFormData();
             });
 
-            // Отслеживаем изменение selectedTime для сохранения в сессию
             this.$watch('selectedTime', () => {
-                if (this.mode === 'fixed') {
-                    this.saveFormData();
-                }
+                if (this.mode === 'fixed') this.saveFormData();
             });
 
-            // если пересчитались интервалы — попробуем поставить дефолт
             this.$watch('availableTimeIntervals', () => {
-                if (this.mode === 'fixed') {
-                    this.$nextTick(() => autoPickTimeIfNeeded());
-                }
+                if (this.mode === 'fixed') this.$nextTick(() => autoPickTimeIfNeeded());
             });
         },
 
+        /**
+         * Filters intervals for "today" based on leadMinutes
+         */
         updateAvailableTimeIntervals() {
             if (!this.$refs.date || !this.fpDate) {
                 this.availableTimeIntervals = this.allTimeIntervals || [];
@@ -166,10 +248,10 @@ function deliveryBlock() {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            // Сохраняем текущее выбранное время перед фильтрацией
+            // keep currently selected time
             const currentSelected = this.selectedTime;
 
-            // Если выбрана не сегодняшняя дата, показываем все интервалы
+            // not today => all intervals
             if (!selectedDate || selectedDate.getTime() !== today.getTime()) {
                 this.availableTimeIntervals = this.allTimeIntervals || [];
                 if (currentSelected && this.availableTimeIntervals.includes(currentSelected)) {
@@ -178,7 +260,7 @@ function deliveryBlock() {
                 return;
             }
 
-            // Если выбрана сегодняшняя дата, фильтруем прошедшие интервалы
+            // today => remove past intervals
             const now = new Date();
             const nowMinutes = now.getHours() * 60 + now.getMinutes();
             const minMinutes = nowMinutes + (this.leadMinutes || 0);
@@ -186,28 +268,25 @@ function deliveryBlock() {
             this.availableTimeIntervals = (this.allTimeIntervals || []).filter(interval => {
                 const match = interval.match(/^(\d{2}):(\d{2})-/);
                 if (!match) return true;
-
-                const intervalStartMinutes = parseInt(match[1]) * 60 + parseInt(match[2]);
+                const intervalStartMinutes = parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
                 return intervalStartMinutes >= minMinutes;
             });
 
-            // если выбранное время ещё доступно — оставляем
+            // keep selected if still valid
             if (currentSelected && this.availableTimeIntervals.includes(currentSelected)) {
                 this.selectedTime = currentSelected;
-            } else {
-                // не сбрасываем принудительно — автоподбор сделает своё
-                // this.selectedTime = '';
             }
         },
 
         saveFormData() {
-            let form = document.querySelector('[data-checkout-form]');
-            if (form) {
-                let event = new Event('change');
-                form.dispatchEvent(event);
-            }
+            const form = document.querySelector('[data-checkout-form]');
+            if (!form) return;
+            form.dispatchEvent(new Event('change'));
         },
 
+        /**
+         * Enables/disables date + time fields depending on mode
+         */
         updateFieldsState() {
             const fixed = this.mode === 'fixed';
 
@@ -219,6 +298,7 @@ function deliveryBlock() {
             if (altDate) {
                 altDate.readOnly = !fixed;
                 altDate.disabled = !fixed;
+
                 altDate.classList.toggle('bg-[#F9FAFB]', !fixed);
                 altDate.classList.toggle('text-[#9CA3AF]', !fixed);
                 altDate.classList.toggle('cursor-not-allowed', !fixed);
@@ -234,54 +314,45 @@ function deliveryBlock() {
                 else timeSelect.removeAttribute('required');
             }
 
+            // switching to asap => clear
             if (!fixed) {
                 if (this.fpDate) this.fpDate.clear();
                 if (timeSelect) {
                     timeSelect.value = '';
                     this.selectedTime = '';
                 }
-            } else {
-                // Если переключились на fixed, устанавливаем дату по умолчанию (сегодня)
-                if (this.fpDate && !this.$refs.date.value) {
-                    const d = new Date();
-                    const t = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                    this.fpDate.setDate(t, true);
-                }
-
-                this.$nextTick(() => {
-                    this.updateAvailableTimeIntervals();
-                    this.$nextTick(() => {
-                        // если на сегодня уже нет интервалов — fpDate сам поставит завтра (через onChange)
-                        const sel = this.fpDate?.selectedDates?.[0];
-                        if (sel) {
-                            const today = new Date(); today.setHours(0,0,0,0);
-                            const sel0 = new Date(sel); sel0.setHours(0,0,0,0);
-                            if (sel0.getTime() === today.getTime() && this.availableTimeIntervals.length === 0) {
-                                const d2 = new Date(); d2.setDate(d2.getDate() + 1);
-                                const tom = `${d2.getFullYear()}-${String(d2.getMonth() + 1).padStart(2,'0')}-${String(d2.getDate()).padStart(2,'0')}`;
-                                this.fpDate.setDate(tom, true);
-                                return; // onChange дальше сделает автоподбор
-                            }
-                        }
-
-                        // иначе подставим ближайшее
-                        if (!this.selectedTime) {
-                            if (this.savedTime && this.availableTimeIntervals.includes(this.savedTime)) {
-                                this.selectedTime = this.savedTime;
-                            } else if (this.availableTimeIntervals.length) {
-                                this.selectedTime = this.availableTimeIntervals[0];
-                            }
-                        }
-                    });
-                });
+                return;
             }
-        }
+
+            // switching to fixed => set default date (today)
+            if (this.fpDate && !this.$refs.date.value) {
+                const d = new Date();
+                const t = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                this.fpDate.setDate(t, true);
+            }
+
+            // ensure intervals & auto-pick
+            this.$nextTick(() => {
+                this.updateAvailableTimeIntervals();
+                this.$nextTick(() => {
+                    if (!this.selectedTime) {
+                        if (this.savedTime && this.availableTimeIntervals.includes(this.savedTime)) {
+                            this.selectedTime = this.savedTime;
+                        } else if (this.availableTimeIntervals.length) {
+                            this.selectedTime = this.availableTimeIntervals[0];
+                        }
+                    }
+                });
+            });
+        },
     };
 }
 
+/* =========================================================
+ * Promos: available promos (radio group)
+ * ======================================================= */
 
-/* ===== NEW: Alpine component для "Доступные акции" ===== */
-window.availablePromosComponent = function (initialSelected) { // 👈 NEW
+window.availablePromosComponent = function (initialSelected) {
     return {
         selected: initialSelected || 'none',
 
@@ -295,60 +366,50 @@ window.availablePromosComponent = function (initialSelected) { // 👈 NEW
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document
-                        .querySelector('meta[name="csrf-token"]')
-                        .getAttribute('content'),
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                     'Accept': 'application/json',
                 },
                 body: JSON.stringify({ promo: this.selected }),
             })
                 .then(r => r.json())
                 .then(data => {
-                    // гость – требуется авторизация
+                    // guest => redirect to auth (your old behavior)
                     if (data.requires_auth) {
-                        // откатываем выбор на "Без акции"
                         this.selected = 'none';
-                        const noneRadio = document.querySelector('input[name="promo_radio"][value="none"]');
-                        if (noneRadio) {
-                            noneRadio.checked = true;
-                        }
 
-                        // показываем маленький модал "Потрібна авторизація"
+                        const noneRadio = document.querySelector('input[name="promo_radio"][value="none"]');
+                        if (noneRadio) noneRadio.checked = true;
+
                         window.location.href = '/auth';
                         return;
-                        window.dispatchEvent(new CustomEvent('show-auth-modal', {
-                            detail: {
-                                message: data.message || 'Щоб застосувати акцію, увійдіть або зареєструйтесь.',
-                            },
-                        }));
-                        return;
                     }
 
-                    if (!data.ok) {
-                        return;
-                    }
+                    if (!data.ok) return;
 
-                    // обновляем "Скидка"
+                    // discount
                     const discountEl = document.querySelector('[data-checkout-discount]');
-                    if (discountEl) {
-                        discountEl.textContent = data.discount_formatted;
-                    }
+                    if (discountEl) discountEl.textContent = data.discount_formatted;
 
-                    // обновляем "Всего" (большие цифры)
+                    // totals (big)
                     const totalUahEl = document.querySelector('[data-checkout-total-uah]');
                     const totalKopEl = document.querySelector('[data-checkout-total-kop]');
 
-                    if (totalUahEl) {
-                        totalUahEl.textContent = data.total_uah_formatted ?? data.total_uah;
-                    }
-                    if (totalKopEl) {
-                        totalKopEl.textContent = data.total_kop;
+                    if (totalUahEl) totalUahEl.textContent = data.total_uah_formatted ?? data.total_uah;
+                    if (totalKopEl) totalKopEl.textContent = data.total_kop;
+
+                    // re-render totals if needed
+                    if (window.checkoutTotals && typeof window.checkoutTotals.render === 'function') {
+                        window.checkoutTotals.render();
                     }
                 })
                 .catch(() => {});
         },
     };
 };
+
+/* =========================================================
+ * Promos: coupon (promo code)
+ * ======================================================= */
 
 window.promoComponent = function () {
     return {
@@ -372,9 +433,7 @@ window.promoComponent = function () {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document
-                            .querySelector('meta[name="csrf-token"]')
-                            .getAttribute('content'),
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                     },
                     body: JSON.stringify({ coupon: this.coupon }),
                 });
@@ -382,23 +441,19 @@ window.promoComponent = function () {
                 const res = await response.json();
 
                 if (!res.ok) {
-                    this.error   = res.mess;
+                    this.error = res.mess;
                     this.applied = false;
                     this.discount = 0;
 
-                    if (window.checkoutTotals && typeof window.checkoutTotals.resetPromo === 'function') {
-                        window.checkoutTotals.resetPromo();
-                    }
-
+                    // reset promo discount in totals
+                    window.checkoutTotals?.setPromoDiscount?.(0);
                     return;
                 }
 
-                this.applied  = true;
-                this.discount = res.discount;
+                this.applied = true;
+                this.discount = Number(res.discount || 0);
 
-                if (window.checkoutTotals && typeof window.checkoutTotals.applyPromo === 'function') {
-                    window.checkoutTotals.applyPromo(this.discount);
-                }
+                window.checkoutTotals?.setPromoDiscount?.(this.discount);
 
             } catch (e) {
                 this.error = 'Ошибка соединения';
@@ -407,127 +462,716 @@ window.promoComponent = function () {
     };
 };
 
+/* =========================================================
+ * Totals: SINGLE source of truth
+ * ======================================================= */
+
 window.checkoutTotals = {
-    subtotal: 0,
-    baseDiscount: 0,
     promoDiscount: 0,
-    bonus: 0,
+    shipping: 0,
 
-    init() {
-        const subEl   = document.querySelector('[data-checkout-subtotal]');
-        const discEl  = document.querySelector('[data-checkout-discount]');
-        const bonusEl = document.querySelector('[data-checkout-bonus]');
-
-        if (subEl)   this.subtotal     = this.parseMoney(subEl.textContent);
-        if (discEl)  this.baseDiscount = this.parseMoney(discEl.textContent);
-        if (bonusEl) this.bonus        = this.parseMoney(bonusEl.textContent);
-
-        this.updateDiscountDisplay();
-        this.updateTotalDisplay();
+    readBase() {
+        return {
+            sub: Money.parse(document.querySelector('[data-checkout-subtotal]')?.textContent),
+            disc: Money.parse(document.querySelector('[data-checkout-discount]')?.textContent),
+            bonus: Money.parse(document.querySelector('[data-checkout-bonus]')?.textContent),
+        };
     },
 
-    applyPromo(discount) {
-        this.promoDiscount = discount || 0;
-        this.updateDiscountDisplay();
-        this.updateTotalDisplay();
+    setShipping(v) {
+        this.shipping = Number(v || 0);
+
+        // hidden inputs (оба варианта)
+        const ship1 = document.querySelector('[data-shipping-price-input]');
+        const ship2 = document.getElementById('checkout-shipping-price');
+
+        if (ship1) {
+            ship1.value = String(this.shipping || 0);
+            ship1.dispatchEvent(new Event('input', { bubbles: true }));
+            ship1.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        if (ship2) {
+            ship2.value = String(this.shipping || 0);
+            ship2.dispatchEvent(new Event('input', { bubbles: true }));
+            ship2.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        this.render();
     },
 
-    resetPromo() {
-        this.promoDiscount = 0;
-        this.updateDiscountDisplay();
-        this.updateTotalDisplay();
+
+    setPromoDiscount(v) {
+        this.promoDiscount = Number(v || 0);
+        this.render();
     },
 
-    parseMoney(text) {
-        if (!text) return 0;
-        const cleaned = text.replace(/[^\d,.\-]/g, '').replace(/\s+/g, '');
-        const normalized = cleaned.replace(',', '.');
-        const value = parseFloat(normalized);
-        return isNaN(value) ? 0 : value;
-    },
+    render() {
+        // shipping line
+        const shipEl = document.querySelector('[data-checkout-shipping]');
+        if (shipEl) shipEl.textContent = Money.format(this.shipping);
 
-    formatMoney(value) {
-        return new Intl.NumberFormat('uk-UA', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-        }).format(value);
-    },
+        // hidden input (if exists)
+        const shipInput = document.querySelector('[data-shipping-price-input]');
+        if (shipInput) shipInput.value = String(this.shipping || 0);
 
-    updateDiscountDisplay() {
-        const discEl = document.querySelector('[data-checkout-discount]');
-        if (!discEl) return;
-
-        const totalDiscount = this.baseDiscount + this.promoDiscount;
-        discEl.textContent = this.formatMoney(totalDiscount) + ' ';
-    },
-
-    updateTotalDisplay() {
-        const wrap = document.querySelector('[data-checkout-total-wrapper]');
-        const uahEl = wrap?.querySelector('[data-checkout-total-uah]');
-        const kopEl = wrap?.querySelector('[data-checkout-total-kop]');
+        const { sub, disc, bonus } = this.readBase();
 
         const total =
-            this.subtotal - this.baseDiscount - this.promoDiscount - this.bonus;
+            Math.max(sub - disc - bonus - (this.promoDiscount || 0), 0) +
+            (this.shipping || 0);
 
-        const safeTotal = Math.max(total, 0);
-        const uah = Math.floor(safeTotal);
-        const kop = Math.round((safeTotal - uah) * 100);
+        const uah = Math.floor(total);
+        let kop = Math.round((total - uah) * 100);
+        let u = uah;
+        if (kop === 100) { u += 1; kop = 0; }
 
+        const uahEl = document.querySelector('[data-checkout-total-uah]');
         if (uahEl) {
-            uahEl.textContent = new Intl.NumberFormat('uk-UA', {
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0,
-            }).format(uah);
+            uahEl.textContent = new Intl.NumberFormat('uk-UA', { maximumFractionDigits: 0 }).format(u);
         }
-        if (kopEl) {
-            kopEl.textContent = String(kop).padStart(2, '0');
-        }
+
+        const kopEl = document.querySelector('[data-checkout-total-kop]');
+        if (kopEl) kopEl.textContent = String(kop).padStart(2, '0');
     },
 };
 
+/* =========================================================
+ * Layout: move blocks between columns (mobile/desktop)
+ * ======================================================= */
 
-/* ===== Register with Alpine once ===== */
-function registerCheckoutAlpine() {
-    Alpine.data('deliveryBlock', deliveryBlock);
-    Alpine.data('tooltip', (text) => tooltip(text));
-    // компонент акций используется как x-data="availablePromosComponent('...')"  👈 NEW
-}
+function applyCheckoutLayout() {
+    const mobileOrder = [
+        'blk-items',
+        'blk-toggle',
+        'blk-contact',
+        'blk-address',
+        'blk-extras',
+        'blk-conditions',
+        'blk-promocode',
+        'blk-promotions',
+        'blk-bonus',
+        'blk-totals',
+        'blk-pay',
+        'blk-submit',
+        'blk-earned',
+    ];
 
-if (window.Alpine) {
-    registerCheckoutAlpine();
-} else {
-    window.addEventListener('alpine:init', registerCheckoutAlpine);
-}
+    const desktopLeft  = ['blk-contact','blk-address','blk-extras','blk-conditions','blk-promotions','blk-pay'];
+    const desktopRight = ['blk-items','blk-promocode','blk-bonus','blk-totals','blk-submit','blk-earned'];
 
-document.addEventListener('DOMContentLoaded', () => {
-    if (window.checkoutTotals && typeof window.checkoutTotals.init === 'function') {
-        window.checkoutTotals.init();
+    const isMobile = window.matchMedia('(max-width: 1023px)').matches;
+    const left   = document.getElementById('col-left');
+    const right  = document.getElementById('col-right');
+    const toggle = document.getElementById('blk-toggle');
+
+    if (!left || !right || !toggle) return;
+
+    if (isMobile) {
+        right.style.display = 'none';
+        mobileOrder.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) left.appendChild(el);
+        });
+    } else {
+        right.style.display = '';
+        const colsWrap = left.parentElement;
+        if (colsWrap && colsWrap.parentElement) colsWrap.parentElement.insertBefore(toggle, colsWrap);
+
+        desktopLeft.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) left.appendChild(el);
+        });
+        desktopRight.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) right.appendChild(el);
+        });
     }
+}
 
+/* =========================================================
+ * Autosave checkout form
+ * ======================================================= */
+
+function bindCheckoutAutosave() {
     const form = document.querySelector('[data-checkout-form]');
     if (!form) return;
 
-    const isGuest =
-        window.isGuestCheckout === true || window.isGuestCheckout === 'true';
+    const saveUrl = window.CHECKOUT_CONFIG?.saveUrl;
+    const csrf = window.CHECKOUT_CONFIG?.csrf;
+    if (!saveUrl || !csrf) return;
 
-    if (!isGuest) {
-        // авторизованному пользователю ничего не блокируем
+    const saveFormData = debounce(() => {
+        const payload = {
+            contact_name: document.getElementById('contact_name')?.value || '',
+            contact_phone: document.getElementById('contact_phone')?.value || '',
+            contact_email: document.getElementById('contact_email')?.value || '',
+
+            shipping_method: form.querySelector('[name="shipping_method"]')?.value || '',
+            selected_address_id: document.querySelector('input[name="selected_address_id"]:checked')?.value || null,
+
+            use_new_address: document.querySelector('[name="use_new_address"]')?.value
+                || (document.querySelector('[name="use_new_address"]')?.checked ? 1 : 0)
+                || 0,
+
+            delivery_mode: form.querySelector('[name="delivery_mode"]')?.value || '',
+            delivery_date: form.querySelector('[name="delivery_date"]')?.value || '',
+            delivery_time: form.querySelector('[name="delivery_time"]')?.value || '',
+
+            delivery_zone: (
+                document.getElementById('checkout-delivery-zone')?.value ||
+                form.querySelector('[data-delivery-zone-input]')?.value ||
+                ''
+            ),
+            shipping_price: (
+                document.getElementById('checkout-shipping-price')?.value ||
+                form.querySelector('[data-shipping-price-input]')?.value ||
+                '0'
+            ),
+
+            payment_method: form.querySelector('[name="payment_method"]:checked')?.value || '',
+
+            comment_kitchen: form.querySelector('[name="comment_kitchen"]')?.value || '',
+            comment_courier: form.querySelector('[name="comment_courier"]')?.value || '',
+
+            addr_street: document.getElementById('checkout-address-street')?.value || '',
+            addr_house: document.getElementById('checkout-address-house')?.value || '',
+            addr_apartment: form.querySelector('[name="addr[apartment]"]')?.value || '',
+            addr_intercom: form.querySelector('[name="addr[intercom]"]')?.value || '',
+            addr_floor: form.querySelector('[name="addr[floor]"]')?.value || '',
+            addr_porch: form.querySelector('[name="addr[porch]"]')?.value || '',
+            addr_comment: form.querySelector('[name="addr[comment]"]')?.value || '',
+            addr_is_private_house: form.querySelector('[name="addr[is_private_house]"]')?.checked ? '1' : '0',
+            addr_type: form.querySelector('[name="addr[type]"]')?.value || '',
+        };
+
+        fetch(saveUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+            body: JSON.stringify(payload),
+        }).catch(() => {});
+    }, 500);
+
+    form.addEventListener('input', saveFormData);
+    form.addEventListener('change', saveFormData);
+    form.addEventListener('click', (e) => {
+        if (e.target?.type === 'radio' || e.target?.type === 'checkbox') saveFormData();
+    });
+}
+
+/* =========================================================
+ * Google Maps loader (once)
+ * ======================================================= */
+
+function loadGoogleMapsOnce(cb) {
+    if (window.google?.maps?.places && window.google?.maps?.geometry) return cb(true);
+
+    window.__googleMapsLoading = window.__googleMapsLoading ?? false;
+    window.__googleMapsLoaded = window.__googleMapsLoaded ?? false;
+
+    if (window.__googleMapsLoaded) return cb(true);
+
+    // already loading => poll
+    if (window.__googleMapsLoading) {
+        const t = setInterval(() => {
+            if (window.__googleMapsLoaded || (window.google?.maps?.places && window.google?.maps?.geometry)) {
+                clearInterval(t); cb(true);
+            }
+        }, 200);
+        setTimeout(() => { clearInterval(t); cb(!!window.google?.maps); }, 10000);
         return;
     }
 
+    const key = window.CHECKOUT_CONFIG?.googleMapsKey;
+    if (!key) return cb(false);
+
+    window.__googleMapsLoading = true;
+    window.__onGoogleMapsLoaded = function() {
+        window.__googleMapsLoaded = true;
+        window.__googleMapsLoading = false;
+        cb(true);
+    };
+
+    const s = document.createElement('script');
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=places,geometry&callback=__onGoogleMapsLoaded`;
+    s.async = true;
+    s.defer = true;
+    document.head.appendChild(s);
+}
+
+/* =========================================================
+ * Delivery polygons & shipping calc (ONE implementation)
+ * ======================================================= */
+
+window.ensureDeliveryPolygonsReady =
+    window.ensureDeliveryPolygonsReady ||
+    function ensureDeliveryPolygonsReady(cb) {
+        const g = window.google;
+
+        // 1) wait google fully
+        if (!g || !g.maps || !g.maps.Polygon || !g.maps.geometry || !g.maps.geometry.poly) {
+            dwarn('wait google...', {
+                hasGoogle: !!g,
+                hasMaps: !!g?.maps,
+                hasPolygon: !!g?.maps?.Polygon,
+                hasGeometry: !!g?.maps?.geometry?.poly,
+            });
+            return setTimeout(() => window.ensureDeliveryPolygonsReady(cb), 200);
+        }
+
+        // 2) wait deliveryAreas from map-cart.js
+        if (!window.deliveryAreas) {
+            dwarn('wait deliveryAreas... (map-cart.js not loaded yet?)');
+            return setTimeout(() => window.ensureDeliveryPolygonsReady(cb), 200);
+        }
+
+        if (window.__deliveryPolygonsReady) return cb(true);
+
+        function getZoneParams(zoneKey) {
+            const zoneGroup = (zoneKey || '').split('_')[0];
+
+            if (window.DELIVERY_ZONES && window.DELIVERY_ZONES[zoneGroup]) {
+                const z = window.DELIVERY_ZONES[zoneGroup];
+                return {
+                    price: parseFloat(z.delivery_price) || 0,
+                    free:  parseFloat(z.free_delivery_from) || 0,
+                    color: z.color || (window.deliveryAreas[zoneKey]?.color) || '#000000',
+                };
+            }
+
+            return {
+                price: window.deliveryAreas[zoneKey]?.price || 0,
+                free:  window.deliveryAreas[zoneKey]?.free || 0,
+                color: window.deliveryAreas[zoneKey]?.color || '#000000',
+            };
+        }
+
+        for (const key in window.deliveryAreas) {
+            if (!Object.prototype.hasOwnProperty.call(window.deliveryAreas, key)) continue;
+
+            const area = window.deliveryAreas[key];
+            if (!area) continue;
+
+            if (!area.polygon) {
+                area.polygon = new g.maps.Polygon({
+                    path: area.area,
+                    geodesic: true,
+                    map: null,
+                });
+            }
+
+            const params = getZoneParams(key);
+            area.price = params.price;
+            area.free  = params.free;
+            if (params.color) area.color = params.color;
+        }
+
+        window.__deliveryPolygonsReady = true;
+        cb(true);
+    };
+
+/**
+ * Returns delivery zone key by matching polygon references (optional helper)
+ */
+function inferAreaKey(areaObj) {
+    if (!areaObj || !window.deliveryAreas) return null;
+    if (areaObj.key) return areaObj.key;
+
+    if (areaObj.polygon) {
+        for (const k in window.deliveryAreas) {
+            if (window.deliveryAreas[k]?.polygon === areaObj.polygon) return k;
+        }
+    }
+
+    if (areaObj.area) {
+        for (const k in window.deliveryAreas) {
+            if (window.deliveryAreas[k]?.area === areaObj.area) return k;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Calculates shipping by coords using delivery polygons + zones config.
+ * Uses totals from DOM + checkoutTotals.promoDiscount
+ */
+function calcShippingByCoords(lat, lng) {
+ //   dlog('calcShippingByCoords start', { lat, lng });
+
+    return new Promise((resolve) => {
+        window.ensureDeliveryPolygonsReady((ok) => {
+            if (!ok) return resolve({ shipping: 0, zone: '' });
+
+            const latN = parseFloat(lat), lngN = parseFloat(lng);
+            if (isNaN(latN) || isNaN(lngN)) return resolve({ shipping: 0, zone: '' });
+
+            const g = window.google;
+            const area = window.resolveAreaByLatLng?.(new g.maps.LatLng(latN, lngN));
+            if (!area) {
+                dwarn('resolveAreaByLatLng returned null - point outside polygons or function missing');
+                return resolve({ shipping: 0, zone: '' });
+            }
+
+            const rawKey = inferAreaKey(area); // e.g. Brown_2
+            const group = rawKey ? rawKey.split('_')[0] : null; // Brown
+            const z = group ? window.DELIVERY_ZONES?.[group] : null;
+
+            // if zones config missing - fallback to area.price/free
+            const freeFrom = z ? (parseFloat(z.free_delivery_from) || 0) : (parseFloat(area.free) || 0);
+            const price    = z ? (parseFloat(z.delivery_price) || 0) : (parseFloat(area.price) || 0);
+            const zoneName = z ? (z.name || group) : (group || '');
+
+            const itemsTotal = Money.parse(document.querySelector('[data-checkout-subtotal]')?.textContent);
+            const discount   = Money.parse(document.querySelector('[data-checkout-discount]')?.textContent);
+            const bonus      = Money.parse(document.querySelector('[data-checkout-bonus]')?.textContent);
+            const promo      = window.checkoutTotals?.promoDiscount || 0;
+
+            const base = Math.max(itemsTotal - discount - bonus - promo, 0);
+            const shipping = (freeFrom > 0 && base >= freeFrom) ? 0 : price;
+     //       dlog('shipping result', { freeFrom, price, base, shipping, zoneName, rawKey, group });
+
+            resolve({ shipping, zone: zoneName || '' });
+        });
+    });
+}
+
+function bindDeliveryRecalc() {
+    // saved addresses (radio)
+    document.addEventListener('change', (e) => {
+        const t = e.target;
+        if (t && t.matches('input[name="selected_address_id"]')) {
+        //    dlog('address changed', { id: t.value, lat: t.dataset.lat, lng: t.dataset.lng });
+            const lat = t.dataset.lat;
+            const lng = t.dataset.lng;
+
+            calcShippingByCoords(lat, lng).then(({ shipping, zone }) => {
+                const zoneEl1 = document.querySelector('[data-delivery-zone-input]');
+                const zoneEl2 = document.getElementById('checkout-delivery-zone');
+
+                if (zoneEl1) {
+                    zoneEl1.value = zone || '';
+                    zoneEl1.dispatchEvent(new Event('input', { bubbles: true }));
+                    zoneEl1.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+                if (zoneEl2) {
+                    zoneEl2.value = zone || '';
+                    zoneEl2.dispatchEvent(new Event('input', { bubbles: true }));
+                    zoneEl2.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+
+                window.checkoutTotals.setShipping(shipping);
+
+            });
+        }
+    });
+
+    // initial recalc
+    const checked = document.querySelector('input[name="selected_address_id"]:checked');
+    if (checked) {
+        calcShippingByCoords(checked.dataset.lat, checked.dataset.lng).then(({ shipping, zone }) => {
+            const zoneEl1 = document.querySelector('[data-delivery-zone-input]');
+            const zoneEl2 = document.getElementById('checkout-delivery-zone');
+
+            if (zoneEl1) zoneEl1.value = zone || '';
+            if (zoneEl2) zoneEl2.value = zone || '';
+
+            window.checkoutTotals.setShipping(shipping);
+
+        });
+    } else {
+        window.checkoutTotals.render();
+    }
+
+    // new address (if hidden lat/lng fields exist)
+    const latEl = document.getElementById('checkout-addr-lat');
+    const lngEl = document.getElementById('checkout-addr-lng');
+
+    const triggerNew = () => {
+        const useNew = document.querySelector('[name="use_new_address"]')?.value === '1';
+        const method = document.querySelector('[name="shipping_method"]')?.value === 'delivery';
+        if (!useNew || !method) return;
+
+        const lat = latEl?.value;
+        const lng = lngEl?.value;
+        if (!lat || !lng) return;
+
+        calcShippingByCoords(lat, lng).then(({ shipping, zone }) => {
+            const z = document.querySelector('[data-delivery-zone-input]');
+            if (z) z.value = zone || '';
+            window.checkoutTotals.setShipping(shipping);
+        });
+    };
+
+    if (latEl && lngEl) {
+        latEl.addEventListener('input', triggerNew);
+        lngEl.addEventListener('input', triggerNew);
+        latEl.addEventListener('change', triggerNew);
+        lngEl.addEventListener('change', triggerNew);
+    }
+}
+
+/**
+ * Public helper for manual recalc (kept from your file)
+ */
+window.checkoutDeliveryRecalc = function () {
+    const r = document.querySelector('[name="selected_address_id"]:checked');
+    if (!r) return;
+
+    const lat = parseFloat(r.dataset.lat);
+    const lng = parseFloat(r.dataset.lng);
+    if (isNaN(lat) || isNaN(lng)) return;
+
+    calcShippingByCoords(lat, lng).then(({ shipping, zone }) => {
+        const z = document.querySelector('[data-delivery-zone-input]');
+        if (z) z.value = zone || '';
+        window.checkoutTotals.setShipping(shipping);
+    });
+};
+
+/* =========================================================
+ * Address autocomplete (your integration)
+ * ======================================================= */
+
+/* =========================================================
+ * Address autocomplete (checkout)
+ * ======================================================= */
+
+function initCheckoutAutocomplete() {
+    if (typeof window.initAddressAutocomplete === 'undefined') {
+        console.warn('[checkout] initAddressAutocomplete is undefined');
+        return;
+    }
+
+    const latEl  = document.getElementById('checkout-addr-lat');
+    const lngEl  = document.getElementById('checkout-addr-lng');
+    const cityEl = document.querySelector('#checkout-address-city');
+
+    if (!latEl || !lngEl) {
+        console.warn('[checkout] lat/lng hidden inputs not found:', { latEl, lngEl });
+    }
+
+    window.initAddressAutocomplete({
+        streetInputId: 'checkout-address-street',
+        houseInputId: 'checkout-address-house',
+        cityInputSelector: '#checkout-address-city',
+
+        kyivOnly: true,
+        filterByDeliveryZone: true,
+        googleMapsKey: window.CHECKOUT_CONFIG?.googleMapsKey,
+
+        // ✅ ВАЖНО: ваш автокомплит реально умеет это (см. map-cart.js)
+        onPlaceSelected: function (data) {
+            try {
+                const place = data?.place;
+                const loc = place?.geometry?.location;
+
+                if (!loc) {
+                    console.warn('[checkout] onPlaceSelected: no geometry.location', data);
+                    return;
+                }
+
+                // google LatLng объект
+                const lat = (typeof loc.lat === 'function') ? loc.lat() : loc.lat;
+                const lng = (typeof loc.lng === 'function') ? loc.lng() : loc.lng;
+
+              //  console.log('[checkout] onPlaceSelected coords:', { lat, lng });
+
+                if (latEl) {
+                    latEl.value = String(lat);
+                    latEl.dispatchEvent(new Event('input', { bubbles: true }));
+                    latEl.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+
+                if (lngEl) {
+                    lngEl.value = String(lng);
+                    lngEl.dispatchEvent(new Event('input', { bubbles: true }));
+                    lngEl.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+
+                // (не обязательно) можно дополнительно продиагностировать город
+                if (cityEl) {
+                    console.log('[checkout] city field:', cityEl.value);
+                }
+
+            } catch (e) {
+                console.error('[checkout] onPlaceSelected error', e);
+            }
+        },
+    });
+
+  //  console.log('[checkout] autocomplete initialized');
+}
+
+
+
+/* =========================================================
+ * New Address: reset helper (kept)
+ * ======================================================= */
+
+window.resetNewAddress = function(btn){
+    const form = btn.closest('form');
+    if (!form) return;
+
+    [
+        'addr[street]','addr[house]','addr[apartment]','addr[porch]',
+        'addr[intercom]','addr[floor]','addr[comment]'
+    ].forEach((name) => {
+        const el = form.querySelector('[name="'+name+'"]');
+        if (el) {
+            el.value = '';
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    });
+
+    const priv = form.querySelector('[name="addr[is_private_house]"]');
+    if (priv) priv.checked = false;
+
+    form.querySelectorAll('.tp-error').forEach(p => p.classList.add('hidden'));
+    form.querySelectorAll('.tp-float-wrap.is-invalid').forEach(w => w.classList.remove('is-invalid'));
+};
+
+/* =========================================================
+ * Required validation (data-required + data-required-if)
+ * NOTE: capture=true to run before guest-auth submit handler
+ * ======================================================= */
+
+function initCheckoutRequiredValidation() {
+    const form = document.querySelector('[data-checkout-form]');
+    if (!form) return;
+
+    function getFieldValue(form, name) {
+        const els = form.querySelectorAll('[name="' + CSS.escape(name) + '"]');
+        if (!els.length) return '';
+
+        const first = els[0];
+        if (first.type === 'radio') {
+            const checked = form.querySelector('[name="' + CSS.escape(name) + '"]:checked');
+            return checked ? (checked.value || '') : '';
+        }
+        if (first.type === 'checkbox') {
+            return first.checked ? '1' : '';
+        }
+        return (first.value || '').trim();
+    }
+
+    function shouldValidate(form, field) {
+        const rule = field.getAttribute('data-required-if');
+        if (!rule) return true;
+
+        const parts = rule.split(';').map(s => s.trim()).filter(Boolean);
+        for (const p of parts) {
+            const [depName, depVal] = p.split('=').map(s => (s || '').trim());
+            if (!depName) continue;
+            if (String(getFieldValue(form, depName)) !== String(depVal)) return false;
+        }
+        return true;
+    }
+
+    function showError(form, name) {
+        const err = form.querySelector('[data-error-for="'+CSS.escape(name)+'"]');
+        if (err) err.classList.remove('hidden');
+
+        const wrap = form.querySelector('[data-field-wrap="'+CSS.escape(name)+'"] .tp-float-wrap');
+        if (wrap) { wrap.classList.add('is-invalid'); return; }
+
+        const el = form.querySelector('[name="'+CSS.escape(name)+'"]');
+        if (el) el.classList.add('is-invalid');
+    }
+
+    function clearError(form, name) {
+        const err = form.querySelector('[data-error-for="'+CSS.escape(name)+'"]');
+        if (err) err.classList.add('hidden');
+
+        const wrap = form.querySelector('[data-field-wrap="'+CSS.escape(name)+'"] .tp-float-wrap');
+        if (wrap) { wrap.classList.remove('is-invalid'); return; }
+
+        const el = form.querySelector('[name="'+CSS.escape(name)+'"]');
+        if (el) el.classList.remove('is-invalid');
+    }
+
+    function focusField(form, name) {
+        const el = form.querySelector('[name="'+CSS.escape(name)+'"]') || document.getElementById(name);
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => el.focus(), 150);
+    }
+
+    function validateForm(form) {
+        // clear all
+        form.querySelectorAll('[data-error-for]').forEach(p => p.classList.add('hidden'));
+        form.querySelectorAll('.tp-float-wrap.is-invalid').forEach(w => w.classList.remove('is-invalid'));
+        form.querySelectorAll('.is-invalid').forEach(w => w.classList.remove('is-invalid'));
+
+        let firstInvalidName = null;
+
+        const requiredFields = form.querySelectorAll('[data-required]');
+        requiredFields.forEach(field => {
+            if (field.disabled) return;
+            if (!shouldValidate(form, field)) return;
+
+            const name = field.getAttribute('name') || field.getAttribute('id');
+            if (!name) return;
+
+            const val = field.type === 'checkbox'
+                ? (field.checked ? '1' : '')
+                : (field.type === 'radio' ? getFieldValue(form, field.name) : (field.value || '').trim());
+
+            if (!val) {
+                showError(form, name);
+                if (!firstInvalidName) firstInvalidName = name;
+            }
+        });
+
+        if (firstInvalidName) {
+            focusField(form, firstInvalidName);
+            return false;
+        }
+
+        return true;
+    }
+
+    form.addEventListener('submit', function (e) {
+        if (!validateForm(form)) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation?.();
+        }
+    }, true);
+
+    // clear error on input/change
+    form.addEventListener('input', function (e) {
+        const t = e.target;
+        if (!t) return;
+        const name = t.getAttribute('name') || t.getAttribute('id');
+        if (name) clearError(form, name);
+    });
+
+    form.addEventListener('change', function (e) {
+        const t = e.target;
+        if (!t) return;
+        const name = t.getAttribute('name') || t.getAttribute('id');
+        if (name) clearError(form, name);
+    });
+}
+
+
+/* =========================================================
+ * Guest checkout: submit shows auth modal (kept)
+ * ======================================================= */
+
+function initGuestSubmitAuthIntercept() {
+    const form = document.querySelector('[data-checkout-form]');
+    if (!form) return;
+
+    const isGuest = (window.isGuestCheckout === true || window.isGuestCheckout === 'true');
+    if (!isGuest) return;
+
     form.addEventListener('submit', (e) => {
-        // ВАЖНО:
-        // если форма не проходит HTML5-валидацию (required и т.п.),
-        // этот обработчик вообще не вызовется — браузер сам подсветит поля.
+        // If HTML5 validation fails, this handler won't run.
         e.preventDefault();
-        const nameInput  = form.querySelector('input[name="contact_name"]');
-        const phoneInput = form.querySelector('input[name="contact_phone"]');
 
-        const name  = nameInput  ? nameInput.value.trim()  : '';
-        const phone = phoneInput ? phoneInput.value.trim() : '';
-
-        // Сохраняем URL checkout в сессии перед показом модалки авторизации
-        const checkoutUrl = window.location.href;
+        // Save checkout URL in session (non-critical)
         fetch('/auth/save-checkout-url', {
             method: 'POST',
             headers: {
@@ -535,18 +1179,80 @@ document.addEventListener('DOMContentLoaded', () => {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                 'Accept': 'application/json',
             },
-            body: JSON.stringify({ url: checkoutUrl }),
-        }).catch(() => {}); // Игнорируем ошибки, это не критично
+            body: JSON.stringify({ url: window.location.href }),
+        }).catch(() => {});
 
-        window.dispatchEvent(
-            new CustomEvent('show-auth-modal', {
-                detail: {
-                    message:
-                        'Щоб оформити замовлення, увійдіть або зареєструйтесь.',
-                },
-            }),
-        );
+        // show auth modal
+        window.dispatchEvent(new CustomEvent('show-auth-modal', {
+            detail: {
+                message: 'Щоб оформити замовлення, увійдіть або зареєструйтесь.',
+            },
+        }));
     });
-});
+}
 
+/* =========================================================
+ * Alpine registration
+ * ======================================================= */
+
+/*function registerCheckoutAlpine() {
+    Alpine.data('deliveryBlock', window.deliveryBlock);
+    Alpine.data('tooltip', (text) => tooltip(text));
+    // availablePromosComponent is used as x-data="availablePromosComponent('...')"
+}
+
+if (window.Alpine) {
+    registerCheckoutAlpine();
+} else {
+    window.addEventListener('alpine:init', registerCheckoutAlpine);
+}*/
+
+
+/* =========================================================
+ * Boot (safe)
+ * ======================================================= */
+
+function onReady(fn) {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', fn, { once: true });
+    } else {
+        fn();
+    }
+}
+
+onReady(() => {
+  // console.log('[checkout] boot start');
+
+    // responsive blocks layout
+    applyCheckoutLayout();
+    window.addEventListener('resize', applyCheckoutLayout);
+
+    // form autosave
+    bindCheckoutAutosave();
+
+    // validation hooks (если у тебя есть функция)
+    // ✅ REQUIRED validation (твоя рабочая)
+    if (typeof initCheckoutRequiredValidation === 'function') {
+        initCheckoutRequiredValidation();
+    }
+
+// ✅ guest intercept (если используешь)
+    if (typeof initGuestSubmitAuthIntercept === 'function') {
+        initGuestSubmitAuthIntercept();
+    }
+
+
+    // google autocomplete init
+    if (typeof initCheckoutAutocomplete === 'function') {
+        initCheckoutAutocomplete();
+    }
+
+    // пересчёт доставки / подписки на изменения (если есть)
+    if (typeof bindDeliveryRecalc === 'function') {
+        bindDeliveryRecalc();
+    }
+  //  initCheckoutValidationSafe();
+
+ //   console.log('[checkout] boot done');
+});
 

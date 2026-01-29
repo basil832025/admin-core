@@ -2,7 +2,9 @@
     $itemsTotal = $totals['items_total'] ?? ($totals['total_price'] ?? 0);
     $discount   = $totals['discount']    ?? 0;
     $bonusUsed  = $totals['bonus_used']  ?? 0;
-    $grandTotal = $totals['grand_total'] ?? max($itemsTotal - $discount - $bonusUsed, 0);
+   // $grandTotal = $totals['grand_total'] ?? max($itemsTotal - $discount - $bonusUsed, 0);
+    $grandTotal = $totals['total_price_sale'] ?? max($itemsTotal - $discount - $bonusUsed, 0);
+ //   dump($grandTotal);
 @endphp
 
 {{-- Итоги --}}
@@ -32,6 +34,17 @@
             {{ number_format($bonusUsed, 2, ',', ' ') }}
         </span>
     </div>
+    <div class="flex justify-between text-[#272828]">
+        <span>{{ st('cart.summary.delivery', 'Доставка') }}</span>
+        <span>
+        <span data-checkout-shipping>0,00</span>
+        <span>{{ st('cart.summary.currency_short', 'грн') }}</span>
+    </span>
+    </div>
+    <input type="hidden" name="addr[lat]" id="checkout-addr-lat" value="{{ old('addr.lat', $sessionData['addr_lat'] ?? '') }}">
+    <input type="hidden" name="addr[lng]" id="checkout-addr-lng" value="{{ old('addr.lng', $sessionData['addr_lng'] ?? '') }}">
+    <input type="hidden" name="delivery_zone" id="checkout-delivery-zone" value="{{ old('delivery_zone', $sessionData['delivery_zone'] ?? '') }}">
+    <input type="hidden" name="shipping_price" id="checkout-shipping-price" value="{{ old('shipping_price', $sessionData['shipping_price'] ?? 0) }}">
 
     <div class="h-px bg-[#F3F4F6] my-2"></div>
 

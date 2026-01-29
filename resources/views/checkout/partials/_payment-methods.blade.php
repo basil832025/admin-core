@@ -16,7 +16,7 @@
                         <path d="M12.3508 3L11.1758 4.175L14.9924 8L11.1758 11.825L12.3508 13L17.3508 8L12.3508 3Z" fill="white"/>
                     </svg>
                 </span>
-                LiqPay
+                                {{ st('profile.orders.payment.online','Онлайн карткою')}}
             </span>
         </label>
         <p class="text-xs text-gray-500 pl-8 -mt-4">

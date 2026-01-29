@@ -1,18 +1,109 @@
 <div
     class="bg-white rounded-xl shadow-[0_2px_10px_rgba(0,0,0,.08)] pt-3 pr-4 pb-3 pl-4 space-y-6"
-    x-data="{ useNew: {{ $useNewInitial ? 'true' : 'false' }} }"
-    x-show="typeof method !== 'undefined' && method === 'delivery'"
-    x-cloak
+    x-data="{
+        useNew: {{ $useNewInitial ? 'true' : 'false' }},
+
+        // адрес выбран?
+        selectedId: null,
+        selectedLine: '',
+        selectedCity: '',
+        showList: true,
+        showAll: false,
+
+        init() {
+            // НИЧЕГО не выбираем по умолчанию.
+            // Если нужно когда-нибудь поддержать восстановление из сессии — можно тут включить логику.
+            // Сейчас строго: нет выбранного адреса => показываем список.
+            this.showList = true;
+            this.selectedId = null;
+        },
+
+        selectAddress(el) {
+            if (!el) return;
+            if (el.__selecting) return;
+            this.useNew = false;
+
+            this.selectedId = el.value || null;
+            this.selectedLine = el.dataset.line || '';
+            this.selectedCity = el.dataset.city || '';
+
+            // после выбора показываем карточку выбранного адреса
+            this.showList = false;
+
+            // важно: пусть отработают слушатели пересчёта доставки (document change)
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+        },
+
+        openList() {
+            this.showList = true;
+        },
+
+        clearSelected() {
+
+const checked = document.querySelector('input[name=selected_address_id]:checked');
+if (checked) checked.checked = false;
+
+this.selectedId = null;
+this.selectedLine = '';
+this.selectedCity = '';
+this.showList = true;
+}
+}"
+x-show="typeof method !== 'undefined' && method === 'delivery'"
+x-cloak
 >
-    <div class="text-[18px] md:text-[22px] leading-6 md:leading-7 font-semibold">
-        {{ st('cart.delivery.title', 'Адреса доставки') }}
+    <div class="flex items-center justify-between">
+        <div class="text-[18px] md:text-[22px] leading-6 md:leading-7 font-semibold uppercase">
+            {{ st('cart.delivery.title', 'Адрес доставки') }}
+        </div>
+
+        <button
+            type="button"
+            class="text-[16px] font-medium text-[#FF7500] hover:underline"
+            x-show="!useNew && selectedId && !showList"
+            x-cloak
+            @click="
+        showList = true;
+
+        const checked = document.querySelector('input[name=selected_address_id]:checked');
+        if (checked) checked.checked = false;
+
+        selectedId = null;
+    "
+        >
+            {{ st('cart.address.change', 'Змінити    ') }}
+        </button>
+
     </div>
+
 
     {{-- Сохранённые адреса --}}
     @if($client && $addresses->count())
-        <div class="space-y-4">
-            @foreach($addresses as $addr)
+        {{-- 1) Карточка выбранного адреса  --}}
+        <div
+            x-show="selectedId && !useNew && !showList"
+            x-transition
+            x-cloak
+            class="border border-[#E5E7EB] rounded-[12px] px-4 py-3"
+        >
+            <div class="text-[16px] font-medium leading-[20px] text-[#272828]" x-text="selectedLine"></div>
+            <div class="text-[14px] text-[#9CA3AF] mt-1" x-text="selectedCity"></div>
+        </div>
+        @if($addresses->count() > 3)
+            <button
+                type="button"
+                class="text-[14px] font-semibold text-[#FF7500] hover:underline"
+                x-show="!useNew && (showList || !selectedId)"
+                x-cloak
+                @click="showAll = !showAll"
+                x-text="showAll ? '{{ st('cart.address.hide_all', 'Сховати адреси') }}' : '{{ st('cart.address.show_all', 'Показати всі адреси') }}'"
+            ></button>
+        @endif
+
+        <div class="space-y-4" x-show="!useNew && (showList || !selectedId)" x-cloak>
+            @foreach($addresses as $i => $addr)
                 @php
+              //  dump($addr);
                     $fullLine = trim(
                         ($addr->street
                             ? st('address.parts.street_prefix', 'вулиця').' '.$addr->street
@@ -37,16 +128,29 @@
                         ];
                         $typeLabel = $map[$addr->type] ?? $addr->type;
                     }
+                         $lineForJs = trim($fullLine . ($typeLabel ? " ({$typeLabel})" : ''));
+                    $cityForJs = !empty($addr->city) ? $addr->city : '';
                 @endphp
 
-                <label class="flex items-start gap-2 cursor-pointer"
-                       @click="useNew = false">
+                <label
+                    class="flex items-start gap-2 cursor-pointer"
+                    @click="useNew = false"
+                    x-show="showAll || {{ $i }} < 3"
+                    x-cloak
+                >
                     <input type="radio"
                            name="selected_address_id"
                            value="{{ $addr->id }}"
                            class="tp-radio mt-[3px]"
-                           @checked($selectedId == $addr->id)
+                           data-lat="{{ $addr->latitude ?? '' }}"
+                           data-lng="{{ $addr->longitude ?? '' }}"
+                           data-line="{{ e($lineForJs) }}"
+                           data-city="{{ e($cityForJs) }}"
+                           {{-- ВАЖНО: НЕ ставим checked по умолчанию --}}
+                           @change="selectAddress($event.target)"
                     >
+
+
                     <span class="leading-5">
                         <span class="text-[16px] leading-[22px] text-[#272828]">
                             {{ $fullLine }}
@@ -68,7 +172,19 @@
         <div x-show="!useNew" x-cloak>
             <button
                 type="button"
-                @click="useNew = true"
+                @click="
+  useNew = true;
+  showList = false;
+
+  const checked = document.querySelector('input[name=selected_address_id]:checked');
+  if (checked) {
+    checked.checked = false;
+    checked.dispatchEvent(new Event('change', { bubbles: true }));
+  } else {
+    // чтобы точно сработал autosave при переключении на новый адрес
+    document.querySelector('input[name=use_new_address]')?.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+"
                 class="flex items-center gap-2 text-[#EF4444] font-semibold text-[14px]
                hover:text-[#DC2626] transition"
             >
@@ -84,6 +200,7 @@
     <input type="hidden" name="shipping_method" :value="method">
     <input type="hidden" name="use_new_address" :value="useNew ? 1 : 0">
 
+
     {{-- Поля нового адреса --}}
     <div class="space-y-4" x-show="useNew" x-cloak
          x-data="{ isPrivate: @json((bool) old('addr.is_private_house', !empty($sessionData['addr_is_private_house']))) }"
@@ -94,6 +211,9 @@
                name="addr[city]"
                value="{{ old('addr.city', $sessionData['addr_city'] ?? '') }}"
         >
+        <input type="hidden" id="checkout-addr-lat" name="addr[lat]" value="{{ old('addr.lat', $sessionData['addr_lat'] ?? '') }}">
+        <input type="hidden" id="checkout-addr-lng" name="addr[lng]" value="{{ old('addr.lng', $sessionData['addr_lng'] ?? '') }}">
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div class="input-required"
                  x-data="{ focused:false }"
@@ -164,23 +284,7 @@
                 @enderror
             </div>
 
-         <div x-show="!isPrivate" x-cloak>
-            <div data-field-wrap="addr[intercom]">
-                <div class="tp-float-wrap">
-                    <input
-                        id="checkout-address-intercom"
-                        name="addr[intercom]"
-                        class="tp-float-input"
-                        placeholder=" "
-                        :disabled="!useNew || isPrivate"
-                        value="{{ old('addr.intercom', $sessionData['addr_intercom'] ?? '') }}"
-                    >
-                    <label for="checkout-address-intercom" class="tp-float-label">
-                        {{ st('address.form.intercom', 'Домофон') }}
-                    </label>
-                </div>
-            </div>
-         </div>
+
           <div x-show="!isPrivate" x-cloak>
             <div class="input-required"
                  x-data="{ focused:false }"
@@ -194,27 +298,44 @@
                         class="tp-float-input"
                         placeholder=" "
                         :disabled="!useNew || (typeof method !== 'undefined' && method === 'pickup') || isPrivate"
-                        data-required
-                        data-required-if="shipping_method=delivery;use_new_address=1"
-                        @focus="focused=true"
-                        @blur="focused=false"
                         value="{{ old('addr.apartment', $sessionData['addr_apartment'] ?? '') }}"
                     >
                     <label for="checkout-address-apartment" class="tp-float-label">
-                        {{ st('address.form.apartment', 'Квартира') }}<span class="tp-asterisk">*</span>
+                        {{ st('address.form.apartment', 'Квартира') }}
                     </label>
                 </div>
             </div>
 
-                <p class="tp-error hidden" data-error-for="addr[apartment]">
-                    {{ st('form.required','Це обов’язкове поле') }}
-                </p>
-
-                @error('addr.apartment')
-                <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                @enderror
             </div>
+            <div x-show="!isPrivate" x-cloak>
+                <div class="input-required"
+                     x-data="{ focused:false }"
+                     data-field-wrap="addr[porch]"
+                >
+                    <div class="tp-float-wrap">
+                        <input
+                            id="checkout-address-porch"
+                            name="addr[porch]"
+                            class="tp-float-input"
+                            placeholder=" "
+                            :disabled="!useNew || (typeof method !== 'undefined' && method === 'pickup') || isPrivate"
+                            value="{{ old('addr.porch', $sessionData['addr_porch'] ?? '') }}"
+                        >
+                        <label class="tp-float-label">
+                            {{ st('address.form.porch', "Під'їзд") }}
+                        </label>
 
+                    </div>
+
+                    <p class="tp-error hidden" data-error-for="addr[porch]">
+                        {{ st('form.required','Це обов’язкове поле') }}
+                    </p>
+
+                    @error('addr.porch')
+                    <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                    @enderror
+                </div>
+            </div>
           <div x-show="!isPrivate" x-cloak>
 
             <div data-field-wrap="addr[floor]">
@@ -234,39 +355,24 @@
             </div>
           </div>
 
-         <div x-show="!isPrivate" x-cloak>
-            <div class="input-required"
-                 x-data="{ focused:false }"
-                 data-field-wrap="addr[porch]"
-            >
-                <div class="tp-float-wrap">
-                    <input
-                        id="checkout-address-porch"
-                        name="addr[porch]"
-                        class="tp-float-input"
-                        placeholder=" "
-                        :disabled="!useNew || (typeof method !== 'undefined' && method === 'pickup') || isPrivate"
-                        data-required
-                        data-required-if="shipping_method=delivery;use_new_address=1"
-                        @focus="focused=true"
-                        @blur="focused=false"
-                        value="{{ old('addr.porch', $sessionData['addr_porch'] ?? '') }}"
-                    >
-                    <label for="checkout-address-porch" class="tp-float-label">
-                        {{ st('address.form.porch', "Під'їзд") }}<span class="tp-asterisk">*</span>
-                    </label>
+
+            <div x-show="!isPrivate" x-cloak>
+                <div data-field-wrap="addr[intercom]">
+                    <div class="tp-float-wrap">
+                        <input
+                            id="checkout-address-intercom"
+                            name="addr[intercom]"
+                            class="tp-float-input"
+                            placeholder=" "
+                            :disabled="!useNew || isPrivate"
+                            value="{{ old('addr.intercom', $sessionData['addr_intercom'] ?? '') }}"
+                        >
+                        <label for="checkout-address-intercom" class="tp-float-label">
+                            {{ st('address.form.intercom', 'Домофон') }}
+                        </label>
+                    </div>
                 </div>
-
-                <p class="tp-error hidden" data-error-for="addr[porch]">
-                    {{ st('form.required','Це обов’язкове поле') }}
-                </p>
-
-                @error('addr.porch')
-                <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                @enderror
             </div>
-         </div>
-
         </div>
 
         {{--    <div data-field-wrap="addr[comment]">

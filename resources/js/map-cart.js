@@ -7,13 +7,13 @@ function resolveAreaByLatLng(latLng) {
         // console.warn('Google Maps API не загружен, resolveAreaByLatLng не может работать');
         return null;
     }
-    
+
     // Проверяем, что deliveryAreas определен
     if (typeof deliveryAreas === 'undefined') {
         // console.warn('deliveryAreas не определен');
         return null;
     }
-    
+
     for (const key in deliveryAreas) {
         if (deliveryAreas[key].polygon && google.maps.geometry.poly.containsLocation(latLng, deliveryAreas[key].polygon)) {
             return deliveryAreas[key]; // { price, time: [min,max], free, ... }
@@ -37,7 +37,7 @@ function initMap() {
         }
         return;
     }
-    
+
     // Проверяем наличие элемента карты (может отсутствовать на страницах без карты)
     const mapElement = document.getElementById('map');
     if (!mapElement) {
@@ -47,7 +47,7 @@ function initMap() {
         }
         return;
     }
-    
+
     try {
         let map, marker, bounds, infoWindow;   // ← объявили infoWindow
         const center = CENTER;
@@ -70,7 +70,7 @@ function initMap() {
     function getZoneParams(zoneKey) {
         // Определяем группу зоны по префиксу (Green_, Blue_, Red_, Brown_)
         const zoneGroup = zoneKey.split('_')[0];
-        
+
         // Получаем параметры зоны из базы данных (window.DELIVERY_ZONES)
         if (typeof window !== 'undefined' && window.DELIVERY_ZONES && window.DELIVERY_ZONES[zoneGroup]) {
             const zone = window.DELIVERY_ZONES[zoneGroup];
@@ -82,7 +82,7 @@ function initMap() {
                 color: zone.color || deliveryAreas[zoneKey]?.color || '#000000',
             };
         }
-        
+
         // Fallback: используем старые жестко прописанные значения (только если данные из БД недоступны)
         return {
             price: delivery_cost[zoneKey] || 0,
@@ -95,12 +95,12 @@ function initMap() {
     for (const key in deliveryAreas) {
         // Получаем параметры зоны из базы данных
         const zoneParams = getZoneParams(key);
-        
+
         // Обновляем цвет зоны из базы данных, если он есть
         if (zoneParams.color && zoneParams.color !== deliveryAreas[key].color) {
             deliveryAreas[key].color = zoneParams.color;
         }
-        
+
         deliveryAreas[key].polygon = new google.maps.Polygon({
             path: deliveryAreas[key].area,
             geodesic: true,
@@ -111,12 +111,12 @@ function initMap() {
             fillOpacity: 0.35,
             map,
         });
-        
+
         // Используем параметры из базы данных (принудительно перезаписываем)
         deliveryAreas[key].price = zoneParams.price;
         deliveryAreas[key].time = zoneParams.time;
         deliveryAreas[key].free = zoneParams.free;
-        
+
         // Отладочная информация (можно удалить после проверки)
         if (typeof console !== 'undefined' && console.log && key === 'Blue_1') {
             console.log('Zone', key, 'params from DB:', zoneParams);
@@ -147,7 +147,7 @@ function initMap() {
             infoWindow.open(map); // Открываем окно с информацией
         });
     }
-    
+
     // Делаем deliveryAreas доступным глобально для использования в других модулях
     if (typeof window !== 'undefined') {
         window.deliveryAreas = deliveryAreas;
@@ -156,7 +156,7 @@ function initMap() {
     var input = /** @type {!HTMLInputElement} */ (
         document.getElementById('address-input')
     );
-    
+
     // Используем библиотеку address-autocomplete с фильтрацией по зонам доставки
     // Передаем существующую карту и функцию проверки зон
     if (typeof window.initAddressAutocomplete !== 'undefined') {
@@ -185,10 +185,22 @@ function initMap() {
                 if (typeof handlePlaceChange === 'function') {
                     handlePlaceChange(place);
                 }
+                // ✅ закрыть выпадашку Google после выбора
+                setTimeout(() => {
+                    const streetEl = document.getElementById(opts.streetInputId);
+                    const houseEl  = document.getElementById(opts.houseInputId);
+
+                    // blur закрывает .pac-container
+                    streetEl?.blur();
+
+                    // UX: сразу перекинуть фокус на дом
+                    if (houseEl && !houseEl.disabled) houseEl.focus();
+                }, 0);
+
             }
         });
     }
-    
+
     // Создаем фиктивный Autocomplete для обратной совместимости
     var autocomplete = {
         set: function(key, value) {
@@ -390,7 +402,7 @@ function initMap() {
 }
 
 
-// Определяем язык: берем из window.APP_LOCALE (передается из Laravel), 
+// Определяем язык: берем из window.APP_LOCALE (передается из Laravel),
 // затем из атрибута lang HTML элемента, затем из jQuery селектора, или используем значение по умолчанию
 // Приоритет: 1) window.APP_LOCALE, 2) атрибут lang HTML, 3) jQuery селектор, 4) значение по умолчанию 'uk'
 let lang = 'uk';

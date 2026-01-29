@@ -20,10 +20,16 @@ class ClientAddress extends Model
         'note',
         'is_private_house',
         'type',
+        'latitude',
+        'longitude',
+        'street_place_id',
+        'formatted_address',
     ];
 
     protected $casts = [
         'is_private_house' => 'boolean',
+        'latitude' => 'float',
+        'longitude' => 'float',
     ];
 
     public function client(): BelongsTo

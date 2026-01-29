@@ -4,7 +4,7 @@
     $timeIntervals = $timeIntervals ?? [];
 @endphp
 <div
-    x-data="deliveryBlock()"
+    x-data="deliveryBlock"
     x-init="
         mode = @js($deliveryMode);
         allTimeIntervals = @js($timeIntervals ?? []);
@@ -20,6 +20,8 @@
     "
     class="bg-white rounded shadow-[0_2px_10px_rgba(0,0,0,.08)] pt-3 pr-4 pb-3 pl-4"
 >
+
+
     <input type="hidden" name="delivery_mode" x-model="mode">
 
     <div class="text-[18px] md:text-[22px] leading-6 md:leading-7 font-semibold mb-3 md:mb-4">
@@ -42,8 +44,13 @@
         </label>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {{-- Дата* --}}
+    <div
+        x-show="mode === 'fixed'"
+        x-transition.opacity.duration.150ms
+        class="grid grid-cols-1 md:grid-cols-2 gap-6"
+    >
+
+    {{-- Дата* --}}
         <label class="block relative">
             <span class="sr-only">
                 {{ st('cart.delivery.date_label', 'Дата') }}
@@ -80,14 +87,14 @@
             <select
                 x-ref="time"
                 name="delivery_time"
-                :disabled="mode==='asap'"
                 class="tp-input pr-10 appearance-none"
                 x-model="selectedTime"
-                data-required
-                data-required-if="delivery_mode=fixed"
+                :disabled="mode === 'asap'"
+                :data-required="mode === 'fixed' ? true : null"
                 @change="saveFormData()"
             >
-                <option value="">{{ st('cart.delivery.time_label', 'Час') }}</option>
+
+            <option value="">{{ st('cart.delivery.time_label', 'Час') }}</option>
                 <template x-for="interval in availableTimeIntervals" :key="interval">
                     <option :value="interval" x-text="interval"></option>
                 </template>
@@ -108,3 +115,4 @@
 
     </div>
 </div>
+

@@ -220,6 +220,18 @@ class AdminPanelProvider extends PanelProvider
             fn () => view('filament.hooks.csrf-handler')
         );
         
+        // Добавляем скрипт для расчета зоны доставки (использует ту же логику, что и /delivery)
+        $panel->renderHook(
+            PanelsRenderHook::HEAD_END,
+            fn () => view('filament.hooks.delivery-zone-calculator')
+        );
+        
+        // Добавляем скрипт для инициализации автокомплита адресов в Filament админке
+        $panel->renderHook(
+            PanelsRenderHook::BODY_END,
+            fn () => view('filament.hooks.address-autocomplete-init')
+        );
+        
     return $panel;
     }
     /** Безопасная проверка наличия таблицы (не падает в package:discover). */

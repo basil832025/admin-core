@@ -43,13 +43,13 @@ public function index()
     if (!Auth::check()) {
         // Сохраняем URL checkout в сессии для редиректа после авторизации
         session(['checkout.redirect_url' => request()->url()]);
-        
+
         return redirect()->route('auth.show');
     }
 
     // Загружаем сохраненные данные из сессии
     $sessionData = session('checkout.form_data', []);
-    
+
     $items  = $this->cart->items();
     $info   = $this->cart->info();
     // 1) Точки самовывоза из bs_locations
@@ -147,7 +147,7 @@ public function index()
 
 /**
  * Получить временные интервалы для доставки из графика работы
- * 
+ *
  * @param \Illuminate\Support\Collection $locations
  * @return array Массив интервалов вида ["09:00-09:15", "09:15-09:30", ...]
  */
@@ -160,7 +160,7 @@ private function getDeliveryTimeIntervals($locations): array
     if ($locations->isNotEmpty()) {
         foreach ($locations as $location) {
             $schedule = $location->schedule ?? null;
-            
+
 
             if (is_array($schedule) && !empty($schedule)) {
                 // Ищем элемент со slug = "delivery"
@@ -258,7 +258,7 @@ private function minutesToTime(int $minutes): string
 public function saveFormData(Request $request)
 {
     $data = [];
-    
+
     // Контактные данные
     if ($request->has('contact_name')) {
         $data['contact_name'] = $request->input('contact_name');
@@ -269,7 +269,7 @@ public function saveFormData(Request $request)
     if ($request->has('contact_email')) {
         $data['contact_email'] = $request->input('contact_email');
     }
-    
+
     // Способ получения и адрес
     if ($request->has('shipping_method')) {
         $data['shipping_method'] = $request->input('shipping_method');
@@ -280,7 +280,7 @@ public function saveFormData(Request $request)
     if ($request->has('use_new_address')) {
         $data['use_new_address'] = $request->boolean('use_new_address');
     }
-    
+
     // Данные нового адреса
     if ($request->has('addr_street')) {
         $data['addr_street'] = $request->input('addr_street');
@@ -309,7 +309,12 @@ public function saveFormData(Request $request)
     if ($request->has('addr_type')) {
         $data['addr_type'] = $request->input('addr_type');
     }
-    
+    if ($request->has('delivery_zone')) {
+        $data['delivery_zone'] = $request->input('delivery_zone');
+    }
+    if ($request->has('shipping_price')) {
+        $data['shipping_price'] = (float) $request->input('shipping_price');
+    }
     // Условия доставки
     if ($request->has('delivery_mode')) {
         $data['delivery_mode'] = $request->input('delivery_mode');
@@ -320,12 +325,12 @@ public function saveFormData(Request $request)
     if ($request->has('delivery_time')) {
         $data['delivery_time'] = $request->input('delivery_time');
     }
-    
+
     // Способ оплаты
     if ($request->has('payment_method')) {
         $data['payment_method'] = $request->input('payment_method');
     }
-    
+
     // Комментарии
     if ($request->has('comment_kitchen')) {
         $data['comment_kitchen'] = $request->input('comment_kitchen');
@@ -399,6 +404,46 @@ public function saveFormData(Request $request)
 
             // Обновляем режим доставки
             $order->as_soon_possible = $deliveryMode === 'asap';
+            // ✅ пишем стоимость доставки в черновик
+            if (array_key_exists('shipping_price', $mergedData)) {
+                $order->shipping_price = (float) $mergedData['shipping_price'];
+            }
+
+            // если самовывоз — доставка 0
+            if (($mergedData['shipping_method'] ?? null) === 'pickup') {
+                $order->shipping_price = 0;
+            }
+// ✅ 1) Способ получения (доставка/самовывоз)
+            $shippingMethod = $mergedData['shipping_method'] ?? 'delivery';
+
+// если у тебя в заказе есть поле self_pickup:
+            $order->self_pickup = ($shippingMethod === 'pickup');
+
+// ✅ 2) Стоимость доставки
+            if (isset($mergedData['shipping_price'])) {
+                $order->shipping_price = (float) $mergedData['shipping_price'];
+            }
+
+// ✅ 3) Выбранный сохранённый адрес
+            $useNew = !empty($mergedData['use_new_address']);
+
+            if ($shippingMethod === 'pickup') {
+                // самовывоз — адрес не нужен, доставка 0
+                $order->client_address_id = null;
+                $order->shipping_price = 0;
+            } else {
+                if (! $useNew) {
+                    // выбран сохранённый адрес
+                    $addrId = $mergedData['selected_address_id'] ?? null;
+                    $order->client_address_id = $addrId ? (int) $addrId : null;
+
+                    // (необязательно, но полезно) сохранить "снимок" адреса в order->address, если такое поле есть
+
+                } else {
+                    // новый адрес — сохранённого id нет
+                    $order->client_address_id = null;
+                }
+            }
 
             $order->save();
         }
@@ -631,7 +676,7 @@ public function submit(Request $request)
 
         'agree'            => 'accepted',
     ]);
-    
+
     // 2. Условная валидация: если выбран режим "fixed", дата и время обязательны
     $deliveryMode = $request->input('delivery_mode', 'asap');
     if ($deliveryMode === 'fixed') {
@@ -712,7 +757,7 @@ public function submit(Request $request)
     $deliveryMode   = $request->input('delivery_mode', 'asap');
     $deliveryDate   = $request->input('delivery_date');
     $deliveryTimeRaw = $request->input('delivery_time'); // Диапазон типа "12:00-12:15"
-    
+
     // Извлекаем первое время из диапазона для сохранения в базу
     // Если формат "12:00-12:15", берем "12:00"
     $deliveryTime = $deliveryTimeRaw;
@@ -744,7 +789,7 @@ public function submit(Request $request)
     if ($client) {
         // Проверяем, что клиент существует в базе данных
         $clientExists = \App\Models\Shop\Client::where('id', $client->id)->exists();
-        
+
         if ($clientExists) {
             $order = Order::where('clients_id', $client->id)
                 ->where('status', OrderStatus::Cart)
@@ -756,14 +801,14 @@ public function submit(Request $request)
             ]);
         }
     }
-    
+
     // Если заказа нет, создаем новый
     if (!$order) {
         $order = new Order();
         $order->status = OrderStatus::Cart;
         $order->total_price = 0;
         $order->currency = 'UAH';
-        
+
         // Устанавливаем clients_id только если клиент существует
         if ($client) {
             $clientExists = \App\Models\Shop\Client::where('id', $client->id)->exists();
@@ -771,7 +816,7 @@ public function submit(Request $request)
         } else {
             $order->clients_id = null; // Гостевой заказ
         }
-        
+
         $order->save();
     }
 
@@ -1043,7 +1088,7 @@ public function submit(Request $request)
             'items.product.productCharacteristicValues.characteristic.svgImage',
             'items.product.productCharacteristicValues.characteristicValue',
             'adjustments',
-            'clientAddress', 
+            'clientAddress',
             'clients'
         ]);
         $notificationEmails = config('notifications.order_notification_email', []);
@@ -1055,7 +1100,7 @@ public function submit(Request $request)
         if (empty($notificationEmails)) {
             $notificationEmails = ['info@3piroga.ua'];
         }
-        
+
         if (!empty($notificationEmails)) {
             \Log::info('Sending order notification email', [
                 'order_id' => $order->id,
@@ -1102,7 +1147,7 @@ public function success(Order $order)
     if ($order->clients_id) {
         $orderClientId = (int) $order->clients_id;
         $currentUserId = auth()->check() ? (int) auth()->id() : null;
-        
+
         if (!$currentUserId || $currentUserId !== $orderClientId) {
             abort(403);
         }
@@ -1116,10 +1161,10 @@ public function success(Order $order)
     // подгружаем позиции и связанные товары
     //$items = $order->items()->with('product')->get();
     $order->load(['items.product.parent']);   // имя связи parent можно поменять, см. ниже
-    
+
     // Проверяем, рабочее ли сейчас время (для отображения разного текста)
     $isWorkingHours = $this->isWorkingHours();
-    
+
     // Получаем номер заказа
     $orderNumber = $order->number ?? str_pad($order->id, 5, '0', STR_PAD_LEFT);
 
@@ -1139,7 +1184,7 @@ public function sendOrderToEmail(Request $request, Order $order)
     if ($order->clients_id) {
         $orderClientId = (int) $order->clients_id;
         $currentUserId = auth()->check() ? (int) auth()->id() : null;
-        
+
         if (!$currentUserId || $currentUserId !== $orderClientId) {
             abort(403);
         }
@@ -1172,19 +1217,19 @@ public function sendOrderToEmail(Request $request, Order $order)
         // Устанавливаем украинскую локаль для email клиенту
         $originalLocale = app()->getLocale();
         app()->setLocale('uk');
-        
+
         \Log::info('Sending order email to client', [
             'order_id' => $order->id,
             'email' => $clientEmail,
             'locale' => app()->getLocale(),
             'mail_driver' => config('mail.default'),
         ]);
-        
+
         Mail::to($clientEmail)->send(new OrderClientMail($order));
-        
+
         // Восстанавливаем исходную локаль
         app()->setLocale($originalLocale);
-        
+
         \Log::info('Order email sent to client successfully', [
             'order_id' => $order->id,
             'email' => $clientEmail,
@@ -1227,7 +1272,7 @@ private function isWorkingHours(): bool
 
     foreach ($locations as $location) {
         $schedule = $location->schedule ?? null;
-        
+
         if (is_array($schedule) && !empty($schedule)) {
             foreach ($schedule as $scheduleItem) {
                 $slug = trim($scheduleItem['slug'] ?? '');
@@ -1259,10 +1304,10 @@ private function isWorkingHours(): bool
                         if (count($timeMatches) >= 2) {
                             $startTime = sprintf('%02d:%02d', (int)$timeMatches[0][1], (int)$timeMatches[0][2]);
                             $endTime = sprintf('%02d:%02d', (int)$timeMatches[1][1], (int)$timeMatches[1][2]);
-                            
+
                             $now = now();
                             $currentTime = $now->format('H:i');
-                            
+
                             return $currentTime >= $startTime && $currentTime <= $endTime;
                         }
                     }
@@ -1288,7 +1333,7 @@ public function payLiqPay(Order $order)
         // Используем строгое сравнение с приведением типов
         $orderClientId = (int) $order->clients_id;
         $currentUserId = auth()->check() ? (int) auth()->id() : null;
-        
+
         if (!$currentUserId || $currentUserId !== $orderClientId) {
             abort(403);
         }

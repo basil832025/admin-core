@@ -41,8 +41,10 @@ document.addEventListener('alpine:init', () => {
                     if (data.removed || Number(it.qty) <= 0) {
                         row.remove();
                     } else {
-                        const qtyEl = row.querySelector('[data-cart-line-total]')?.parentElement?.parentElement?.querySelector('.font-semibold');
-                        if (qtyEl) qtyEl.textContent = String(it.qty ?? 0);
+                      //  const qtyEl = row.querySelector('[data-cart-line-total]')?.parentElement?.parentElement?.querySelector('.font-semibold');
+                        //if (qtyEl) qtyEl.textContent = String(it.qty ?? 0);
+                        const qtyEl = row.querySelector('[data-cart-qty]');
+                        if (qtyEl) qtyEl.textContent = `${it.qty ?? 0} шт`;
                         const lineTotal = row.querySelector('[data-cart-line-total]');
                         if (lineTotal) {
                             const price = Number(it.line_total || it.subtotal || 0);
@@ -255,7 +257,7 @@ document.addEventListener('alpine:init', () => {
                         <div class="mt-1 text-[12px] text-[#9CA3AF]">{{ $var }}</div>
                     @endif
 
-                    <div class="mt-1 text-[12px] text-[#9CA3AF]">{{ $qty }} шт</div>
+
                     </div>
                 </div>
 
@@ -297,7 +299,7 @@ document.addEventListener('alpine:init', () => {
                             <div class="mt-1 text-[12px] text-[#9CA3AF]">{{ $var }}</div>
                         @endif
 
-                        <div class="mt-1 text-[12px] text-[#9CA3AF]">{{ $qty }} шт</div>
+
                     </div>
                 </div>
 
@@ -305,24 +307,14 @@ document.addEventListener('alpine:init', () => {
                 {{-- ВТОРОЙ РЯД (моб): qty + цена + удалить --}}
                 <div class="md:hidden flex items-center justify-between gap-3 w-full">
                     {{-- слева: количество --}}
-                    <div  class="inline-flex items-center justify-center w-[90px] h-[37px] bg-[#FDDDA7] rounded-[4px] px-[10px] gap-[8px] shrink-0">
-                        {{-- minus --}}
-                        <button type="button" disabled class="w-[12px] h-[12px] grid place-items-center">
-                            <svg viewBox="0 0 12 12" class="w-[11.67px] h-[11.67px] fill-[#FF7500]">
-                                <rect x="0" y="5" width="12" height="2" rx="1"/>
-                            </svg>
-                        </button>
-                        {{-- qty --}}
-                        <div class="text-[#FF7500] text-[14px] leading-[16px] font-bold text-center w-[16px]">{{ $qty }}</div>
-
-                        {{-- plus --}}
-                        <button type="button" disabled class="w-[12px] h-[12px] grid place-items-center">
-                            <svg viewBox="0 0 12 12" class="w-[11.67px] h-[11.67px] fill-[#FF7500]">
-                                <rect x="0" y="5" width="12" height="2" rx="1"/>
-                                <rect x="5" y="0" width="2" height="12" rx="1"/>
-                            </svg>
-                        </button>
+                    <div
+                        class="w-[90px] h-[37px] shrink-0 flex items-center justify-center
+           text-[#FF7500] text-[18px] leading-none font-bold"
+                        data-cart-qty
+                    >
+                        {{ $qty }} шт
                     </div>
+
 
                     {{-- середина: цена --}}
                     <div class="flex-1 min-w-0">
@@ -343,7 +335,7 @@ document.addEventListener('alpine:init', () => {
                         </div>
                     </div>
 
-                    {{-- справа: удалить --}}
+                    {{-- справа: удалить
                     <div x-data="{ ask:false }" class="relative shrink-0">
                         <button
                             type="button"
@@ -386,32 +378,21 @@ document.addEventListener('alpine:init', () => {
                                 </button>
                             </div>
                         </div>
-                    </div>
+                    </div>--}}
                 </div>
 
 
                 {{-- КОЛОНКА 3: кнопки - и + (неактивные, десктоп) --}}
-                <div class="hidden md:flex items-start justify-self-center">
-
-                    {{-- слева: количество --}}
-                    <div  class="inline-flex items-center justify-center w-[90px] h-[37px] bg-[#FDDDA7] rounded-[4px] px-[10px] gap-[8px] shrink-0">
-                        {{-- minus --}}
-                        <button type="button" disabled class="w-[12px] h-[12px] grid place-items-center">
-                            <svg viewBox="0 0 12 12" class="w-[11.67px] h-[11.67px] fill-[#FF7500]">
-                                <rect x="0" y="5" width="12" height="2" rx="1"/>
-                            </svg>
-                        </button>   {{-- qty --}}
-                        <div class="text-[#FF7500] text-[14px] leading-[16px] font-bold text-center w-[16px]">{{ $qty }}</div>
-
-                        {{-- plus --}}
-                        <button type="button" disabled class="w-[12px] h-[12px] grid place-items-center">
-                            <svg viewBox="0 0 12 12" class="w-[11.67px] h-[11.67px] fill-[#FF7500]">
-                                <rect x="0" y="5" width="12" height="2" rx="1"/>
-                                <rect x="5" y="0" width="2" height="12" rx="1"/>
-                            </svg>
-                        </button>
+                <div class="hidden md:flex items-center justify-self-center">
+                    <div
+                        class="w-[90px] h-[37px] flex items-center justify-center
+               text-[#FF7500] text-[18px] leading-none font-bold"
+                        data-cart-qty
+                    >
+                        {{ $qty }} шт
                     </div>
                 </div>
+
 
                 {{-- КОЛОНКА 4: цена, старая цена и кнопка удалить (десктоп) --}}
                 <div class="hidden md:flex items-start gap-3 justify-self-end">
@@ -433,7 +414,7 @@ document.addEventListener('alpine:init', () => {
                         @endif
                     </div>
 
-                    {{-- удалить с кастомным confirm --}}
+                    {{-- удалить с кастомным confirm
                     <div x-data="{ ask:false }" class="relative shrink-0">
                         <button
                             type="button"
@@ -476,7 +457,7 @@ document.addEventListener('alpine:init', () => {
                                 </button>
                             </div>
                         </div>
-                    </div>
+                    </div>--}}
                 </div>
             </div>
         @endforeach

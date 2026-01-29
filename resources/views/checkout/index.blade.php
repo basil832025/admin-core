@@ -1,3 +1,4 @@
+@section('page', 'checkout')
 @extends('layouts.app')
 @section('title','Мій заказ')
 
@@ -220,462 +221,55 @@ document.addEventListener('alpine:init', () => {
 
     </div>
 @endsection
+@php
+    $zones = \App\Models\DeliveryZone::where('is_active', true)
+        ->orderBy('sort_order')
+        ->get()
+        ->keyBy('name')
+        ->map(function($zone) {
+            return [
+                'name' => $zone->name,
+                'color' => $zone->color,
+                'delivery_price' => (float)$zone->delivery_price,
+                'delivery_time_min' => (int)$zone->delivery_time_min,
+                'delivery_time_max' => (int)$zone->delivery_time_max,
+                'free_delivery_from' => (float)$zone->free_delivery_from,
+            ];
+        });
+@endphp
 
 @push('scripts')
-{{-- jQuery необходим для map-cart.js --}}
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script>
-    // Передаем данные зон доставки из базы данных в JavaScript
-    @php
-        $zones = \App\Models\DeliveryZone::where('is_active', true)
-            ->orderBy('sort_order')
-            ->get()
-            ->keyBy('name')
-            ->map(function($zone) {
-                return [
-                    'name' => $zone->name,
-                    'color' => $zone->color,
-                    'delivery_price' => (float)$zone->delivery_price,
-                    'delivery_time_min' => (int)$zone->delivery_time_min,
-                    'delivery_time_max' => (int)$zone->delivery_time_max,
-                    'free_delivery_from' => (float)$zone->free_delivery_from,
-                ];
-            });
-    @endphp
-    window.DELIVERY_ZONES = @json($zones);
-</script>
-{{-- Загружаем Google Maps API асинхронно, чтобы не блокировать Alpine.js --}}
-<script>
-(function() {
-    // Флаг для отслеживания загрузки Google Maps API
-    window.__googleMapsLoading = true;
-    window.__googleMapsLoaded = false;
-    
-    // Callback для инициализации после загрузки Google Maps
-    window.__onGoogleMapsLoaded = function() {
-        window.__googleMapsLoaded = true;
-        window.__googleMapsLoading = false;
-    };
-    
-    // Загружаем Google Maps API асинхронно
-    const script = document.createElement('script');
-    script.src = 'https://maps.googleapis.com/maps/api/js?key={{ config('services.google_maps.key') }}&libraries=places,geometry&callback=__onGoogleMapsLoaded';
-    script.async = true;
-    script.defer = true;
-    document.head.appendChild(script);
-})();
-</script>
-{{-- Загружаем map-cart.js для доступа к deliveryAreas --}}
-@vite(['resources/js/map-cart.js'])
-<script>
-(function() {
-    // Сохранение данных формы в сессию
-    const saveFormData = debounce(function() {
-        const form = document.querySelector('[data-checkout-form]');
-        if (!form) return;
+    <script>
+        window.DELIVERY_ZONES = @json($zones);
+    </script>
 
-        // Получаем значения всех полей
-        const contactName = document.getElementById('contact_name')?.value || '';
-        const contactPhone = document.getElementById('contact_phone')?.value || '';
-        const contactEmail = document.getElementById('contact_email')?.value || '';
-
-        // Способ получения (из Alpine.js или из hidden input)
-        const shippingMethodEl = form.querySelector('[name="shipping_method"]');
-        const shippingMethod = shippingMethodEl?.value || '';
-
-        // Выбранный адрес
-        const selectedAddressId = form.querySelector('[name="selected_address_id"]:checked')?.value || '';
-
-        // Использовать новый адрес (из Alpine.js или из hidden input)
-        const useNewAddressEl = form.querySelector('[name="use_new_address"]');
-        const useNewAddress = useNewAddressEl?.value || '0';
-
-        // Данные нового адреса
-        const addrStreet = document.getElementById('checkout-address-street')?.value || '';
-        const addrHouse = document.getElementById('checkout-address-house')?.value || '';
-        const addrApartment = form.querySelector('[name="addr[apartment]"]')?.value || '';
-        const addrIntercom = form.querySelector('[name="addr[intercom]"]')?.value || '';
-        const addrFloor = form.querySelector('[name="addr[floor]"]')?.value || '';
-        const addrPorch = form.querySelector('[name="addr[porch]"]')?.value || '';
-        const addrComment = form.querySelector('[name="addr[comment]"]')?.value || '';
-        const addrIsPrivateHouse = form.querySelector('[name="addr[is_private_house]"]')?.checked ? '1' : '0';
-        const addrType = form.querySelector('[name="addr[type]"]')?.value || '';
-
-        // Условия доставки
-        const deliveryMode = form.querySelector('[name="delivery_mode"]')?.value || '';
-        const deliveryDate = form.querySelector('[name="delivery_date"]')?.value || '';
-        const deliveryTime = form.querySelector('[name="delivery_time"]')?.value || '';
-
-        // Способ оплаты
-        const paymentMethod = form.querySelector('[name="payment_method"]:checked')?.value || '';
-
-        // Комментарии
-        const commentKitchen = form.querySelector('[name="comment_kitchen"]')?.value || '';
-        const commentCourier = form.querySelector('[name="comment_courier"]')?.value || '';
-
-        const payload = {
-            contact_name: contactName,
-            contact_phone: contactPhone,
-            contact_email: contactEmail,
-            shipping_method: shippingMethod,
-            selected_address_id: selectedAddressId,
-            use_new_address: useNewAddress,
-            delivery_mode: deliveryMode,
-            delivery_date: deliveryDate,
-            delivery_time: deliveryTime,
-            payment_method: paymentMethod,
-            comment_kitchen: commentKitchen,
-            comment_courier: commentCourier,
-            addr_street: addrStreet,
-            addr_house: addrHouse,
-            addr_apartment: addrApartment,
-            addr_intercom: addrIntercom,
-            addr_floor: addrFloor,
-            addr_porch: addrPorch,
-            addr_comment: addrComment,
-            addr_is_private_house: addrIsPrivateHouse,
-            addr_type: addrType,
-        };
-
-        fetch('{{ route('checkout.save-form-data') }}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
-                'Accept': 'application/json',
-            },
-            body: JSON.stringify(payload)
-        }).catch(err => console.error('Error saving form data:', err));
-    }, 500);
-
-    // Функция debounce
-    function debounce(func, wait) {
-        let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
-                clearTimeout(timeout);
-                func(...args);
+    <script>
+        (function() {
+            window.__googleMapsLoading = true;
+            window.__googleMapsLoaded = false;
+            window.__onGoogleMapsLoaded = function() {
+                window.__googleMapsLoaded = true;
+                window.__googleMapsLoading = false;
             };
-            clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
-        };
-    }
 
-    // Привязываем сохранение ко всем полям формы
-    document.addEventListener('DOMContentLoaded', function() {
-        const form = document.querySelector('[data-checkout-form]');
-        if (!form) return;
+            const script = document.createElement('script');
+            script.src = 'https://maps.googleapis.com/maps/api/js?key={{ config('services.google_maps.key') }}&libraries=places,geometry&callback=__onGoogleMapsLoaded';
+            script.async = true;
+            script.defer = true;
+            document.head.appendChild(script);
+        })();
+    </script>
 
-        // События для всех полей ввода
-        form.addEventListener('input', saveFormData);
-        form.addEventListener('change', saveFormData);
-
-        // События для radio и checkbox
-        form.addEventListener('click', function(e) {
-            if (e.target.type === 'radio' || e.target.type === 'checkbox') {
-                saveFormData();
-            }
-        });
-    });
-})();
-
-// Инициализация автозаполнения адреса для checkout с фильтрацией по зонам доставки
-(function() {
-    function initCheckoutAutocomplete() {
-        // Проверяем, что все зависимости загружены
-        if (typeof window.initAddressAutocomplete === 'undefined') {
-            setTimeout(initCheckoutAutocomplete, 200);
-            return;
-        }
-        
-        // Ждем загрузки Google Maps API (если еще не загружен)
-        if (typeof google === 'undefined' || !google.maps || !google.maps.places) {
-            // Проверяем флаг загрузки
-            if (window.__googleMapsLoading && !window.__googleMapsLoaded) {
-                setTimeout(initCheckoutAutocomplete, 200);
-                return;
-            }
-            // Если Google Maps не загружается, используем стандартное автозаполнение
-            console.warn('Google Maps API не загружен, используем стандартное автозаполнение');
-            window.initAddressAutocomplete({
-                streetInputId: 'checkout-address-street',
-                houseInputId: 'checkout-address-house',
-                cityInputSelector: '#checkout-address-city',
-                kyivOnly: true,
-                filterByDeliveryZone: false,
-                googleMapsKey: window.GOOGLE_MAPS_API_KEY,
-            });
-            return;
-        }
-        
-        // Используем единую логику с фильтрацией по зонам доставки
-        window.initAddressAutocomplete({
-            streetInputId: 'checkout-address-street',
-            houseInputId: 'checkout-address-house',
-            cityInputSelector: '#checkout-address-city', // Передаем селектор скрытого поля города
-            kyivOnly: true,
-            filterByDeliveryZone: true, // Включаем фильтрацию по зонам доставки
-            googleMapsKey: window.GOOGLE_MAPS_API_KEY,
-        });
-    }
-    
-    // Ждем загрузки DOM и всех зависимостей
-    function waitForDependencies() {
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', function() {
-                setTimeout(initCheckoutAutocomplete, 500);
-            });
-        } else {
-            setTimeout(initCheckoutAutocomplete, 500);
-        }
-    }
-    
-    // Если Google Maps загружается асинхронно, ждем его загрузки
-    if (window.__googleMapsLoading) {
-        const checkGoogleMaps = setInterval(function() {
-            if (window.__googleMapsLoaded || (typeof google !== 'undefined' && google.maps && google.maps.places)) {
-                clearInterval(checkGoogleMaps);
-                waitForDependencies();
-            }
-        }, 200);
-        
-        // Таймаут на случай, если Google Maps не загрузится
-        setTimeout(function() {
-            clearInterval(checkGoogleMaps);
-            waitForDependencies();
-        }, 10000);
-    } else {
-        waitForDependencies();
-    }
-})();
-</script>
-<script>
-    (function () {
-        // Мобильный порядок (строго по твоему списку)
-        const mobileOrder = [
-            'blk-items',       // Мой заказ
-            'blk-toggle',      // доставка/самовывоз
-            'blk-contact',     // контактные
-            'blk-address',     // адрес
-            'blk-extras',      // комментарии
-            'blk-conditions',  // условия доставки
-            'blk-promocode',   // промокод
-            'blk-promotions',  // акции
-            'blk-bonus',       // бонусы
-            'blk-totals',      // сумма
-            'blk-pay',         // способ оплаты
-            'blk-submit',      // согласие + кнопка
-            'blk-earned',
-
-        ];
-
-        // Desktop-раскладка: toggle сверху, форма слева, итог справа
-        const desktopLeft  = ['blk-contact','blk-address','blk-extras','blk-conditions','blk-promotions','blk-pay'];
-        const desktopRight = ['blk-items','blk-promocode','blk-bonus','blk-totals','blk-submit','blk-earned'];
-
-        function applyLayout() {
-            const isMobile = window.matchMedia('(max-width: 1023px)').matches;
-
-            const left   = document.getElementById('col-left');
-            const right  = document.getElementById('col-right');
-            const toggle = document.getElementById('blk-toggle');
-
-            if (!left || !right || !toggle) return;
-
-            if (isMobile) {
-                // На мобилке: прячем правую колонку и складываем ВСЁ в левую по нужному порядку
-                right.style.display = 'none';
-
-                mobileOrder.forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) left.appendChild(el);
-                });
-
-            } else {
-                // На десктопе: возвращаем правую колонку и раскладываем обратно
-                right.style.display = '';
-
-                // toggle должен быть НАД колонками (как ты хочешь)
-                // он уже там в DOM — просто убедимся, что он стоит перед блоком колонок
-                const colsWrap = left.parentElement; // общий wrapper колонок
-                if (colsWrap && colsWrap.parentElement) {
-                    colsWrap.parentElement.insertBefore(toggle, colsWrap);
-                }
-
-                desktopLeft.forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) left.appendChild(el);
-                });
-
-                desktopRight.forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) right.appendChild(el);
-                });
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', applyLayout);
-        window.addEventListener('resize', applyLayout);
-    })();
-</script>
-<script>
-    (function () {
-        function getFieldValue(form, name) {
-            const els = form.querySelectorAll('[name="' + CSS.escape(name) + '"]');
-            if (!els.length) return '';
-
-            const first = els[0];
-            if (first.type === 'radio') {
-                const checked = form.querySelector('[name="' + CSS.escape(name) + '"]:checked');
-                return checked ? (checked.value || '') : '';
-            }
-            if (first.type === 'checkbox') {
-                return first.checked ? '1' : '';
-            }
-            return (first.value || '').trim();
-        }
-
-        function shouldValidate(form, field) {
-            const rule = field.getAttribute('data-required-if');
-            if (!rule) return true;
-
-            const parts = rule.split(';').map(s => s.trim()).filter(Boolean);
-            for (const p of parts) {
-                const [depName, depVal] = p.split('=').map(s => (s || '').trim());
-                if (!depName) continue;
-                if (String(getFieldValue(form, depName)) !== String(depVal)) return false;
-            }
-            return true;
-        }
-
-        function getWrap(form, name) {
-            return form.querySelector('[data-field-wrap="'+CSS.escape(name)+'"] .tp-float-wrap');
-        }
-
-        function showError(form, name) {
-            const err = form.querySelector('[data-error-for="'+CSS.escape(name)+'"]');
-            if (err) err.classList.remove('hidden');
-
-            // float
-            const wrap = form.querySelector('[data-field-wrap="'+CSS.escape(name)+'"] .tp-float-wrap');
-            if (wrap) { wrap.classList.add('is-invalid'); return; }
-
-            // обычные inputs/select
-            const el = form.querySelector('[name="'+CSS.escape(name)+'"]');
-            if (el) el.classList.add('is-invalid');
-        }
-
-        function clearError(form, name) {
-            const err = form.querySelector('[data-error-for="'+CSS.escape(name)+'"]');
-            if (err) err.classList.add('hidden');
-
-            const wrap = form.querySelector('[data-field-wrap="'+CSS.escape(name)+'"] .tp-float-wrap');
-            if (wrap) { wrap.classList.remove('is-invalid'); return; }
-
-            const el = form.querySelector('[name="'+CSS.escape(name)+'"]');
-            if (el) el.classList.remove('is-invalid');
-        }
-
-
-
-        function focusField(form, name) {
-            const el = form.querySelector('[name="'+CSS.escape(name)+'"]') || document.getElementById(name);
-            if (!el) return;
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            setTimeout(() => el.focus(), 150);
-        }
-
-        function validateForm(form) {
-            // очистка
-            form.querySelectorAll('[data-error-for]').forEach(p => p.classList.add('hidden'));
-            form.querySelectorAll('.tp-float-wrap.is-invalid').forEach(w => w.classList.remove('is-invalid'));
-
-            let firstInvalidName = null;
-
-            const requiredFields = form.querySelectorAll('[data-required]');
-            requiredFields.forEach(field => {
-                if (!shouldValidate(form, field)) return;
-
-                const name = field.getAttribute('name') || field.getAttribute('id');
-                if (!name) return;
-
-                // не валидируем disabled
-                if (field.disabled) return;
-
-                const val = field.type === 'checkbox'
-                    ? (field.checked ? '1' : '')
-                    : (field.type === 'radio' ? getFieldValue(form, field.name) : (field.value || '').trim());
-
-                if (!val) {
-                    showError(form, name);
-                    if (!firstInvalidName) firstInvalidName = name;
-                }
-            });
-
-            if (firstInvalidName) {
-                focusField(form, firstInvalidName);
-                return false;
-            }
-
-            return true;
-        }
-
-        document.addEventListener('DOMContentLoaded', function () {
-            const form = document.querySelector('[data-checkout-form]');
-            if (!form) return;
-
-            // 1) Перехват сабмита: если ошибки — НЕ отправляем на сервер
-            form.addEventListener('submit', function (e) {
-                if (!validateForm(form)) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                }
-            }, true);
-
-            // 2) При вводе — убираем ошибку с конкретного поля
-            form.addEventListener('input', function (e) {
-                const t = e.target;
-                if (!t) return;
-                const name = t.getAttribute('name') || t.getAttribute('id');
-                if (name) clearError(form, name);
-            });
-
-            form.addEventListener('change', function (e) {
-                const t = e.target;
-                if (!t) return;
-                const name = t.getAttribute('name') || t.getAttribute('id');
-                if (name) clearError(form, name);
-            });
-        });
-    })();
-</script>
-<script>
-    window.resetNewAddress = function(btn){
-        const form = btn.closest('form');
-        if (!form) return;
-
-        // закрыть форму: если есть Alpine useNew/isPrivate — дернем через closest root
-        const root = btn.closest('[x-data]');
-        try {
-            // если Alpine доступен, можно дернуть напрямую:
-            // Alpine.$data(root).useNew = false; Alpine.$data(root).isPrivate = false;
-        } catch(e){}
-
-        const names = ['addr[street]','addr[house]','addr[apartment]','addr[porch]','addr[intercom]','addr[floor]','addr[comment]'];
-        names.forEach((name) => {
-            const el = form.querySelector('[name="'+name+'"]');
-            if (el) { el.value=''; el.dispatchEvent(new Event('input',{bubbles:true})); }
-        });
-
-        const priv = form.querySelector('[name="addr[is_private_house]"]');
-        if (priv) priv.checked = false;
-
-        form.querySelectorAll('.tp-error').forEach(p => p.classList.add('hidden'));
-        form.querySelectorAll('.tp-float-wrap.is-invalid').forEach(w => w.classList.remove('is-invalid'));
-    }
-</script>
-
-
-
+    @vite(['resources/js/map-cart.js'])
+    @push('scripts')
+        <script>
+            window.CHECKOUT_CONFIG = {
+                csrf: @json(csrf_token()),
+                saveUrl: @json(route('checkout.save-form-data')), // <--  роут сохранения черновика
+                googleMapsKey: @json(config('services.google_maps.key')),
+            };
+        </script>
+    @endpush
 
 @endpush
+

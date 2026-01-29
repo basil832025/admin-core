@@ -373,7 +373,7 @@ class OrderResource extends Resource
                                             app(\App\Services\OrderPricing::class)->recalc($record);
                                             $set('ui_promo_code', null);
                                         });
-                                        
+
                                         Notification::make()
                                             ->success()
                                             ->title('Промокод удален')
@@ -384,7 +384,7 @@ class OrderResource extends Resource
                                             ->title('Ошибка при удалении промокода')
                                             ->body($e->getMessage())
                                             ->send();
-                                        
+
                                         Log::error('Ошибка при удалении промокода из заказа', [
                                             'order_id' => $record->id,
                                             'error' => $e->getMessage(),
@@ -529,6 +529,272 @@ class OrderResource extends Resource
                             // если скидок нет — просто база
                             return round($base + $adj, 2);
                         }),
+                    // Скрытое поле для отслеживания изменений координат (триггер для обновления доставки)
+                    Hidden::make('delivery_coords_trigger')
+                        ->dehydrated(false)
+                        ->default('')
+                        ->live()
+                        ->reactive()
+                        ->afterStateUpdated(function ($state, callable $set, Get $get, ?Order $record) {
+                            // Триггерим обновление delivery_price_auto для пересчета shipping_price
+                            \Log::info('OrderResource: delivery_coords_trigger afterStateUpdated', [
+                                'trigger' => $state,
+                            ]);
+
+                            // Обновляем delivery_price_auto для пересчета shipping_price
+                            $set('delivery_price_auto', $state ?: time());
+
+                            // Также напрямую обновляем shipping_price, если координаты есть
+                            if ($record && $state) {
+                                $address = $get('address') ?? [];
+                                $latitude = $address['latitude'] ?? null;
+                                $longitude = $address['longitude'] ?? null;
+                                $selfPickup = $get('self_pickup') ?? false;
+
+                                if (!$selfPickup && $latitude && $longitude) {
+                                    $deliveryService = app(\App\Services\DeliveryCalculationService::class);
+                                    $baseTotal = static::calcBaseTotalFromGet($get);
+                                    $hasAdjustments = $record->adjustments()->exists();
+                                    $orderTotal = $hasAdjustments
+                                        ? (float) ($record->grand_total ?? 0)
+                                        : (float) $baseTotal;
+
+                                    $tempOrder = clone $record;
+                                    $tempOrder->address = $address;
+                                    $tempOrder->self_pickup = $selfPickup;
+
+                                    $delivery = $deliveryService->calculateDelivery($tempOrder, $orderTotal);
+                                    $calculatedPrice = (float) ($delivery['price'] ?? 0);
+
+                                    $currentShippingPrice = (float) ($get('shipping_price') ?? 0);
+
+                                    // Обновляем shipping_price если текущее значение равно 0 или близко к рассчитанному
+                                    if ($currentShippingPrice == 0 || abs($currentShippingPrice - $calculatedPrice) < 0.01) {
+                                        $set('shipping_price', $calculatedPrice);
+                                        \Log::info('OrderResource: shipping_price updated via delivery_coords_trigger', [
+                                            'new_value' => $calculatedPrice,
+                                            'zone' => $delivery['zone'] ? $delivery['zone']->name : null,
+                                        ]);
+                                    }
+                                }
+                            }
+                        }),
+
+                    // Сумма доставки (редактируемое поле)
+                    TextInput::make('shipping_price')
+                        ->label('Сумма доставки')
+                        ->numeric()
+                        ->suffix('грн')
+                        ->step(0.01)
+                        ->minValue(0)
+                        ->default(0)
+                        ->reactive()
+                        ->live()
+                        ->afterStateHydrated(function (TextInput $component, $state, ?Order $record, Get $get) {
+                            // При загрузке формы, если shipping_price пустой, рассчитываем автоматически
+                            if (!$state && $record) {
+                                $address = $get('address') ?? [];
+                                $latitude = $address['latitude'] ?? null;
+                                $longitude = $address['longitude'] ?? null;
+                                $selfPickup = $get('self_pickup') ?? false;
+
+                                if (!$selfPickup && $latitude && $longitude) {
+                                    $deliveryService = app(\App\Services\DeliveryCalculationService::class);
+                                    $baseTotal = static::calcBaseTotalFromGet($get);
+                                    $hasAdjustments = $record->adjustments()->exists();
+                                    $orderTotal = $hasAdjustments
+                                        ? (float) ($record->grand_total ?? 0)
+                                        : (float) $baseTotal;
+
+                                    $tempOrder = clone $record;
+                                    $tempOrder->address = $address;
+                                    $tempOrder->self_pickup = $selfPickup;
+
+                                    $delivery = $deliveryService->calculateDelivery($tempOrder, $orderTotal);
+                                    $component->state($delivery['price'] ?? 0);
+                                }
+                            }
+                        })
+                        ->afterStateUpdated(function ($state, callable $set, Get $get, ?Order $record) {
+                            // При изменении суммы доставки пересчитываем итоговую сумму
+                            if ($record) {
+                                $set('shipping_total', (float)$state);
+                            }
+                        })
+                        ->helperText(function (Get $get, ?Order $record) {
+                            // Показываем информацию о зоне доставки
+                            if (!$record) {
+                                return null;
+                            }
+
+                            $address = $get('address') ?? [];
+                            $latitude = $address['latitude'] ?? null;
+                            $longitude = $address['longitude'] ?? null;
+                            $selfPickup = $get('self_pickup') ?? false;
+
+                            if ($selfPickup) {
+                                return 'Самовывоз';
+                            }
+
+                            if (!$latitude || !$longitude) {
+                                return 'Выберите адрес для расчета доставки';
+                            }
+
+                            $deliveryService = app(\App\Services\DeliveryCalculationService::class);
+                            $baseTotal = static::calcBaseTotalFromGet($get);
+                            $hasAdjustments = $record->adjustments()->exists();
+                            $orderTotal = $hasAdjustments
+                                ? (float) ($record->grand_total ?? 0)
+                                : (float) $baseTotal;
+
+                            $tempOrder = clone $record;
+                            $tempOrder->address = $address;
+                            $tempOrder->self_pickup = $selfPickup;
+
+                            $delivery = $deliveryService->calculateDelivery($tempOrder, $orderTotal);
+
+                            if ($delivery['is_free']) {
+                                $text = 'Бесплатная доставка';
+                                if ($delivery['zone']) {
+                                    $text .= ' (от ' . number_format($delivery['zone']->free_delivery_from, 2, ',', ' ') . ' грн)';
+                                }
+                                return $text;
+                            }
+
+                            if ($delivery['zone']) {
+                                return 'Зона: ' . $delivery['zone']->name;
+                            }
+
+                            return null;
+                        })
+                        ->visible(fn (Get $get) => !($get('self_pickup') ?? false)),
+
+                    // Скрытое поле для автоматического обновления shipping_price при изменении координат
+                    Hidden::make('delivery_price_auto')
+                        ->dehydrated(false)
+                        ->reactive()
+                        ->afterStateUpdated(function ($state, callable $set, Get $get, ?Order $record) {
+                            // Автоматически обновляем shipping_price при изменении координат
+                            \Log::info('OrderResource: delivery_price_auto afterStateUpdated called', [
+                                'state' => $state,
+                                'has_record' => !is_null($record),
+                            ]);
+
+                            if (!$record || !$state) {
+                                \Log::info('OrderResource: delivery_price_auto skipped - no record or state');
+                                return;
+                            }
+
+                            $address = $get('address') ?? [];
+                            $latitude = $address['latitude'] ?? null;
+                            $longitude = $address['longitude'] ?? null;
+                            $selfPickup = $get('self_pickup') ?? false;
+
+                            \Log::info('OrderResource: delivery_price_auto checking coordinates', [
+                                'latitude' => $latitude,
+                                'longitude' => $longitude,
+                                'selfPickup' => $selfPickup,
+                                'address_keys' => array_keys($address),
+                            ]);
+
+                            if ($selfPickup) {
+                                $set('shipping_price', 0);
+                                \Log::info('OrderResource: shipping_price set to 0 (self pickup)');
+                                return;
+                            }
+
+                            if (!$latitude || !$longitude) {
+                                \Log::info('OrderResource: delivery_price_auto skipped - missing coordinates');
+                                return;
+                            }
+
+                            $deliveryService = app(\App\Services\DeliveryCalculationService::class);
+                            $baseTotal = static::calcBaseTotalFromGet($get);
+                            $hasAdjustments = $record->adjustments()->exists();
+                            $orderTotal = $hasAdjustments
+                                ? (float) ($record->grand_total ?? 0)
+                                : (float) $baseTotal;
+
+                            $tempOrder = clone $record;
+                            $tempOrder->address = $address;
+                            $tempOrder->self_pickup = $selfPickup;
+
+                            $delivery = $deliveryService->calculateDelivery($tempOrder, $orderTotal);
+
+                            // Обновляем shipping_price
+                            $currentShippingPrice = (float) ($get('shipping_price') ?? 0);
+                            $calculatedPrice = (float) ($delivery['price'] ?? 0);
+
+                            \Log::info('OrderResource: delivery_price_auto updating shipping_price', [
+                                'current' => $currentShippingPrice,
+                                'calculated' => $calculatedPrice,
+                                'latitude' => $latitude,
+                                'longitude' => $longitude,
+                                'zone' => $delivery['zone'] ? $delivery['zone']->name : null,
+                                'is_free' => $delivery['is_free'] ?? false,
+                            ]);
+
+                            // Обновляем shipping_price если:
+                            // Определяем, было ли ручное изменение:
+                            // 1. Текущее значение равно 0 или пустое (первый расчет) - обновляем
+                            // 2. Текущее значение близко к рассчитанному (разница < 1.0) - обновляем (возможно, изменилась зона)
+                            // 3. Если разница большая (> 1.0), но координаты изменились - это тоже автоматическое изменение, обновляем
+                            // 4. Только если разница большая И координаты не изменились - это ручное изменение, не обновляем
+
+                            // Проверяем, изменились ли координаты по сравнению с сохраненными в БД
+                            // Если delivery_price_auto вызывается, это означает, что delivery_coords_trigger изменился,
+                            // что в свою очередь означает, что координаты изменились
+                            $coordsChanged = false;
+                            $recordLat = $record->address['latitude'] ?? null;
+                            $recordLng = $record->address['longitude'] ?? null;
+
+                            if ($recordLat && $recordLng && $latitude && $longitude) {
+                                // Сравниваем с координатами из БД (record)
+                                $coordsChanged = (abs((float)$recordLat - (float)$latitude) > 0.0001) ||
+                                                (abs((float)$recordLng - (float)$longitude) > 0.0001);
+                            } else if ($latitude && $longitude) {
+                                // Если в БД нет координат, но есть новые - это изменение
+                                $coordsChanged = true;
+                            }
+
+                            // Также проверяем, изменилась ли зона - если зона изменилась, это автоматическое обновление
+                            $zoneChanged = false;
+                            $recordZone = null;
+                            if ($record->address && isset($record->address['latitude']) && isset($record->address['longitude'])) {
+                                $tempOrderOld = clone $record;
+                                $deliveryOld = $deliveryService->calculateDelivery($tempOrderOld, $orderTotal);
+                                $recordZone = $deliveryOld['zone']->name ?? null;
+                                $newZone = $delivery['zone']->name ?? null;
+                                $zoneChanged = ($recordZone !== $newZone);
+                            }
+
+                            $shouldUpdate = $currentShippingPrice == 0 ||
+                                          abs($currentShippingPrice - $calculatedPrice) < 1.0 ||
+                                          $coordsChanged ||
+                                          $zoneChanged;
+
+                            if ($shouldUpdate) {
+                                $set('shipping_price', $calculatedPrice);
+                                \Log::info('OrderResource: shipping_price updated successfully', [
+                                    'new_value' => $calculatedPrice,
+                                    'old_value' => $currentShippingPrice,
+                                    'coords_changed' => $coordsChanged,
+                                    'zone_changed' => $zoneChanged,
+                                    'old_zone' => $recordZone,
+                                    'new_zone' => $delivery['zone']->name ?? null,
+                                ]);
+                            } else {
+                                \Log::info('OrderResource: shipping_price not updated (manual change detected)', [
+                                    'current' => $currentShippingPrice,
+                                    'calculated' => $calculatedPrice,
+                                    'difference' => abs($currentShippingPrice - $calculatedPrice),
+                                    'coords_changed' => $coordsChanged,
+                                    'zone_changed' => $zoneChanged,
+                                ]);
+                            }
+                        }),
+
+
                     Placeholder::make('total_after_discount')
                         ->label(__('order.fields.total_with_discount'))
                         ->dehydrated(false)
@@ -552,8 +818,50 @@ class OrderResource extends Resource
                                 ? (float) ($record->grand_total ?? 0)
                                 : (float) $baseTotal;
 
-                            $val = number_format($amount, 2, ',', ' ') . ' грн';
-                            return new \Illuminate\Support\HtmlString('<div class="text-lg font-semibold">'.$val.'</div>');
+                            // 4) Добавляем сумму доставки
+                            // Получаем адрес из формы (актуальные данные)
+                            $address = $get('address') ?? [];
+                            $selfPickup = $get('self_pickup') ?? false;
+
+                            // Используем shipping_price из формы (может быть отредактирован вручную)
+                            $deliveryPrice = (float) ($get('shipping_price') ?? 0);
+
+                            $finalAmount = $amount + $deliveryPrice;
+
+                            $html = '<div class="space-y-1">';
+                            $html .= '<div class="text-lg font-semibold">' . number_format($finalAmount, 2, ',', ' ') . ' грн</div>';
+
+                            if ($deliveryPrice > 0) {
+                                $html .= '<div class="text-xs text-gray-500 flex items-center gap-2">';
+                                $html .= '<span>Товары:</span>';
+                                $html .= '<span>' . number_format($amount, 2, ',', ' ') . ' грн</span>';
+                                $html .= '<span class="mx-1">+</span>';
+                                $html .= '<span>Доставка:</span>';
+                                $html .= '<span>' . number_format($deliveryPrice, 2, ',', ' ') . ' грн</span>';
+                                $html .= '</div>';
+                            } elseif (!$selfPickup) {
+                                // Проверяем, есть ли бесплатная доставка
+                                $address = $get('address') ?? [];
+                                $latitude = $address['latitude'] ?? null;
+                                $longitude = $address['longitude'] ?? null;
+
+                                if ($latitude && $longitude) {
+                                    $tempOrder = clone $record;
+                                    $tempOrder->address = $address;
+                                    $tempOrder->self_pickup = $selfPickup;
+
+                                    $deliveryService = app(\App\Services\DeliveryCalculationService::class);
+                                    $delivery = $deliveryService->calculateDelivery($tempOrder, $amount);
+
+                                    if (isset($delivery['is_free']) && $delivery['is_free'] && isset($delivery['zone']) && $delivery['zone']) {
+                                        $html .= '<div class="text-xs text-green-600">Доставка бесплатна (от ' . number_format($delivery['zone']->free_delivery_from, 2, ',', ' ') . ' грн)</div>';
+                                    }
+                                }
+                            }
+
+                            $html .= '</div>';
+
+                            return new \Illuminate\Support\HtmlString($html);
                         })
                        /* ->content(function (?Order $record) {
                             if (! $record) return new HtmlString('—');
@@ -931,16 +1239,36 @@ class OrderResource extends Resource
                         $component->state((string) $record->client_address_id);
                         $address = ClientAddress::find($record->client_address_id);
                         if ($address) {
-                            $set('address', $address->only([
+                            $addressData = $address->only([
                                 'street','house','apartment','intercom','floor','entrance','zip','city','country','note','type','is_private_house',
-                            ]));
+                            ]);
+
+                            // Получаем координаты из сохраненного адреса заказа, если они есть
+                            $orderAddress = $record->address ?? [];
+                            if (isset($orderAddress['latitude']) && isset($orderAddress['longitude'])) {
+                                $addressData['latitude'] = $orderAddress['latitude'];
+                                $addressData['longitude'] = $orderAddress['longitude'];
+                                $addressData['formatted_address'] = $orderAddress['formatted_address'] ?? null;
+                            } else {
+                                // Если координат нет, получаем их через API
+                                $coordinates = static::getCoordinatesForAddress($address);
+                                if ($coordinates) {
+                                    $addressData['latitude'] = $coordinates['latitude'];
+                                    $addressData['longitude'] = $coordinates['longitude'];
+                                    $addressData['formatted_address'] = $coordinates['formatted_address'] ?? null;
+                                }
+                            }
+
+                            $set('address', $addressData);
+
                         }
                     }
                 })
-                ->afterStateUpdated(function ($state, callable $set) {
+                ->afterStateUpdated(function ($state, callable $set, Get $get, ?Order $record) {
                     if ($state !== '-1') {
                         $set('client_address_id', (int) $state);
                     }
+
                     if (! $state || $state === '-1') {
                         $set('address', [
                             'street_place_id'=> null,
@@ -960,15 +1288,81 @@ class OrderResource extends Resource
                             'longitude'=> null,
                             'formatted_address'=> null,
                         ]);
-                    } else {
-                        $address = ClientAddress::find($state);
-                        if ($address) {
-                            $set('address', $address->only([
-                                'street','house','apartment','intercom','floor','entrance','zip','city','country','note','type','is_private_house',
-                            ]));
+
+                        $set('delivery_coords_trigger', 'reset_' . time());
+                        $set('delivery_price_auto', 'reset_' . time());
+                        return;
+                    }
+
+                    $address = ClientAddress::find($state);
+                    if (! $address) return;
+
+                    $addressData = $address->only([
+                        'street','house','apartment','intercom','floor','entrance','zip','city','country','note','type','is_private_house',
+                        'latitude','longitude','street_place_id','formatted_address',
+                    ]);
+
+                    // fallback: если в адресе нет coords, но в заказе были — можно использовать их
+                    if (empty($addressData['latitude']) || empty($addressData['longitude'])) {
+                        $orderAddress = $record ? ((array) ($record->address ?? [])) : [];
+                        if (!empty($orderAddress['latitude']) && !empty($orderAddress['longitude'])) {
+                            $addressData['latitude'] = (float) $orderAddress['latitude'];
+                            $addressData['longitude'] = (float) $orderAddress['longitude'];
+                            $addressData['street_place_id'] = $addressData['street_place_id'] ?? ($orderAddress['street_place_id'] ?? null);
+                            $addressData['formatted_address'] = $addressData['formatted_address'] ?? ($orderAddress['formatted_address'] ?? null);
                         }
                     }
+
+                    $set('address', $addressData);
+                    $selfPickup = (bool) ($get('self_pickup') ?? false);
+
+                    if ($selfPickup) {
+                        $set('shipping_price', 0);
+                        return;
+                    }
+
+                    $lat = $addressData['latitude'] ?? null;
+                    $lng = $addressData['longitude'] ?? null;
+
+                    if ($lat && $lng && $record) {
+                        $deliveryService = app(\App\Services\DeliveryCalculationService::class);
+
+                        $baseTotal = static::calcBaseTotalFromGet($get);
+
+                        $hasAdjustments = $record->adjustments()->exists();
+                        $orderTotal = $hasAdjustments
+                            ? (float) ($record->grand_total ?? 0)
+                            : (float) $baseTotal;
+
+                        $tempOrder = clone $record;
+                        $tempOrder->address = $addressData;
+                        $tempOrder->self_pickup = $selfPickup;
+
+                        $delivery = $deliveryService->calculateDelivery($tempOrder, $orderTotal);
+
+                        $calculatedPrice = (float) ($delivery['price'] ?? 0);
+
+                        // ВАЖНО: при выборе сохранённого адреса всегда обновляем цену автоматически
+                        $set('shipping_price', $calculatedPrice);
+
+                        // опционально: чтобы триггеры/плейсхолдеры тоже “шевельнулись”
+                        $set('delivery_coords_trigger', 'coords_' . $lat . '_' . $lng . '_' . time());
+                    } else {
+                        // координат нет — доставка не может пересчитаться
+                        // можно оставить старую сумму или обнулить (на твой выбор)
+                        // $set('shipping_price', 0);
+                    }
+                    // триггерим пересчет если coords есть
+                    if (!empty($addressData['latitude']) && !empty($addressData['longitude'])) {
+                        $key = 'coords_' . $addressData['latitude'] . '_' . $addressData['longitude'] . '_' . time();
+                        $set('delivery_coords_trigger', $key);
+                        $set('delivery_price_auto', 'auto_' . $key);
+                    } else {
+                        // нет coords: покажи подсказку (а пересчет невозможен)
+                        $set('delivery_coords_trigger', 'error_no_coords_' . time());
+                    }
                 })
+
                 ->options(function (callable $get) {
                     $clientId = $get('clients_id');
                     if (! $clientId) return [];
@@ -1093,7 +1487,7 @@ class OrderResource extends Resource
                         ->reactive()
                         ->afterStateUpdated(function ($state, Set $set, Get $get) {
                             $product = Product::find($state);
-                            
+
                             if (!$product) {
                                 Notification::make()
                                     ->danger()
@@ -1104,7 +1498,7 @@ class OrderResource extends Resource
                                 $set('unit_price', 0);
                                 return;
                             }
-                            
+
                             $set('unit_price', $product->price ?? 0);
                             $mods = $get('modifiers') ?? [];
                             foreach ($mods as &$m) {
@@ -1623,6 +2017,179 @@ class OrderResource extends Resource
             // ... твои другие relation managers (например, ItemsRelationManager)
             \App\Filament\Resources\Shop\OrderResource\RelationManagers\ClientOrdersRelationManager::class,
         ];
+    }
+
+    /**
+     * Получает координаты адреса через Google Places API (предпочтительно) или Geocoding API
+     *
+     * ВАЖНО: Если API ключ имеет ограничения по referer, серверные запросы не будут работать.
+     * В этом случае координаты должны быть получены через клиентский JavaScript (поле "Вулиця (Київ)").
+     *
+     * @param ClientAddress $address
+     * @param string|null $placeId Place ID из сохраненного адреса заказа (опционально)
+     * @return array|null ['latitude' => float, 'longitude' => float, 'formatted_address' => string]
+     */
+    protected static function getCoordinatesForAddress(ClientAddress $address, ?string $placeId = null): ?array
+    {
+        // Если API ключ имеет ограничения по referer, серверные запросы не работают
+        // В этом случае координаты должны быть получены через клиентский JavaScript
+        // Пропускаем попытку получить координаты через серверный API
+        Log::info('Skipping server-side coordinate lookup due to API key referer restrictions. Coordinates should be obtained via client-side JavaScript (Street field).');
+        return null;
+
+        /* Закомментировано, так как API ключ с ограничениями по referer не работает для серверных запросов
+        try {
+            $key = config('services.google_maps.key');
+            if (!$key) {
+                Log::warning('Google Maps API key not configured for address geocoding');
+                return null;
+            }
+
+            if ($placeId) {
+                // Используем Google Places API для получения координат по place_id
+                $token = session('gplaces_token') ?? null;
+
+                try {
+                    $response = \Illuminate\Support\Facades\Http::timeout(8)->acceptJson()->get(
+                        'https://maps.googleapis.com/maps/api/place/details/json',
+                        [
+                            'place_id' => $placeId,
+                            'fields' => 'geometry,formatted_address',
+                            'language' => 'uk',
+                            'sessiontoken' => $token,
+                            'key' => $key,
+                        ]
+                    );
+
+                    if ($response->ok()) {
+                        $data = $response->json();
+                        if ($data['status'] === 'OK' && isset($data['result'])) {
+                            $result = $data['result'];
+                            $location = $result['geometry']['location'] ?? null;
+
+                            if ($location) {
+                                return [
+                                    'latitude' => (float)($location['lat'] ?? 0),
+                                    'longitude' => (float)($location['lng'] ?? 0),
+                                    'formatted_address' => $result['formatted_address'] ?? null,
+                                ];
+                            }
+                        }
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('Failed to get coordinates via Places API', [
+                        'place_id' => $placeId,
+                        'error' => $e->getMessage(),
+                    ]);
+                    // Продолжаем с Geocoding API как fallback
+                }
+            }
+
+            // Fallback: используем Google Places Autocomplete API для поиска адреса, затем Places Details API
+            // Это более надежный способ, так как Places API обычно включен по умолчанию
+            $street = $address->street;
+            $house = $address->house;
+            $city = $address->city ?: 'Київ';
+
+            // Если в street уже есть город (например, "вул. Курортна, Ворзель Київська область")
+            // убираем его и используем только улицу и дом
+            if (str_contains($street, ',')) {
+                $streetParts = explode(',', $street);
+                $street = trim($streetParts[0]); // Берем только первую часть (улицу)
+            }
+
+            // Формируем адрес для поиска: улица, дом, город
+            $addressParts = array_filter([
+                $street,
+                $house,
+                $city,
+            ]);
+            $addressString = implode(', ', $addressParts);
+
+            if (empty($addressString)) {
+                return null;
+            }
+
+            // Используем Google Places Autocomplete API для поиска адреса
+            $token = session('gplaces_token') ?? (string) \Illuminate\Support\Str::uuid();
+            session(['gplaces_token' => $token]);
+
+            try {
+                $autocompleteResponse = \Illuminate\Support\Facades\Http::timeout(8)->acceptJson()->get(
+                    'https://maps.googleapis.com/maps/api/place/autocomplete/json',
+                    [
+                        'input' => $addressString,
+                        'types' => 'address',
+                        'language' => 'uk',
+                        'components' => 'country:ua',
+                        'location' => '50.4501,30.5234', // Центр Киева
+                        'radius' => 30000,
+                        'sessiontoken' => $token,
+                        'key' => $key,
+                    ]
+                );
+
+                if ($autocompleteResponse->ok()) {
+                    $autocompleteData = $autocompleteResponse->json();
+                    if ($autocompleteData['status'] === 'OK' && !empty($autocompleteData['predictions'])) {
+                        // Берем первый результат
+                        $prediction = $autocompleteData['predictions'][0];
+                        $foundPlaceId = $prediction['place_id'] ?? null;
+
+                        if ($foundPlaceId) {
+                            // Получаем детали места через Places Details API
+                            $detailsResponse = \Illuminate\Support\Facades\Http::timeout(8)->acceptJson()->get(
+                                'https://maps.googleapis.com/maps/api/place/details/json',
+                                [
+                                    'place_id' => $foundPlaceId,
+                                    'fields' => 'geometry,formatted_address',
+                                    'language' => 'uk',
+                                    'sessiontoken' => $token,
+                                    'key' => $key,
+                                ]
+                            );
+
+                            if ($detailsResponse->ok()) {
+                                $detailsData = $detailsResponse->json();
+                                if ($detailsData['status'] === 'OK' && isset($detailsData['result'])) {
+                                    $result = $detailsData['result'];
+                                    $location = $result['geometry']['location'] ?? null;
+
+                                    if ($location) {
+                                        return [
+                                            'latitude' => (float)($location['lat'] ?? 0),
+                                            'longitude' => (float)($location['lng'] ?? 0),
+                                            'formatted_address' => $result['formatted_address'] ?? null,
+                                        ];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::warning('Failed to get coordinates via Places Autocomplete API', [
+                    'address' => $addressString,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            // Если Places API не сработал, возвращаем null
+            Log::warning('Could not get coordinates for address using Places API', [
+                'address' => $addressString,
+                'address_id' => $address->id,
+            ]);
+
+            return null;
+        } catch (\Exception $e) {
+            Log::error('Error geocoding address', [
+                'address_id' => $address->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return null;
+        }
+        */
     }
 
     public static function getWidgets(): array
