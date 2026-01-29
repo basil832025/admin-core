@@ -439,14 +439,16 @@ x-cloak
                 {{ st('address.type.friends', 'Друзі') }}
             </button>
         </div>
-        <div class="pt-2" x-show="useNew" x-cloak>
-            <button type="button"
-                    class="text-[#EF4444] text-sm font-medium"
-                    @click="useNew=false; resetNewAddress($el)">
-                 {{ st('cart.address.do_not_use_new', 'Не використовувати нову адресу') }}
-            </button>
+        @if($client && $addresses->count())
+            <div class="pt-2" x-show="useNew" x-cloak>
+                <button type="button"
+                        class="text-[#EF4444] text-sm font-medium"
+                        @click="useNew=false; resetNewAddress($el)">
+                    {{ st('cart.address.do_not_use_new', 'Не використовувати нову адресу') }}
+                </button>
+            </div>
+        @endif
 
-        </div>
 
     </div>
 </div>
