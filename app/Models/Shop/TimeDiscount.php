@@ -221,7 +221,7 @@ class TimeDiscount extends Model
         $percent = (float) ($this->percent ?? 0);
         $eachN   = (int) ($this->nth_item ?? 0);
 
-        if ($percent <= 0 || $eachN < 2) {
+        if ($percent <= 0 || $eachN < 1) {
             return 0.0;
         }
 
@@ -276,6 +276,13 @@ class TimeDiscount extends Model
             }
         }
 
+        if ($eachN === 1) {
+            $sum = array_sum($unitPrices);
+            if ($sum <= 0) return 0.0;
+
+            $discount = $sum * ($percent / 100);
+            return round(max(0, $discount), 2);
+        }
 
         $count = count($unitPrices);
         if ($count < $eachN) {
