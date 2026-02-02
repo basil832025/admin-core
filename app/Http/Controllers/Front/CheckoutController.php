@@ -18,7 +18,7 @@ use App\Services\OrderPricing;
 use App\Models\Shop\OrderAdjustment;
 use App\Models\Shop\OrderItem;
 use App\Models\Shop\Product;
-use App\Models\Shop\FixedDiscount;
+//use App\Models\Shop\FixedDiscount;
 use App\Models\Shop\TimeDiscount;
 use App\Services\LiqPayService;
 use App\Mail\OrderNotificationMail;
@@ -83,13 +83,13 @@ public function index()
     $productIds  = collect($items)->pluck('product_id');
 
     // --- ФИКСИРОВАННЫЕ АКЦИИ (типа "Именинникам") ---
-    $fixedDiscounts = FixedDiscount::query()
+ /*   $fixedDiscounts = FixedDiscount::query()
         ->where('is_active', true)
         ->forAll()                   // твой scopeForAll()
         ->get()
         ->filter(function (FixedDiscount $d) use ($clientId, $productIds) {
             return $d->canApply($clientId) && $d->hasEligibleProducts($productIds);
-        });
+        });*/
 
     // --- АКЦИИ ПО ВРЕМЕНИ ---
     $timeDiscounts = TimeDiscount::query()
@@ -106,7 +106,7 @@ public function index()
     $locale = app()->getLocale();
     // приводим к единому массиву для шаблона
     $availablePromos = collect()
-        ->merge(
+   /*     ->merge(
             $fixedDiscounts->map(function (FixedDiscount $d) use ($locale) {
                 // берём название по локали
                 $name = $d->getTranslation('name', $locale);
@@ -120,7 +120,7 @@ public function index()
                     'description' => $d->description ?? null,
                 ];
             })
-        )
+        )*/
         ->merge(
             $timeDiscounts->map(function (TimeDiscount $d) use ($locale) {
                 $name = $d->getTranslation('name', $locale);
@@ -455,9 +455,9 @@ public function updatePromo(Request $request)
 {
     $client    = auth()->user();
     $selection = (string) $request->input('promo', 'none');
+
     // если гость — не даём применять акцию, только после логина
     if (! $client) {
-        // запомним выбор как 'none', чтобы не тащился в сессию
         session(['checkout.selected_promo' => 'none']);
 
         return response()->json([
@@ -466,70 +466,63 @@ public function updatePromo(Request $request)
             'message'       => 'Щоб застосувати акцію, увійдіть або зареєструйтесь.',
         ]);
     }
+
     // запомним выбор в сессию
     session(['checkout.selected_promo' => $selection]);
 
-    // --- 1. Пытаемся найти черновик заказа (Cart) для клиента ---
-    $order = null;
+    // 1) находим Cart-заказ клиента
+    $order = Order::where('clients_id', $client->id)
+        ->where('status', OrderStatus::Cart)
+        ->latest('id')
+        ->first();
 
-    if ($client) {
-        $order = Order::where('clients_id', $client->id)
-            ->where('status', OrderStatus::Cart)
-            ->latest('id')
-            ->first();
-    }
-
-    if ($order) {
-        // чтобы calculateAmountForOrder учитывал категории и характеристики
-        $order->loadMissing(['items.product.categories']);
-        if (method_exists(Product::class, 'attributeValues')) {
-            $order->loadMissing(['items.product.attributeValues']);
-        }
-
-        $baseTotal = (float) $order->total_price;
-    } else {
-        // гость / нет заказа -> берём сумму из CartService
+    if (! $order) {
+        // нет черновика — просто вернём сумму корзины
         $info      = $this->cart->info();
         $baseTotal = (float) ($info['total_price'] ?? 0);
+
+        return response()->json([
+            'ok'        => true,
+            'selection' => $selection,
+            'discount'  => 0,
+            'total'     => $baseTotal,
+            'discount_formatted' => number_format(0, 2, ',', ' ') . ' грн',
+            'total_formatted'    => number_format($baseTotal, 2, ',', ' ') . ' грн',
+            'total_uah'          => (int) floor($baseTotal),
+            'total_uah_formatted'=> number_format((int) floor($baseTotal), 0, ',', ' '),
+            'total_kop'          => sprintf('%02d', (int) round(($baseTotal - floor($baseTotal)) * 100)),
+        ]);
     }
 
-    $discount = 0.0;
-    $total    = $baseTotal;
+    // 2) Применяем выбранную акцию ЕДИНОЙ логикой (как в админке)
+    $pricing = app(\App\Services\OrderPricing::class);
 
-    // --- 2. Считаем скидку по выбранной акции ---
+    // чистим прошлые скидки fixed/time
+    $order->adjustments()->whereIn('type', ['fixed', 'time'])->delete();
+
     if ($selection !== 'none') {
         [$kind, $id] = explode(':', $selection) + [null, null];
-
-        $promo = null;
+        $id = (int) $id;
 
         if ($kind === 'fixed') {
-            $promo = FixedDiscount::query()
-                ->where('is_active', true)
-                ->find($id);
+            $pricing->applyFixedExclusive($order, $id, 'single');
         } elseif ($kind === 'time') {
-            $promo = TimeDiscount::query()
-                ->activeForMoment(now())
-                ->find($id);
+            $pricing->applyTimeExclusive($order, $id, 'single');
+        } else {
+            $pricing->recalc($order);
         }
-
-        if ($promo) {
-            if ($order) {
-                // ТОЧНАЯ логика: как в админке
-                $amount = (float) $promo->calculateAmountForOrder($order); // отрицательное
-
-                if ($amount < 0) {
-                    $discount = abs($amount);
-                    $total    = max(0, $baseTotal - $discount);
-                }
-            } else {
-                // нет заказа (гость) -> примитивный вариант, как было раньше
-                $discount = (float) $promo->calculateForTotal($baseTotal);
-                $total    = max(0, $baseTotal - $discount);
-            }
-        }
+    } else {
+        $pricing->recalc($order);
     }
 
-    // --- 3. Форматирование для фронта ---
+    // 3) Берём результат из БД (adjustments уже записаны)
+    $discount = abs((float) $order->adjustments()
+        ->whereNull('shop_order_item_id')
+        ->whereIn('type', ['fixed', 'time'])
+        ->sum('amount')); // amount отрицательный, поэтому abs()
+
+    $total = (float) ($order->grand_total ?? 0);
+
     $uah = (int) floor($total);
     $kop = (int) round(($total - $uah) * 100);
 
@@ -548,6 +541,7 @@ public function updatePromo(Request $request)
         'total_kop'          => sprintf('%02d', $kop),
     ]);
 }
+
 public function applyCoupon(Request $request)
 {
     try {
@@ -921,91 +915,29 @@ public function submit(Request $request)
 
     // Пересчёт суммы по связям (items + modifiers)
     $order->recalculateTotalPrice();
-    // === 8.1 Применяем выбранную акцию (fixed/time) ===
+// === 8.1 Применяем выбранную акцию (fixed/time) через общий сервис
     $selection = $request->input('selected_promo', session('checkout.selected_promo', 'none'));
 
-    // на всякий случай убираем старые фикс/тайм-скидки, если они есть
-    $order->adjustments()
-        ->whereIn('type', ['fixed', 'time'])
-        ->delete();
+    $pricing = app(\App\Services\OrderPricing::class);
+
+// чистим прошлые скидки fixed/time
+    $order->adjustments()->whereIn('type', ['fixed', 'time'])->delete();
 
     if ($selection && $selection !== 'none') {
         [$kind, $id] = explode(':', $selection) + [null, null];
+        $id = (int) $id;
 
         if ($kind === 'fixed') {
-            $promo = FixedDiscount::query()
-                ->where('is_active', true)
-                ->find($id);
-
-            if ($promo) {
-                // если в расчёте учитываются категории/характеристики — подгружаем связи
-                $order->loadMissing(['items.product.categories']);
-                if (method_exists(Product::class, 'attributeValues')) {
-                    $order->loadMissing(['items.product.attributeValues']);
-                }
-
-                // ЭТОТ метод уже есть в модели и возвращает отрицательную сумму (как купон)
-                $amount = (float) $promo->calculateAmountForOrder($order); // например, -345.00
-
-                if ($amount < 0) {
-                    $discount = abs($amount);
-
-                    OrderAdjustment::create([
-                        'shop_order_id' => $order->id,
-                        'type'          => 'fixed',
-                        'label'         => $promo->name,
-                        'amount'        => $amount, // отрицательное значение!
-                        'promotion_id'  => $promo->id,
-                        'meta'          => [
-                            'id'   => $promo->id,
-                            'name' => $promo->name,
-                        ],
-                    ]);
-
-                    // обновляем sale_sum и total_price_sale так же, как для купона/бонусов
-                    $currentSale = (float) ($order->sale_sum ?? 0);
-                    $order->sale_sum         = $currentSale + $discount;
-                    $order->total_price_sale = max(0, $order->total_price - $order->sale_sum);
-                    $order->save();
-                }
-            }
-
+            $pricing->applyFixedExclusive($order, $id, 'single');
         } elseif ($kind === 'time') {
-            $promo = TimeDiscount::query()
-                ->activeForMoment(now())
-                ->find($id);
-
-            if ($promo) {
-                $order->loadMissing(['items.product.categories']);
-                if (method_exists(Product::class, 'attributeValues')) {
-                    $order->loadMissing(['items.product.attributeValues']);
-                }
-
-                $amount = (float) $promo->calculateAmountForOrder($order); // отрицательное
-
-                if ($amount < 0) {
-                    $discount = abs($amount);
-
-                    OrderAdjustment::create([
-                        'shop_order_id' => $order->id,
-                        'type'          => 'time',
-                        'label'         => $promo->name,
-                        'amount'        => $amount,
-                        'promotion_id'  => $promo->id,
-                        'meta'          => [
-                            'id'   => $promo->id,
-                            'name' => $promo->name,
-                        ],
-                    ]);
-
-                    $currentSale = (float) ($order->sale_sum ?? 0);
-                    $order->sale_sum         = $currentSale + $discount;
-                    $order->total_price_sale = max(0, $order->total_price - $order->sale_sum);
-                    $order->save();
-                }
-            }
+            $pricing->applyTimeExclusive($order, $id, 'single');
+        } else {
+            $pricing->recalc($order);
         }
+    } else {
+        $pricing->recalc($order);
     }
+
 
 // === 8.1 Применяем промокод (если был введён) ===
     if ($couponCode !== '') {

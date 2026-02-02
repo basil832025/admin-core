@@ -52,20 +52,35 @@ class OrderPricing
     /** Вычисляем момент времени, по которому надо проверять time-скидку */
     private function resolveMomentFor(Order $order, TimeDiscount $discount): Carbon
     {
-        // Универсальная проверка: если константы нет — падаем на строковое/числовое значение
         $isExecution = \defined(TimeDiscount::class.'::TYPE_EXECUTION')
             ? ($discount->time_type === TimeDiscount::TYPE_EXECUTION)
             : (
                 (string) $discount->time_type === 'execution'
-                || (int) $discount->time_type === 2 // если вдруг хранится числом
+                || (int) $discount->time_type === 2
             );
 
-        $moment = $isExecution
-            ? ($order->delivery_at ?? $order->pickup_at ?? $order->execution_at ?? now())
-            : ($order->ordered_at  ?? $order->created_at ?? now());
+        if ($isExecution) {
+            // 1) если есть явные datetime поля
+            $moment = $order->delivery_at ?? $order->pickup_at ?? $order->execution_at ?? null;
 
-        return $moment instanceof Carbon ? $moment : Carbon::parse($moment);
+            // 2) если на фронте у нас дата/время отдельными полями
+            if (!$moment && !empty($order->date_order) && !empty($order->time_order)) {
+                // date_order: Y-m-d, time_order: H:i
+                return Carbon::createFromFormat(
+                    'Y-m-d H:i',
+                    $order->date_order . ' ' . $order->time_order,
+                    'Europe/Kyiv'
+                );
+            }
+
+            $moment = $moment ?? now('Europe/Kyiv');
+        } else {
+            $moment = $order->ordered_at ?? $order->created_at ?? now('Europe/Kyiv');
+        }
+
+        return $moment instanceof Carbon ? $moment : Carbon::parse($moment, 'Europe/Kyiv');
     }
+
     /** Выбор фиксированной, с учётом эксклюзивности */
     public function applyFixedExclusive(Order $order, ?int $fixedId, string $policy = 'max'): void
     {
@@ -411,6 +426,46 @@ class OrderPricing
         return $amount > 0 ? -round($amount, 2) : 0.0;
     }
     /* ====================== ПЕРЕСЧЁТ ====================== */
+    public function applySelectedPromoForCheckout(Order $order, ?string $selection): void
+    {
+        $selection = (string) ($selection ?? 'none');
+
+        // грузим связи, чтобы calculateAmountForOrder работал одинаково и на фронте, и в админке
+        $order->loadMissing(['items.product.categories']);
+
+        // если у Product есть attributeValues — подгрузим
+        if (\method_exists(\App\Models\Shop\Product::class, 'attributeValues')) {
+            $order->loadMissing(['items.product.attributeValues']);
+        }
+
+        // всегда начинаем с чистого листа
+        $order->adjustments()
+            ->whereIn('type', ['fixed', 'time'])
+            ->delete();
+
+        if ($selection === '' || $selection === 'none') {
+            $this->recalc($order);
+            return;
+        }
+
+        [$kind, $id] = \explode(':', $selection) + [null, null];
+        $id = (int) $id;
+
+        if ($kind === 'fixed') {
+            // single = строго выбранная (без “max”)
+            $this->applyFixedExclusive($order, $id, 'single');
+            return;
+        }
+
+        if ($kind === 'time') {
+            // applyTimeExclusive сам проверит activeForMoment по корректному моменту (resolveMomentFor)
+            $this->applyTimeExclusive($order, $id, 'single');
+            return;
+        }
+
+        // неизвестный формат — просто пересчёт без скидок
+        $this->recalc($order);
+    }
 
     /* ====================== ПЕРЕСЧЁТ ====================== */
 
