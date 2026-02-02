@@ -45,27 +45,77 @@
                         </span>
 
                         @if(!empty($promo['description']))
-                            <span class="ml-2 relative" x-data="{ open:false }">
-                                <button type="button"
-                                        @click.stop="open = !open"
-                                        class="flex items-center justify-center w-6 h-6 rounded-full text-[#FF7500] focus:outline-none">
-                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                        <circle cx="12" cy="12" r="10"/>
-                                        <text x="12" y="16" text-anchor="middle"
-                                              font-size="13" fill="#fff"
-                                              font-family="Arial, sans-serif">?</text>
-                                    </svg>
-                                </button>
-                                <div x-show="open"
-                                     x-transition
-                                     x-cloak
-                                     @click.outside="open = false"
-                                     class="absolute z-10 left-1/2 -translate-x-1/2 top-7
-                                            w-52 bg-white border border-gray-200 rounded-lg shadow-lg
-                                            text-xs text-gray-700 p-2">
-                                    {{ $promo['description'] }}
-                                </div>
-                            </span>
+                            <span
+                                class="ml-2"
+                                x-data="{
+        open: false,
+        style: '',
+        update() {
+            if (!this.open) return;
+
+            this.$nextTick(() => {
+                const btn = this.$refs.btn;
+                const tip = this.$refs.tip;
+                if (!btn || !tip) return;
+
+                // делаем видимым для корректного измерения
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+
+                const br = btn.getBoundingClientRect();
+                const tr = tip.getBoundingClientRect();
+
+                const margin = 8; // отступ от краёв экрана
+                let left = br.left + br.width / 2 - tr.width / 2;
+
+                // clamp по X внутри viewport
+                left = Math.max(margin, Math.min(left, window.innerWidth - tr.width - margin));
+
+                // позиция по Y: под кнопкой
+                const top = br.bottom + 8;
+
+                this.style = `left:${left}px; top:${top}px;`;
+
+                tip.style.display = '';
+                tip.style.visibility = '';
+            });
+        }
+    }"
+                                x-init="
+        window.addEventListener('resize', () => update());
+        window.addEventListener('scroll', () => update(), true);
+    "
+                            >
+    <button
+        type="button"
+        x-ref="btn"
+        @click.stop="open = !open; update()"
+        class="flex items-center justify-center w-6 h-6 rounded-full text-[#FF7500] focus:outline-none"
+    >
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/>
+            <text x="12" y="16" text-anchor="middle"
+                  font-size="13" fill="#fff"
+                  font-family="Arial, sans-serif">?</text>
+        </svg>
+    </button>
+
+    <div
+        x-ref="tip"
+        x-show="open"
+        x-transition
+        x-cloak
+        @click.outside="open = false"
+        :style="style"
+        class="fixed z-50
+               max-w-[calc(100vw-16px)] w-64
+               bg-white border border-gray-200 rounded-lg shadow-lg
+               text-xs text-gray-700 p-2"
+    >
+        {{ $promo['description'] }}
+    </div>
+</span>
+
                         @endif
                     </span>
                 </label>
