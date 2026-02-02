@@ -220,7 +220,7 @@ class OrderResource extends Resource
                         ->reactive(),
 
                     // 1) Фіксована знижка
-                    Select::make('ui_fixed_discount_id')
+             /*       Select::make('ui_fixed_discount_id')
                         ->label(__('order.fields.fixed_discount'))
                         ->dehydrated(false)
                         ->searchable()
@@ -245,7 +245,7 @@ class OrderResource extends Resource
 
                             app(\App\Services\OrderPricing::class)->recalc($record);
                             $set('ui_version', microtime(true));
-                        }),
+                        }),*/
 
                     // 2) Знижки за часом (happy hours)
                     Select::make('ui_time_discount_id')
@@ -1436,6 +1436,279 @@ class OrderResource extends Resource
             ->mapWithKeys(fn (OrderStatus $s) => [$s->value => $s->getLabel()])
             ->all();
     }
+    protected static function productOptionsTree(string $locale, ?string $search = null, int $limit = 50): array
+    {
+        $locale = preg_replace('/[^a-zA-Z0-9_\-]/', '', $locale) ?: config('app.locale', 'uk');
+        $like = '%' . trim($search ?? '') . '%';
+
+        $q = \App\Models\Shop\Product::query()
+            ->select(['id','title','short_name','parent_id','sku','sort'])
+            ->where('in_stock', 1)
+            ->orderByRaw('COALESCE(parent_id, id), CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END, sort ASC, id ASC');
+
+        // Поиск (важно: JSON_VALID чтобы не падало на битом JSON)
+        if ($search !== null && trim($search) !== '') {
+            $q->where(function ($qq) use ($like, $locale) {
+                // short_name (обычно строка)
+                $qq->orWhere('short_name', 'like', $like);
+
+                // sku
+                $qq->orWhere('sku', 'like', $like);
+
+                // title: если JSON валидный — ищем по переводу, если нет — ищем как по обычной строке
+                $path = '$."' . $locale . '"';
+
+                $qq->orWhereRaw(
+                    "(JSON_VALID(title) AND JSON_UNQUOTE(JSON_EXTRACT(title, '{$path}')) LIKE ?)",
+                    [$like]
+                );
+
+                $qq->orWhereRaw(
+                    "(NOT JSON_VALID(title) AND title LIKE ?)",
+                    [$like]
+                );
+
+                // + можно еще fallback по uk если нужно:
+                $qq->orWhereRaw(
+                    "(JSON_VALID(title) AND JSON_UNQUOTE(JSON_EXTRACT(title, '$.\"uk\"')) LIKE ?)",
+                    [$like]
+                );
+            });
+        }
+
+        $items = $q->limit($limit)->get();
+
+        // чтобы для детей можно было быстро взять родителя (без N+1)
+        $parentIds = $items->pluck('parent_id')->filter()->unique()->values();
+        $parents = $parentIds->isEmpty()
+            ? collect()
+            : \App\Models\Shop\Product::query()
+                ->select(['id','title','short_name','parent_id','sku','sort'])
+                ->whereIn('id', $parentIds)
+                ->get()
+                ->keyBy('id');
+
+        $out = [];
+        foreach ($items as $p) {
+            $parent = $p->parent_id ? $parents->get($p->parent_id) : null;
+
+            // Для детей хотим "↳ child — parent"
+            $out[$p->id] = static::formatProductLabel($p, $locale, withParentForChild: true, parent: $parent);
+        }
+
+        return $out;
+    }
+    protected static function productLabel(\App\Models\Shop\Product $p, string $locale): string
+    {
+        $short = static::safeTranslate($p->getRawOriginal('short_name'), $locale);
+        $title = static::safeTranslate($p->getRawOriginal('title'), $locale);
+
+        $name = trim((string)($short ?: $title ?: $p->short_name ?: $p->title ?: ''));
+        $sku  = trim((string)($p->sku ?? ''));
+
+        // [23] [29] — это твой размер/sku
+        $size = $sku !== '' ? " [{$sku}]" : '';
+
+        // чтобы дочерние шли под главным визуально
+        $prefix = $p->parent_id ? "↳ " : "";
+
+        return $prefix . $name . $size;
+    }
+    /*  protected static function productOptionsTree(string $locale, ?string $search = null, int $limit = 50): array
+       {
+           $locale = preg_replace('/[^a-zA-Z0-9_\-]/', '', $locale) ?: config('app.locale', 'uk');
+           $like = '%' . trim($search ?? '') . '%';
+
+           $q = \App\Models\Shop\Product::query()
+               ->select(['id','title','short_name','parent_id','sku','sort'])
+               ->where('in_stock', 1)
+               ->orderByRaw('COALESCE(parent_id, id), CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END, sort ASC, id ASC');
+
+           // Поиск (важно: JSON_VALID чтобы не падало на битом JSON)
+           if ($search !== null && trim($search) !== '') {
+               $q->where(function ($qq) use ($like, $locale) {
+                   // short_name (обычно строка)
+                   $qq->orWhere('short_name', 'like', $like);
+
+                   // sku
+                   $qq->orWhere('sku', 'like', $like);
+
+                   // title: если JSON валидный — ищем по переводу, если нет — ищем как по обычной строке
+                   $path = '$."' . $locale . '"';
+
+                   $qq->orWhereRaw(
+                       "(JSON_VALID(title) AND JSON_UNQUOTE(JSON_EXTRACT(title, '{$path}')) LIKE ?)",
+                       [$like]
+                   );
+
+                   $qq->orWhereRaw(
+                       "(NOT JSON_VALID(title) AND title LIKE ?)",
+                       [$like]
+                   );
+
+                   // + можно еще fallback по uk если нужно:
+                   $qq->orWhereRaw(
+                       "(JSON_VALID(title) AND JSON_UNQUOTE(JSON_EXTRACT(title, '$.\"uk\"')) LIKE ?)",
+                       [$like]
+                   );
+               });
+           }
+
+           $items = $q->limit($limit)->get();
+
+           // чтобы для детей можно было быстро взять родителя (без N+1)
+           $parentIds = $items->pluck('parent_id')->filter()->unique()->values();
+           $parents = $parentIds->isEmpty()
+               ? collect()
+               : \App\Models\Shop\Product::query()
+                   ->select(['id','title','short_name','parent_id','sku','sort'])
+                   ->whereIn('id', $parentIds)
+                   ->get()
+                   ->keyBy('id');
+
+           $out = [];
+           foreach ($items as $p) {
+               $parent = $p->parent_id ? $parents->get($p->parent_id) : null;
+
+               // Для детей хотим "↳ child — parent"
+               $out[$p->id] = static::formatProductLabel($p, $locale, withParentForChild: true, parent: $parent);
+           }
+
+           return $out;
+       }*/
+    protected static function safeTranslate(?string $raw, string $locale): ?string
+    {
+        if ($raw === null || $raw === '') return null;
+
+        $trim = ltrim($raw);
+        // если НЕ JSON — возвращаем как есть
+        if ($trim === '' || ($trim[0] !== '{' && $trim[0] !== '[')) {
+            return $raw;
+        }
+
+        $arr = json_decode($raw, true);
+        if (json_last_error() !== JSON_ERROR_NONE || !is_array($arr)) {
+            // невалидный JSON — вернём как строку
+            return $raw;
+        }
+
+        return $arr[$locale]
+            ?? $arr[config('app.locale')]
+            ?? (is_string(reset($arr)) ? reset($arr) : $raw);
+    }
+  /*  protected static function productOptionsTree(string $locale, ?string $search = null, int $limit = 50): array
+    {
+        $locale = preg_replace('/[^a-zA-Z0-9_\-]/', '', $locale) ?: config('app.locale', 'uk');
+        $like = '%' . trim($search ?? '') . '%';
+
+        $q = \App\Models\Shop\Product::query()
+            ->select(['id','title','short_name','parent_id','sku','sort'])
+            ->where('in_stock', 1)
+            ->orderByRaw('COALESCE(parent_id, id), CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END, sort ASC, id ASC');
+
+        // Поиск (важно: JSON_VALID чтобы не падало на битом JSON)
+        if ($search !== null && trim($search) !== '') {
+            $q->where(function ($qq) use ($like, $locale) {
+                // short_name (обычно строка)
+                $qq->orWhere('short_name', 'like', $like);
+
+                // sku
+                $qq->orWhere('sku', 'like', $like);
+
+                // title: если JSON валидный — ищем по переводу, если нет — ищем как по обычной строке
+                $path = '$."' . $locale . '"';
+
+                $qq->orWhereRaw(
+                    "(JSON_VALID(title) AND JSON_UNQUOTE(JSON_EXTRACT(title, '{$path}')) LIKE ?)",
+                    [$like]
+                );
+
+                $qq->orWhereRaw(
+                    "(NOT JSON_VALID(title) AND title LIKE ?)",
+                    [$like]
+                );
+
+                // + можно еще fallback по uk если нужно:
+                $qq->orWhereRaw(
+                    "(JSON_VALID(title) AND JSON_UNQUOTE(JSON_EXTRACT(title, '$.\"uk\"')) LIKE ?)",
+                    [$like]
+                );
+            });
+        }
+
+        $items = $q->limit($limit)->get();
+
+        // чтобы для детей можно было быстро взять родителя (без N+1)
+        $parentIds = $items->pluck('parent_id')->filter()->unique()->values();
+        $parents = $parentIds->isEmpty()
+            ? collect()
+            : \App\Models\Shop\Product::query()
+                ->select(['id','title','short_name','parent_id','sku','sort'])
+                ->whereIn('id', $parentIds)
+                ->get()
+                ->keyBy('id');
+
+        $out = [];
+        foreach ($items as $p) {
+            $parent = $p->parent_id ? $parents->get($p->parent_id) : null;
+
+            // Для детей хотим "↳ child — parent"
+            $out[$p->id] = static::formatProductLabel($p, $locale, withParentForChild: true, parent: $parent);
+        }
+
+        return $out;
+    }*/
+    protected static function formatProductLabel(
+        \App\Models\Shop\Product $p,
+        string $locale,
+        bool $withParentForChild = true,
+        ?\App\Models\Shop\Product $parent = null
+    ): string {
+        $childName = trim((string) ($p->short_name ?? ''));
+        if ($childName === '') {
+            $childName = static::safeTranslateJson($p->getRawOriginal('title'), $locale)
+                ?? (string) ($p->title ?? '');
+        }
+
+        $sku = trim((string) ($p->sku ?? ''));
+        $suffix = $sku !== '' ? " [{$sku}]" : '';
+
+        // родительский товар
+        if (!$p->parent_id) {
+            return $childName . $suffix;
+        }
+
+        // дочерний товар
+        if (!$withParentForChild) {
+            return "↳ {$childName}" . $suffix;
+        }
+
+        $parentName = '';
+        if ($parent) {
+            $parentName = trim((string) ($parent->short_name ?? ''));
+            if ($parentName === '') {
+                $parentName = static::safeTranslateJson($parent->getRawOriginal('title'), $locale)
+                    ?? (string) ($parent->title ?? '');
+            }
+        }
+
+        // нормализуем, чтобы сравнение было честным
+        $norm = fn ($s) => mb_strtolower(trim(preg_replace('/\s+/', ' ', (string) $s)));
+
+        // если совпадают — НЕ добавляем "— parent"
+        if ($parentName !== '' && $norm($childName) === $norm($parentName)) {
+            return "↳ {$childName}" . $suffix;
+        }
+
+        // иначе показываем как задумано
+        $label = "↳ {$childName}";
+        if ($parentName !== '') {
+            $label .= " — {$parentName}";
+        }
+
+        return $label . $suffix;
+    }
+
 
     public static function getItemsRepeater(): Repeater
     {
@@ -1448,51 +1721,66 @@ class OrderResource extends Resource
                 Grid::make(12)->schema([
                     Select::make('product_id')
                         ->label(__('order.fields.product'))
-                        ->options(function () use ($defaultLocale) {
-                            return Product::query()
-                                ->where('in_stock', 1)
-                                ->get(['id', 'title', 'short_name'])
-                                ->mapWithKeys(function ($p) use ($defaultLocale) {
-                                    $getTrans = function ($raw, $fallback = null) use ($defaultLocale) {
-                                        if (blank($raw)) return $fallback;
-                                        if (is_string($raw)) {
-                                            $trim = ltrim($raw);
-                                            if (strlen($trim) && ($trim[0] === '{' || $trim[0] === '[')) {
-                                                $arr = json_decode($raw, true);
-                                                if (json_last_error() === JSON_ERROR_NONE && is_array($arr)) {
-                                                    return $arr[$defaultLocale]
-                                                        ?? $arr[config('app.locale')]
-                                                        ?? $fallback;
-                                                }
-                                            }
-                                            return $raw;
-                                        }
-                                        if (is_array($raw)) {
-                                            return $raw[$defaultLocale]
-                                                ?? $raw[config('app.locale')]
-                                                ?? $fallback;
-                                        }
-                                        return $fallback;
-                                    };
+                        ->searchable()
+                        ->preload()        // можно оставить, но основное — поиск ниже
+                        ->optionsLimit(50)
+                        ->getSearchResultsUsing(function (string $search) use ($defaultLocale) {
 
-                                    $short = $getTrans($p->getRawOriginal('short_name'), $p->short_name);
-                                    $title = $getTrans($p->getRawOriginal('title'), $p->title);
-                                    $label = filled($short) ? $short : $title;
+                            $search = trim($search);
+                            $q = \App\Models\Shop\Product::query()
+                                ->select(['id','title','short_name','parent_id','sort','sku'])
+                                ->where('in_stock', 1); // активные (и главные и дочерние)
 
-                                    return [$p->id => $label];
-                                })
-                                ->toArray();
+                            if ($search !== '') {
+                                $like = "%{$search}%";
+
+                                // title
+                                $q->where(function ($w) use ($like, $defaultLocale) {
+                                    $w->whereRaw("JSON_VALID(title) AND JSON_UNQUOTE(JSON_EXTRACT(title, ?)) LIKE ?", ["$.{$defaultLocale}", $like])
+                                        ->orWhereRaw("NOT JSON_VALID(title) AND title LIKE ?", [$like]);
+                                });
+
+                                // short_name
+                                $q->orWhere(function ($w) use ($like, $defaultLocale) {
+                                    $w->whereRaw("JSON_VALID(short_name) AND JSON_UNQUOTE(JSON_EXTRACT(short_name, ?)) LIKE ?", ["$.{$defaultLocale}", $like])
+                                        ->orWhereRaw("NOT JSON_VALID(short_name) AND short_name LIKE ?", [$like]);
+                                });
+
+                                // sku (размер)
+                                $q->orWhere('sku', 'like', $like);
+                            }
+
+                            // сортировка: родитель -> дети
+                            $q->orderByRaw("COALESCE(parent_id, id) ASC")
+                                ->orderByRaw("CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END ASC")
+                                ->orderBy('sort')
+                                ->orderBy('id')
+                                ->limit(50);
+
+                            $items = $q->get();
+
+                            return $items->mapWithKeys(fn ($p) => [
+                                $p->id => static::productLabel($p, $defaultLocale),
+                            ])->toArray();
+                        })
+                        ->getOptionLabelUsing(function ($value) use ($defaultLocale) {
+                            if (!$value) return null;
+
+                            $p = \App\Models\Shop\Product::query()
+                                ->select(['id','title','short_name','parent_id','sku'])
+                                ->find($value);
+
+                            return $p ? static::productLabel($p, $defaultLocale) : null;
                         })
                         ->required()
                         ->reactive()
                         ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                            $product = Product::find($state);
+                            $product = \App\Models\Shop\Product::find($state);
 
                             if (!$product) {
-                                Notification::make()
+                                \Filament\Notifications\Notification::make()
                                     ->danger()
                                     ->title('Товар не найден')
-                                    ->body('Выбранный товар был удален или не существует. Пожалуйста, выберите другой товар.')
                                     ->send();
                                 $set('product_id', null);
                                 $set('unit_price', 0);
@@ -1500,6 +1788,7 @@ class OrderResource extends Resource
                             }
 
                             $set('unit_price', $product->price ?? 0);
+
                             $mods = $get('modifiers') ?? [];
                             foreach ($mods as &$m) {
                                 $m['_product_id']    = $state;
@@ -1507,14 +1796,15 @@ class OrderResource extends Resource
                                 $m['price_modifier'] = $m['price_modifier'] ?? 0;
                             }
                             $set('modifiers', $mods);
+
                             $set('order_total', now());
                         })
-                        ->distinct()
-                        ->disableOptionsWhenSelectedInSiblingRepeaterItems()
-                        ->columnSpan(6)
-                        ->searchable(),
+                        ->columnSpan(6),
 
-                    TextInput::make('qty')
+
+
+
+        TextInput::make('qty')
                         ->label(__('order.fields.quantity'))
                         ->numeric()
                         ->live(debounce: 250)

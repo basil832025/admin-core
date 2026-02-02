@@ -168,11 +168,11 @@ class ProductResource extends Resource
                                 ->content(function (Get $get) {
                                     $oldPrice = (float)($get('old_price') ?? 0);
                                     $price = (float)($get('price') ?? 0);
-                                    
+
                                     if (!$oldPrice || $oldPrice <= 0 || $price <= 0 || $oldPrice <= $price) {
                                         return new HtmlString('<span class="text-gray-500">0%</span>');
                                     }
-                                    
+
                                     $discount = round((($oldPrice - $price) / $oldPrice) * 100);
                                     return new HtmlString('<span class="text-danger font-semibold">–' . $discount . '%</span>');
                                 })
@@ -985,10 +985,10 @@ class ProductResource extends Resource
                         return $query->where(function (Builder $q) use ($search, $defaultLocale) {
                             $q->where('short_name', 'like', "%{$search}%")
                                 ->orWhereRaw(
-                                // JSON_EXTRACT + COLLATE, чтобы сравнение было case-insensitive
-                                    "JSON_UNQUOTE(JSON_EXTRACT(`title`, '$.\"{$defaultLocale}\"')) COLLATE utf8mb4_general_ci LIKE ?",
+                                    "CONVERT(JSON_UNQUOTE(JSON_EXTRACT(`title`, '$.\"{$defaultLocale}\"')) USING utf8mb4) COLLATE utf8mb4_unicode_ci LIKE ?",
                                     ["%{$search}%"]
                                 );
+
                         });
                     }
                     ),
@@ -1006,7 +1006,7 @@ class ProductResource extends Resource
                     ->sortable(query: function (Builder $query, string $direction) use ($defaultLocale): Builder {
                         $productTable = (new \App\Models\Shop\Product())->getTable();
                         $categoryTable = (new \App\Models\Shop\ProductCategory())->getTable();
-                        
+
                         // Используем leftJoin, чтобы избежать потери записей без категории
                         return $query->leftJoin($categoryTable, "{$productTable}.category_id", '=', "{$categoryTable}.id")
                             ->orderByRaw(
@@ -1047,11 +1047,11 @@ class ProductResource extends Resource
                     ->getStateUsing(function (\App\Models\Shop\Product $record) {
                         $oldPrice = $record->old_price ?? null;
                         $price = $record->price ?? 0;
-                        
+
                         if (!$oldPrice || $oldPrice <= 0 || $price <= 0 || $oldPrice <= $price) {
                             return 0;
                         }
-                        
+
                         return round((($oldPrice - $price) / $oldPrice) * 100);
                     })
                     ->formatStateUsing(fn ($state) => $state > 0 ? "–{$state}%" : '0%')
@@ -1060,10 +1060,10 @@ class ProductResource extends Resource
                     ->sortable(query: function ($query, string $direction) {
                         // Сортировка по вычисленному проценту скидки
                         return $query->orderByRaw("
-                            CASE 
-                                WHEN old_price > 0 AND price > 0 AND old_price > price 
+                            CASE
+                                WHEN old_price > 0 AND price > 0 AND old_price > price
                                 THEN ROUND(((old_price - price) / old_price) * 100)
-                                ELSE 0 
+                                ELSE 0
                             END {$direction}
                         ");
                     })

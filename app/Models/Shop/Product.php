@@ -478,6 +478,72 @@ class Product extends Model implements HasMedia
 
         return [$min, $max];
     }
+    // App\Models\Shop\Product.php
+
+    public function adminBaseName(?string $locale = null): string
+    {
+        $locale = $locale ?: app()->getLocale();
+
+        // 1) short_name текущего
+        $name = trim((string) ($this->short_name ?? ''));
+
+        // 2) short_name родителя
+        if ($name === '' && $this->parent_id) {
+            $name = trim((string) ($this->parent?->short_name ?? ''));
+        }
+
+        // 3) title текущего (перевод)
+        if ($name === '') {
+            $t = $this->getTranslation('title', $locale, false);
+            $name = trim((string) $t);
+        }
+
+        // 4) title родителя
+        if ($name === '' && $this->parent_id) {
+            $t = $this->parent?->getTranslation('title', $locale, false);
+            $name = trim((string) $t);
+        }
+
+        return $name;
+    }
+
+    /**
+     * Размер для скобок.
+     * У тебя на скринах это похоже на 23/29/33 (часто это диаметр).
+     * Если у тебя размер хранится в sku — берём sku.
+     * Если нет — можно заменить на нужное поле (например code2).
+     */
+    public function adminSizeValue(): ?string
+    {
+        $val = trim((string) ($this->sku ?? ''));
+
+        // если sku пустой — возможно размер в code2
+        if ($val === '' && isset($this->code2)) {
+            $val = trim((string) $this->code2);
+        }
+
+        // оставляем только похожее на размер (23/29/33)
+        if ($val !== '' && preg_match('/^\d{2,3}$/', $val)) {
+            return $val;
+        }
+
+        return null;
+    }
+
+    /**
+     * Итоговый лейбл: "Название [29]" или "↳ Название [29]" для дочернего
+     */
+    public function adminLabel(?string $locale = null, bool $withArrow = true): string
+    {
+        $base = $this->adminBaseName($locale);
+        $size = $this->adminSizeValue();
+
+        $prefix = ($withArrow && $this->parent_id) ? '↳ ' : '';
+        $suffix = $size ? " [{$size}]" : '';
+
+        return trim($prefix . $base . $suffix);
+    }
+
 }
 if (! function_exists('schema')) {
     function schema() { return \Illuminate\Support\Facades\Schema::getFacadeRoot(); }

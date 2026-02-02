@@ -28,6 +28,8 @@ class FixedDiscountResource extends Resource
     protected static ?string $pluralModelLabel = null;
     protected static ?string $modelLabel = null;
 
+    protected static bool $shouldRegisterNavigation = false;  /// убрать из меню ресурс
+
     public static function getNavigationGroup(): ?string
     {
         return __('fixed_discount.nav.navigation_group');

@@ -200,15 +200,22 @@ class OrderPricing
     }
     private function upsertProgramAdj(Order $order, string $type, string $label, float $amount, array $meta): void
     {
+        // Для скидок всегда минус
+        if (in_array($type, ['fixed', 'time', 'coupon', 'manual_fixed', 'manual_percent'], true)) {
+            $amount = -abs((float) $amount);
+        }
+
         $adj = $order->adjustments()->firstOrNew([
             'type'               => $type, // 'fixed' или 'time'
             'shop_order_item_id' => null,
         ]);
+
         $adj->label  = $label;
-        $adj->amount = $amount; // скидка — отрицательное число
+        $adj->amount = round($amount, 2);
         $adj->meta   = $meta;
         $adj->save();
     }
+
 
     /* ====================== ПРОМОКОД ====================== */
 

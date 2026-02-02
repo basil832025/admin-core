@@ -10,6 +10,9 @@ use App\Models\Shop\Product;
 use App\Models\Shop\ProductCategory;
 use App\Models\Shop\TimeDiscount;
 use Filament\Forms;
+use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -124,6 +127,46 @@ class TimeDiscountResource extends Resource
                                     'order_fulfilled' => __('time_discount.options.time_type_order_fulfilled'),
                                 ])
                                 ->default('order_created'),
+                            CheckboxList::make('channels')
+                                ->label('Спосіб отримання')
+                                ->helperText('Якщо не вибрано — акція діє і на доставку, і на самовивіз.')
+                                ->options([
+                                    'delivery' => 'Доставка',
+                                    'pickup'   => 'Самовивіз',
+                                    // если есть "в закладі" — добавишь тут третью опцию
+                                ])
+                                ->columns(2)
+                                ->gridDirection('row')
+                                ->reactive(),
+
+                            Select::make('grouping_mode')
+                                ->label('Группировка для N-товара')
+                                ->options([
+                                    'price_sorted' => 'Сортировать по цене и группировать',
+                                    'cart_order'   => 'По порядку добавления в чек',
+                                ])
+                                ->default('price_sorted')
+                                ->required()
+                                ->reactive(),
+
+                            Select::make('apply_target')
+                                ->label('На какой товар в группе применять скидку')
+                                ->options([
+                                    'cheapest'       => 'На самый дешевый в группе',
+                                    'most_expensive' => 'На самый дорогой в группе',
+                                    'index'          => 'По индексу (1..N)',
+                                ])
+                                ->default('cheapest')
+                                ->required()
+                                ->reactive(),
+
+                            TextInput::make('apply_index')
+                                ->label('Индекс товара в группе (1..N)')
+                                ->numeric()
+                                ->minValue(1)
+                                ->helperText('Используется только если выбран вариант "По индексу".')
+                                ->visible(fn ($get) => $get('apply_target') === 'index')
+                                ->required(fn ($get) => $get('apply_target') === 'index'),
                         ])
                         ->columnSpanFull(),
 

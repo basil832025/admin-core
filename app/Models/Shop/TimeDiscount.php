@@ -18,6 +18,15 @@ class TimeDiscount extends Model
     public const TYPE_ORDER     = 'order';      // по времени заказа
     public const TYPE_EXECUTION = 'execution';  // по времени выполнения (доставка/выдача)
     protected $table = 'bs_shop_time_discounts';
+    public const GROUP_PRICE_SORTED = 'price_sorted';
+    public const GROUP_CART_ORDER   = 'cart_order';
+
+    public const TARGET_CHEAPEST       = 'cheapest';
+    public const TARGET_MOST_EXPENSIVE = 'most_expensive';
+    public const TARGET_INDEX          = 'index';
+
+    public const CHANNEL_DELIVERY = 'delivery';
+    public const CHANNEL_PICKUP   = 'pickup';
 
     protected $fillable = [
         'name',
@@ -32,6 +41,10 @@ class TimeDiscount extends Model
         'starts_at',
         'ends_at',
         'note',
+        'channels',
+        'grouping_mode',
+        'apply_target',
+        'apply_index',
     ];
     public $translatable = [
         'name', 'description',
@@ -43,6 +56,7 @@ class TimeDiscount extends Model
         'starts_at' => 'datetime',
         'ends_at'   => 'datetime',
         'description' => 'array',
+        'channels' => 'array',
     ];
 
     /** Скоуп активных по флагу и датам проверяет, активна ли скидка сейчас (флаг is_active, дата начала/окончания) . */
@@ -202,91 +216,183 @@ class TimeDiscount extends Model
         });
     }
     /** Сколько списать с заказа (отрицательная сумма). Учитывает canApplyNow(). */
-    public function calculateAmountForOrder(Order $order): float
+    public function calculateAmountForOrder(\App\Models\Shop\Order $order): float
     {
-        /*Берёт процент скидки percent.Если 0 или меньше — скидка не применяется .*/
         $percent = (float) ($this->percent ?? 0);
-        if ($percent <= 0) return 0.0;
-        //Берёт параметр each_n. Это "каждый N-й товар", для которого применяется скидка (например, «каждая 2-я пицца со скидкой») .
-        $eachN = (int) ($this->nth_item ?? 1);
-      //  if ($eachN <= 1) $eachN = 2; // «кожна друга» по умолчанию, при желании оставь 1
+        $eachN   = (int) ($this->nth_item ?? 0);
 
-        // 1) Собираем eligible позиции (примени свои фильтры при необходимости)
-        $eligibleRows = $order->items->filter(function ($row) {
-            $product = $row->product;
-            if (! $product) return false;
-
-            // какие группы вообще заданы у скидки
-            $hasCats  = ! empty($this->selectedCategoryIds());
-            $hasProds = ! empty($this->selectedProductIds());
-            $hasChars = ! empty($this->selectedCharacteristicValueIds());
-
-            // матчи по группам (считаем только если группа задана)
-            $catMatch  = $hasCats  ? $this->matchesCategory($product)    : null;
-            $prodMatch = $hasProds ? $this->matchesProduct($product)     : null;
-            $charMatch = $hasChars ? $this->matchesCharacteristics($row) : null;
-     //       dd($hasCats,$hasProds,$hasChars,$catMatch,$prodMatch,$charMatch,$product);
-            // 1) база ассортимента: категории ИЛИ товары (если хотя бы что-то из этого задано)
-            if ($hasCats || $hasProds) {
-                $baseOk = (($hasCats  && $catMatch) || ($hasProds && $prodMatch));
-                if (! $baseOk) return false;
-            }
-
-            // 2) характеристики — всегда сужают
-            if ($hasChars && ! $charMatch) {
-                return false;
-            }
-
-            // 3) если ни одного фильтра не задано — значит скидка без ограничений (всё подходит)
-            return true;
-        });
-     //   dd($eligibleRows);
-        if ($eligibleRows->isEmpty()) {
+        if ($percent <= 0 || $eachN < 2) {
             return 0.0;
         }
-    //    dd($order->items,$eligibleRows);
-        // 2) Разворачиваем поштучно и берём цены единиц
+
+        // 1) Фильтр по способу получения (delivery/pickup). null/[] => по умолчанию "всё"
+        $channels = $this->channels ?: [];
+        if (!empty($channels)) {
+            $isPickup = (bool) ($order->self_pickup ?? false);
+
+            $orderChannel = $isPickup ? self::CHANNEL_PICKUP : self::CHANNEL_DELIVERY;
+
+            if (!in_array($orderChannel, $channels, true)) {
+                return 0.0;
+            }
+        }
+
+
+        // 2) Собираем цены поштучно только из eligible товаров (у тебя уже есть фильтр по scope)
+        // ВАЖНО: тут оставляю unit_price как сейчас. Если нужно учитывать modifiers — скажешь, дополним.
+        $items = $order->items()
+            ->with(['product.characteristicValues']) // важно для размера/характеристик
+            ->get();
+
         $unitPrices = [];
-        foreach ($eligibleRows as $row) {
-            $qty = (int) $row->qty;
+
+        foreach ($items as $row) {
+
+            $product = $row->product;
+            if (!$product) continue;
+
+            // ✅ 0) если вообще нет scope — значит акция на всё
+            // ✅ 1) если scope есть — товар должен проходить ВСЕ включенные фильтры
+            if (!$this->matchesProduct($product)) {
+                continue;
+            }
+
+            if (!$this->matchesCategory($product)) {
+                continue;
+            }
+
+            if (!$this->matchesCharacteristics($row)) {
+                continue;
+            }
+
+            $qty = (int) ($row->qty ?? 0);
             if ($qty <= 0) continue;
 
-            // важный момент: берём исходную цену единицы, без ручных скидок
-            $price = (float) $row->unit_price;
+            $price = (float) ($row->unit_price ?? 0);
+            if ($price <= 0) continue;
 
             for ($i = 0; $i < $qty; $i++) {
                 $unitPrices[] = $price;
             }
         }
 
+
         $count = count($unitPrices);
         if ($count < $eachN) {
-            return 0.0; // нет полной группы
+            return 0.0;
         }
 
-        // 3) Формируем группы по N штук и в каждой группе дисконтируем ДЕШЕВШИЙ
-        // Удобный способ: отсортировать по убыванию и бить на чанки по N.
-        // Тогда в каждом чанке последний элемент — самый дешёвый.
-        rsort($unitPrices, SORT_NUMERIC); // DESC
+        // 3) Формируем группы
+        $grouping = $this->grouping_mode ?: self::GROUP_PRICE_SORTED;
+
+        if ($grouping === self::GROUP_PRICE_SORTED) {
+            // как сейчас: сортируем по убыванию и режем на группы по N
+            rsort($unitPrices, SORT_NUMERIC);
+        } else {
+            // cart_order: оставляем в порядке добавления (как собрали)
+            // (если нужен строгий порядок "как в чеке" — можно orderBy('id') на items)
+        }
+
+        $chunks = array_chunk($unitPrices, $eachN);
+
+        // если последний чанк неполный — не участвует
+        $chunks = array_filter($chunks, fn ($c) => count($c) === $eachN);
+
+        // 4) В каждой группе выбираем “на какой товар” применять скидку
+        $target = $this->apply_target ?: self::TARGET_CHEAPEST;
+        $index  = (int) ($this->apply_index ?? 0); // 1..N
 
         $discountBase = 0.0;
-        $chunks = array_chunk($unitPrices, $eachN);
-    //    dd($count,$eachN,$chunks);
+
         foreach ($chunks as $chunk) {
-            if (count($chunk) < $eachN) {
-                // неполная группа — скидка не применяется
+            if ($target === self::TARGET_MOST_EXPENSIVE) {
+                $discountBase += max($chunk);
                 continue;
             }
-            $cheapestInGroup = min($chunk); // эквивалентно $chunk[$eachN-1] после rsort
-            $discountBase += $cheapestInGroup;
+
+            if ($target === self::TARGET_INDEX) {
+                // индекс выбираем по цене (чтобы было предсказуемо): сортируем ASC внутри группы
+                sort($chunk, SORT_NUMERIC);
+
+                $pos = max(1, min($eachN, $index > 0 ? $index : 1)); // default=1
+                $discountBase += (float) $chunk[$pos - 1];
+                continue;
+            }
+
+            // default: cheapest
+            $discountBase += min($chunk);
         }
 
-        // 4) Считаем скидку: только на выбранные позиции (одна в каждой полной группе)
-        $amount = $discountBase * ($percent / 100);
+        $discount = $discountBase * ($percent / 100);
 
-        // скидка — отрицательное число
-        return $amount > 0 ? -round($amount, 2) : 0.0;
+        // защита
+        if ($discount < 0) $discount = 0;
+
+        return round($discount, 2);
     }
+    private function isEligibleOrderItem($row): bool
+    {
+        // 0) если область действия пустая — значит все товары подходят
+        $scopeProducts = $this->products ?? [];                 // например массив id
+        $scopeCategories = $this->categories ?? [];             // массив id
+        $scopeCharValueIds = $this->characteristic_value_ids ?? []; // массив id значений (например "29 см")
+
+        if (empty($scopeProducts) && empty($scopeCategories) && empty($scopeCharValueIds)) {
+            return true;
+        }
+
+        $productId = (int) ($row->product_id ?? 0);
+        if ($productId <= 0) {
+            return false;
+        }
+
+        // 1) фильтр по конкретным товарам
+        if ($scopeProducts instanceof \Illuminate\Support\Collection) {
+            if (! $scopeProducts->contains('id', $productId) && ! $scopeProducts->contains($productId)) {
+                return false;
+            }
+        } else {
+            if (!in_array($productId, (array) $scopeProducts, true)) {
+                return false;
+            }
+        }
+
+
+        // 2) фильтр по категориям (если надо)
+        if (!empty($scopeCategories)) {
+            $productCategoryId = (int) optional($row->product)->category_id; // если relationship есть
+            // если нет relationship, можно подгружать product заранее
+            if (!$productCategoryId || !in_array($productCategoryId, $scopeCategories, true)) {
+                return false;
+            }
+        }
+
+        // 3) фильтр по значениям характеристик (например "29 см")
+        if (!empty($scopeCharValueIds)) {
+            // вариант А: проверяем по товару (если размер — характеристика товара)
+            // needs: $row->product relationship + product->characteristicValues (или как у тебя называется)
+            $values = optional($row->product)->characteristicValues?->pluck('id')->all() ?? [];
+
+            // вариант Б: если размер выбирается в позиции заказа через modifiers (у тебя вроде есть)
+            // тогда надо смотреть $row->modifiers и там characteristic_value_id
+
+            $has = false;
+
+            foreach ($scopeCharValueIds as $needId) {
+                if (in_array((int)$needId, $values, true)) {
+                    $has = true;
+                    break;
+                }
+            }
+
+            if (!$has) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     // === КАТЕГОРИИ ===
 // Вариант A: уже есть pivot-связь categories() (shop_time_discount_categories) — используем её
     protected function selectedCategoryIds(): array
@@ -386,20 +492,21 @@ class TimeDiscount extends Model
         static $cache;
         if ($cache !== null) return $cache;
 
-        // Вариант A: через pivot
-    //    dd($this->characteristicValues()->pluck('shop_time_discount_characteristic_values.id')->all());
         try {
-            $ids = $this->characteristicValues()->pluck('shop_time_discount_characteristic_values.characteristic_value_id')->all();
-         //   dd($ids);
+            // ✅ правильное имя pivot-таблицы с префиксом bs_
+            $cache = $this->characteristicValues()
+                ->pluck('bs_shop_time_discount_characteristic_values.characteristic_value_id')
+                ->map(fn ($v) => (int) $v)
+                ->unique()
+                ->values()
+                ->all();
         } catch (\Throwable $e) {
-            $ids = [];
+            $cache = [];
         }
 
-        // Вариант B (если используешь JSON колонку char_value_ids): раскомментируй
-        // $ids = array_map('intval', (array) ($this->char_value_ids ?? []));
-
-        return $cache = array_map('intval', $ids);
+        return $cache;
     }
+
 
     /**
      * Проверяем, участвует ли строка заказа по характеристикам.
@@ -436,36 +543,22 @@ class TimeDiscount extends Model
      * Возвращает массив characteristic_value_id, привязанных к товару.
      * Пытается через связь product->characteristicValues(), иначе — прямым запросом к pivot.
      */
-    protected function productCharacteristicValueIds($product): array
+    protected function productCharacteristicValueIds(\App\Models\Shop\Product $product): array
     {
-      //  dd($product);
+        // Берём значения характеристик через Eloquent relation,
+        // чтобы не зависеть от имени pivot-таблицы и префиксов.
+        $values = $product->relationLoaded('characteristicValues')
+            ? $product->characteristicValues
+            : $product->characteristicValues()->get();
 
-
-        // Вариант 1: у товара есть связь characteristicValues()
-     /*   if (method_exists($product, 'characteristicValues')) {
-         //   dd('1tyt',$product,$product->characteristicValues()->pluck('characteristic_values.id')->all());
-            try {
-
-                return array_map('intval', $product->characteristicValues()->pluck('characteristic_values.id')->all());
-            } catch (\Throwable $e) {
-                // пойдём вторым путём
-            }
-        }*/
-        /*    dd('qtqt',\DB::table('product_characteristic_value')
-                ->where('product_id', $product->id)
-                ->whereNotNull('characteristic_value_id')
-                ->pluck('characteristic_value_id')
-                ->map(fn ($v) => (int) $v)
-                ->all());*/
-        // Вариант 2: напрямую из таблицы значений товара (подставь своё точное имя)
-        // Часто встречается: product_characteristic_values (product_id, characteristic_id, characteristic_value_id, ...)
-        return \DB::table('product_characteristic_value')
-            ->where('product_id', $product->id)
-            ->whereNotNull('characteristic_value_id')
-            ->pluck('characteristic_value_id')
+        return $values
+            ->pluck('pivot.characteristic_value_id')   // <- то, что реально хранится в pivot
+            ->filter()                                 // убираем null
             ->map(fn ($v) => (int) $v)
+            ->values()
             ->all();
     }
+
   /*  public function calculateAmountForOrder(Order $order): float
     {
         $percent = (float) ($this->percent ?? 0);
