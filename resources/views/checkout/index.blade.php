@@ -6,6 +6,7 @@
     $addUrl    = route('cart.add');
     $removeUrl = route('cart.remove');
     $client    = auth()->user();
+    // Показываем все сохранённые адреса; если координат нет, они будут дозапрошены и сохранены при выборе
     $addresses = $client ? $client->addresses()->orderByDesc('id')->get() : collect();
 
     // Загружаем данные из сессии
@@ -16,11 +17,16 @@
 
     // Если у клиента НЕТ сохранённых адресов — всегда показываем форму нового адреса
     if (! $client || $addresses->count() === 0) {
-        $selectedId = null;
+        $selectedId    = null;
         $useNewInitial = true;
     } else {
-        // Иначе уважаем сохранённый флаг / старую логику
-        $useNewInitial = old('use_new_address', $sessionData['use_new_address'] ?? ($selectedId ? false : true));
+        // Базовое значение из старых данных / сессии (если пользователь явно выбирал «новый адрес»)
+        $useNewInitial = (bool) old('use_new_address', $sessionData['use_new_address'] ?? false);
+
+        // Если у нас уже есть выбранный сохранённый адрес — по умолчанию НЕ открываем форму нового адреса
+        if ($selectedId && $addresses->contains('id', $selectedId)) {
+            $useNewInitial = false;
+        }
     }
     $shippingMethod = old('shipping_method', $sessionData['shipping_method'] ?? 'delivery');
     $deliveryMode = old('delivery_mode', $sessionData['delivery_mode'] ?? 'asap');
@@ -72,7 +78,7 @@ document.addEventListener('alpine:init', () => {
 @endpush
 
         <form action="{{ route('checkout.submit') }}"
-              method="POST" class="space-y-6" data-checkout-form novalidate 
+              method="POST" class="space-y-6" data-checkout-form novalidate
               data-check-promo-url="{{ route('checkout.check-promo-conditions') }}">
             @csrf
 

@@ -258,6 +258,10 @@ Route::middleware(['web', 'auth'])->group(function () {
             'destroy' => 'profile.addresses.destroy',
         ]);
 
+    // Обновление координат сохранённого адреса (используется из checkout.js)
+    Route::post('profile/addresses/{address}/coords', [\App\Http\Controllers\Front\ClientAddressController::class, 'updateCoords'])
+        ->name('profile.addresses.update-coords');
+
     // Бонусы
     Route::get('/profile/bonus', function () {
         return view('pages.profile.bonuses.index');

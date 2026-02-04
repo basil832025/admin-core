@@ -20,6 +20,8 @@
 
         selectAddress(el) {
             if (!el) return;
+            // защита от рекурсии: если мы сами программно триггерим change,
+            // не заходим повторно в selectAddress
             if (el.__selecting) return;
             this.useNew = false;
 
@@ -31,7 +33,10 @@
             this.showList = false;
 
             // важно: пусть отработают слушатели пересчёта доставки (document change)
+            el.__selecting = true;
             el.dispatchEvent(new Event('change', { bubbles: true }));
+            // снимаем флаг на следующем тике
+            setTimeout(() => { el.__selecting = false; }, 0);
         },
 
         openList() {
@@ -78,7 +83,9 @@ x-cloak
 
 
     {{-- Сохранённые адреса --}}
+
     @if($client && $addresses->count())
+
         {{-- 1) Карточка выбранного адреса  --}}
         <div
             x-show="selectedId && !useNew && !showList"
@@ -103,7 +110,7 @@ x-cloak
         <div class="space-y-4" x-show="!useNew && (showList || !selectedId)" x-cloak>
             @foreach($addresses as $i => $addr)
                 @php
-              //  dump($addr);
+
                     $fullLine = trim(
                         ($addr->street
                             ? st('address.parts.street_prefix', 'вулиця').' '.$addr->street
@@ -144,6 +151,8 @@ x-cloak
                            class="tp-radio mt-[3px]"
                            data-lat="{{ $addr->latitude ?? '' }}"
                            data-lng="{{ $addr->longitude ?? '' }}"
+                           data-street="{{ e($addr->street ?? '') }}"
+                           data-house="{{ e($addr->house ?? '') }}"
                            data-line="{{ e($lineForJs) }}"
                            data-city="{{ e($cityForJs) }}"
                            {{-- ВАЖНО: НЕ ставим checked по умолчанию --}}

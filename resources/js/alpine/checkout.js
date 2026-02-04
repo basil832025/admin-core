@@ -1116,44 +1116,14 @@ function bindDeliveryRecalc() {
     document.addEventListener('change', (e) => {
         const t = e.target;
         if (t && t.matches('input[name="selected_address_id"]')) {
-        //    dlog('address changed', { id: t.value, lat: t.dataset.lat, lng: t.dataset.lng });
-            const lat = t.dataset.lat;
-            const lng = t.dataset.lng;
-
-            calcShippingByCoords(lat, lng).then(({ shipping, zone }) => {
-                const zoneEl1 = document.querySelector('[data-delivery-zone-input]');
-                const zoneEl2 = document.getElementById('checkout-delivery-zone');
-
-                if (zoneEl1) {
-                    zoneEl1.value = zone || '';
-                    zoneEl1.dispatchEvent(new Event('input', { bubbles: true }));
-                    zoneEl1.dispatchEvent(new Event('change', { bubbles: true }));
-                }
-                if (zoneEl2) {
-                    zoneEl2.value = zone || '';
-                    zoneEl2.dispatchEvent(new Event('input', { bubbles: true }));
-                    zoneEl2.dispatchEvent(new Event('change', { bubbles: true }));
-                }
-
-                window.checkoutTotals.setShipping(shipping);
-
-            });
+            handleSavedAddressChange(t);
         }
     });
 
     // initial recalc
     const checked = document.querySelector('input[name="selected_address_id"]:checked');
     if (checked) {
-        calcShippingByCoords(checked.dataset.lat, checked.dataset.lng).then(({ shipping, zone }) => {
-            const zoneEl1 = document.querySelector('[data-delivery-zone-input]');
-            const zoneEl2 = document.getElementById('checkout-delivery-zone');
-
-            if (zoneEl1) zoneEl1.value = zone || '';
-            if (zoneEl2) zoneEl2.value = zone || '';
-
-            window.checkoutTotals.setShipping(shipping);
-
-        });
+        handleSavedAddressChange(checked);
     } else {
         window.checkoutTotals.render();
     }
@@ -1184,6 +1154,149 @@ function bindDeliveryRecalc() {
         latEl.addEventListener('change', triggerNew);
         lngEl.addEventListener('change', triggerNew);
     }
+}
+
+/**
+ * Обработка выбора сохранённого адреса:
+ * - если есть координаты в data-атрибутах — сразу считаем доставку
+ * - если координат нет — запрашиваем у Google по строке адреса, сохраняем в БД и считаем доставку
+ */
+function handleSavedAddressChange(radio) {
+    // если change инициирован нашим же кодом (selectAddress), не запускаем повторно
+    if (radio.__selecting) {
+        return;
+    }
+
+    const latRaw = radio.dataset.lat;
+    const lngRaw = radio.dataset.lng;
+
+    if (latRaw && lngRaw) {
+        calcShippingByCoords(latRaw, lngRaw).then(applyShippingResult);
+        return;
+    }
+
+    // координат нет — пробуем получить через Geocoder
+    if (!window.google || !window.google.maps || !google.maps.Geocoder) {
+        // Если Google Maps ещё не загружен, грузим его и повторяем попытку
+        if (typeof loadGoogleMapsOnce === 'function') {
+            loadGoogleMapsOnce((ok) => {
+                if (ok) {
+                    handleSavedAddressChange(radio);
+                } else {
+                    window.checkoutTotals.setShipping(0);
+                }
+            });
+        } else {
+            // без Google Maps не можем посчитать доставку
+            window.checkoutTotals.setShipping(0);
+        }
+        return;
+    }
+
+    const street = radio.dataset.street || '';
+    const house  = radio.dataset.house  || '';
+    const city   = radio.dataset.city   || 'Київ';
+
+    // Основной вариант: улица + дом + город
+    let addressString = [street, house, city].filter(Boolean).join(', ');
+
+    // Фолбэк: если вдруг street/house пустые, используем line + city
+    if (!addressString) {
+        const line = radio.dataset.line || '';
+        addressString = [line, city].filter(Boolean).join(', ');
+    }
+
+    if (!addressString) {
+        window.checkoutTotals.setShipping(0);
+        return;
+    }
+
+    // Используем Places API (как при сохранении нового адреса через Autocomplete)
+    if (!google.maps.places || !google.maps.places.PlacesService) {
+        window.checkoutTotals.setShipping(0);
+        return;
+    }
+
+    const service =
+        window.__checkoutPlacesService ||
+        (window.__checkoutPlacesService = new google.maps.places.PlacesService(document.createElement('div')));
+
+    service.findPlaceFromQuery(
+        {
+            query: addressString,
+            fields: ['geometry', 'formatted_address'],
+            language: 'uk',
+        },
+        (results, status) => {
+            if (
+                status !== google.maps.places.PlacesServiceStatus.OK ||
+                !results ||
+                !results.length ||
+                !results[0].geometry ||
+                !results[0].geometry.location
+            ) {
+                window.checkoutTotals.setShipping(0);
+                return;
+            }
+
+            const loc = results[0].geometry.location;
+            const latVal = typeof loc.lat === 'function' ? loc.lat() : loc.lat;
+            const lngVal = typeof loc.lng === 'function' ? loc.lng() : loc.lng;
+
+            if (latVal == null || lngVal == null) {
+                window.checkoutTotals.setShipping(0);
+                return;
+            }
+
+            const lat = String(latVal);
+            const lng = String(lngVal);
+
+            // Обновляем data-атрибуты на radio, чтобы дальше всё работало как обычно
+            radio.dataset.lat = lat;
+            radio.dataset.lng = lng;
+
+            // Пытаемся сохранить координаты в БД
+            const id = radio.value;
+            const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+            fetch(`/profile/addresses/${encodeURIComponent(id)}/coords`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrf,
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({
+                    latitude: latVal,
+                    longitude: lngVal,
+                    formatted_address: results[0].formatted_address || null,
+                }),
+            }).catch(() => {
+                // Ошибку сохранения координат игнорируем — важно, что на этот заказ доставка посчитается
+            });
+
+            // Теперь можем посчитать доставку по свежим координатам
+            calcShippingByCoords(lat, lng).then(applyShippingResult);
+        }
+    );
+}
+
+function applyShippingResult({ shipping, zone }) {
+    const zoneEl1 = document.querySelector('[data-delivery-zone-input]');
+    const zoneEl2 = document.getElementById('checkout-delivery-zone');
+
+    if (zoneEl1) {
+        zoneEl1.value = zone || '';
+        zoneEl1.dispatchEvent(new Event('input', { bubbles: true }));
+        zoneEl1.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    if (zoneEl2) {
+        zoneEl2.value = zone || '';
+        zoneEl2.dispatchEvent(new Event('input', { bubbles: true }));
+        zoneEl2.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    window.checkoutTotals.setShipping(shipping);
 }
 
 /**

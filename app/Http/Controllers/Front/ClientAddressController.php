@@ -139,6 +139,30 @@ class ClientAddressController extends Controller
     }
 
     /**
+     * Обновить только координаты адреса (вызывается из checkout через AJAX).
+     */
+    public function updateCoords(Request $request, ClientAddress $address)
+    {
+        $user = Auth::user();
+
+        if (!$user || $address->client_id !== $user->id) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'latitude'          => 'required|numeric',
+            'longitude'         => 'required|numeric',
+            'street_place_id'   => 'nullable|string|max:255',
+            'formatted_address' => 'nullable|string|max:255',
+        ]);
+
+        $address->fill($validated);
+        $address->save();
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
      * Remove the specified resource from storage.
      */
     public function destroy($address)
