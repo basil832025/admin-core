@@ -189,6 +189,8 @@ Route::post('/checkout/save-form-data', [CheckoutController::class, 'saveFormDat
 Route::post('/checkout/apply-coupon', [CheckoutController::class, 'applyCoupon'])->name('checkout.apply-coupon');
 Route::post('/checkout/promo', [CheckoutController::class, 'updatePromo'])
     ->name('checkout.promo');
+Route::post('/checkout/check-promo-conditions', [CheckoutController::class, 'checkPromoConditionsAjax'])
+    ->name('checkout.check-promo-conditions');
 Route::get('/checkout/{order}/pay/liqpay', [CheckoutController::class, 'payLiqPay'])
     ->name('checkout.pay.liqpay');
 Route::get('/filter', [CatalogController::class, 'filter'])

@@ -91,7 +91,6 @@
                 x-model="selectedTime"
                 :disabled="mode === 'asap'"
                 :data-required="mode === 'fixed' ? true : null"
-                @change="saveFormData()"
             >
 
             <option value="">{{ st('cart.delivery.time_label', 'Час') }}</option>

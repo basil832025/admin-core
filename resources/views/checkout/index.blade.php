@@ -72,7 +72,8 @@ document.addEventListener('alpine:init', () => {
 @endpush
 
         <form action="{{ route('checkout.submit') }}"
-              method="POST" class="space-y-6" data-checkout-form novalidate >
+              method="POST" class="space-y-6" data-checkout-form novalidate 
+              data-check-promo-url="{{ route('checkout.check-promo-conditions') }}">
             @csrf
 
             <div

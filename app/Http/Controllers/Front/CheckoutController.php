@@ -93,11 +93,22 @@ public function index()
 
     // --- АКЦИИ ПО ВРЕМЕНИ ---
     $timeDiscounts = TimeDiscount::query()
-        ->activeForMoment(now())    // твой scopeActiveForMoment()
+        ->where('is_active', true)
         ->get()
         ->filter(function (TimeDiscount $d) use ($productIds) {
             return $d->hasEligibleProducts($productIds);
         });
+
+    // Получаем параметры доставки из сессии
+    $shippingMethod = $sessionData['shipping_method'] ?? 'delivery';
+    $deliveryMode = $sessionData['delivery_mode'] ?? 'asap';
+    $deliveryDate = $sessionData['delivery_date'] ?? null;
+    $deliveryTime = $sessionData['delivery_time'] ?? null;
+
+    // Получаем продукты с характеристиками для проверки диаметров
+    $products = Product::with('characteristicValues')
+        ->whereIn('id', $productIds)
+        ->get();
 
     // Генерируем временные интервалы для доставки
     $timeIntervals = $this->getDeliveryTimeIntervals($locations);
@@ -122,9 +133,12 @@ public function index()
             })
         )*/
         ->merge(
-            $timeDiscounts->map(function (TimeDiscount $d) use ($locale) {
+            $timeDiscounts->map(function (TimeDiscount $d) use ($locale, $shippingMethod, $deliveryMode, $deliveryDate, $deliveryTime, $products) {
                 $name = $d->getTranslation('name', $locale);
                 $p    = number_format((float)$d->percent, 2, '.', '');
+
+                // Проверяем условия для акции
+                $isActive = $this->checkPromoConditions($d, $shippingMethod, $deliveryMode, $deliveryDate, $deliveryTime, $products);
 
                 return [
                     'id'          => $d->id,
@@ -132,6 +146,7 @@ public function index()
                     // Например: "Happy hours 50%"
                     'label'       => "{$name} ({$p}%)",
                     'description' => $d->description ?? null,
+                    'is_active'   => $isActive,
                 ];
             })
         );
@@ -1287,6 +1302,160 @@ public function payLiqPay(Order $order)
     return view('checkout.liqpay', [
         'order'     => $order,
         'liqpayForm'=> $liqpayForm,
+    ]);
+}
+
+/**
+ * Проверка условий для акции (время, день недели, способ получения, диаметры)
+ */
+private function checkPromoConditions(
+    TimeDiscount $discount,
+    string $shippingMethod,
+    string $deliveryMode,
+    ?string $deliveryDate,
+    ?string $deliveryTime,
+    $products
+): bool {
+    // 1. Проверка способа получения (channels)
+    $channels = $discount->channels ?? [];
+    if (!empty($channels)) {
+        $expectedChannel = $shippingMethod === 'pickup' ? 'pickup' : 'delivery';
+        if (!in_array($expectedChannel, $channels)) {
+            \Log::info('Promo condition failed: channel mismatch', [
+                'discount_id' => $discount->id,
+                'expected_channel' => $expectedChannel,
+                'available_channels' => $channels,
+            ]);
+            return false;
+        }
+    }
+
+    // 2. Проверка характеристик продуктов (диаметры)
+    $characteristicValueIds = $discount->characteristicValues()->pluck('bs_shop_time_discount_characteristic_values.characteristic_value_id')->toArray();
+    if (!empty($characteristicValueIds)) {
+        $hasMatchingProduct = false;
+        foreach ($products as $product) {
+            // Получаем characteristic_value_id через pivot таблицу bs_product_characteristic_value
+            $productCharValueIds = $product->characteristicValues()
+                ->pluck('bs_product_characteristic_value.characteristic_value_id')
+                ->filter()
+                ->unique()
+                ->values()
+                ->toArray();
+            
+            if (array_intersect($characteristicValueIds, $productCharValueIds)) {
+                $hasMatchingProduct = true;
+                break;
+            }
+        }
+        if (!$hasMatchingProduct) {
+            return false;
+        }
+    }
+
+    // 3. Проверка дня недели и времени
+    $now = now();
+    $referenceDate = $now;
+    $referenceTime = $now->format('H:i:s');
+    $referenceWeekday = (int) $now->isoWeekday(); // 1-7 (Mon-Sun)
+
+    // Если выбрана конкретная дата доставки
+    if ($deliveryDate) {
+        try {
+            $referenceDate = Carbon::parse($deliveryDate);
+            $referenceWeekday = (int) $referenceDate->isoWeekday();
+        } catch (\Exception $e) {
+            // Если не удалось распарсить дату, используем текущую
+        }
+    }
+
+    // Если выбрано конкретное время доставки
+    if ($deliveryTime) {
+        // Формат может быть "12:00" или "12:00-12:15"
+        $timeParts = explode('-', $deliveryTime);
+        $timeStr = trim($timeParts[0]);
+        if (preg_match('/^(\d{1,2}):(\d{2})$/', $timeStr, $matches)) {
+            $referenceTime = sprintf('%02d:%02d:00', (int)$matches[1], (int)$matches[2]);
+        }
+    } elseif ($deliveryMode === 'asap') {
+        // Если "как можно скорее", используем текущее время
+        $referenceTime = $now->format('H:i:s');
+    }
+
+    // Проверка дня недели
+    $days = $discount->days ?? [];
+    if (!empty($days) && !in_array($referenceWeekday, $days, true)) {
+        return false;
+    }
+
+    // Проверка временного окна
+    if (!$discount->matchesTimeWindow($referenceTime)) {
+        return false;
+    }
+
+    return true;
+}
+
+/**
+ * Проверка условий акций для AJAX запроса
+ */
+public function checkPromoConditionsAjax(Request $request)
+{
+    $shippingMethod = $request->input('shipping_method', 'delivery');
+    $deliveryMode = $request->input('delivery_mode', 'asap');
+    $deliveryDate = $request->input('delivery_date');
+    $deliveryTime = $request->input('delivery_time');
+
+    $items = $this->cart->items();
+    $productIds = collect($items)->pluck('product_id');
+
+    // Получаем все активные акции
+    $timeDiscounts = TimeDiscount::query()
+        ->where('is_active', true)
+        ->get()
+        ->filter(function (TimeDiscount $d) use ($productIds) {
+            return $d->hasEligibleProducts($productIds);
+        });
+
+    // Получаем продукты с характеристиками
+    $products = Product::with('characteristicValues')
+        ->whereIn('id', $productIds)
+        ->get();
+
+    $locale = app()->getLocale();
+    $promos = [];
+
+    foreach ($timeDiscounts as $discount) {
+        $name = $discount->getTranslation('name', $locale);
+        $p = number_format((float)$discount->percent, 2, '.', '');
+        $value = 'time:' . $discount->id;
+
+        // Проверяем условия
+        $isActive = $this->checkPromoConditions(
+            $discount,
+            $shippingMethod,
+            $deliveryMode,
+            $deliveryDate,
+            $deliveryTime,
+            $products
+        );
+
+        \Log::info('Promo condition check result', [
+            'discount_id' => $discount->id,
+            'name' => $name,
+            'shipping_method' => $shippingMethod,
+            'is_active' => $isActive,
+            'channels' => $discount->channels ?? [],
+        ]);
+
+        $promos[] = [
+            'value' => $value,
+            'is_active' => $isActive,
+        ];
+    }
+
+    return response()->json([
+        'promos' => $promos,
     ]);
 }
 

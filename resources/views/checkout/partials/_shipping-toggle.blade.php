@@ -9,7 +9,7 @@
     <div class="flex flex-row items-center justify-center gap-2 md:gap-3" x-cloak>
         {{-- Самовывоз --}}
         <button type="button"
-                @click="method = 'pickup'; $nextTick(() => { const event = new Event('change'); document.querySelector('[data-checkout-form]')?.dispatchEvent(event); })"
+                @click="method = 'pickup'; $nextTick(() => { const event = new Event('change'); document.querySelector('[data-checkout-form]')?.dispatchEvent(event); checkPromoConditionsFromShipping(); })"
                 :class="(typeof method !== 'undefined' && method === 'pickup')
                     ? 'bg-[#FF7500] text-white border-[#FF7500]'
                     : 'bg-white text-gray-700 border-neutral-200 hover:border-neutral-300'"
@@ -19,7 +19,7 @@
 
         {{-- Доставка --}}
         <button type="button"
-                @click="method = 'delivery'; $nextTick(() => { const event = new Event('change'); document.querySelector('[data-checkout-form]')?.dispatchEvent(event); })"
+                @click="method = 'delivery'; $nextTick(() => { const event = new Event('change'); document.querySelector('[data-checkout-form]')?.dispatchEvent(event); checkPromoConditionsFromShipping(); })"
                 :class="(typeof method !== 'undefined' && method === 'delivery')
                     ? 'bg-[#FF7500] text-white border-[#FF7500]'
                     : 'bg-white text-gray-700 border-neutral-200 hover:border-neutral-300'"

@@ -5,6 +5,7 @@
             <input
                 type="checkbox"
                 name="agree"
+                checked
                 value="1"
                 class="peer sr-only"
                 data-required

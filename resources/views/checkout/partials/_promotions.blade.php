@@ -30,26 +30,36 @@
             @foreach($availablePromos as $promo)
                 @php
                     $value = $promo['type'] . ':' . $promo['id'];
+                    $isActive = $promo['is_active'] ?? true;
                 @endphp
-                <label class="flex items-start gap-2 cursor-pointer relative group">
+
+                <label
+                    x-data="{ promoActive: @js($isActive) }"
+                    data-promo-value="{{ $value }}"
+                    :class="promoActive ? 'cursor-pointer' : 'cursor-not-allowed'"
+                    class="flex items-start gap-2 relative group"
+                >
                     <input type="radio"
                            class="tp-radio mt-[3px]"
+                           :class="promoActive ? '' : 'opacity-50 cursor-not-allowed'"
                            name="promo_radio"
                            value="{{ $value }}"
+                           :disabled="!promoActive"
                            @change="change('{{ $value }}')"
                            :checked="selected === '{{ $value }}'">
 
                     <span class="leading-5 flex items-center">
-                        <span class="text-[16px] leading-[22px] text-[#272828]">
+                        <span class="text-[16px] leading-[22px]" :class="promoActive ? 'text-[#272828]' : 'text-gray-400'">
                             {{ $promo['label'] }}
                         </span>
 
                         @if(!empty($promo['description']))
                             <span
-                                class="ml-2"
+                                class="ml-2 pointer-events-auto"
                                 x-data="{
         open: false,
         style: '',
+        id: Math.random().toString(36).slice(2),
         update() {
             if (!this.open) return;
 
@@ -65,31 +75,60 @@
                 const br = btn.getBoundingClientRect();
                 const tr = tip.getBoundingClientRect();
 
-                const margin = 8; // отступ от краёв экрана
+                const marginLeft = 8;   // минимальный отступ слева
+                const marginRight = 20; // минимальный отступ от правого края
+                const bottomSafe = 40; // дополнительный отступ от нижнего края для мобильных
+
                 let left = br.left + br.width / 2 - tr.width / 2;
 
                 // clamp по X внутри viewport
-                left = Math.max(margin, Math.min(left, window.innerWidth - tr.width - margin));
+                left = Math.max(
+                    marginLeft,
+                    Math.min(left, window.innerWidth - tr.width - marginRight)
+                );
 
                 // позиция по Y: под кнопкой
-                const top = br.bottom + 8;
+                let top = br.bottom + 8;
+                const viewportHeight = window.innerHeight;
+
+                // если тултип не влезает вниз — поднимаем его выше,
+                // оставляя дополнительное место снизу (bottomSafe)
+                if (top + tr.height + bottomSafe > viewportHeight) {
+                    top = viewportHeight - tr.height - bottomSafe;
+                }
+
+                // и не даём уйти выше верхнего края
+                top = Math.max(marginLeft, top);
 
                 this.style = `left:${left}px; top:${top}px;`;
 
                 tip.style.display = '';
                 tip.style.visibility = '';
             });
+        },
+        handleOpenEvent(event) {
+            // закрываем тултип, если открыт другой
+            if (event.detail !== this.id) {
+                this.open = false;
+            }
         }
     }"
                                 x-init="
         window.addEventListener('resize', () => update());
         window.addEventListener('scroll', () => update(), true);
+        window.addEventListener('promo-tooltip-open', (event) => handleOpenEvent(event));
     "
                             >
     <button
         type="button"
         x-ref="btn"
-        @click.stop="open = !open; update()"
+        @click.stop="
+            open = !open;
+            if (open) {
+                window.dispatchEvent(new CustomEvent('promo-tooltip-open', { detail: id }));
+                update();
+            }
+        "
         class="flex items-center justify-center w-6 h-6 rounded-full text-[#FF7500] focus:outline-none"
     >
         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -109,6 +148,7 @@
         :style="style"
         class="fixed z-50
                max-w-[calc(100vw-16px)] w-64
+               max-h-[calc(100vh-32px)] overflow-y-auto
                bg-white border border-gray-200 rounded-lg shadow-lg
                text-xs text-gray-700 p-2"
     >

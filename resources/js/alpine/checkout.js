@@ -114,6 +114,8 @@ function deliveryBlock() {
         // minutes needed for preparation
         leadMinutes: 60,
 
+        // Debounce timer для checkPromoConditions (используем глобальный для всех вызовов)
+
         init() {
             // flatpickr locale (RU)
             const ruLocale = {
@@ -192,6 +194,13 @@ function deliveryBlock() {
                     this.$nextTick(() => {
                         moveToTomorrowIfNoIntervalsToday();
                         autoPickTimeIfNeeded();
+                        // Проверяем условия акций при изменении даты (debounce уже внутри метода)
+                        // Небольшая задержка, чтобы дать время обновиться selectedTime если нужно
+                        setTimeout(() => {
+                            if (typeof this.checkPromoConditions === 'function') {
+                                this.checkPromoConditions();
+                            }
+                        }, 50);
                     });
                 },
             });
@@ -209,7 +218,10 @@ function deliveryBlock() {
             });
 
             // watchers
-            this.$watch('mode', () => {
+            this.$watch('mode', (newVal, oldVal) => {
+                // Пропускаем если значение не изменилось или это начальная инициализация
+                if (newVal === oldVal) return;
+                
                 this.updateFieldsState();
 
                 if (this.mode === 'fixed') {
@@ -220,14 +232,38 @@ function deliveryBlock() {
                             autoPickTimeIfNeeded();
                         });
                     });
+                } else if (this.mode === 'asap') {
+                    // При переключении на "asap" очищаем выбранное время
+                    this.selectedTime = '';
                 }
 
                 // persist (autosave trigger)
                 this.saveFormData();
+                // Проверяем условия акций при изменении режима доставки (debounce уже внутри метода)
+                // Небольшая задержка, чтобы дать время обновиться полям
+                setTimeout(() => {
+                    if (typeof this.checkPromoConditions === 'function') {
+                        this.checkPromoConditions();
+                    }
+                }, 100);
             });
 
-            this.$watch('selectedTime', () => {
-                if (this.mode === 'fixed') this.saveFormData();
+            this.$watch('selectedTime', (newVal, oldVal) => {
+                // Пропускаем если значение не изменилось или это начальная инициализация
+                if (newVal === oldVal) {
+                    return;
+                }
+                
+                if (this.mode === 'fixed') {
+                    this.saveFormData();
+                    // Проверяем условия акций при изменении времени (debounce уже внутри метода)
+                    // Небольшая задержка, чтобы избежать конфликтов с другими вызовами
+                    setTimeout(() => {
+                        if (typeof this.checkPromoConditions === 'function') {
+                            this.checkPromoConditions();
+                        }
+                    }, 50);
+                }
             });
 
             this.$watch('availableTimeIntervals', () => {
@@ -276,6 +312,94 @@ function deliveryBlock() {
             if (currentSelected && this.availableTimeIntervals.includes(currentSelected)) {
                 this.selectedTime = currentSelected;
             }
+        },
+
+        checkPromoConditions() {
+            // Используем глобальный таймер для всех вызовов
+            if (window.globalCheckPromoConditionsTimer) {
+                clearTimeout(window.globalCheckPromoConditionsTimer);
+            }
+
+            // Устанавливаем новый таймер с задержкой 300ms
+            window.globalCheckPromoConditionsTimer = setTimeout(() => {
+                // Получаем данные формы
+                const form = document.querySelector('[data-checkout-form]');
+                if (!form) {
+                    console.warn('checkPromoConditions: form not found');
+                    return;
+                }
+
+                const formData = new FormData(form);
+                const shippingMethod = formData.get('shipping_method') || 'delivery';
+                const deliveryMode = this.mode || 'asap';
+                
+                // Получаем дату и время в зависимости от режима доставки
+                let deliveryDate = null;
+                let deliveryTime = null;
+                
+                if (deliveryMode === 'fixed') {
+                    // Для "До визначеного часу" получаем дату и время
+                    if (this.fpDate && this.fpDate.selectedDates && this.fpDate.selectedDates.length > 0) {
+                        const selectedDate = this.fpDate.selectedDates[0];
+                        const year = selectedDate.getFullYear();
+                        const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                        const day = String(selectedDate.getDate()).padStart(2, '0');
+                        deliveryDate = `${year}-${month}-${day}`;
+                    } else {
+                        deliveryDate = formData.get('delivery_date') || null;
+                    }
+                    deliveryTime = this.selectedTime || formData.get('delivery_time') || null;
+                } else {
+                    // Для "Якнайшвидше" дата и время должны быть null
+                    deliveryDate = null;
+                    deliveryTime = null;
+                }
+
+                // Получаем CSRF токен и URL из мета-тегов или data-атрибутов
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || 
+                                 document.querySelector('[data-csrf-token]')?.dataset.csrfToken || '';
+                const checkUrl = document.querySelector('[data-check-promo-url]')?.dataset.checkPromoUrl || 
+                               '/checkout/check-promo-conditions';
+
+                // Формируем payload для запроса
+                const payload = {
+                    shipping_method: shippingMethod,
+                    delivery_mode: deliveryMode,
+                    delivery_date: deliveryDate,
+                    delivery_time: deliveryTime,
+                };
+                
+                // Отправляем запрос на проверку условий
+                fetch(checkUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify(payload),
+                })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.promos && Array.isArray(data.promos)) {
+                            // Небольшая задержка для обеспечения инициализации всех компонентов
+                            setTimeout(() => {
+                                const event = new CustomEvent('update-promo-status', {
+                                    detail: data.promos,
+                                    bubbles: true,
+                                    cancelable: true
+                                });
+                                window.dispatchEvent(event);
+                            }, 10);
+                        }
+                    })
+                    .catch(() => {
+                        // ошибка запроса просто игнорируется
+                    })
+                    .finally(() => {
+                        window.globalCheckPromoConditionsTimer = null;
+                    });
+            }, 300);
         },
 
         saveFormData() {
@@ -406,6 +530,157 @@ window.availablePromosComponent = function (initialSelected) {
         },
     };
 };
+
+/* =========================================================
+ * Promos: check conditions when shipping method changes
+ *  (called from _shipping-toggle.blade.php)
+ * ======================================================= */
+
+window.checkPromoConditionsFromShipping = function () {
+    // Пытаемся использовать метод из deliveryBlock, если доступен (он уже имеет debounce)
+    const deliveryBlockEl = document.querySelector('[x-data*="deliveryBlock"]');
+    if (deliveryBlockEl && window.Alpine && typeof Alpine.$data === 'function') {
+        try {
+            const deliveryBlock = Alpine.$data(deliveryBlockEl);
+            if (deliveryBlock && typeof deliveryBlock.checkPromoConditions === 'function') {
+                deliveryBlock.checkPromoConditions();
+                return;
+            }
+        } catch (e) {
+            // ignore Alpine access errors
+        }
+    }
+
+    // Fallback: если deliveryBlock недоступен, используем отдельный debounce‑механизм
+    window.__promoCheckTimer = window.__promoCheckTimer || null;
+    window.__promoCheckInProgress = window.__promoCheckInProgress || false;
+
+    // Если уже идет проверка, пропускаем
+    if (window.__promoCheckInProgress) {
+        return;
+    }
+
+    // Очищаем предыдущий таймер
+    if (window.__promoCheckTimer) {
+        clearTimeout(window.__promoCheckTimer);
+    }
+
+    window.__promoCheckTimer = setTimeout(() => {
+        window.__promoCheckInProgress = true;
+
+        const form = document.querySelector('[data-checkout-form]');
+        if (!form) {
+            window.__promoCheckInProgress = false;
+            return;
+        }
+
+        const formData = new FormData(form);
+        const shippingMethod = formData.get('shipping_method') || 'delivery';
+
+        let deliveryMode = 'asap';
+        let deliveryDate = null;
+        let deliveryTime = null;
+
+        if (deliveryBlockEl && window.Alpine && typeof Alpine.$data === 'function') {
+            try {
+                const deliveryBlock = Alpine.$data(deliveryBlockEl);
+                if (deliveryBlock) {
+                    deliveryMode = deliveryBlock.mode || 'asap';
+                    deliveryDate = formData.get('delivery_date') || null;
+                    deliveryTime = deliveryBlock.selectedTime || formData.get('delivery_time') || null;
+                }
+            } catch (e) {
+                // ignore Alpine access errors
+            }
+        }
+
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+        const checkUrl = document.querySelector('[data-check-promo-url]')?.dataset.checkPromoUrl ||
+            '/checkout/check-promo-conditions';
+
+        fetch(checkUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({
+                shipping_method: shippingMethod,
+                delivery_mode: deliveryMode,
+                delivery_date: deliveryDate,
+                delivery_time: deliveryTime,
+            }),
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.promos) {
+                    window.dispatchEvent(new CustomEvent('update-promo-status', {
+                        detail: data.promos,
+                    }));
+                }
+            })
+            .catch(() => {
+                // молча игнорируем ошибку
+            })
+            .finally(() => {
+                window.__promoCheckInProgress = false;
+            });
+    }, 300);
+};
+
+/* =========================================================
+ * Promos: react to update-promo-status events
+ * ======================================================= */
+
+window.addEventListener('update-promo-status', (event) => {
+    try {
+        const promos = Array.isArray(event.detail) ? event.detail : [];
+        if (!promos.length) return;
+
+        const statusMap = {};
+        promos.forEach((p) => {
+            statusMap[String(p.value)] = !!p.is_active;
+        });
+
+        const labels = document.querySelectorAll('[data-promo-value]');
+
+        labels.forEach((label) => {
+            const value = label.getAttribute('data-promo-value');
+            if (!value) return;
+
+            const isActive = Object.prototype.hasOwnProperty.call(statusMap, value)
+                ? statusMap[value]
+                : false;
+
+            // Обновляем Alpine-состояние, если компонент существует
+            if (window.Alpine && typeof Alpine.$data === 'function') {
+                try {
+                    const data = Alpine.$data(label);
+                    if (data && 'promoActive' in data) {
+                        data.promoActive = isActive;
+                    }
+                } catch (e) {
+                    // игнорируем ошибки доступа к Alpine
+                }
+            }
+
+            // Фолбэк: прямое обновление disabled на радио,
+            // чтобы даже без Alpine оно было некликабельно
+            const radio = label.querySelector('input[type=\"radio\"]');
+            if (radio) {
+                radio.disabled = !isActive;
+                if (isActive) {
+                    radio.removeAttribute('disabled');
+                } else {
+                    radio.setAttribute('disabled', 'disabled');
+                }
+            }
+        });
+    } catch (e) {
+        // в случае ошибки просто молча не обновляем промо
+    }
+});
 
 /* =========================================================
  * Promos: coupon (promo code)
