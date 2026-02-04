@@ -278,9 +278,12 @@ document.addEventListener('alpine:init', () => {
     @vite(['resources/js/map-cart.js'])
     @push('scripts')
         <script>
+            // Используем относительный URL, чтобы на клон‑сайтах (test-домены, другие хостинги)
+            // запрос шёл на тот же домен, с которого открыт checkout.
             window.CHECKOUT_CONFIG = {
                 csrf: @json(csrf_token()),
-                saveUrl: @json(route('checkout.save-form-data')), // <--  роут сохранения черновика
+                // route(..., [], false) — путь без домена, например "/checkout/save-form-data"
+                saveUrl: @json(route('checkout.save-form-data', [], false)),
                 googleMapsKey: @json(config('services.google_maps.key')),
             };
         </script>
