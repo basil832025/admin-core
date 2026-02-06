@@ -1321,11 +1321,6 @@ window.checkoutDeliveryRecalc = function () {
  * ======================================================= */
 
 function initCheckoutAutocomplete() {
-    if (typeof window.initAddressAutocomplete === 'undefined') {
-        console.warn('[checkout] initAddressAutocomplete is undefined');
-        return;
-    }
-
     const latEl  = document.getElementById('checkout-addr-lat');
     const lngEl  = document.getElementById('checkout-addr-lng');
     const cityEl = document.querySelector('#checkout-address-city');
@@ -1334,24 +1329,128 @@ function initCheckoutAutocomplete() {
         console.warn('[checkout] lat/lng hidden inputs not found:', { latEl, lngEl });
     }
 
-    // На мобильных (Android / iOS) используем более простой режим без кастомного dropdown
-    // чтобы не было конфликтов с фокусом и клавиатурой.
+    // На мобильных устройствах используем максимально простой Autocomplete,
+    // без нашей сложной обёртки, чтобы избежать конфликтов с фокусом/клавиатурой.
     const isTouchDevice =
         typeof window !== 'undefined' &&
         ('ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0);
 
+    if (isTouchDevice) {
+        loadGoogleMapsOnce((ok) => {
+            if (!ok || !window.google?.maps?.places) return;
+
+            const setupMobileAutocomplete = () => {
+                const streetInput = document.getElementById('checkout-address-street');
+                const houseInput  = document.getElementById('checkout-address-house');
+                if (!streetInput) return;
+
+                // Пытаемся ограничить подсказки только зонами доставки:
+                // строим bounds по всем полигонам из deliveryAreas.
+                let bounds = null;
+                try {
+                    const g = window.google;
+                    const areas = window.deliveryAreas;
+                    if (areas && g?.maps?.LatLngBounds) {
+                        const b = new g.maps.LatLngBounds();
+                        Object.values(areas).forEach((area) => {
+                            (area?.area || []).forEach((pt) => {
+                                if (pt && typeof pt.lat === 'number' && typeof pt.lng === 'number') {
+                                    b.extend(new g.maps.LatLng(pt.lat, pt.lng));
+                                }
+                            });
+                        });
+                        // Проверяем, что bounds не пустой
+                        if (b.getNorthEast && b.getSouthWest && !b.isEmpty?.()) {
+                            bounds = b;
+                        }
+                    }
+                } catch (_) {
+                    // в случае ошибки просто не задаём bounds
+                }
+
+                const acOptions = {
+                    componentRestrictions: { country: 'ua' },
+                    types: ['address'],
+                };
+                if (bounds) {
+                    acOptions.bounds = bounds;
+                    acOptions.strictBounds = true;
+                }
+
+                const ac = new google.maps.places.Autocomplete(streetInput, acOptions);
+
+                ac.addListener('place_changed', () => {
+                    try {
+                        const place = ac.getPlace();
+                        const loc = place?.geometry?.location;
+                        if (!loc) return;
+
+                        // Координаты для доставки
+                        const lat = (typeof loc.lat === 'function') ? loc.lat() : loc.lat;
+                        const lng = (typeof loc.lng === 'function') ? loc.lng() : loc.lng;
+
+                        if (latEl) {
+                            latEl.value = String(lat);
+                            latEl.dispatchEvent(new Event('input', { bubbles: true }));
+                            latEl.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+                        if (lngEl) {
+                            lngEl.value = String(lng);
+                            lngEl.dispatchEvent(new Event('input', { bubbles: true }));
+                            lngEl.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+
+                        // Попробуем заполнить дом и город из компонентов адреса
+                        const comps = place.address_components || [];
+                        let streetNumber = '';
+                        let city = '';
+                        for (const c of comps) {
+                            if (c.types.includes('street_number')) streetNumber = c.long_name;
+                            if (c.types.includes('locality')) city = c.long_name;
+                        }
+
+                        if (houseInput && streetNumber) {
+                            houseInput.value = streetNumber;
+                            houseInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                        if (cityEl && city) {
+                            cityEl.value = city;
+                            cityEl.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                    } catch (e) {
+                        console.error('[checkout] mobile autocomplete error', e);
+                    }
+                });
+            };
+
+            // Ждём, пока загрузятся полигоны из map-cart.js, чтобы посчитать bounds
+            if (typeof window.ensureDeliveryPolygonsReady === 'function') {
+                window.ensureDeliveryPolygonsReady(() => {
+                    setupMobileAutocomplete();
+                });
+            } else {
+                setupMobileAutocomplete();
+            }
+        });
+
+        return;
+    }
+
+    if (typeof window.initAddressAutocomplete === 'undefined') {
+        console.warn('[checkout] initAddressAutocomplete is undefined');
+        return;
+    }
+
+    // Десктоп: используем расширенную обёртку с фильтрацией по зонам доставки.
     window.initAddressAutocomplete({
         streetInputId: 'checkout-address-street',
         houseInputId: 'checkout-address-house',
         cityInputSelector: '#checkout-address-city',
 
         kyivOnly: true,
-        // фильтрация по зонам доставки включена только на десктопе;
-        // на мобильных оставляем стандартный Google Autocomplete
-        filterByDeliveryZone: !isTouchDevice,
+        filterByDeliveryZone: true,
         googleMapsKey: window.CHECKOUT_CONFIG?.googleMapsKey,
 
-        // ✅ ВАЖНО: ваш автокомплит реально умеет это (см. map-cart.js)
         onPlaceSelected: function (data) {
             try {
                 const place = data?.place;
@@ -1362,11 +1461,8 @@ function initCheckoutAutocomplete() {
                     return;
                 }
 
-                // google LatLng объект
                 const lat = (typeof loc.lat === 'function') ? loc.lat() : loc.lat;
                 const lng = (typeof loc.lng === 'function') ? loc.lng() : loc.lng;
-
-              //  console.log('[checkout] onPlaceSelected coords:', { lat, lng });
 
                 if (latEl) {
                     latEl.value = String(lat);
@@ -1379,19 +1475,11 @@ function initCheckoutAutocomplete() {
                     lngEl.dispatchEvent(new Event('input', { bubbles: true }));
                     lngEl.dispatchEvent(new Event('change', { bubbles: true }));
                 }
-
-                // (не обязательно) можно дополнительно продиагностировать город
-                if (cityEl) {
-                    console.log('[checkout] city field:', cityEl.value);
-                }
-
             } catch (e) {
                 console.error('[checkout] onPlaceSelected error', e);
             }
         },
     });
-
-  //  console.log('[checkout] autocomplete initialized');
 }
 
 
