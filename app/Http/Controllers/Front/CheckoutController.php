@@ -1034,47 +1034,51 @@ public function submit(Request $request)
     $order->grand_total = max(0, round($baseTotal + $adjTotal, 2));
     $order->save();
 
-    // 10. Отправляем уведомление на почту
-    try {
-        $order->load([
-            'items.product.parent.productCharacteristicValues.characteristic.svgImage',
-            'items.product.productCharacteristicValues.characteristic.svgImage',
-            'items.product.productCharacteristicValues.characteristicValue',
-            'adjustments',
-            'clientAddress',
-            'clients'
-        ]);
-        $notificationEmails = config('notifications.order_notification_email', []);
-        // Если это строка (старый формат), преобразуем в массив
-        if (is_string($notificationEmails)) {
-            $notificationEmails = array_filter(array_map('trim', explode(',', $notificationEmails)));
-        }
-        // Если массив пустой, используем fallback
-        if (empty($notificationEmails)) {
-            $notificationEmails = ['info@3piroga.ua'];
-        }
+    // 10. Отправляем уведомление на почту:
+    //     - для LiqPay письмо уходит ТОЛЬКО после успешного callback'а
+    //     - для остальных способов оплаты шлём сразу после оформления.
+    if ($paymentEnum !== PaymentMethodEnum::LIQPAY) {
+        try {
+            $order->load([
+                'items.product.parent.productCharacteristicValues.characteristic.svgImage',
+                'items.product.productCharacteristicValues.characteristic.svgImage',
+                'items.product.productCharacteristicValues.characteristicValue',
+                'adjustments',
+                'clientAddress',
+                'clients'
+            ]);
+            $notificationEmails = config('notifications.order_notification_email', []);
+            // Если это строка (старый формат), преобразуем в массив
+            if (is_string($notificationEmails)) {
+                $notificationEmails = array_filter(array_map('trim', explode(',', $notificationEmails)));
+            }
+            // Если массив пустой, используем fallback
+            if (empty($notificationEmails)) {
+                $notificationEmails = ['info@3piroga.ua'];
+            }
 
-        if (!empty($notificationEmails)) {
-            \Log::info('Sending order notification email', [
+            if (!empty($notificationEmails)) {
+                \Log::info('Sending order notification email', [
+                    'order_id' => $order->id,
+                    'emails' => $notificationEmails,
+                    'mail_driver' => config('mail.default'),
+                ]);
+                Mail::to($notificationEmails)->send(new OrderNotificationMail($order));
+                \Log::info('Order notification email sent successfully', [
+                    'order_id' => $order->id,
+                    'emails' => $notificationEmails,
+                ]);
+            } else {
+                \Log::warning('Order notification email not configured', ['order_id' => $order->id]);
+            }
+        } catch (\Throwable $e) {
+            \Log::error('Failed to send order notification email: ' . $e->getMessage(), [
                 'order_id' => $order->id,
-                'emails' => $notificationEmails,
+                'email' => $notificationEmail ?? 'not configured',
                 'mail_driver' => config('mail.default'),
+                'trace' => $e->getTraceAsString(),
             ]);
-            Mail::to($notificationEmails)->send(new OrderNotificationMail($order));
-            \Log::info('Order notification email sent successfully', [
-                'order_id' => $order->id,
-                'emails' => $notificationEmails,
-            ]);
-        } else {
-            \Log::warning('Order notification email not configured', ['order_id' => $order->id]);
         }
-    } catch (\Throwable $e) {
-        \Log::error('Failed to send order notification email: ' . $e->getMessage(), [
-            'order_id' => $order->id,
-            'email' => $notificationEmail ?? 'not configured',
-            'mail_driver' => config('mail.default'),
-            'trace' => $e->getTraceAsString(),
-        ]);
     }
 
 // 11. Очищаем только гостевую корзину

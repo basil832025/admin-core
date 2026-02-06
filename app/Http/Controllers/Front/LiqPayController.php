@@ -8,8 +8,10 @@ use App\Models\Shop\LiqPayLog;
 use App\Services\LiqPayService;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethodEnum;
+use App\Mail\OrderNotificationMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class LiqPayController extends Controller
 {
@@ -87,14 +89,58 @@ class LiqPayController extends Controller
             $order = Order::find($shopOrderId);
 
             if ($order) {
+                // Чтобы не слать письма повторно при дублях callback'а.
+                $wasAlreadyNew = ($order->status === OrderStatus::New);
+
                 $order->status  = OrderStatus::New;
                 $order->payment = PaymentMethodEnum::LIQPAY;
 
-                if ($order->isFillable('paid_at')) {
+                if ($order->isFillable('paid_at') && empty($order->paid_at)) {
                     $order->paid_at = now();
                 }
 
                 $order->save();
+
+                // Если заказ только что перешёл в статус "Новый" после успешной оплаты —
+                // отправляем админам уведомление, как при обычном оформлении.
+                if (! $wasAlreadyNew) {
+                    try {
+                        $order->load([
+                            'items.product.parent.productCharacteristicValues.characteristic.svgImage',
+                            'items.product.productCharacteristicValues.characteristic.svgImage',
+                            'items.product.productCharacteristicValues.characterValue',
+                            'adjustments',
+                            'clientAddress',
+                            'clients'
+                        ]);
+
+                        $notificationEmails = config('notifications.order_notification_email', []);
+                        if (is_string($notificationEmails)) {
+                            $notificationEmails = array_filter(array_map('trim', explode(',', $notificationEmails)));
+                        }
+                        if (empty($notificationEmails)) {
+                            $notificationEmails = ['info@3piroga.ua'];
+                        }
+
+                        if (!empty($notificationEmails)) {
+                            Log::info('LiqPay callback: sending order notification email', [
+                                'order_id' => $order->id,
+                                'emails'   => $notificationEmails,
+                            ]);
+                            Mail::to($notificationEmails)->send(new OrderNotificationMail($order));
+                        } else {
+                            Log::warning('LiqPay callback: order notification email not configured', [
+                                'order_id' => $order->id,
+                            ]);
+                        }
+                    } catch (\Throwable $e) {
+                        Log::error('LiqPay callback: failed to send order notification email', [
+                            'order_id' => $order->id,
+                            'error'    => $e->getMessage(),
+                            'trace'    => $e->getTraceAsString(),
+                        ]);
+                    }
+                }
             }
         }
 
