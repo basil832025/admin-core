@@ -97,8 +97,30 @@
         }
     }
     
-    // Итоговая сумма с учетом скидок
-    $total = $order->grand_total ?? ($itemsTotal - $discountTotal);
+    // Стоимость доставки
+    $shipping = (float)($order->shipping_price ?? 0);
+
+    // Списанные бонусы (по правилам — это часть sale_sum)
+    $bonusesSpent = 0;
+    if ($order->sale_sum > 0) {
+        // пока считаем, что вся суммовая скидка = бонусы (если добавятся другие источники —
+        // можно будет поделить по метаданным adjustments)
+        $bonusesSpent = (float)$order->sale_sum;
+    }
+
+    // Начисленные бонусы по заказу (loyaltyTransactions type=accrual, source=order)
+    $bonusesEarned = 0;
+    if ($order->relationLoaded('loyaltyTransactions') || method_exists($order, 'loyaltyTransactions')) {
+        $accrualTx = $order->loyaltyTransactions()
+            ->where('type', \App\Models\Shop\LoyaltyTransaction::TYPE_ACCRUAL)
+            ->where('source', 'order')
+            ->get();
+        $bonusesEarned = (float)$accrualTx->sum('amount');
+    }
+    
+    // Итоговая сумма с учетом скидок, бонусов и доставки
+    $total = (float)($order->grand_total
+        ?? ($itemsTotal - $discountTotal - $bonusesSpent + $shipping));
 @endphp
 
 <x-mail::table>
@@ -200,10 +222,22 @@
 
 **Товары:** {{ number_format($itemsTotal, 2, '.', ' ') }} грн
 
+@if($shipping > 0)
+**Доставка:** {{ number_format($shipping, 2, '.', ' ') }} грн
+@endif
+
 @if(!empty($discountsList))
 @foreach($discountsList as $discount)
 **{{ $discount['label'] }}:** -{{ number_format($discount['amount'], 2, '.', ' ') }} грн
 @endforeach
+@endif
+
+@if($bonusesSpent > 0)
+**Списано бонусов:** {{ number_format($bonusesSpent, 2, '.', ' ') }} грн
+@endif
+
+@if($bonusesEarned > 0)
+**Начислено бонусов:** {{ number_format($bonusesEarned, 2, '.', ' ') }} бонусов
 @endif
 
 **Итого к оплате:** {{ number_format($total, 2, '.', ' ') }} грн
