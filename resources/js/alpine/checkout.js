@@ -1334,13 +1334,21 @@ function initCheckoutAutocomplete() {
         console.warn('[checkout] lat/lng hidden inputs not found:', { latEl, lngEl });
     }
 
+    // На мобильных (Android / iOS) используем более простой режим без кастомного dropdown
+    // чтобы не было конфликтов с фокусом и клавиатурой.
+    const isTouchDevice =
+        typeof window !== 'undefined' &&
+        ('ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0);
+
     window.initAddressAutocomplete({
         streetInputId: 'checkout-address-street',
         houseInputId: 'checkout-address-house',
         cityInputSelector: '#checkout-address-city',
 
         kyivOnly: true,
-        filterByDeliveryZone: true,
+        // фильтрация по зонам доставки включена только на десктопе;
+        // на мобильных оставляем стандартный Google Autocomplete
+        filterByDeliveryZone: !isTouchDevice,
         googleMapsKey: window.CHECKOUT_CONFIG?.googleMapsKey,
 
         // ✅ ВАЖНО: ваш автокомплит реально умеет это (см. map-cart.js)
