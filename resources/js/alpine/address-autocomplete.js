@@ -537,17 +537,12 @@ function initAddressAutocomplete(options = {}) {
                     });
                 }
 
-                // Убираем фокус с поля и перемещаем на другое поле
+                // Раньше здесь мы убирали фокус с поля улицы и переводили его на поле дома.
+                // На Android это могло приводить к мгновенному закрытию клавиатуры.
+                // Теперь НИЧЕГО не трогаем с фокусом: пользователь сам перейдет в следующее поле.
+                //
+                // Дополнительно просто скрываем dropdown на случай, если он все еще виден.
                 setTimeout(function() {
-                    streetInput.blur();
-                    if (houseInput && streetNumber) {
-                        houseInput.focus();
-                    } else if (houseInput) {
-                        houseInput.focus();
-                        setTimeout(() => houseInput.blur(), 50);
-                    }
-
-                    // Дополнительно скрываем dropdown на случай, если он все еще виден
                     const pacContainer = document.querySelector('.pac-container');
                     if (pacContainer) {
                         pacContainer.style.display = 'none';
