@@ -1,5 +1,11 @@
 {{-- Скрипт для инициализации автокомплита адресов в Filament админке --}}
-@if(config('services.google_maps.key'))
+@php
+    // Ограничиваем запуск автокомплита только страницами заказов,
+    // чтобы не дергать логику на логине и прочих экранах Filament.
+    $isOrderPage = request()->routeIs('filament.admin.resources.shop.orders.*');
+@endphp
+
+@if(config('services.google_maps.key') && $isOrderPage)
 {{-- Загружаем библиотеку address-autocomplete.js через app.js --}}
 @php
     // Пытаемся найти скомпилированный app.js в build/assets
@@ -322,13 +328,10 @@
             }
         }
         
-        // Проверяем, что это действительно input элемент
+        // Проверяем, что это действительно input элемент.
+        // Если поле ещё не загрузилось, просто тихо ждём и пробуем снова,
+        // без спама в консоль.
         if (!streetInput || !(streetInput instanceof HTMLInputElement)) {
-            console.log('Filament Autocomplete: Street input not found, retrying...', {
-                found: !!streetInput,
-                isInput: streetInput instanceof HTMLInputElement
-            });
-            // Поле еще не загружено, пробуем снова
             setTimeout(window.initFilamentAddressAutocomplete, 500);
             return;
         }
