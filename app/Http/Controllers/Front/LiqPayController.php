@@ -108,7 +108,7 @@ class LiqPayController extends Controller
                         $order->load([
                             'items.product.parent.productCharacteristicValues.characteristic.svgImage',
                             'items.product.productCharacteristicValues.characteristic.svgImage',
-                            'items.product.productCharacteristicValues.characterValue',
+                            'items.product.productCharacteristicValues.characteristicValue',
                             'adjustments',
                             'clientAddress',
                             'clients'
