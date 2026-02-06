@@ -90,30 +90,23 @@
                 const baseDiscount = {{ (float)$discount }};
                 const bonus = Number(this.value) || 0;
                 const discount = Number(baseDiscount) || 0;
-                const totalDiscount = discount + bonus;
-                let total = itemsTotal - totalDiscount;
-                if (total < 0) total = 0;
-
                 const subtotalEl = document.querySelector('[data-checkout-subtotal]');
                 const discountEl = document.querySelector('[data-checkout-discount]');
                 const bonusEl    = document.querySelector('[data-checkout-bonus]');
-                const totalUahEl = document.querySelector('[data-checkout-total-uah]');
-                const totalKopEl = document.querySelector('[data-checkout-total-kop]');
 
                 if (subtotalEl) {
                     subtotalEl.textContent = this.formatMoney(itemsTotal) + ' {{ st('cart.summary.currency_short', 'грн') }}';
                 }
                 if (discountEl) {
-                    discountEl.textContent = this.formatMoney(discount) + ' {{ st('cart.summary.currency_short', 'грн') }}';
+                    discountEl.textContent = this.formatMoney(discount);
                 }
                 if (bonusEl) {
                     bonusEl.textContent = this.formatMoney(bonus);
                 }
-                if (totalUahEl && totalKopEl) {
-                    const uah = Math.floor(total);
-                    const kop = Math.round((total - uah) * 100);
-                    totalUahEl.textContent = this.formatInt(uah);
-                    totalKopEl.textContent = (kop < 10 ? '0' : '') + kop;
+
+                // Пересчёт общей суммы (с доставкой и промо) отдаём единому источнику правды.
+                if (window.checkoutTotals && typeof window.checkoutTotals.render === 'function') {
+                    window.checkoutTotals.render();
                 }
             },
             init() {

@@ -1027,11 +1027,13 @@ public function submit(Request $request)
         }
     }
 
-// === 9.1 Финальный пересчёт grand_total для Filament ===
-    $baseTotal = (float) $order->total_price;
-    $adjTotal  = (float) $order->adjustments()->sum('amount'); // купоны, ручные скидки и т.п.
+    // === 9.1 Финальный пересчёт grand_total для оплаты / Filament ===
+    // Берём итог по товарам с учётом всех скидок и бонусов (total_price_sale),
+    // а затем добавляем стоимость доставки.
+    $goodsTotal = (float) ($order->total_price_sale ?? $order->total_price ?? 0);
+    $shipping   = (float) ($order->shipping_price ?? 0);
 
-    $order->grand_total = max(0, round($baseTotal + $adjTotal, 2));
+    $order->grand_total = max(0, round($goodsTotal + $shipping, 2));
     $order->save();
 
     // 10. Отправляем уведомление на почту:
