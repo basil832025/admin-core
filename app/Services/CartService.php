@@ -581,7 +581,13 @@ class CartService
         };
 
         if ($user) {
+            // Не создаём корзину, если её ещё нет – просто возвращаем пустой список.
             $order = $this->getOrCreateDraftOrder($user, false);
+
+            if (! $order) {
+                return [];
+            }
+
             $order->load(['items.product.parent']);
 
             return $order->items->map(function (\App\Models\Shop\OrderItem $it) use ($variantAttrs) {

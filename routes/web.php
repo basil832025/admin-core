@@ -56,6 +56,9 @@ Route::get('/debug/session', function () {
         'has_cookie'     => request()->hasCookie(config('session.cookie')),
         'dbg_value'      => session('_dbg'),
         'guard_user_id'  => auth()->id(),
+        'cookie_name'    => config('session.cookie'),
+        'cookie_domain'  => config('session.domain'),
+        'cookie_secure'  => config('session.secure'),
     ];
 })->middleware('web');
 

@@ -1162,11 +1162,6 @@ function bindDeliveryRecalc() {
  * - если координат нет — запрашиваем у Google по строке адреса, сохраняем в БД и считаем доставку
  */
 function handleSavedAddressChange(radio) {
-    // если change инициирован нашим же кодом (selectAddress), не запускаем повторно
-    if (radio.__selecting) {
-        return;
-    }
-
     const latRaw = radio.dataset.lat;
     const lngRaw = radio.dataset.lng;
 
