@@ -1618,6 +1618,33 @@ onReady(() => {
     applyCheckoutLayout();
     window.addEventListener('resize', applyCheckoutLayout);
 
+    // На мобильных устройствах иногда другие скрипты (маски, автокомплит)
+    // могут мгновенно снимать фокус с инпутов. Для checkout добавляем
+    // мягкий помощник: после тапа ещё раз фокусируем поле.
+    const isTouchDevice =
+        typeof window !== 'undefined' &&
+        ('ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0);
+
+    if (isTouchDevice) {
+        const form = document.querySelector('[data-checkout-form]');
+        if (form) {
+            form.querySelectorAll('input, textarea, select').forEach((el) => {
+                // только обычные текстовые / номерные поля
+                if (el.type && !['text', 'tel', 'email', 'number', 'search'].includes(el.type)) {
+                    return;
+                }
+                el.addEventListener('touchend', () => {
+                    // небольшая задержка, чтобы все другие обработчики отработали
+                    setTimeout(() => {
+                        if (document.activeElement !== el) {
+                            el.focus();
+                        }
+                    }, 50);
+                }, { passive: true });
+            });
+        }
+    }
+
     // form autosave
     bindCheckoutAutosave();
 
