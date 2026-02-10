@@ -6,7 +6,7 @@
     <div class="flex flex-col gap-6">
         {{-- LiqPay --}}
         <label class="flex items-center gap-3 cursor-pointer">
-            <input type="radio" name="payment_method" value="liqpay" class="tp-radio" @checked($paymentMethod === 'liqpay' || (!$sessionData || !isset($sessionData['payment_method'])))>
+            <input type="radio" name="payment_method" value="liqpay" class="tp-radio" x-model="paymentMethod" @checked($paymentMethod === 'liqpay' || (!$sessionData || !isset($sessionData['payment_method'])))>
             <span class="flex items-center gap-3 text-[16px] leading-[22px] text-[#272828]">
                 <span>
                     {{-- иконка LiqPay --}}
@@ -25,7 +25,7 @@
 
         {{-- Картой при получении --}}
         <label class="flex items-center gap-3 cursor-pointer">
-            <input type="radio" name="payment_method" value="card_on_delivery" class="tp-radio" @checked($paymentMethod === 'card_on_delivery')>
+            <input type="radio" name="payment_method" value="card_on_delivery" class="tp-radio" x-model="paymentMethod" @checked($paymentMethod === 'card_on_delivery')>
             <span class="flex items-center gap-3 text-[16px] leading-[22px] text-[#272828]">
                 <span class="text-[#FF7500]" aria-hidden="true">
                     {{-- иконка карты --}}
@@ -39,7 +39,7 @@
 
         {{-- Наличными --}}
         <label class="flex items-center gap-3 cursor-pointer">
-            <input type="radio" name="payment_method" value="cash" class="tp-radio" @checked($paymentMethod === 'cash')>
+            <input type="radio" name="payment_method" value="cash" class="tp-radio" x-model="paymentMethod" @checked($paymentMethod === 'cash')>
             <span class="flex items-center gap-3 text-[16px] leading-[22px] text-[#272828]">
                 <span class="text-[#FF7500]" aria-hidden="true">
                     {{-- иконка наличных --}}
@@ -53,7 +53,7 @@
 
         {{-- Рахунок-фактура (для юридичних осіб) --}}
         <label class="flex items-center gap-3 cursor-pointer">
-            <input type="radio" name="payment_method" value="invoice" class="tp-radio" @checked($paymentMethod === 'invoice')>
+            <input type="radio" name="payment_method" value="invoice" class="tp-radio" x-model="paymentMethod" @checked($paymentMethod === 'invoice')>
             <span class="flex items-center gap-3 text-[16px] leading-[22px] text-[#272828]">
                 <span class="text-[#FF7500]" aria-hidden="true">
                     {{-- иконка документа/счета --}}

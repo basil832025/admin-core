@@ -1,4 +1,4 @@
-{{-- Согласие --}}
+﻿{{-- Согласие --}}
 <div data-field-wrap="agree">
     <label class="mt-1 flex items-start gap-3 text-[11px] leading-[16px] text-[#4B5563] cursor-pointer">
         <span class="relative inline-flex items-center pt-[2px] checkbox-wrap">
@@ -44,9 +44,10 @@
 <button
     type="submit"
     data-checkout-submit
+    x-text="paymentMethod === 'liqpay' ? @js(st('cart.actions.pay', 'Перейти к оплате')) : @js(st('cart.actions.checkout', 'Оформить заказ'))"
     class="mt-3 w-full h-[52px] rounded-[12px] bg-[#FF7500] hover:bg-[#e56700]
            text-white text-[18px] leading-[24px] font-semibold
            shadow-[0_4px_12px_rgba(255,117,0,0.35)] transition"
 >
-    {{ st('cart.actions.checkout', 'Оформление заказа') }}
+    {{ st('cart.actions.checkout', 'Оформить заказ') }}
 </button>

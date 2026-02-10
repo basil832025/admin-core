@@ -1339,10 +1339,20 @@ function initCheckoutAutocomplete() {
         loadGoogleMapsOnce((ok) => {
             if (!ok || !window.google?.maps?.places) return;
 
-            const setupMobileAutocomplete = () => {
-                const streetInput = document.getElementById('checkout-address-street');
-                const houseInput  = document.getElementById('checkout-address-house');
-                if (!streetInput) return;
+                const setupMobileAutocomplete = () => {
+                    const streetInput = document.getElementById('checkout-address-street');
+                    const houseInput  = document.getElementById('checkout-address-house');
+                    if (!streetInput) return;
+
+                    let selectedStreetValue = '';
+                    let isPlaceSelected = false;
+                    let isSelectingFromGoogle = false;
+
+                    const showManualInputError = () => {
+                        if (typeof window.showAddressErrorModal === 'function') {
+                            window.showAddressErrorModal('Будь ласка, оберіть адресу зі списку Google. Ручне введення адреси не дозволено.');
+                        }
+                    };
 
                 // Пытаемся ограничить подсказки только зонами доставки:
                 // строим bounds по всем полигонам из deliveryAreas.
@@ -1381,9 +1391,13 @@ function initCheckoutAutocomplete() {
 
                 ac.addListener('place_changed', () => {
                     try {
+                        isSelectingFromGoogle = true;
                         const place = ac.getPlace();
                         const loc = place?.geometry?.location;
-                        if (!loc) return;
+                        if (!loc) {
+                            isSelectingFromGoogle = false;
+                            return;
+                        }
 
                         // Координаты для доставки
                         const lat = (typeof loc.lat === 'function') ? loc.lat() : loc.lat;
@@ -1417,10 +1431,83 @@ function initCheckoutAutocomplete() {
                             cityEl.value = city;
                             cityEl.dispatchEvent(new Event('input', { bubbles: true }));
                         }
+
+                        setTimeout(() => {
+                            const value = streetInput.value || place?.formatted_address || '';
+                            selectedStreetValue = value;
+                            isPlaceSelected = !!value;
+                            isSelectingFromGoogle = false;
+                        }, 50);
                     } catch (e) {
                         console.error('[checkout] mobile autocomplete error', e);
+                        isSelectingFromGoogle = false;
                     }
                 });
+
+                streetInput.addEventListener('input', (e) => {
+                    const currentValue = e.target.value;
+                    if (isPlaceSelected && selectedStreetValue && currentValue !== selectedStreetValue) {
+                        isPlaceSelected = false;
+                        selectedStreetValue = '';
+                    }
+                });
+
+                streetInput.addEventListener('blur', (e) => {
+                    setTimeout(() => {
+                        if (isSelectingFromGoogle) return;
+
+                        const currentValue = e.target.value;
+
+                        if (isPlaceSelected && selectedStreetValue && currentValue !== selectedStreetValue) {
+                            e.target.value = selectedStreetValue;
+                            return;
+                        }
+
+                        if (!isPlaceSelected && currentValue && currentValue.trim() !== '') {
+                            e.target.value = '';
+                            showManualInputError();
+                        }
+                    }, 300);
+                });
+
+                streetInput.addEventListener('paste', (e) => {
+                    if (isPlaceSelected && selectedStreetValue) {
+                        setTimeout(() => {
+                            if (streetInput.value !== selectedStreetValue) {
+                                streetInput.value = selectedStreetValue;
+                                showManualInputError();
+                            }
+                        }, 0);
+                        return;
+                    }
+
+                    e.preventDefault();
+                    showManualInputError();
+                });
+
+                const form = streetInput.closest('form');
+                if (form) {
+                    form.addEventListener('submit', (e) => {
+                        const currentValue = streetInput.value;
+
+                        if (!isPlaceSelected && currentValue && currentValue.trim() !== '') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            showManualInputError();
+                            streetInput.focus();
+                            return false;
+                        }
+
+                        if (isPlaceSelected && selectedStreetValue && currentValue !== selectedStreetValue) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            streetInput.value = selectedStreetValue;
+                            showManualInputError();
+                            streetInput.focus();
+                            return false;
+                        }
+                    }, true);
+                }
             };
 
             // Ждём, пока загрузятся полигоны из map-cart.js, чтобы посчитать bounds
@@ -1744,4 +1831,3 @@ onReady(() => {
 
  //   console.log('[checkout] boot done');
 });
-
