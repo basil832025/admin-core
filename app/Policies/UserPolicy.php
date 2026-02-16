@@ -3,7 +3,6 @@
 namespace App\Policies;
 
 use App\Models\User;
-use Illuminate\Contracts\Auth\Authenticatable;
 
 use Illuminate\Auth\Access\HandlesAuthorization;
 
@@ -17,12 +16,8 @@ class UserPolicy
      * @param  \App\Models\User  $user
      * @return bool
      */
-    public function viewAny(Authenticatable $user): bool
+    public function viewAny(User $user): bool
     {
-        if (!$user instanceof User) {
-            return false;
-        }
-
         return $user->can('view_any_user');
     }
 
@@ -32,15 +27,8 @@ class UserPolicy
      * @param  \App\Models\User  $user
      * @return bool
      */
-    public function view(Authenticatable $user): bool
+    public function view(User $user): bool
     {
-        if (!$user instanceof User) {
-
-            return false;
-
-        }
-
-
         return $user->can('view_user');
     }
 
@@ -50,15 +38,8 @@ class UserPolicy
      * @param  \App\Models\User  $user
      * @return bool
      */
-    public function create(Authenticatable $user): bool
+    public function create(User $user): bool
     {
-        if (!$user instanceof User) {
-
-            return false;
-
-        }
-
-
         return $user->can('create_user');
     }
 
@@ -68,15 +49,8 @@ class UserPolicy
      * @param  \App\Models\User  $user
      * @return bool
      */
-    public function update(Authenticatable $user): bool
+    public function update(User $user): bool
     {
-        if (!$user instanceof User) {
-
-            return false;
-
-        }
-
-
         return $user->can('update_user');
     }
 
@@ -86,15 +60,8 @@ class UserPolicy
      * @param  \App\Models\User  $user
      * @return bool
      */
-    public function delete(Authenticatable $user): bool
+    public function delete(User $user): bool
     {
-        if (!$user instanceof User) {
-
-            return false;
-
-        }
-
-
         return $user->can('delete_user');
     }
 
@@ -104,15 +71,8 @@ class UserPolicy
      * @param  \App\Models\User  $user
      * @return bool
      */
-    public function deleteAny(Authenticatable $user): bool
+    public function deleteAny(User $user): bool
     {
-        if (!$user instanceof User) {
-
-            return false;
-
-        }
-
-
         return $user->can('delete_any_user');
     }
 
@@ -122,15 +82,8 @@ class UserPolicy
      * @param  \App\Models\User  $user
      * @return bool
      */
-    public function forceDelete(Authenticatable $user): bool
+    public function forceDelete(User $user): bool
     {
-        if (!$user instanceof User) {
-
-            return false;
-
-        }
-
-
         return $user->can('force_delete_user');
     }
 
@@ -140,15 +93,8 @@ class UserPolicy
      * @param  \App\Models\User  $user
      * @return bool
      */
-    public function forceDeleteAny(Authenticatable $user): bool
+    public function forceDeleteAny(User $user): bool
     {
-        if (!$user instanceof User) {
-
-            return false;
-
-        }
-
-
         return $user->can('force_delete_any_user');
     }
 
@@ -158,15 +104,8 @@ class UserPolicy
      * @param  \App\Models\User  $user
      * @return bool
      */
-    public function restore(Authenticatable $user): bool
+    public function restore(User $user): bool
     {
-        if (!$user instanceof User) {
-
-            return false;
-
-        }
-
-
         return $user->can('restore_user');
     }
 
@@ -176,15 +115,8 @@ class UserPolicy
      * @param  \App\Models\User  $user
      * @return bool
      */
-    public function restoreAny(Authenticatable $user): bool
+    public function restoreAny(User $user): bool
     {
-        if (!$user instanceof User) {
-
-            return false;
-
-        }
-
-
         return $user->can('restore_any_user');
     }
 
@@ -194,15 +126,8 @@ class UserPolicy
      * @param  \App\Models\User  $user
      * @return bool
      */
-    public function replicate(Authenticatable $user): bool
+    public function replicate(User $user): bool
     {
-        if (!$user instanceof User) {
-
-            return false;
-
-        }
-
-
         return $user->can('replicate_user');
     }
 
@@ -212,15 +137,8 @@ class UserPolicy
      * @param  \App\Models\User  $user
      * @return bool
      */
-    public function reorder(Authenticatable $user): bool
+    public function reorder(User $user): bool
     {
-        if (!$user instanceof User) {
-
-            return false;
-
-        }
-
-
         return $user->can('reorder_user');
     }
 }

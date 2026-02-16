@@ -3,7 +3,6 @@
 namespace App\Policies\Kitchen;
 
 use App\Models\User;
-use Illuminate\Contracts\Auth\Authenticatable;
 use App\Models\Kitchen\KitchenTicket;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
@@ -14,177 +13,96 @@ class KitchenTicketPolicy
     /**
      * Determine whether the user can view any models.
      */
-    public function viewAny(Authenticatable $user): bool
+    public function viewAny(User $user): bool
     {
-        if (!$user instanceof User) {
-            return false;
-        }
-
         return $user->can('view_any_kitchen::kitchen::ticket');
     }
 
     /**
      * Determine whether the user can view the model.
      */
-    public function view(Authenticatable $user, KitchenTicket $kitchenTicket): bool
+    public function view(User $user, KitchenTicket $kitchenTicket): bool
     {
-        if (!$user instanceof User) {
-
-            return false;
-
-        }
-
-
         return $user->can('view_kitchen::kitchen::ticket');
     }
 
     /**
      * Determine whether the user can create models.
      */
-    public function create(Authenticatable $user): bool
+    public function create(User $user): bool
     {
-        if (!$user instanceof User) {
-
-            return false;
-
-        }
-
-
         return $user->can('create_kitchen::kitchen::ticket');
     }
 
     /**
      * Determine whether the user can update the model.
      */
-    public function update(Authenticatable $user, KitchenTicket $kitchenTicket): bool
+    public function update(User $user, KitchenTicket $kitchenTicket): bool
     {
-        if (!$user instanceof User) {
-
-            return false;
-
-        }
-
-
         return $user->can('update_kitchen::kitchen::ticket');
     }
 
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(Authenticatable $user, KitchenTicket $kitchenTicket): bool
+    public function delete(User $user, KitchenTicket $kitchenTicket): bool
     {
-        if (!$user instanceof User) {
-
-            return false;
-
-        }
-
-
         return $user->can('delete_kitchen::kitchen::ticket');
     }
 
     /**
      * Determine whether the user can bulk delete.
      */
-    public function deleteAny(Authenticatable $user): bool
+    public function deleteAny(User $user): bool
     {
-        if (!$user instanceof User) {
-
-            return false;
-
-        }
-
-
         return $user->can('delete_any_kitchen::kitchen::ticket');
     }
 
     /**
      * Determine whether the user can permanently delete.
      */
-    public function forceDelete(Authenticatable $user, KitchenTicket $kitchenTicket): bool
+    public function forceDelete(User $user, KitchenTicket $kitchenTicket): bool
     {
-        if (!$user instanceof User) {
-
-            return false;
-
-        }
-
-
         return $user->can('force_delete_kitchen::kitchen::ticket');
     }
 
     /**
      * Determine whether the user can permanently bulk delete.
      */
-    public function forceDeleteAny(Authenticatable $user): bool
+    public function forceDeleteAny(User $user): bool
     {
-        if (!$user instanceof User) {
-
-            return false;
-
-        }
-
-
         return $user->can('force_delete_any_kitchen::kitchen::ticket');
     }
 
     /**
      * Determine whether the user can restore.
      */
-    public function restore(Authenticatable $user, KitchenTicket $kitchenTicket): bool
+    public function restore(User $user, KitchenTicket $kitchenTicket): bool
     {
-        if (!$user instanceof User) {
-
-            return false;
-
-        }
-
-
         return $user->can('restore_kitchen::kitchen::ticket');
     }
 
     /**
      * Determine whether the user can bulk restore.
      */
-    public function restoreAny(Authenticatable $user): bool
+    public function restoreAny(User $user): bool
     {
-        if (!$user instanceof User) {
-
-            return false;
-
-        }
-
-
         return $user->can('restore_any_kitchen::kitchen::ticket');
     }
 
     /**
      * Determine whether the user can replicate.
      */
-    public function replicate(Authenticatable $user, KitchenTicket $kitchenTicket): bool
+    public function replicate(User $user, KitchenTicket $kitchenTicket): bool
     {
-        if (!$user instanceof User) {
-
-            return false;
-
-        }
-
-
         return $user->can('replicate_kitchen::kitchen::ticket');
     }
 
     /**
      * Determine whether the user can reorder.
      */
-    public function reorder(Authenticatable $user): bool
+    public function reorder(User $user): bool
     {
-        if (!$user instanceof User) {
-
-            return false;
-
-        }
-
-
         return $user->can('reorder_kitchen::kitchen::ticket');
     }
 }
