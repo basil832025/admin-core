@@ -10,10 +10,11 @@ return [
 
     'columns' => [
         'order_number'  => 'Order #',
-        'order_time'    => 'Order time',
-        'urgent'        => 'Urgent',
+        'order_time'    => 'Order<br>time',
+        'urgent'        => 'Asap',
         'delivery_type' => 'Type',
-        'items_count'   => 'Items count',
+        'items_count'   => 'Items<br>count',
+        'priority'      => 'Priority',
         'stage'         => 'Stage',
     ],
 
@@ -40,13 +41,28 @@ return [
         'to_molding'        => 'Molding',
         'to_baking'         => 'Baking',
         'to_prepared'       => 'Prepared',
+        'priority_up'       => 'Increase priority',
+        'priority_down'     => 'Decrease priority',
+        'priority_set_urgent' => 'Urgent',
+        'priority_set_normal' => 'Normal',
+        'priority_set_wait'   => 'Can wait',
         'save'              => 'Save',
+        'close'             => 'Close',
     ],
 
     'modals' => [
         'order_items_heading'   => 'Order items :number',
         'confirm_prepared_heading' => 'Confirm order completion',
         'confirm_prepared_description' => 'The order will be moved to archive and will go to assembly/pickup.',
+        'delivery_heading' => 'Delivery for order :number',
+        'delivery_address' => 'Address',
+        'delivery_address_empty' => 'Address not provided',
+        'delivery_note' => 'Note',
+        'delivery_note_empty' => 'No note',
+        'apartment_short' => 'apt. :value',
+        'order_note_heading' => 'Order note :number',
+        'order_note_label' => 'Note',
+        'order_note_empty' => 'No note',
     ],
 
     'stages' => [

@@ -10,10 +10,11 @@ return [
 
     'columns' => [
         'order_number'  => '№ заказа',
-        'order_time'    => 'Время заказа',
-        'urgent'        => 'Поскорее',
+        'order_time'    => 'Время<br>заказа',
+        'urgent'        => 'Как<br>можно быстрее',
         'delivery_type' => 'Тип',
-        'items_count'   => 'Кол товаров',
+        'items_count'   => 'Кол-во<br>товаров',
+        'priority'      => 'Приор.',
         'stage'         => 'Этап',
     ],
 
@@ -40,13 +41,28 @@ return [
         'to_molding'        => 'Лепка',
         'to_baking'         => 'Печь',
         'to_prepared'       => 'Приготовлен',
+        'priority_up'       => 'Повысить приоритет',
+        'priority_down'     => 'Понизить приоритет',
+        'priority_set_urgent' => 'Срочно',
+        'priority_set_normal' => 'Обычный',
+        'priority_set_wait'   => 'Может подождать',
         'save'              => 'Сохранить',
+        'close'             => 'Закрыть',
     ],
 
     'modals' => [
         'order_items_heading'   => 'Позиции заказа :number',
         'confirm_prepared_heading' => 'Подтвердите завершение заказа',
         'confirm_prepared_description' => 'Заказ будет перемещён в архив и попадёт в сборку/выдачу.',
+        'delivery_heading' => 'Доставка заказа :number',
+        'delivery_address' => 'Адрес',
+        'delivery_address_empty' => 'Адрес не указан',
+        'delivery_note' => 'Примечание',
+        'delivery_note_empty' => 'Примечание отсутствует',
+        'apartment_short' => 'кв. :value',
+        'order_note_heading' => 'Примечание к заказу :number',
+        'order_note_label' => 'Примечание',
+        'order_note_empty' => 'Примечание отсутствует',
     ],
 
     'stages' => [

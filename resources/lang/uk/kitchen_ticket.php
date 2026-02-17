@@ -10,10 +10,11 @@ return [
 
     'columns' => [
         'order_number'  => '№ замовлення',
-        'order_time'    => 'Час замовлення',
-        'urgent'        => 'Якнайшвидше',
+        'order_time'    => 'Час<br>замовлення',
+        'urgent'        => 'Якнай<br>швидше',
         'delivery_type' => 'Тип',
-        'items_count'   => 'Кол товарів',
+        'items_count'   => 'К-сть<br>товарів',
+        'priority'      => 'Пріор.',
         'stage'         => 'Етап',
     ],
 
@@ -40,13 +41,28 @@ return [
         'to_molding'        => 'Ліпка',
         'to_baking'         => 'Піч',
         'to_prepared'       => 'Приготовано',
+        'priority_up'       => 'Підвищити пріоритет',
+        'priority_down'     => 'Знизити пріоритет',
+        'priority_set_urgent' => 'Терміново',
+        'priority_set_normal' => 'Звичайний',
+        'priority_set_wait'   => 'Може почекати',
         'save'              => 'Зберегти',
+        'close'             => 'Закрити',
     ],
 
     'modals' => [
         'order_items_heading'   => 'Позиції замовлення :number',
         'confirm_prepared_heading' => 'Підтвердіть завершення замовлення',
         'confirm_prepared_description' => 'Замовлення буде переміщено в архів і потрапить у збірку/видачу.',
+        'delivery_heading' => 'Доставка замовлення :number',
+        'delivery_address' => 'Адреса',
+        'delivery_address_empty' => 'Адреса не вказана',
+        'delivery_note' => 'Примітка',
+        'delivery_note_empty' => 'Примітка відсутня',
+        'apartment_short' => 'кв. :value',
+        'order_note_heading' => 'Примітка до замовлення :number',
+        'order_note_label' => 'Примітка',
+        'order_note_empty' => 'Примітка відсутня',
     ],
 
     'stages' => [

@@ -12,6 +12,7 @@ class OrderObserver
     {
         // вспомогательные поля
         $urgent = (bool) ($order->as_soon_possible ?? false);
+        $priority = $urgent ? 30 : 100;
 
         // тип доставки из self_pickup: 1 — pickup, 0 — delivery, null — не определён
         $type = match ((int) ($order->self_pickup ?? -1)) {
@@ -64,6 +65,7 @@ class OrderObserver
                     'stage'         => OrderStatus::Processing,
                     'urgent'        => $urgent,
                     'delivery_type' => $type,
+                    'priority'      => $priority,
                     'processing_at' => $order->created_at ?? now(),
                 ],
             );
@@ -87,6 +89,7 @@ class OrderObserver
                     'stage'         => OrderStatus::Processing,
                     'urgent'        => $urgent,
                     'delivery_type' => $type,
+                    'priority'      => $priority,
                     'processing_at' => $order->created_at ?? now(),
                 ]);
                 // и сразу подтягиваем позиции

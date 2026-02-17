@@ -14,12 +14,13 @@ class KitchenTicket extends Model
 {
     protected $table = 'bs_kitchen_tickets';
     protected $fillable = [
-        'order_id', 'stage', 'urgent', 'delivery_type',
+        'order_id', 'stage', 'urgent', 'delivery_type', 'priority',
         'processing_at', 'filling_at', 'molding_at', 'baking_at', 'prepared_at', // или prepared_at, если так в миграции
     ];
 
     protected $casts = [
         'urgent'        => 'bool',
+        'priority'      => 'int',
         'processing_at' => 'datetime',
         'filling_at'    => 'datetime',
         'molding_at'    => 'datetime',

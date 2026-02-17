@@ -11,6 +11,7 @@ class ListKitchenTickets extends ListRecords
 {
     protected static string $resource = KitchenTicketResource::class;
 
+
     protected function getHeaderActions(): array
     {
         $scope = request()->get('scope', 'current');
@@ -37,4 +38,5 @@ class ListKitchenTickets extends ListRecords
     {
         return ['md' => 1, 'xl' => 1];
     }
+
 }

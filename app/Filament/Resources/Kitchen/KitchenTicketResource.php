@@ -23,6 +23,10 @@ use Carbon\Carbon;
 use Filament\Tables\Columns\Layout\Panel;
 use Filament\Tables\Columns\Layout\Panel as PanelLayout;
 use Filament\Tables\Columns\ViewColumn;
+use Filament\Tables\Enums\ActionsPosition;
+use Filament\Tables\Actions\Action as ModalAction;
+use Filament\Support\Enums\ActionSize;
+use Filament\Support\Enums\MaxWidth;
 use App\Models\Shop\OrderItem as OrderItemModel;
 use Filament\Notifications\Notification;
 use Filament\Forms\Get;
@@ -77,6 +81,7 @@ class KitchenTicketResource extends Resource
                     \App\Enums\OrderStatus::Baking->value,
                 ])
         )
+        ->orderBy('priority')
         ->orderBy('so.date_order')
         ->orderBy('so.time_order');
 }
@@ -85,43 +90,189 @@ class KitchenTicketResource extends Resource
         return \App\Models\Kitchen\KitchenTicket::query()
             ->with([
                 'order.items.product', // чтобы в модалке были названия товаров
+                'order.clientAddress',
             ]);
     }
     public static function table(Table $table): Table
     {
         return $table
             ->recordUrl(null)
-
             // по клику на строку запускать нашу модалку
             // если к тикету нет заказа — клика нет
             ->recordAction(fn ($record) => $record->order ? 'itemsStages' : null)
-           ->query(static::getEloquentQuery())
+            ->query(static::getEloquentQuery())
 
             ->poll('5s') // лайв-обновление для кухни
+            ->recordClasses(fn (KitchenTicket $record) => (int) $record->priority >= 150 ? 'text-slate-400' : null)
+            ->actions([
+                Tables\Actions\Action::make('priority_up')
+                    ->label('')
+                    ->tooltip(__('kitchen_ticket.actions.priority_up'))
+                    ->icon('heroicon-m-arrow-up')
+                    ->iconButton()
+                    ->size(ActionSize::Large)
+                    ->color('gray')
+                    ->extraAttributes(['class' => 'hidden'])
+                    ->visible(fn (KitchenTicket $r) => $r->stage !== OrderStatus::Prepared)
+                    ->action(function (KitchenTicket $r) {
+                        $r->priority = max(0, (int) $r->priority - 10);
+                        $r->save();
+                    }),
+
+                Tables\Actions\Action::make('priority_down')
+                    ->label('')
+                    ->tooltip(__('kitchen_ticket.actions.priority_down'))
+                    ->icon('heroicon-m-arrow-down')
+                    ->iconButton()
+                    ->size(ActionSize::Large)
+                    ->color('gray')
+                    ->extraAttributes(['class' => 'hidden'])
+                    ->visible(fn (KitchenTicket $r) => $r->stage !== OrderStatus::Prepared)
+                    ->action(function (KitchenTicket $r) {
+                        $r->priority = (int) $r->priority + 10;
+                        $r->save();
+                    }),
+
+                Tables\Actions\Action::make('priority_set_urgent')
+                    ->label('')
+                    ->tooltip(__('kitchen_ticket.actions.priority_set_urgent'))
+                    ->icon('heroicon-m-bolt')
+                    ->iconButton()
+                    ->size(ActionSize::Large)
+                    ->color('danger')
+                    ->extraAttributes(['class' => 'hidden'])
+                    ->visible(fn (KitchenTicket $r) => $r->stage !== OrderStatus::Prepared)
+                    ->action(function (KitchenTicket $r) {
+                        $r->priority = 30;
+                        $r->save();
+                    }),
+
+                Tables\Actions\Action::make('priority_set_normal')
+                    ->label('')
+                    ->tooltip(__('kitchen_ticket.actions.priority_set_normal'))
+                    ->icon('heroicon-m-minus')
+                    ->iconButton()
+                    ->size(ActionSize::Large)
+                    ->color('info')
+                    ->extraAttributes(['class' => 'hidden'])
+                    ->visible(fn (KitchenTicket $r) => $r->stage !== OrderStatus::Prepared)
+                    ->action(function (KitchenTicket $r) {
+                        $r->priority = 100;
+                        $r->save();
+                    }),
+
+                Tables\Actions\Action::make('priority_set_wait')
+                    ->label('')
+                    ->tooltip(__('kitchen_ticket.actions.priority_set_wait'))
+                    ->icon('heroicon-m-pause')
+                    ->iconButton()
+                    ->size(ActionSize::Large)
+                    ->color('warning')
+                    ->extraAttributes(['class' => 'hidden'])
+                    ->visible(fn (KitchenTicket $r) => $r->stage !== OrderStatus::Prepared)
+                    ->action(function (KitchenTicket $r) {
+                        $r->priority = 150;
+                        $r->save();
+                    }),
+
+                Tables\Actions\Action::make('delivery_info')
+                    ->label('')
+                    ->icon('')
+                    ->extraAttributes(['class' => 'hidden'])
+                    ->modalHeading(fn (KitchenTicket $record) => __('kitchen_ticket.modals.delivery_heading', ['number' => $record->order?->number]))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel(__('kitchen_ticket.actions.close'))
+                    ->modalContent(function (KitchenTicket $record) {
+                        $order = $record->order;
+                        $addressModel = $order?->clientAddress;
+                        $addressData = (array) ($order?->address ?? []);
+
+                        $formatted = trim((string) (data_get($addressData, 'formatted_address') ?? ''));
+                        $city = data_get($addressData, 'city') ?? $addressModel?->city;
+                        $street = data_get($addressData, 'street') ?? $addressModel?->street;
+                        $house = data_get($addressData, 'house') ?? $addressModel?->house;
+                        $apartment = data_get($addressData, 'apartment') ?? $addressModel?->apartment;
+
+                        $addressLine = $formatted;
+                        if ($addressLine === '') {
+                            $streetLine = trim(trim((string) ($street ?? '')) . ' ' . trim((string) ($house ?? '')));
+                            $parts = array_filter([
+                                $city ? trim((string) $city) : null,
+                                $streetLine !== '' ? $streetLine : null,
+                                $apartment ? __('kitchen_ticket.modals.apartment_short', ['value' => $apartment]) : null,
+                            ]);
+                            $addressLine = implode(', ', $parts);
+                        }
+
+                        $note = data_get($addressData, 'note')
+                            ?? $addressModel?->note
+                            ?? $order?->notes;
+
+                        return view('filament.kitchen.delivery-info', [
+                            'address' => $addressLine,
+                            'note' => $note,
+                        ]);
+                    })
+                    ->action(fn () => null),
+
+                Tables\Actions\Action::make('order_note_info')
+                    ->label('')
+                    ->icon('')
+                    ->extraAttributes(['class' => 'hidden'])
+                    ->modalHeading(fn (KitchenTicket $record) => __('kitchen_ticket.modals.order_note_heading', ['number' => $record->order?->number]))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel(__('kitchen_ticket.actions.close'))
+                    ->modalContent(function (KitchenTicket $record) {
+                        $note = $record->order?->notes;
+
+                        return view('filament.kitchen.order-note-info', [
+                            'note' => $note,
+                        ]);
+                    })
+                    ->action(fn () => null),
+            ], ActionsPosition::AfterColumns)
+            ->actionsColumnLabel('')
+            ->actionsAlignment('start')
             ->columns([
-                TextColumn::make('order.number')
+                ViewColumn::make('priority_actions')
+                    ->label('')
+                    ->alignCenter()
+                    ->grow(false)
+                    ->disabledClick()
+                    ->extraHeaderAttributes(['class' => 'min-w-[11rem] md:min-w-[8rem] lg:min-w-[12rem] px-1 md:px-1 lg:px-2'])
+                    ->extraCellAttributes(['class' => 'min-w-[11rem] md:min-w-[8rem] lg:min-w-[12rem] px-1 md:px-1 lg:px-2'])
+                    ->view('filament.tables.columns.priority-actions'),
+                TextColumn::make('priority')
+                    ->label(__('kitchen_ticket.columns.priority'))
+                    ->alignCenter()
+                    ->grow(false)
+                    ->extraHeaderAttributes(['class' => 'min-w-[3.5rem] md:min-w-[3rem] lg:min-w-[3.5rem] px-1 md:px-1 lg:px-2'])
+                    ->extraCellAttributes(['class' => 'min-w-[3.5rem] md:min-w-[3rem] lg:min-w-[3.5rem] px-1 md:px-1 lg:px-2']),
+                ViewColumn::make('order_number')
                     ->label(__('kitchen_ticket.columns.order_number'))
-                    ->weight('semibold')
-                    ->description(fn ($record) => $record->order?->created_at?->format('d.m H:i'))
-                    ->wrap() // номер+дата в 2 строки ок
-                    ->grow(false) // не позволяем этой колонке растягиваться/сжиматься
-                    ->extraHeaderAttributes(['class' => 'min-w-[8rem]'])
-                    ->extraCellAttributes(['class' => 'min-w-[8rem]']),
+                    ->grow(false)
+                    ->extraHeaderAttributes(['class' => 'min-w-[7rem] md:min-w-[6rem] lg:min-w-[8rem] px-1 md:px-1 lg:px-2'])
+                    ->extraCellAttributes(fn (KitchenTicket $record) => [
+                        'class' => 'min-w-[7rem] md:min-w-[6rem] lg:min-w-[8rem] px-1 md:px-1 lg:px-2 ' . static::priorityBorderClass($record),
+                    ])
+                    ->view('filament.tables.columns.order-number'),
 
                 TextColumn::make('order_dt')
-                    ->label(__('kitchen_ticket.columns.order_time'))
+                    ->label(new HtmlString(__('kitchen_ticket.columns.order_time')))
                     ->dateTime('d.m H:i')
                     ->grow(false)
-                    ->extraHeaderAttributes(['class' => 'min-w-[7rem]'])
-                    ->extraCellAttributes(['class' => 'min-w-[7rem]'])
+                    ->extraHeaderAttributes(['class' => 'min-w-[6.5rem] md:min-w-[6rem] lg:min-w-[7rem] px-1 md:px-1 lg:px-2'])
+                    ->extraCellAttributes(['class' => 'min-w-[6.5rem] md:min-w-[6rem] lg:min-w-[7rem] px-1 md:px-1 lg:px-2'])
                     ->sortable(
                         query: fn (Builder $q, string $dir) =>
                     $q->orderBy('so.date_order', $dir)->orderBy('so.time_order', $dir)
                     ),
 
                 BadgeColumn::make('urgent')
-                    ->label(__('kitchen_ticket.columns.urgent'))
+                    ->label(new HtmlString(__('kitchen_ticket.columns.urgent')))
                     ->grow(false)
+                    ->extraHeaderAttributes(['class' => 'px-1 md:px-1 lg:px-2'])
+                    ->extraCellAttributes(['class' => 'px-1 md:px-1 lg:px-2'])
                     ->state(fn (KitchenTicket $record) =>
                     (bool) ($record->as_soon_possible ?? ($record->order->as_soon_possible ?? false))
                     )
@@ -129,30 +280,31 @@ class KitchenTicketResource extends Resource
                     ->color(fn ($state) => $state ? 'danger' : 'gray')
                     ->toggleable(),
 
-                BadgeColumn::make('delivery_type')
+                ViewColumn::make('delivery_type')
                     ->label(__('kitchen_ticket.columns.delivery_type'))
                     ->grow(false)
+                    ->extraHeaderAttributes(['class' => 'px-1 md:px-1 lg:px-2'])
+                    ->extraCellAttributes(['class' => 'px-1 md:px-1 lg:px-2'])
                     ->state(fn (KitchenTicket $record) =>
                         $record->delivery_type
                         ?? (((int) ($record->order?->self_pickup) === 1) ? 'pickup' : 'delivery')
                     )
-                    ->formatStateUsing(fn ($state) =>
-                    $state === 'pickup' ? __('kitchen_ticket.values.pickup') : ($state === 'delivery' ? __('kitchen_ticket.values.delivery') : __('kitchen_ticket.values.no'))
-                    )
-                    ->color(fn ($state) =>
-                    $state === 'pickup' ? 'lime' : ($state === 'delivery' ? 'sky' : 'gray')
-                    ),
+                    ->view('filament.tables.columns.delivery-type'),
                 TextColumn::make('items_count')
-                    ->label(__('kitchen_ticket.columns.items_count'))
+                    ->label(new HtmlString(__('kitchen_ticket.columns.items_count')))
                     ->counts('items') // если есть relation items()
                     ->sortable()
-                    ->alignCenter(),
+                    ->alignCenter()
+                    ->extraHeaderAttributes(['class' => 'min-w-[3rem] md:min-w-[2.5rem] lg:min-w-[3rem] px-1 md:px-1 lg:px-2'])
+                    ->extraCellAttributes(['class' => 'min-w-[3rem] md:min-w-[2.5rem] lg:min-w-[3rem] px-1 md:px-1 lg:px-2']),
 
 
                 // текущий этап (использует твой enum оформления)
                 BadgeColumn::make('stage')
                     ->label(__('kitchen_ticket.columns.stage'))
                     ->grow(false)
+                    ->extraHeaderAttributes(['class' => 'px-1 md:px-1 lg:px-2'])
+                    ->extraCellAttributes(['class' => 'px-1 md:px-1 lg:px-2'])
                     ->formatStateUsing(fn ($state) => ($s = $state instanceof OrderStatus ? $state : OrderStatus::from($state))->getLabel())
                     ->icon(fn ($state) => ($s = $state instanceof OrderStatus ? $state : OrderStatus::from($state))->getIcon())
                     ->color(fn ($state) => ($s = $state instanceof OrderStatus ? $state : OrderStatus::from($state))->getColor()),
@@ -202,14 +354,20 @@ class KitchenTicketResource extends Resource
                         'pickup'   => __('kitchen_ticket.filter_options.pickup'),
                     ]),
             ])
-            ->actions([
+            ->pushActions([
                 Action::make('itemsStages')
                     ->label('')               // кнопку мы «прячем», вызываем по клику на строку
                     ->icon('')
                     ->extraAttributes(['class' => 'opacity-0 pointer-events-none w-0 h-0 p-0 m-0'])
                     ->visible(fn ($record) => (bool) $record->order)
+                    ->slideOver()
                     ->modalHeading(fn ($record) => __('kitchen_ticket.modals.order_items_heading', ['number' => $record->order?->number]))
-                    ->modalWidth('4xl')
+                    ->modalWidth(MaxWidth::TwoExtraLarge)
+                    ->modalCancelActionLabel('Закрити')
+                    ->modalContent(fn ($record) => view('filament.kitchen.items-stages-actions', [
+                        'record' => $record,
+                        'recordKey' => $record?->getKey(),
+                    ]))
                     ->form(function ($record) {
                         $order = $record->order;
 
@@ -342,7 +500,10 @@ HTML);
                     ->visible(fn (KitchenTicket $r) => in_array($r->stage, [
                         OrderStatus::Processing, OrderStatus::Filling,
                     ], true))
-                    ->action(fn (KitchenTicket $r) => $r->moveTo(OrderStatus::Filling, auth()->id())),
+                    ->action(function (KitchenTicket $r, $livewire) {
+                        $r->moveTo(OrderStatus::Filling, auth()->id());
+                        $livewire->dispatch('close-modal', id: "{$livewire->getId()}-table-action");
+                    }),
 
                 Tables\Actions\Action::make('to_molding')
                     ->label(__('kitchen_ticket.actions.to_molding'))
@@ -351,7 +512,10 @@ HTML);
                     ->visible(fn (KitchenTicket $r) => in_array($r->stage, [
                         OrderStatus::Processing, OrderStatus::Filling, OrderStatus::Molding,
                     ], true))
-                    ->action(fn (KitchenTicket $r) => $r->moveTo(OrderStatus::Molding, auth()->id())),
+                    ->action(function (KitchenTicket $r, $livewire) {
+                        $r->moveTo(OrderStatus::Molding, auth()->id());
+                        $livewire->dispatch('close-modal', id: "{$livewire->getId()}-table-action");
+                    }),
 
                 Tables\Actions\Action::make('to_baking')
                     ->label(__('kitchen_ticket.actions.to_baking'))
@@ -360,7 +524,10 @@ HTML);
                     ->visible(fn (KitchenTicket $r) => in_array($r->stage, [
                         OrderStatus::Processing, OrderStatus::Filling, OrderStatus::Molding, OrderStatus::Baking,
                     ], true))
-                    ->action(fn (KitchenTicket $r) => $r->moveTo(OrderStatus::Baking, auth()->id())),
+                    ->action(function (KitchenTicket $r, $livewire) {
+                        $r->moveTo(OrderStatus::Baking, auth()->id());
+                        $livewire->dispatch('close-modal', id: "{$livewire->getId()}-table-action");
+                    }),
 
                 Tables\Actions\Action::make('to_prepared')
                     ->label(__('kitchen_ticket.actions.to_prepared'))
@@ -372,7 +539,10 @@ HTML);
                     ->visible(fn (KitchenTicket $r) => in_array($r->stage, [
                         OrderStatus::Processing, OrderStatus::Filling, OrderStatus::Molding, OrderStatus::Baking,
                     ], true))
-                    ->action(fn (KitchenTicket $r) => $r->moveTo(OrderStatus::Prepared, auth()->id())),
+                    ->action(function (KitchenTicket $r, $livewire) {
+                        $r->moveTo(OrderStatus::Prepared, auth()->id());
+                        $livewire->dispatch('close-modal', id: "{$livewire->getId()}-table-action");
+                    }),
             ])
 
             ->bulkActions([]) // на кухне массовых не нужно
@@ -392,6 +562,21 @@ HTML);
             'ready', 'prepared', 'done'                => 'ready',
             default                                    => 'accepted', // по умолчанию «Принял»
         };
+    }
+
+    protected static function priorityBorderClass(KitchenTicket $record): string
+    {
+        $value = (int) $record->priority;
+
+        if ($value <= 50) {
+            return 'border-l-4 border-red-500 bg-red-50/40';
+        }
+
+        if ($value >= 150) {
+            return 'border-l-4 border-slate-200 text-slate-400';
+        }
+
+        return 'border-l-4 border-transparent';
     }
     public static function getPages(): array
     {
