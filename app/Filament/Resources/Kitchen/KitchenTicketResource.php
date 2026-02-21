@@ -285,18 +285,6 @@ class KitchenTicketResource extends Resource
                     ->extraCellAttributes(['class' => 'min-w-[6rem] md:min-w-[5.5rem] lg:min-w-[6.5rem] px-1 md:px-1 lg:px-2'])
                     ->view('filament.tables.columns.kitchen-timer'),
 
-                // BadgeColumn::make('urgent')
-                //     ->label(new HtmlString(__('kitchen_ticket.columns.urgent')))
-                //     ->grow(false)
-                //     ->extraHeaderAttributes(['class' => 'px-1 md:px-1 lg:px-2'])
-                //     ->extraCellAttributes(['class' => 'px-1 md:px-1 lg:px-2'])
-                //     ->state(fn (KitchenTicket $record) =>
-                //     (bool) ($record->as_soon_possible ?? ($record->order->as_soon_possible ?? false))
-                //     )
-                //     ->formatStateUsing(fn ($state) => $state ? __('kitchen_ticket.values.yes') : __('kitchen_ticket.values.no'))
-                //     ->color(fn ($state) => $state ? 'danger' : 'gray')
-                //     ->toggleable(),
-
                 ViewColumn::make('delivery_type')
                     ->label(__('kitchen_ticket.columns.delivery_type'))
                     ->grow(false)
@@ -307,13 +295,6 @@ class KitchenTicketResource extends Resource
                         ?? (((int) ($record->order?->self_pickup) === 1) ? 'pickup' : 'delivery')
                     )
                     ->view('filament.tables.columns.delivery-type'),
-                ViewColumn::make('items_list')
-                    ->label(__('kitchen_ticket.columns.items'))
-                    ->grow(false)
-                    ->extraHeaderAttributes(['class' => 'min-w-[18rem] md:min-w-[200px] md:w-[200px] md:max-w-[200px] lg:min-w-[22rem] px-1 md:px-1 lg:px-2 kitchen-items-header'])
-                    ->extraCellAttributes(['class' => 'min-w-[18rem] md:min-w-[200px] md:w-[200px] md:max-w-[200px] lg:min-w-[22rem] px-1 md:px-1 lg:px-2 kitchen-items-cell'])
-                    ->view('filament.tables.columns.kitchen-items'),
-
 
                 // текущий этап (использует твой enum оформления)
                 BadgeColumn::make('stage')
@@ -324,6 +305,24 @@ class KitchenTicketResource extends Resource
                     ->formatStateUsing(fn ($state) => ($s = $state instanceof OrderStatus ? $state : OrderStatus::from($state))->getLabel())
                     ->icon(fn ($state) => ($s = $state instanceof OrderStatus ? $state : OrderStatus::from($state))->getIcon())
                     ->color(fn ($state) => ($s = $state instanceof OrderStatus ? $state : OrderStatus::from($state))->getColor()),
+                ViewColumn::make('items_list')
+                    ->label(__('kitchen_ticket.columns.items'))
+                    ->grow(false)
+                    ->extraHeaderAttributes(['class' => 'px-1 md:px-1 lg:px-2 kitchen-items-header'])
+                    ->extraCellAttributes(['class' => 'px-1 md:px-1 lg:px-2 kitchen-items-cell'])
+                    ->view('filament.tables.columns.kitchen-items'),
+
+                BadgeColumn::make('urgent')
+                    ->label(new HtmlString(__('kitchen_ticket.columns.urgent')))
+                    ->grow(false)
+                    ->extraHeaderAttributes(['class' => 'px-1 md:px-1 lg:px-2'])
+                    ->extraCellAttributes(['class' => 'px-1 md:px-1 lg:px-2'])
+                    ->state(fn (KitchenTicket $record) =>
+                    (bool) ($record->as_soon_possible ?? ($record->order->as_soon_possible ?? false))
+                    )
+                    ->formatStateUsing(fn ($state) => $state ? __('kitchen_ticket.values.yes') : __('kitchen_ticket.values.no'))
+                    ->color(fn ($state) => $state ? 'danger' : 'gray')
+                    ->toggleable(),
                 // ⬇️ РАСКРЫВАЮЩАЯСЯ ПАНЕЛЬ ПОД СТРОКОЙ
                 // Панель под строкой на всю ширину:
 
