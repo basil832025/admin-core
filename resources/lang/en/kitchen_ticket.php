@@ -11,9 +11,12 @@ return [
     'columns' => [
         'order_number'  => 'Order #',
         'order_time'    => 'Order<br>time',
+        'timer'         => 'Timer',
         'urgent'        => 'Asap',
         'delivery_type' => 'Type',
         'items_count'   => 'Items<br>count',
+        'items'         => 'Items',
+        'items_qty'     => 'Qty',
         'priority'      => 'Priority',
         'stage'         => 'Stage',
     ],

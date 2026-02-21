@@ -9,11 +9,14 @@ return [
     ],
 
     'columns' => [
-        'order_number'  => '№ замовлення',
-        'order_time'    => 'Час<br>замовлення',
+        'order_number'  => '№ зам.',
+        'order_time'    => 'Час<br>зам.',
+        'timer'         => 'Таймер',
         'urgent'        => 'Якнай<br>швидше',
         'delivery_type' => 'Тип',
         'items_count'   => 'К-сть<br>товарів',
+        'items'         => 'Товари',
+        'items_qty'     => 'К-сть',
         'priority'      => 'Пріор.',
         'stage'         => 'Етап',
     ],

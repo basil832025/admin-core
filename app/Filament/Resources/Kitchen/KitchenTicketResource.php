@@ -69,6 +69,7 @@ class KitchenTicketResource extends Resource
             ->leftJoin('bs_shop_orders as so', 'so.id', '=', 'bs_kitchen_tickets.order_id')
             ->select('bs_kitchen_tickets.*')
             ->selectRaw('CONCAT(so.date_order, " ", TIME(so.time_order)) as order_dt')
+            ->with(['items'])
             ->when(
                 $scope === 'archived',
                 fn (Builder $q) =>
@@ -259,7 +260,16 @@ class KitchenTicketResource extends Resource
 
                 TextColumn::make('order_dt')
                     ->label(new HtmlString(__('kitchen_ticket.columns.order_time')))
-                    ->dateTime('d.m H:i')
+                    ->formatStateUsing(function ($state) {
+                        if (! $state) {
+                            return '—';
+                        }
+
+                        $dt = Carbon::parse($state);
+
+                        return new HtmlString($dt->format('d.m') . '<br>' . $dt->format('H:i'));
+                    })
+                    ->html()
                     ->grow(false)
                     ->extraHeaderAttributes(['class' => 'min-w-[6.5rem] md:min-w-[6rem] lg:min-w-[7rem] px-1 md:px-1 lg:px-2'])
                     ->extraCellAttributes(['class' => 'min-w-[6.5rem] md:min-w-[6rem] lg:min-w-[7rem] px-1 md:px-1 lg:px-2'])
@@ -268,35 +278,41 @@ class KitchenTicketResource extends Resource
                     $q->orderBy('so.date_order', $dir)->orderBy('so.time_order', $dir)
                     ),
 
-                BadgeColumn::make('urgent')
-                    ->label(new HtmlString(__('kitchen_ticket.columns.urgent')))
+                ViewColumn::make('processing_timer')
+                    ->label(__('kitchen_ticket.columns.timer'))
                     ->grow(false)
-                    ->extraHeaderAttributes(['class' => 'px-1 md:px-1 lg:px-2'])
-                    ->extraCellAttributes(['class' => 'px-1 md:px-1 lg:px-2'])
-                    ->state(fn (KitchenTicket $record) =>
-                    (bool) ($record->as_soon_possible ?? ($record->order->as_soon_possible ?? false))
-                    )
-                    ->formatStateUsing(fn ($state) => $state ? __('kitchen_ticket.values.yes') : __('kitchen_ticket.values.no'))
-                    ->color(fn ($state) => $state ? 'danger' : 'gray')
-                    ->toggleable(),
+                    ->extraHeaderAttributes(['class' => 'min-w-[6rem] md:min-w-[5.5rem] lg:min-w-[6.5rem] px-1 md:px-1 lg:px-2'])
+                    ->extraCellAttributes(['class' => 'min-w-[6rem] md:min-w-[5.5rem] lg:min-w-[6.5rem] px-1 md:px-1 lg:px-2'])
+                    ->view('filament.tables.columns.kitchen-timer'),
+
+                // BadgeColumn::make('urgent')
+                //     ->label(new HtmlString(__('kitchen_ticket.columns.urgent')))
+                //     ->grow(false)
+                //     ->extraHeaderAttributes(['class' => 'px-1 md:px-1 lg:px-2'])
+                //     ->extraCellAttributes(['class' => 'px-1 md:px-1 lg:px-2'])
+                //     ->state(fn (KitchenTicket $record) =>
+                //     (bool) ($record->as_soon_possible ?? ($record->order->as_soon_possible ?? false))
+                //     )
+                //     ->formatStateUsing(fn ($state) => $state ? __('kitchen_ticket.values.yes') : __('kitchen_ticket.values.no'))
+                //     ->color(fn ($state) => $state ? 'danger' : 'gray')
+                //     ->toggleable(),
 
                 ViewColumn::make('delivery_type')
                     ->label(__('kitchen_ticket.columns.delivery_type'))
                     ->grow(false)
-                    ->extraHeaderAttributes(['class' => 'px-1 md:px-1 lg:px-2'])
-                    ->extraCellAttributes(['class' => 'px-1 md:px-1 lg:px-2'])
+                    ->extraHeaderAttributes(['class' => 'min-w-[7rem] md:min-w-[7rem] lg:min-w-[7rem] px-1 md:px-1 lg:px-2'])
+                    ->extraCellAttributes(['class' => 'min-w-[7rem] md:min-w-[7rem] lg:min-w-[7rem] px-1 md:px-1 lg:px-2 overflow-visible whitespace-normal kitchen-delivery-cell'])
                     ->state(fn (KitchenTicket $record) =>
                         $record->delivery_type
                         ?? (((int) ($record->order?->self_pickup) === 1) ? 'pickup' : 'delivery')
                     )
                     ->view('filament.tables.columns.delivery-type'),
-                TextColumn::make('items_count')
-                    ->label(new HtmlString(__('kitchen_ticket.columns.items_count')))
-                    ->counts('items') // если есть relation items()
-                    ->sortable()
-                    ->alignCenter()
-                    ->extraHeaderAttributes(['class' => 'min-w-[3rem] md:min-w-[2.5rem] lg:min-w-[3rem] px-1 md:px-1 lg:px-2'])
-                    ->extraCellAttributes(['class' => 'min-w-[3rem] md:min-w-[2.5rem] lg:min-w-[3rem] px-1 md:px-1 lg:px-2']),
+                ViewColumn::make('items_list')
+                    ->label(__('kitchen_ticket.columns.items'))
+                    ->grow(false)
+                    ->extraHeaderAttributes(['class' => 'min-w-[18rem] md:min-w-[200px] md:w-[200px] md:max-w-[200px] lg:min-w-[22rem] px-1 md:px-1 lg:px-2 kitchen-items-header'])
+                    ->extraCellAttributes(['class' => 'min-w-[18rem] md:min-w-[200px] md:w-[200px] md:max-w-[200px] lg:min-w-[22rem] px-1 md:px-1 lg:px-2 kitchen-items-cell'])
+                    ->view('filament.tables.columns.kitchen-items'),
 
 
                 // текущий этап (использует твой enum оформления)

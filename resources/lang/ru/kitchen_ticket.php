@@ -10,10 +10,13 @@ return [
 
     'columns' => [
         'order_number'  => '№ заказа',
-        'order_time'    => 'Время<br>заказа',
+        'order_time'    => 'Время<br>заказ.',
+        'timer'         => 'Таймер',
         'urgent'        => 'Как<br>можно быстрее',
         'delivery_type' => 'Тип',
         'items_count'   => 'Кол-во<br>товаров',
+        'items'         => 'Товары',
+        'items_qty'     => 'Кол-во',
         'priority'      => 'Приор.',
         'stage'         => 'Этап',
     ],
