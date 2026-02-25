@@ -67,7 +67,7 @@ class RoleResource extends Resource implements HasShieldPermissions
             'set_order_status_new' => 'Статус: Новый',
             'set_order_status_on_hold' => 'Статус: Отложен',
             'set_order_status_prepared' => 'Статус: Приготовлен',
-            'set_order_status_processing' => 'Статус: В обработке',
+            'set_order_status_processing' => 'Статус: На кухне',
             'set_order_status_shipped' => 'Статус: Отправлен',
             'order_status_downgrade' => 'Статус: Возврат статуса назад',
         ];

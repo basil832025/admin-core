@@ -41,6 +41,7 @@ class LiqPayService
             'version'     => '3',
             'result_url'  => route('checkout.success', $order, true),
             'server_url'  => route('liqpay.callback', [], true),
+           // 'server_url'  => 'https://jaxson-semipreserved-judgmentally.ngrok-free.dev/liqpay/callback',
             'language'    => $lang,
         ];
 

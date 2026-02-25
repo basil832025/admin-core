@@ -21,6 +21,8 @@ class OrderObserver
             default => null,
         };
 
+        $statusEnum = $this->resolveStatusEnum($order);
+
         // если статус НЕ менялся — просто синхронизируем флаги на уже существующем тикете
         $ticket = KitchenTicket::firstWhere('order_id', $order->id);
         if (! $order->wasChanged('status')) {
@@ -40,6 +42,25 @@ class OrderObserver
                 if ($dirty) {
                     $ticket->save();
                 }
+
+                return;
+            }
+
+            if ($statusEnum && $this->isKitchenStage($statusEnum)) {
+                $ticket = KitchenTicket::create([
+                    'order_id'      => $order->id,
+                    'stage'         => OrderStatus::Processing,
+                    'urgent'        => $urgent,
+                    'delivery_type' => $type,
+                    'priority'      => $priority,
+                    'processing_at' => $order->created_at ?? now(),
+                ]);
+
+                $ticket->syncItemsFromOrder();
+
+                if ($statusEnum !== OrderStatus::Processing) {
+                    $ticket->moveTo($statusEnum, auth('admin')->id());
+                }
             }
 
             return;
@@ -48,9 +69,9 @@ class OrderObserver
         // ---------- статус действительно изменился ----------
 
         // 1) Пишем время нового статуса в JSON status_times
-        $statusEnum = $order->status instanceof OrderStatus
-            ? $order->status
-            : OrderStatus::from($order->status);
+        if (! $statusEnum) {
+            return;
+        }
 
         $times = $order->status_times ?? [];
         $times[$statusEnum->value] = now()->format('Y-m-d H:i:s');   // перезаписывать/оставлять первое — на ваше усмотрение
@@ -107,5 +128,40 @@ class OrderObserver
         }
 
         // 3) если ушёл из кухни (OnHold, Cancelled и т.п.) — ничего не делаем
+    }
+
+    private function resolveStatusEnum(Order $order): ?OrderStatus
+    {
+        try {
+            if ($order->status instanceof OrderStatus) {
+                return $order->status;
+            }
+
+            $status = (string) $order->status;
+            $enum = OrderStatus::tryFrom($status);
+            if ($enum) {
+                return $enum;
+            }
+        } catch (\Throwable $e) {
+            // fallback to raw status below
+        }
+
+        $raw = mb_strtolower(trim((string) $order->getRawOriginal('status')));
+
+        return match ($raw) {
+            'на кухне', 'на кухні', 'в обработке', 'в обробці' => OrderStatus::Processing,
+            default => OrderStatus::tryFrom($raw),
+        };
+    }
+
+    private function isKitchenStage(OrderStatus $status): bool
+    {
+        return in_array($status, [
+            OrderStatus::Processing,
+            OrderStatus::Filling,
+            OrderStatus::Molding,
+            OrderStatus::Baking,
+            OrderStatus::Prepared,
+        ], true);
     }
 }

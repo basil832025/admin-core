@@ -10,6 +10,7 @@ use Illuminate\Support\ServiceProvider;
 use App\Models\Shop\ClientAddress;
 use App\Observers\ClientAddressObserver;
 use App\Models\Shop\Order;
+use App\Models\Callcenter\Order as CallcenterOrder;
 use App\Observers\OrderObserver;
 use App\Models\Kitchen\KitchenTicket;
 use App\Observers\KitchenTicketObserver;
@@ -46,6 +47,7 @@ class AppServiceProvider extends ServiceProvider
      //   dd(config('filament-spatie-laravel-translatable-plugin.locales'));
         ClientAddress::observe(ClientAddressObserver::class);
         Order::observe(OrderObserver::class);
+        CallcenterOrder::observe(OrderObserver::class);
         KitchenTicket::observe(KitchenTicketObserver::class);
         // один аккуратный вызов
         FrontView::register();
