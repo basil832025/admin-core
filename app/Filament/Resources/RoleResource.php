@@ -72,15 +72,19 @@ class RoleResource extends Resource implements HasShieldPermissions
             'order_status_downgrade' => 'Статус: Возврат статуса назад',
         ];
 
-        return FilamentShield::getCustomPermissions()
+        return collect(FilamentShield::getCustomPermissions())
+            ->map(fn ($perm) => is_string($perm) ? trim($perm) : null)
+            ->filter(fn (?string $perm) => filled($perm))
             ->filter(fn (string $perm) => Str::is($allow, Str::of($perm)->lower()->toString()))
-            ->mapWithKeys(function ($perm) use ($translations) {
+            ->unique()
+            ->mapWithKeys(function (string $perm) use ($translations): array {
                 $permKey = Str::of($perm)->lower()->replace(' ', '_')->toString();
+
                 return [
-                    $perm => $translations[$permKey] ?? $perm
+                    $perm => $translations[$permKey] ?? $perm,
                 ];
             })
-            ->toArray();
+            ->all();
     }
     public static function getNavigationGroup(): ?string
     {

@@ -18,17 +18,18 @@ class CreateRole extends CreateRecord
     {
         $this->permissions = collect($data)
             ->filter(function ($permission, $key) {
-                return ! in_array($key, ['name', 'guard_name', 'select_all', Utils::getTenantModelForeignKey()]);
+                return ! in_array($key, ['name', 'guard_name', 'admin_start_page', 'select_all', Utils::getTenantModelForeignKey()]);
             })
             ->values()
             ->flatten()
+            ->filter(fn ($permission) => filled($permission) && is_string($permission))
             ->unique();
 
         if (Arr::has($data, Utils::getTenantModelForeignKey())) {
-            return Arr::only($data, ['name', 'guard_name', Utils::getTenantModelForeignKey()]);
+            return Arr::only($data, ['name', 'guard_name', 'admin_start_page', Utils::getTenantModelForeignKey()]);
         }
 
-        return Arr::only($data, ['name', 'guard_name']);
+        return Arr::only($data, ['name', 'guard_name', 'admin_start_page']);
     }
 
     protected function afterCreate(): void
