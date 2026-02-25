@@ -17,6 +17,9 @@ return [
     'sections' => [
         'order_items'       => 'Товари замовлення',
         'amount_discounts'  => 'Сума та знижки',
+        'sum_only'          => 'Сума',
+        'discounts_only'    => 'Знижки',
+        'history_orders'    => 'Історія замовлень',
         'statuses'          => 'Статуси',
         'metadata'          => 'Службова інформація',
         'time_payment'      => 'Час та оплата',
@@ -88,6 +91,7 @@ return [
     'actions' => [
         'confirm_rollback' => 'Підтвердити відкат',
         'cancel'            => 'Скасування',
+        'create'            => 'Створити',
         'save'              => 'Зберегти',
         'delete'            => 'Видалити',
         'add_item'          => 'Додати товар',
@@ -95,6 +99,20 @@ return [
         'clear_promo'        => 'Скасувати промокод',
         'statuses'          => 'Статуси',
         'statuses_modal_heading' => 'Статуси: :number',
+    ],
+
+    'filters' => [
+        'quick'      => 'Швидкий період',
+        'date_from'  => 'Дата з',
+        'date_to'    => 'Дата по',
+        'discount'   => 'Знижка',
+        'today'      => 'Сьогодні',
+        'yesterday'  => 'Вчора',
+        'day_before' => 'Позавчора',
+        'this_week'  => 'Цей тиждень',
+        'this_month' => 'Цей місяць',
+        'order_number' => 'Номер замовлення',
+        'phone' => 'Телефон',
     ],
 
     'steps' => [
@@ -129,6 +147,16 @@ return [
         'total_price'   => 'Сума',
         'discount'      => 'Знижка',
         'created_at'    => 'Створено',
+        'operator_time' => 'Оператор<br>час',
+        'kitchen_time'  => 'Кухня<br>час',
+        'delivery_time' => 'Доставка<br>час',
+        'total_time'    => 'Загальний<br>час',
+        'items'         => 'Товари',
+    ],
+
+    'time_units' => [
+        'minutes_short' => 'хв',
+        'hours_short'   => 'год',
     ],
 
     'journal' => [
@@ -175,4 +203,3 @@ return [
         'status_changed'      => 'Статус змінено',
     ],
 ];
-

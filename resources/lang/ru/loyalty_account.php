@@ -2,7 +2,7 @@
 
 return [
     'nav' => [
-        'navigation_group'   => 'Лояльность',
+        'navigation_group'   => 'Магазин',
         'navigation_label'   => 'Бонусные счета',
         'model_label'        => 'Бонусный счёт',
         'plural_model_label' => 'Бонусные счета',
@@ -82,4 +82,3 @@ return [
         ],
     ],
 ];
-

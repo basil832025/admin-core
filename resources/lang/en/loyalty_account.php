@@ -2,7 +2,7 @@
 
 return [
     'nav' => [
-        'navigation_group'   => 'Loyalty',
+        'navigation_group'   => 'Shop',
         'navigation_label'   => 'Bonus accounts',
         'model_label'        => 'Bonus account',
         'plural_model_label' => 'Bonus accounts',
@@ -82,4 +82,3 @@ return [
         ],
     ],
 ];
-

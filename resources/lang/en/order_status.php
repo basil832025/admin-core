@@ -3,7 +3,7 @@
 return [
     'cart'       => 'Draft (cart)',
     'new'         => 'New',
-    'processing'  => 'Processing',
+    'processing'  => 'In kitchen',
     'on_hold'     => 'On hold',
     'filling'     => 'Filling',
     'molding'     => 'Molding',

@@ -2,7 +2,7 @@
 
 return [
     'nav' => [
-        'navigation_group'   => 'Дисконтні програми',
+        'navigation_group'   => 'Настройки',
         'navigation_label'   => 'Фіксовані знижки',
         'model_label'        => 'Фіксована знижка',
         'plural_model_label' => 'Фіксовані знижки',
@@ -39,5 +39,3 @@ return [
         'applies_to_segment'=> 'Сегмент клієнтів',
     ],
 ];
-
-

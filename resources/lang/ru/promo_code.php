@@ -2,7 +2,7 @@
 
 return [
     'nav' => [
-        'navigation_group'   => 'Дисконтные программы',
+        'navigation_group'   => 'Настройки',
         'navigation_label'   => 'Промокоды',
         'model_label'        => 'Промокод',
         'plural_model_label' => 'Промокоды',
@@ -53,4 +53,3 @@ return [
         'scope_description'         => 'Ограничь промокод по группам, товарам и/или характеристикам',
     ],
 ];
-

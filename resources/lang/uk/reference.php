@@ -2,7 +2,7 @@
 
 return [
     'nav' => [
-        'navigation_group'   => 'Налаштування',
+        'navigation_group'   => 'Настройки',
         'navigation_label'   => 'Довідники',
     ],
 ];

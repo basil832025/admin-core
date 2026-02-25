@@ -2,7 +2,7 @@
 
 return [
     'nav' => [
-        'navigation_group'   => 'Media',
+        'navigation_group'   => 'Settings',
         'navigation_label'   => 'SVG Images',
         'model_label'        => 'SVG image',
         'plural_model_label' => 'SVG images',

@@ -17,6 +17,9 @@ return [
     'sections' => [
         'order_items'       => 'Товары заказа',
         'amount_discounts'  => 'Сумма и скидки',
+        'sum_only'          => 'Сумма',
+        'discounts_only'    => 'Скидки',
+        'history_orders'    => 'История заказов',
         'statuses'          => 'Статусы',
         'metadata'          => 'Служебная информация',
         'time_payment'      => 'Время и оплата',
@@ -88,6 +91,7 @@ return [
     'actions' => [
         'confirm_rollback' => 'Подтвердить откат',
         'cancel'            => 'Отмена',
+        'create'            => 'Создать',
         'save'              => 'Сохранить',
         'delete'            => 'Удалить',
         'add_item'          => 'Добавить товар',
@@ -95,6 +99,20 @@ return [
         'clear_promo'        => 'Скасувать промокод',
         'statuses'          => 'Статусы',
         'statuses_modal_heading' => 'Статусы: :number',
+    ],
+
+    'filters' => [
+        'quick'      => 'Быстрый период',
+        'date_from'  => 'Дата с',
+        'date_to'    => 'Дата по',
+        'discount'   => 'Скидка',
+        'today'      => 'Сегодня',
+        'yesterday'  => 'Вчера',
+        'day_before' => 'Позавчера',
+        'this_week'  => 'Эта неделя',
+        'this_month' => 'Этот месяц',
+        'order_number' => 'Номер заказа',
+        'phone' => 'Телефон',
     ],
 
     'steps' => [
@@ -129,6 +147,16 @@ return [
         'total_price'   => 'Сумма',
         'discount'      => 'Скидка',
         'created_at'    => 'Создан',
+        'operator_time' => 'Оператор<br>время',
+        'kitchen_time'  => 'Кухня<br>время',
+        'delivery_time' => 'Доставка<br>время',
+        'total_time'    => 'Общее<br>время',
+        'items'         => 'Товары',
+    ],
+
+    'time_units' => [
+        'minutes_short' => 'мин',
+        'hours_short'   => 'ч',
     ],
 
     'journal' => [
@@ -175,4 +203,3 @@ return [
         'status_changed'      => 'Статус изменён',
     ],
 ];
-

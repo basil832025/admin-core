@@ -2,7 +2,7 @@
 
 return [
     'nav' => [
-        'navigation_group'   => 'Лояльність',
+        'navigation_group'   => 'Магазин',
         'navigation_label'   => 'Правила бонусів',
         'model_label'        => 'Правило бонусів',
         'plural_model_label' => 'Правила бонусів',

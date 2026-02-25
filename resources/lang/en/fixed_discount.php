@@ -2,7 +2,7 @@
 
 return [
     'nav' => [
-        'navigation_group'   => 'Discount programs',
+        'navigation_group'   => 'Settings',
         'navigation_label'   => 'Fixed discounts',
         'model_label'        => 'Fixed discount',
         'plural_model_label' => 'Fixed discounts',
@@ -39,5 +39,4 @@ return [
         'applies_to_segment'=> 'Client segment',
     ],
 ];
-
 

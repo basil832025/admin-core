@@ -19,6 +19,7 @@ use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Unique;
+use App\Support\AdminStartPage;
 
 class RoleResource extends Resource implements HasShieldPermissions
 {
@@ -46,12 +47,16 @@ class RoleResource extends Resource implements HasShieldPermissions
     {
         $allow = [
             'access_admin',
+            'access_callcenter_orders',
+            'access_logistics_orders',
             'set_order_status*',   // все статусы
             'order_status_downgrade'
         ];
 
         $translations = [
             'access_admin' => 'Доступ в админку',
+            'access_callcenter_orders' => 'Доступ: Колцентр (заказы)',
+            'access_logistics_orders' => 'Доступ: Логистика (заказы)',
             'set_order_status' => 'Установить статус заказа',
             'set_order_status_assembled' => 'Статус: Собран',
             'set_order_status_baking' => 'Статус: Выпекается',
@@ -103,6 +108,13 @@ class RoleResource extends Resource implements HasShieldPermissions
                                     ->default(Utils::getFilamentAuthGuard())
                                     ->nullable()
                                     ->maxLength(255),
+
+                                Forms\Components\Select::make('admin_start_page')
+                                    ->label(__('admin_start_page.label_role'))
+                                    ->options(AdminStartPage::options())
+                                    ->searchable()
+                                    ->nullable()
+                                    ->helperText(__('admin_start_page.help_role')),
 
                                 Forms\Components\Select::make(config('permission.column_names.team_foreign_key'))
                                     ->label(__('filament-shield::filament-shield.field.team'))

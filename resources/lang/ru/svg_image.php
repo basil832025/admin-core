@@ -2,7 +2,7 @@
 
 return [
     'nav' => [
-        'navigation_group'   => 'Медиа',
+        'navigation_group'   => 'Настройки',
         'navigation_label'   => 'SVG Изображения',
         'model_label'        => 'SVG изображение',
         'plural_model_label' => 'SVG изображения',

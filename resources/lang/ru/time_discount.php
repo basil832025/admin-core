@@ -2,7 +2,7 @@
 
 return [
     'nav' => [
-        'navigation_group'   => 'Дисконтные программы',
+        'navigation_group'   => 'Настройки',
         'navigation_label'   => 'Скидки по времени',
         'model_label'        => 'Скидка по времени',
         'plural_model_label' => 'Скидки по времени',
@@ -73,5 +73,4 @@ return [
         'scope_description'         => 'Ограничь акцию по группам, товарам, характеристикам или их значениям',
     ],
 ];
-
 

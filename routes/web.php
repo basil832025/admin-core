@@ -76,52 +76,297 @@ Route::get('/admin/switch-locale/{locale}', function (string $locale) {
     } catch (\Exception $e) {
         // Если таблицы нет, используем дефолтные
     }
-    
+
     // Если языков нет, используем дефолтные
     if (empty($allowed)) {
         $allowed = ['ru', 'uk', 'en'];
     }
-    
+
     // Проверяем, что локаль разрешена
     $locale = strtolower($locale);
     if (!in_array($locale, $allowed, true)) {
         $locale = config('app.locale', 'ru');
     }
-    
+
     // Сохраняем в сессии под отдельным ключом для админки
     session(['admin_locale' => $locale]);
-    
+
     // Устанавливаем локаль приложения
     app()->setLocale($locale);
-    
+
     // Устанавливаем локаль для Carbon (даты)
     if (class_exists(\Carbon\Carbon::class)) {
         \Carbon\Carbon::setLocale($locale);
     }
-    
+
     // Редиректим обратно в админку, используя сохраненный URL из сессии
     $previousUrl = session('admin_previous_url');
     $referer = request()->header('referer');
-    
+
     // Приоритет 1: Если referer содержит /admin, используем его
     if ($referer && str_contains($referer, '/admin')) {
         return redirect($referer);
     }
-    
+
     // Приоритет 2: Если есть сохраненный URL админки, используем его
     if ($previousUrl && str_contains($previousUrl, '/admin')) {
         return redirect($previousUrl);
     }
-    
+
     // Приоритет 3: Иначе редиректим на главную админки
     return redirect('/admin');
 })
     ->name('admin.switch-locale')
     ->middleware(['web', 'auth:admin']);         // доступ только залогиненному в админке
 
+Route::get('/admin/callcenter/clients/phone-suggestions', function (\Illuminate\Http\Request $request) {
+    $query = preg_replace('/\D+/', '', (string) $request->query('q', ''));
+
+    if (strlen($query) < 3) {
+        return response()->json([]);
+    }
+
+    $clients = \App\Models\Shop\Client::query()
+        ->select('id', 'name', 'phone')
+        ->whereRaw("REGEXP_REPLACE(phone, '[^0-9]', '') LIKE ?", ["{$query}%"])
+        ->orderBy('name')
+        ->limit(20)
+        ->get()
+        ->map(function (\App\Models\Shop\Client $client): array {
+            return [
+                'id' => (int) $client->id,
+                'phone' => (string) ($client->phone ?? ''),
+                'name' => (string) ($client->name ?? ''),
+            ];
+        })
+        ->values();
+
+    return response()->json($clients);
+})
+    ->name('admin.callcenter.phone-suggestions')
+    ->middleware(['web', 'auth:admin']);
+
+Route::post('/admin/client-addresses/{address}/coords', function (\Illuminate\Http\Request $request, \App\Models\Shop\ClientAddress $address) {
+    $payload = $request->validate([
+        'latitude' => ['required', 'numeric'],
+        'longitude' => ['required', 'numeric'],
+        'formatted_address' => ['nullable', 'string', 'max:255'],
+        'street_place_id' => ['nullable', 'string', 'max:255'],
+    ]);
+
+    \Log::info('Admin address coords update: request', [
+        'address_id' => $address->id,
+        'client_id' => $address->client_id,
+        'existing_latitude' => $address->latitude,
+        'existing_longitude' => $address->longitude,
+        'latitude' => $payload['latitude'],
+        'longitude' => $payload['longitude'],
+        'has_formatted_address' => ! empty($payload['formatted_address'] ?? null),
+        'has_street_place_id' => ! empty($payload['street_place_id'] ?? null),
+    ]);
+
+    $hasExistingCoords = ! empty($address->latitude) && ! empty($address->longitude);
+    $force = (bool) $request->boolean('force', false);
+
+    if ($hasExistingCoords && ! $force) {
+        \Log::info('Admin address coords update: skipped (existing coords protected)', [
+            'address_id' => $address->id,
+            'existing_latitude' => $address->latitude,
+            'existing_longitude' => $address->longitude,
+        ]);
+
+        return response()->json([
+            'ok' => true,
+            'skipped' => true,
+            'reason' => 'existing_coords',
+        ]);
+    }
+
+    $address->update([
+        'latitude' => (float) $payload['latitude'],
+        'longitude' => (float) $payload['longitude'],
+        'formatted_address' => $payload['formatted_address'] ?? $address->formatted_address,
+        'street_place_id' => $payload['street_place_id'] ?? $address->street_place_id,
+    ]);
+
+    \Log::info('Admin address coords update: saved', [
+        'address_id' => $address->id,
+        'saved_latitude' => $address->fresh()?->latitude,
+        'saved_longitude' => $address->fresh()?->longitude,
+    ]);
+
+    return response()->json(['ok' => true]);
+})
+    ->name('admin.client-addresses.coords')
+    ->middleware(['web', 'auth:admin']);
+
+Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request $request) {
+    $search = trim((string) $request->query('q', ''));
+    $categoryId = (int) $request->query('category_id', 0);
+    $locales = \App\Models\Setting::getActiveLocales();
+
+    if (empty($locales)) {
+        $locales = ['uk', 'ru', 'en'];
+    }
+
+    $needle = '%' . addcslashes(mb_strtolower($search), '%_') . '%';
+
+    $categories = \App\Models\Shop\ProductCategory::query()
+        ->whereHas('products', fn ($q) => $q->where('in_stock', 1))
+        ->get(['id', 'title'])
+        ->map(fn (\App\Models\Shop\ProductCategory $cat) => [
+            'id' => (int) $cat->id,
+            'name' => (string) $cat->name,
+        ])
+        ->values();
+
+    $products = \App\Models\Shop\Product::query()
+        ->select(['id', 'title', 'short_name', 'price', 'main_image', 'parent_id', 'category_id', 'in_stock'])
+        ->whereNull('parent_id')
+        ->where('in_stock', 1)
+        ->when($categoryId > 0, fn ($q) => $q->where('category_id', $categoryId))
+        ->when($search !== '', function ($q) use ($needle, $locales): void {
+            $q->where(function ($w) use ($needle, $locales): void {
+                // Поиск по самому товару (как в SearchController)
+                foreach ($locales as $loc) {
+                    $w->orWhereRaw(
+                        "LOWER(CASE WHEN JSON_VALID(`title`) THEN JSON_UNQUOTE(JSON_EXTRACT(`title`, '$.\"{$loc}\"')) ELSE `title` END) LIKE ?",
+                        [$needle]
+                    );
+
+                    $w->orWhereRaw(
+                        "LOWER(CASE WHEN JSON_VALID(`short_name`) THEN JSON_UNQUOTE(JSON_EXTRACT(`short_name`, '$.\"{$loc}\"')) ELSE `short_name` END) LIKE ?",
+                        [$needle]
+                    );
+                }
+
+                // fallback для не-JSON полей
+                $w->orWhereRaw('LOWER(`title`) LIKE ?', [$needle])
+                    ->orWhereRaw('LOWER(`short_name`) LIKE ?', [$needle]);
+
+                $w->orWhereRaw('LOWER(`slug`) LIKE ?', [$needle])
+                    ->orWhereRaw('LOWER(`code2`) LIKE ?', [$needle])
+                    ->orWhereRaw('LOWER(`sku`) LIKE ?', [$needle]);
+
+                // Поиск по value_text характеристик родителя
+                $w->orWhereExists(function ($query) use ($needle) {
+                    $query->select(\Illuminate\Support\Facades\DB::raw(1))
+                        ->from('bs_product_characteristic_value')
+                        ->whereColumn('bs_product_characteristic_value.product_id', 'bs_products.id')
+                        ->whereRaw('LOWER(bs_product_characteristic_value.value_text) LIKE ?', [$needle]);
+                });
+
+                // Поиск по value_text характеристик дочерних товаров
+                $w->orWhereExists(function ($query) use ($needle) {
+                    $query->select(\Illuminate\Support\Facades\DB::raw(1))
+                        ->from('bs_products AS child_products')
+                        ->join('bs_product_characteristic_value', 'child_products.id', '=', 'bs_product_characteristic_value.product_id')
+                        ->whereColumn('child_products.parent_id', 'bs_products.id')
+                        ->whereRaw('LOWER(bs_product_characteristic_value.value_text) LIKE ?', [$needle]);
+                });
+
+                // Поиск по JSON значению характеристик родителя
+                foreach ($locales as $loc) {
+                    $w->orWhereExists(function ($query) use ($needle, $loc) {
+                        $query->select(\Illuminate\Support\Facades\DB::raw(1))
+                            ->from('bs_product_characteristic_value')
+                            ->join('bs_characteristic_values', 'bs_product_characteristic_value.characteristic_value_id', '=', 'bs_characteristic_values.id')
+                            ->whereColumn('bs_product_characteristic_value.product_id', 'bs_products.id')
+                            ->whereRaw(
+                                "LOWER(CASE WHEN JSON_VALID(bs_characteristic_values.value) THEN JSON_UNQUOTE(JSON_EXTRACT(bs_characteristic_values.value, '$.\"{$loc}\"')) ELSE bs_characteristic_values.value END) LIKE ?",
+                                [$needle]
+                            );
+                    });
+                }
+
+                // Поиск по JSON значению характеристик дочерних товаров
+                foreach ($locales as $loc) {
+                    $w->orWhereExists(function ($query) use ($needle, $loc) {
+                        $query->select(\Illuminate\Support\Facades\DB::raw(1))
+                            ->from('bs_products AS child_products')
+                            ->join('bs_product_characteristic_value', 'child_products.id', '=', 'bs_product_characteristic_value.product_id')
+                            ->join('bs_characteristic_values', 'bs_product_characteristic_value.characteristic_value_id', '=', 'bs_characteristic_values.id')
+                            ->whereColumn('child_products.parent_id', 'bs_products.id')
+                            ->whereRaw(
+                                "LOWER(CASE WHEN JSON_VALID(bs_characteristic_values.value) THEN JSON_UNQUOTE(JSON_EXTRACT(bs_characteristic_values.value, '$.\"{$loc}\"')) ELSE bs_characteristic_values.value END) LIKE ?",
+                                [$needle]
+                            );
+                    });
+                }
+
+                // Поиск по всем вариантам (название/артикул/slug)
+                $w->orWhereExists(function ($query) use ($needle, $locales) {
+                    $query->select(\Illuminate\Support\Facades\DB::raw(1))
+                        ->from('bs_products AS child_products')
+                        ->whereColumn('child_products.parent_id', 'bs_products.id')
+                        ->where(function ($cw) use ($needle, $locales): void {
+                            foreach ($locales as $loc) {
+                                $cw->orWhereRaw(
+                                    "LOWER(CASE WHEN JSON_VALID(child_products.title) THEN JSON_UNQUOTE(JSON_EXTRACT(child_products.title, '$.\"{$loc}\"')) ELSE child_products.title END) LIKE ?",
+                                    [$needle]
+                                );
+
+                                $cw->orWhereRaw(
+                                    "LOWER(CASE WHEN JSON_VALID(child_products.short_name) THEN JSON_UNQUOTE(JSON_EXTRACT(child_products.short_name, '$.\"{$loc}\"')) ELSE child_products.short_name END) LIKE ?",
+                                    [$needle]
+                                );
+                            }
+
+                            // fallback для не-JSON полей вариантов
+                            $cw->orWhereRaw('LOWER(child_products.title) LIKE ?', [$needle])
+                                ->orWhereRaw('LOWER(child_products.short_name) LIKE ?', [$needle]);
+
+                            $cw->orWhereRaw('LOWER(child_products.slug) LIKE ?', [$needle])
+                                ->orWhereRaw('LOWER(child_products.code2) LIKE ?', [$needle])
+                                ->orWhereRaw('LOWER(child_products.sku) LIKE ?', [$needle]);
+                        });
+                });
+            });
+        })
+        ->with(['children' => function ($q) {
+            $q->select(['id', 'title', 'price', 'main_image', 'parent_id', 'in_stock'])
+                ->where('in_stock', 1)
+                ->orderBy('sort')
+                ->orderBy('id');
+        }])
+        ->orderBy('sort')
+        ->orderBy('id')
+        ->limit(120)
+        ->get();
+
+    $productsPayload = $products->map(function (\App\Models\Shop\Product $product) {
+        $variants = $product->children ?? collect();
+        $hasVariants = $variants->isNotEmpty();
+
+        return [
+            'id' => (int) $product->id,
+            'title' => (string) ($product->display_name ?? $product->title ?? ''),
+            'image' => $product->main_image_url,
+            'price' => (float) ($product->price ?? 0),
+            'has_variants' => $hasVariants,
+            'unit' => \App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions::resolveMenuUnitLabel((int) $product->id),
+            'variants' => $variants->map(function (\App\Models\Shop\Product $variant) {
+                return [
+                    'id' => (int) $variant->id,
+                    'title' => (string) ($variant->display_name ?? $variant->title ?? ''),
+                    'price' => (float) ($variant->price ?? 0),
+                    'unit' => \App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions::resolveMenuUnitLabel((int) $variant->id),
+                ];
+            })->values()->all(),
+        ];
+    })->values();
+
+    return response()->json([
+        'categories' => $categories,
+        'products' => $productsPayload,
+    ]);
+})
+    ->name('admin.callcenter.menu-catalog')
+    ->middleware(['web', 'auth:admin']);
+
 Route::get('/admin/clear-cache', function () {
     $cleared = [];
-    
+
     // Получаем активные языки динамически
     $locales = [];
     try {
@@ -135,12 +380,12 @@ Route::get('/admin/clear-cache', function () {
         // Если таблицы нет, используем дефолтные
         $locales = ['uk', 'en', 'ru'];
     }
-    
+
     // Если языков нет, используем дефолтные
     if (empty($locales)) {
         $locales = ['uk', 'en', 'ru'];
     }
-    
+
     // Очищаем кеш категорий для всех языков
     foreach ($locales as $locale) {
         $key1 = "product_categories_{$locale}";
@@ -148,17 +393,17 @@ Route::get('/admin/clear-cache', function () {
         if (cache()->forget($key1)) $cleared[] = $key1;
         if (cache()->forget($key2)) $cleared[] = $key2;
     }
-    
+
     // Очищаем кеш языков
     if (cache()->forget('active_languages_map')) {
         $cleared[] = 'active_languages_map';
     }
-    
+
     // Очищаем весь кеш приложения (опционально, можно закомментировать если не нужно)
     // cache()->flush();
-    
+
     $count = count($cleared);
-    
+
     if ($count > 0) {
         session()->flash('notification', [
             'type' => 'success',
@@ -172,7 +417,7 @@ Route::get('/admin/clear-cache', function () {
             'body' => 'Нет кешированных данных для очистки',
         ]);
     }
-    
+
     return back();
 })
     ->name('admin.clear-cache')
@@ -277,22 +522,22 @@ Route::middleware(['web', 'auth'])->group(function () {
 
     Route::get('/profile/orders/{order}', function ($orderId) {
         $user = auth()->user();
-        
+
         // Проверяем, что пользователь авторизован
         if (!$user) {
             abort(403, 'User not authenticated');
         }
-        
+
         // Находим заказ с явной проверкой принадлежности
         $order = \App\Models\Shop\Order::where('id', $orderId)
             ->where('clients_id', $user->id)
             ->first();
-        
+
         // Если заказ не найден или не принадлежит пользователю
         if (!$order) {
             abort(403, 'Order not found or access denied');
         }
-        
+
         return view('pages.profile.orders.show', compact('order'));
     })->name('profile.orders.show');
 
@@ -314,7 +559,7 @@ Route::middleware(['web'])->group(function () {
 
     Route::middleware('guest')->group(function () {
         Route::get('/auth', [ClientAuthController::class,'show'])->name('auth.show');
-        
+
         Route::get('/auth/redirect/{provider}', [ClientAuthController::class,'redirect'])
             ->whereIn('provider',['google','facebook','apple'])->name('auth.redirect');
 
@@ -323,13 +568,13 @@ Route::middleware(['web'])->group(function () {
 
        Route::post('/auth/register', [ClientAuthController::class,'register'])->name('auth.register');
         Route::post('/auth/login',    [ClientAuthController::class,'login'])->name('auth.login');
-        
+
         // Авторизация только по телефону + SMS (без пароля)
         Route::post('/auth/phone-sms/send-code', [ClientAuthController::class,'loginPhoneSms'])
             ->name('auth.phone-sms.send-code')->middleware('throttle:5,1');
         Route::post('/auth/phone-sms/verify', [ClientAuthController::class,'verifyPhoneSms'])
             ->name('auth.phone-sms.verify')->middleware('throttle:10,1');
-        
+
         // Сохранение URL checkout для редиректа после авторизации
         Route::post('/auth/save-checkout-url', [ClientAuthController::class,'saveCheckoutUrl'])
             ->name('auth.save-checkout-url');
@@ -473,5 +718,3 @@ Route::post('/blog/comments', [BlogController::class, 'storeComment'])
 Route::fallback(function () {
     return response()->view('404', [], 404);
 });
-
-

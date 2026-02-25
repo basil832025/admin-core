@@ -2,7 +2,7 @@
 
 return [
     'nav' => [
-        'navigation_group'   => 'Discount programs',
+        'navigation_group'   => 'Settings',
         'navigation_label'   => 'Promo codes',
         'model_label'        => 'Promo code',
         'plural_model_label' => 'Promo codes',
@@ -53,4 +53,3 @@ return [
         'scope_description'         => 'Limit the promo code by groups, products and/or characteristics',
     ],
 ];
-

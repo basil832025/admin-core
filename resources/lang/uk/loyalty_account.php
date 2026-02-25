@@ -2,7 +2,7 @@
 
 return [
     'nav' => [
-        'navigation_group'   => 'Лояльність',
+        'navigation_group'   => 'Магазин',
         'navigation_label'   => 'Бонусні рахунки',
         'model_label'        => 'Бонусний рахунок',
         'plural_model_label' => 'Бонусні рахунки',
@@ -82,4 +82,3 @@ return [
         ],
     ],
 ];
-

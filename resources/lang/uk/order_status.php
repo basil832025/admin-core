@@ -3,7 +3,7 @@
 return [
     'cart'       => 'Чернетка (кошик)',
     'new'         => 'Новий',
-    'processing'  => 'В обробці',
+    'processing'  => 'На кухні',
     'on_hold'     => 'Відкладено',
     'filling'     => 'Начинка',
     'molding'     => 'Ліпка',

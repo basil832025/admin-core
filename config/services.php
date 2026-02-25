@@ -32,6 +32,9 @@ return [
 
     'google_maps' => [
         'key' => env('GOOGLE_MAPS_API_KEY'),
+        'kitchen_lat' => env('GOOGLE_MAPS_KITCHEN_LAT'),
+        'kitchen_lng' => env('GOOGLE_MAPS_KITCHEN_LNG'),
+        'kitchen_address' => env('GOOGLE_MAPS_KITCHEN_ADDRESS'),
     ],
     'postmark' => [
         'token' => env('POSTMARK_TOKEN'),

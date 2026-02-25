@@ -13,6 +13,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Spatie\Permission\Models\Role;
+use App\Support\AdminStartPage;
 
 class UserResource extends Resource
 {
@@ -68,6 +69,13 @@ class UserResource extends Resource
                 ->relationship('roles', 'name')
                 ->preload()
                 ->searchable(),
+
+            Forms\Components\Select::make('admin_start_page')
+                ->label(__('admin_start_page.label_user'))
+                ->options(AdminStartPage::options())
+                ->searchable()
+                ->nullable()
+                ->helperText(__('admin_start_page.help_user')),
         ]);
     }
 

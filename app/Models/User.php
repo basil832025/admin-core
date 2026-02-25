@@ -28,6 +28,7 @@ class User extends Authenticatable
         'email',
         'password',
         'position_id',
+        'admin_start_page',
     ];
 
     /**

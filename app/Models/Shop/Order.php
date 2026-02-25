@@ -210,12 +210,24 @@ class Order extends Model
 
         // при обновлении — дописывать время смены статуса
         static::updating(function (self $order) {
+            $times = $order->status_times ?? [];
+            if (is_string($times)) {
+                $decoded = json_decode($times, true);
+                $times = is_array($decoded) ? $decoded : [];
+            }
+            if (! is_array($times)) {
+                $times = [];
+            }
+            if (! isset($times[OrderStatus::New->value]) && $order->created_at) {
+                $times[OrderStatus::New->value] = $order->created_at->format('Y-m-d H:i:s');
+            }
+
             if ($order->isDirty('status')) {
-                $times  = $order->getOriginal('status_times') ?? [];
                 $status = $order->status ?? OrderStatus::New;
                 $times[$status->value] = now()->toDateTimeString();
-                $order->status_times = $times;
             }
+
+            $order->status_times = $times;
             $originalStatus = $order->getOriginal('status');
             $newStatus      = $order->status;
 

@@ -22,6 +22,7 @@ class LoyaltyAccountResource extends Resource
     protected static ?string $pluralModelLabel = null;
     protected static ?string $modelLabel = null;
     protected static ?string $navigationGroup = null;
+    protected static ?int $navigationSort = 999;
 
     public static function getNavigationGroup(): ?string
     {

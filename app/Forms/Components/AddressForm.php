@@ -9,6 +9,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Get;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -20,11 +21,12 @@ final class AddressForm
         return Group::make()
             ->statePath($statePath)
             ->schema([
-                Grid::make(2)->schema([
+                Grid::make(12)->schema([
                     // Используем TextInput вместо Select, так как серверные запросы не работают из-за ограничений по referer
                     // Автокомплит будет инициализирован через клиентский JavaScript
-                    TextInput::make('street_place_id')
+                    TextInput::make('street')
                         ->label(__('order.fields.address_street_place'))
+                        ->required()
                         ->live(onBlur: false) // Отключаем live на blur, чтобы значение не сбрасывалось
                         ->dehydrated()
                         ->extraAttributes([
@@ -34,8 +36,10 @@ final class AddressForm
                         ->afterStateUpdated(function ($state, callable $set) {
                             // Это поле будет заполняться через JavaScript, но оставляем колбэк для совместимости
                             // Не сбрасываем значение, если оно было установлено через автокомплит
+                            $set('street_place_id', $state);
                         })
-                        ->columnSpan(2),
+                        ->columnSpan(6),
+                    Hidden::make('street_place_id')->dehydrated(),
                     
                     // Старое поле Select закомментировано, так как серверные запросы не работают
                     /*
@@ -263,13 +267,41 @@ final class AddressForm
                         ->columnSpan(2),
                     */
                     
-                    TextInput::make('street')->label(__('order.fields.address_street'))->columnSpan(2),
-                    TextInput::make('house')->label(__('order.fields.address_house'))->required(),
-                    TextInput::make('apartment')->label(__('order.fields.address_apartment')),
-                    TextInput::make('intercom')->label(__('order.fields.address_intercom')),
-                    TextInput::make('floor')->label(__('order.fields.address_floor')),
-                    TextInput::make('entrance')->label(__('order.fields.address_entrance')),
-                    TextInput::make('city')->label(__('order.fields.address_city'))->default('Київ'),
+                    // TextInput::make('street')->label(__('order.fields.address_street'))->columnSpan(2),
+                    TextInput::make('house')
+                        ->label(__('order.fields.address_house'))
+                        ->required()
+                        ->columnSpan(3),
+                    TextInput::make('apartment')
+                        ->label(__('order.fields.address_apartment'))
+                        ->visible(fn (Get $get) => ! (bool) $get('is_private_house'))
+                        ->columnSpan(3),
+                    TextInput::make('entrance')
+                        ->label(__('order.fields.address_entrance'))
+                        ->visible(fn (Get $get) => ! (bool) $get('is_private_house'))
+                        ->columnSpan(2),
+                    TextInput::make('intercom')
+                        ->label(__('order.fields.address_intercom'))
+                        ->visible(fn (Get $get) => ! (bool) $get('is_private_house'))
+                        ->columnSpan(2),
+                    TextInput::make('floor')
+                        ->label(__('order.fields.address_floor'))
+                        ->visible(fn (Get $get) => ! (bool) $get('is_private_house'))
+                        ->columnSpan(2),
+                    Select::make('type')
+                        ->label(__('order.fields.address_type'))
+                        ->options([
+                            'home'    => __('order.address_types.home'),
+                            'work'    => __('order.address_types.work'),
+                            'friends' => __('order.address_types.friends'),
+                        ])
+                        ->columnSpan(3),
+                    Toggle::make('is_private_house')
+                        ->label(__('order.fields.address_private_house'))
+                        ->live()
+                        ->inline(false)
+                        ->columnSpan(3),
+                    // TextInput::make('city')->label(__('order.fields.address_city'))->default('Київ'),
                     Hidden::make('latitude')
                         ->dehydrated()
                         ->live()
@@ -330,13 +362,8 @@ final class AddressForm
                                 ]);
                             }
                         }),
-                    TextInput::make('formatted_address')->label(__('order.fields.address_formatted'))->dehydrated()->columnSpan(2),
-                    Select::make('type')->label(__('order.fields.address_type'))->options([
-                        'home'    => __('order.address_types.home'),
-                        'work'    => __('order.address_types.work'),
-                        'friends' => __('order.address_types.friends'),
-                    ]),
-                    Toggle::make('is_private_house')->label(__('order.fields.address_private_house')),
+                    // TextInput::make('formatted_address')->label(__('order.fields.address_formatted'))->dehydrated()->columnSpan(2),
+                    Hidden::make('formatted_address')->dehydrated(),
                     Textarea::make('note')->label(__('order.fields.address_note'))->columnSpanFull(),
                 ]),
             ]);

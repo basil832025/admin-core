@@ -17,6 +17,9 @@ return [
     'sections' => [
         'order_items'       => 'Order items',
         'amount_discounts'  => 'Amount and discounts',
+        'sum_only'          => 'Amount',
+        'discounts_only'    => 'Discounts',
+        'history_orders'    => 'Order history',
         'statuses'          => 'Statuses',
         'metadata'          => 'Metadata',
         'time_payment'      => 'Time and payment',
@@ -88,6 +91,7 @@ return [
     'actions' => [
         'confirm_rollback' => 'Confirm rollback',
         'cancel'            => 'Cancel',
+        'create'            => 'Create',
         'save'              => 'Save',
         'delete'            => 'Delete',
         'add_item'          => 'Add item',
@@ -95,6 +99,20 @@ return [
         'clear_promo'        => 'Cancel promo code',
         'statuses'          => 'Statuses',
         'statuses_modal_heading' => 'Statuses: :number',
+    ],
+
+    'filters' => [
+        'quick'      => 'Quick range',
+        'date_from'  => 'Date from',
+        'date_to'    => 'Date to',
+        'discount'   => 'Discount',
+        'today'      => 'Today',
+        'yesterday'  => 'Yesterday',
+        'day_before' => 'Day before',
+        'this_week'  => 'This week',
+        'this_month' => 'This month',
+        'order_number' => 'Order #',
+        'phone' => 'Phone',
     ],
 
     'steps' => [
@@ -129,6 +147,16 @@ return [
         'total_price'   => 'Amount',
         'discount'      => 'Discount',
         'created_at'    => 'Created',
+        'operator_time' => 'Operator<br>time',
+        'kitchen_time'  => 'Kitchen<br>time',
+        'delivery_time' => 'Delivery<br>time',
+        'total_time'    => 'Total<br>time',
+        'items'         => 'Items',
+    ],
+
+    'time_units' => [
+        'minutes_short' => 'min',
+        'hours_short'   => 'h',
     ],
 
     'journal' => [
@@ -175,4 +203,3 @@ return [
         'status_changed'      => 'Status changed',
     ],
 ];
-

@@ -41,6 +41,11 @@ class EditOrder extends EditRecord
                 ->label(__('order.actions.delete')),
         ];
     }
+
+    protected function getFormActions(): array
+    {
+        return [];
+    }
     protected function getFooterWidgets(): array
     {
         return [

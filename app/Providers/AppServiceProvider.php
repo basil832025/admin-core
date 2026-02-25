@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Filament\Auth\LoginResponse as FilamentLoginResponse;
 use App\Listeners\SyncFavoritesOnLogin;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Support\Facades\Event;
@@ -14,6 +15,7 @@ use App\Models\Kitchen\KitchenTicket;
 use App\Observers\KitchenTicketObserver;
 use App\Support\FrontView;
 use App\Services\LiqPayService;
+use Filament\Http\Responses\Auth\Contracts\LoginResponse as LoginResponseContract;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -22,6 +24,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->bind(LoginResponseContract::class, FilamentLoginResponse::class);
+
      /*   $this->app->singleton(LiqPayService::class, function ($app) {
             $cfg = config('services.liqpay');
 

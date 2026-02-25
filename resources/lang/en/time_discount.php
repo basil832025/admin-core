@@ -2,7 +2,7 @@
 
 return [
     'nav' => [
-        'navigation_group'   => 'Discount programs',
+        'navigation_group'   => 'Settings',
         'navigation_label'   => 'Time-based discounts',
         'model_label'        => 'Time-based discount',
         'plural_model_label' => 'Time-based discounts',
@@ -73,5 +73,4 @@ return [
         'scope_description'         => 'Limit the promotion by groups, products, characteristics or their values',
     ],
 ];
-
 

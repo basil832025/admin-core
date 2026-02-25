@@ -2,7 +2,7 @@
 
 return [
     'nav' => [
-        'navigation_group'   => 'Дисконтні програми',
+        'navigation_group'   => 'Настройки',
         'navigation_label'   => 'Знижки за часом',
         'model_label'        => 'Знижка за часом',
         'plural_model_label' => 'Знижки за часом',
@@ -73,5 +73,3 @@ return [
         'scope_description'          => 'Обмеж акцію за групами, товарами, характеристиками або їх значеннями',
     ],
 ];
-
-

@@ -31,6 +31,7 @@ use Filament\Enums\ThemeMode;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 use Filament\View\PanelsRenderHook;
+use App\Support\AdminStartPage;
 // ← ВАЖНО
 class AdminPanelProvider extends PanelProvider
 {
@@ -124,6 +125,7 @@ class AdminPanelProvider extends PanelProvider
             ->authGuard('admin') // <- явно
             ->brandName('Basil Admin')
             ->login()
+            ->homeUrl(fn (): string => AdminStartPage::resolveForCurrentUser())
            // ->viteTheme('resources/css/filament/admin/theme.css') // подключаем свои стили
 
             ->colors([
@@ -231,6 +233,16 @@ class AdminPanelProvider extends PanelProvider
             PanelsRenderHook::BODY_END,
             fn () => view('filament.hooks.address-autocomplete-init')
         );
+
+        $panel->renderHook(
+            PanelsRenderHook::HEAD_END,
+            fn () => view('filament.hooks.callcenter-order-inline-table-styles')
+        );
+
+        $panel->renderHook(
+            PanelsRenderHook::BODY_END,
+            fn () => view('filament.hooks.logistics-route-map-init')
+        );
         
     return $panel;
     }
@@ -249,7 +261,6 @@ class AdminPanelProvider extends PanelProvider
             }
         } catch (\Throwable $e) {
             // провалимся во 2-й способ
-            dump($e);
         }
 
         try {

@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\Shop\OrderResource\Pages;
 
 use App\Filament\Resources\Shop\OrderResource;
-use Filament\Actions;
+use Filament\Actions\Action;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Wizard;
 use Filament\Forms\Components\Wizard\Step;
@@ -15,6 +15,26 @@ class CreateOrder extends CreateRecord
 {
     use HasWizard;
     protected static string $resource = OrderResource::class;
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            $this->getCancelFormAction()
+                ->label(__('order.actions.cancel'))
+                ->color('warning')
+                ->url($this->getResource()::getUrl('index')),
+
+            Action::make('createTop')
+                ->label(__('order.actions.create'))
+                ->color('primary')
+                ->action('create'),
+        ];
+    }
+
+    protected function getFormActions(): array
+    {
+        return [];
+    }
     public function form(Form $form): Form
     {
         return parent::form($form)

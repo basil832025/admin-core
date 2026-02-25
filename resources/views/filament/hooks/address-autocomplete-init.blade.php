@@ -2,7 +2,8 @@
 @php
     // Ограничиваем запуск автокомплита только страницами заказов,
     // чтобы не дергать логику на логине и прочих экранах Filament.
-    $isOrderPage = request()->routeIs('filament.admin.resources.shop.orders.*');
+    $isOrderPage = request()->routeIs('filament.admin.resources.shop.orders.*')
+        || request()->routeIs('filament.admin.resources.callcenter.orders.*');
 @endphp
 
 @if(config('services.google_maps.key') && $isOrderPage)
@@ -351,6 +352,27 @@
                 google.maps.event.clearInstanceListeners(streetInput._autocomplete);
                 delete streetInput._autocomplete;
             }
+            if (streetInput._ccPreventOverwriteHandler) {
+                streetInput.removeEventListener('input', streetInput._ccPreventOverwriteHandler);
+                streetInput.removeEventListener('change', streetInput._ccPreventOverwriteHandler);
+                delete streetInput._ccPreventOverwriteHandler;
+            }
+            if (streetInput._ccStrictInputHandler) {
+                streetInput.removeEventListener('input', streetInput._ccStrictInputHandler);
+                delete streetInput._ccStrictInputHandler;
+            }
+            if (streetInput._ccStrictBlurHandler) {
+                streetInput.removeEventListener('blur', streetInput._ccStrictBlurHandler);
+                delete streetInput._ccStrictBlurHandler;
+            }
+            if (streetInput._ccSelectedAddressChangeHandler) {
+                document.removeEventListener('change', streetInput._ccSelectedAddressChangeHandler, true);
+                delete streetInput._ccSelectedAddressChangeHandler;
+            }
+            if (streetInput._ccForceBtnObserver) {
+                streetInput._ccForceBtnObserver.disconnect();
+                delete streetInput._ccForceBtnObserver;
+            }
             // Очищаем флаг инициализации
             delete streetInput.dataset.autocompleteInitialized;
         }
@@ -377,6 +399,21 @@
         
         const formattedAddressInput = form?.querySelector('input[name*="[formatted_address]"]') || 
                                      form?.querySelector('input[name*="formatted_address"]');
+        const streetPlaceIdInput = form?.querySelector('input[name*="[street_place_id]"]') ||
+                                  form?.querySelector('input[name*="street_place_id"]');
+
+        const resolveSelectedAddressInput = function () {
+            if (!form) {
+                return null;
+            }
+
+            return form.querySelector('select[name*="selected_address_id"]') ||
+                form.querySelector('input[name*="selected_address_id"]') ||
+                form.querySelector('[wire\\:model*="selected_address_id"]') ||
+                form.querySelector('[id*="selected_address_id"]');
+        };
+
+        let selectedAddressInput = resolveSelectedAddressInput();
         // Ищем поле street (не street_place_id!)
         // В Filament поля могут иметь формат: data.address.street или address[street]
         let streetNameInput = form?.querySelector('input[name*="[street]"]') || 
@@ -424,7 +461,9 @@
             latitudeInput: !!latitudeInput,
             longitudeInput: !!longitudeInput,
             formattedAddressInput: !!formattedAddressInput,
+            streetPlaceIdInput: !!streetPlaceIdInput,
             streetNameInput: !!streetNameInput,
+            selectedAddressInput: !!selectedAddressInput,
             deliveryTrigger: !!deliveryTrigger,
             deliveryPriceAuto: !!deliveryPriceAuto
         });
@@ -463,6 +502,7 @@
             
             let isPlaceSelected = false;
             let selectedStreetValue = '';
+            let isProgrammaticStreetUpdate = false;
             
             // Обработчик для предотвращения перезаписи значения после выбора места
             // Google Places может перезаписать значение введенным текстом
@@ -489,20 +529,234 @@
             };
             
             // Следим за изменениями значения
-            streetInput.addEventListener('input', preventOverwrite);
-            streetInput.addEventListener('change', preventOverwrite);
+            streetInput._ccPreventOverwriteHandler = preventOverwrite;
+            streetInput.addEventListener('input', streetInput._ccPreventOverwriteHandler);
+            streetInput.addEventListener('change', streetInput._ccPreventOverwriteHandler);
+
+            const closeAllPacContainers = function () {
+                const containers = document.querySelectorAll('.pac-container');
+
+                containers.forEach(function (container) {
+                    container.style.display = 'none';
+                    container.style.visibility = 'hidden';
+                    container.style.opacity = '0';
+                    container.style.pointerEvents = 'auto';
+                });
+            };
+
+            const resetPacContainersForNextSearch = function () {
+                const containers = document.querySelectorAll('.pac-container');
+
+                containers.forEach(function (container) {
+                    container.style.removeProperty('display');
+                    container.style.removeProperty('visibility');
+                    container.style.removeProperty('opacity');
+                    container.style.removeProperty('pointer-events');
+                });
+            };
+
+            let geocodeLookupInProgress = false;
+            let lastGeocodedAddressId = null;
+
+            const geocodeExistingAddressIfMissingCoords = function (options = {}) {
+                const force = !!options.force;
+                selectedAddressInput = resolveSelectedAddressInput();
+
+                if (!selectedAddressInput) {
+                    console.info('Filament Autocomplete: geocode skip - no selectedAddressInput');
+                    return;
+                }
+
+                const selectedId = (selectedAddressInput.value || '').trim();
+
+                if (!selectedId || selectedId === '-1') {
+                    console.info('Filament Autocomplete: geocode skip - selectedId empty or new', { selectedId });
+                    return;
+                }
+
+                const latNow = parseFloat(String(latitudeInput?.value || '').replace(',', '.'));
+                const lngNow = parseFloat(String(longitudeInput?.value || '').replace(',', '.'));
+
+                if (!force && !Number.isNaN(latNow) && !Number.isNaN(lngNow)) {
+                    console.info('Filament Autocomplete: geocode skip - coords already present', { selectedId, latNow, lngNow });
+                    return;
+                }
+
+                if (!force && (geocodeLookupInProgress || lastGeocodedAddressId === selectedId)) {
+                    console.info('Filament Autocomplete: geocode skip - in progress or already geocoded', {
+                        selectedId,
+                        geocodeLookupInProgress,
+                        lastGeocodedAddressId,
+                    });
+                    return;
+                }
+
+                if (!window.google || !window.google.maps || !window.google.maps.places || !google.maps.places.PlacesService) {
+                    console.info('Filament Autocomplete: geocode skip - google places not ready');
+                    return;
+                }
+
+                const street = (streetInput?.value || '').trim();
+                const house = (houseInput?.value || '').trim();
+                const city = (cityInput?.value || 'Київ').trim() || 'Київ';
+                const query = [street, house, city].filter(Boolean).join(', ');
+
+                if (!query) {
+                    console.info('Filament Autocomplete: geocode skip - empty query', { selectedId });
+                    return;
+                }
+
+                console.info('Filament Autocomplete: geocode start', { selectedId, query, force });
+
+                geocodeLookupInProgress = true;
+
+                const placesService =
+                    window.__filamentPlacesService ||
+                    (window.__filamentPlacesService = new google.maps.places.PlacesService(document.createElement('div')));
+
+                placesService.findPlaceFromQuery(
+                    {
+                        query: query,
+                        fields: ['geometry', 'formatted_address', 'place_id'],
+                        language: 'uk',
+                    },
+                    function (results, status) {
+                        geocodeLookupInProgress = false;
+
+                        if (
+                            status !== google.maps.places.PlacesServiceStatus.OK ||
+                            !results ||
+                            !results.length ||
+                            !results[0].geometry ||
+                            !results[0].geometry.location
+                        ) {
+                            console.info('Filament Autocomplete: geocode no results', { selectedId, status, query });
+                            return;
+                        }
+
+                        const location = results[0].geometry.location;
+                        const lat = typeof location.lat === 'function' ? location.lat() : location.lat;
+                        const lng = typeof location.lng === 'function' ? location.lng() : location.lng;
+
+                        if (lat == null || lng == null) {
+                            console.info('Filament Autocomplete: geocode invalid lat/lng', { selectedId, query });
+                            return;
+                        }
+
+                        console.info('Filament Autocomplete: geocode success', {
+                            selectedId,
+                            lat,
+                            lng,
+                            place_id: results[0].place_id || null,
+                        });
+
+                        if (latitudeInput) {
+                            latitudeInput.value = String(lat);
+                            latitudeInput.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+                            latitudeInput.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+                        }
+
+                        if (longitudeInput) {
+                            longitudeInput.value = String(lng);
+                            longitudeInput.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+                            longitudeInput.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+                        }
+
+                        if (formattedAddressInput) {
+                            formattedAddressInput.value = results[0].formatted_address || '';
+                            formattedAddressInput.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+                            formattedAddressInput.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+                        }
+
+                        if (streetPlaceIdInput) {
+                            streetPlaceIdInput.value = results[0].place_id || '';
+                            streetPlaceIdInput.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+                            streetPlaceIdInput.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+                        }
+
+                        if (deliveryTrigger) {
+                            const key = 'coords_' + lat + '_' + lng + '_' + Date.now();
+                            deliveryTrigger.value = key;
+                            deliveryTrigger.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+                            deliveryTrigger.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+                        }
+
+                        const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+                        fetch('/admin/client-addresses/' + encodeURIComponent(selectedId) + '/coords', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': csrf,
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest',
+                            },
+                            body: JSON.stringify({
+                                latitude: lat,
+                                longitude: lng,
+                                formatted_address: results[0].formatted_address || null,
+                                street_place_id: results[0].place_id || null,
+                                force: force,
+                            }),
+                        })
+                        .then(function (response) {
+                            console.info('Filament Autocomplete: coords save response', {
+                                selectedId,
+                                status: response.status,
+                                ok: response.ok,
+                                force,
+                            });
+                        })
+                        .catch(function (error) {
+                            console.warn('Filament Autocomplete: coords save failed', { selectedId, error });
+                            // Игнорируем: даже без сохранения в БД пересчет на текущей форме выполнится.
+                        });
+
+                        lastGeocodedAddressId = selectedId;
+                    }
+                );
+            };
+
+            const ensureForceCoordsButton = function () {
+                selectedAddressInput = resolveSelectedAddressInput();
+
+                const fieldWrap = (selectedAddressInput?.closest('.fi-fo-field-wrp') || selectedAddressInput?.parentElement)
+                    ?? (streetInput?.closest('.fi-fo-field-wrp') || streetInput?.parentElement);
+
+                if (!fieldWrap) {
+                    return;
+                }
+
+                let btn = fieldWrap.querySelector('.cc-force-coords-btn');
+
+                if (!btn) {
+                    btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'cc-force-coords-btn';
+                    btn.textContent = 'Оновити координати';
+                    btn.style.marginTop = '6px';
+                    btn.style.fontSize = '12px';
+                    btn.style.color = '#2563eb';
+                    btn.style.background = 'transparent';
+                    btn.style.border = 'none';
+                    btn.style.cursor = 'pointer';
+                    btn.style.padding = '0';
+
+                    btn.addEventListener('click', function () {
+                        console.info('Filament Autocomplete: manual force geocode click');
+                        lastGeocodedAddressId = null;
+                        geocodeExistingAddressIfMissingCoords({ force: true });
+                    });
+
+                    fieldWrap.appendChild(btn);
+                }
+            };
             
             autocomplete.addListener('place_changed', function () {
                 console.log('Filament Autocomplete: place_changed event fired');
                 
                 // Сразу закрываем панель автокомплита при выборе
-                const pacContainer = document.querySelector('.pac-container');
-                if (pacContainer) {
-                    console.log('Filament Autocomplete: Closing pac-container immediately');
-                    pacContainer.style.display = 'none';
-                    pacContainer.style.visibility = 'hidden';
-                    pacContainer.style.opacity = '0';
-                }
+                closeAllPacContainers();
                 
                 const place = autocomplete.getPlace();
                 console.log('Filament Autocomplete: place object', place);
@@ -518,6 +772,8 @@
                 
                 console.log('Filament Autocomplete: Place is valid, processing...');
                 isPlaceSelected = true;
+                isProgrammaticStreetUpdate = true;
+                streetInput.dataset.googleSelectedAt = String(Date.now());
                 const comps = place.address_components || [];
                 let street = '';
                 let streetNumber = '';
@@ -602,21 +858,12 @@
                     // Снимаем защиту через 3 секунды
                     setTimeout(function() {
                         clearInterval(protectionInterval);
-                        if (streetInput.value === fullStreet) {
-                            streetInput.dataset.placeSelected = 'false';
-                        }
                     }, 3000);
                     
                     
                     // Закрываем панель автокомплита после выбора
                     // Скрываем панель результатов сразу
-                    const pacContainer = document.querySelector('.pac-container');
-                    if (pacContainer) {
-                        console.log('Filament Autocomplete: Hiding pac-container');
-                        pacContainer.style.display = 'none';
-                        pacContainer.style.visibility = 'hidden';
-                        pacContainer.style.opacity = '0';
-                    }
+                    closeAllPacContainers();
                     
                     // Также убираем фокус с поля, чтобы закрыть выпадающий список
                     // Делаем это с небольшой задержкой, чтобы дать время на обработку выбора
@@ -624,15 +871,29 @@
                         if (document.activeElement === streetInput) {
                             streetInput.blur();
                         }
-                        
-                        // Дополнительно проверяем и скрываем панель, если она все еще видна
-                        const pacContainerCheck = document.querySelector('.pac-container');
-                        if (pacContainerCheck && pacContainerCheck.style.display !== 'none') {
-                            pacContainerCheck.style.display = 'none';
-                            pacContainerCheck.style.visibility = 'hidden';
-                            pacContainerCheck.style.opacity = '0';
-                        }
+
+                        closeAllPacContainers();
                     }, 200);
+
+                    setTimeout(function() {
+                        if (document.activeElement === streetInput) {
+                            streetInput.blur();
+                        }
+
+                        closeAllPacContainers();
+                    }, 500);
+
+                    // Финально фиксируем реальное значение поля после всех внутренних апдейтов Filament
+                    setTimeout(function() {
+                        selectedStreetValue = (streetInput.value || fullStreet || '').trim();
+                        isPlaceSelected = !!selectedStreetValue;
+                        streetInput.dataset.selectedValue = selectedStreetValue;
+                        streetInput.dataset.placeSelected = isPlaceSelected ? 'true' : 'false';
+                    }, 220);
+
+                    setTimeout(function () {
+                        isProgrammaticStreetUpdate = false;
+                    }, 700);
                     
                     // НЕ добавляем обработчик для очистки поля - это мешает сохранению значения
                     // Пользователь может просто удалить значение вручную, если нужно искать новую улицу
@@ -641,6 +902,7 @@
                 // Обновляем поля формы
                 // Сначала пробуем найти поле street по name атрибуту (наиболее надежный способ)
                 // Примечание: streetInput уже объявлен в начале функции
+                const autocompleteStreetInput = streetInput;
                 streetInput = null;
                 if (form) {
                     // Ищем по name атрибуту - Filament может использовать разные форматы:
@@ -718,9 +980,15 @@
                         id: streetInput.id,
                         currentValue: streetInput.value
                     });
+
+                    // Если это то же самое поле автокомплита, не перезаписываем
+                    // "полный адрес" коротким названием улицы.
+                    const streetValueToSet = (streetInput === autocompleteStreetInput)
+                        ? fullStreet
+                        : street;
                     
                     // Обновляем значение
-                    streetInput.value = street;
+                    streetInput.value = streetValueToSet;
                     
                     // Триггерим события для Filament/Livewire
                     streetInput.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
@@ -1376,15 +1644,151 @@
                 }
             });
             
-            // Валидация: запрещаем ручной ввод
-            streetInput.addEventListener('blur', function() {
+            // Валидация: запрещаем ручной ввод (только выбор из Google списка)
+            const clearInvalidStreetValue = function () {
+                if (streetInput) {
+                    streetInput.value = '';
+                    streetInput.dataset.selectedValue = '';
+                    streetInput.dataset.placeSelected = 'false';
+                    streetInput.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+                    streetInput.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+                    streetInput.dispatchEvent(new CustomEvent('livewire:update', { bubbles: true }));
+                }
+
+                if (formattedAddressInput) {
+                    formattedAddressInput.value = '';
+                    formattedAddressInput.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+                    formattedAddressInput.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+                }
+
+                if (latitudeInput) {
+                    latitudeInput.value = '';
+                    latitudeInput.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+                    latitudeInput.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+                }
+
+                if (longitudeInput) {
+                    longitudeInput.value = '';
+                    longitudeInput.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+                    longitudeInput.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+                }
+            };
+
+            const strictBlurHandler = function () {
                 setTimeout(function() {
-                    if (!isPlaceSelected && streetInput.value && streetInput.value !== selectedStreetValue) {
-                        // Показываем предупреждение, но не блокируем (в админке можно разрешить ручной ввод)
-                        // Можно добавить модальное окно, если нужно
+                    const currentValue = (streetInput.value || '').trim();
+                    const datasetSelected = (streetInput.dataset.selectedValue || '').trim();
+                    const datasetIsSelected = streetInput.dataset.placeSelected === 'true';
+                    const selectedAt = Number(streetInput.dataset.googleSelectedAt || 0);
+                    const justSelected = selectedAt > 0 && (Date.now() - selectedAt) < 2500;
+
+                    if (!currentValue) {
+                        closeAllPacContainers();
+                        return;
                     }
+
+                    if ((datasetIsSelected || isPlaceSelected || justSelected) && (datasetSelected || selectedStreetValue)) {
+                        const restoreValue = datasetSelected || selectedStreetValue;
+
+                        if (currentValue !== restoreValue) {
+                            streetInput.value = restoreValue;
+                            streetInput.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+                            streetInput.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+                        }
+
+                        closeAllPacContainers();
+                        return;
+                    }
+
+                    if (!datasetIsSelected && !isPlaceSelected && !justSelected && currentValue !== '') {
+                        clearInvalidStreetValue();
+
+                        if (typeof window.showAddressErrorModal === 'function') {
+                            window.showAddressErrorModal('Будь ласка, оберіть вулицю зі списку Google. Ручне введення не дозволено.');
+                        } else {
+                            alert('Оберіть вулицю зі списку Google. Ручне введення не дозволено.');
+                        }
+                    }
+
+                    closeAllPacContainers();
                 }, 300);
+            };
+            streetInput._ccStrictBlurHandler = strictBlurHandler;
+            streetInput.addEventListener('blur', streetInput._ccStrictBlurHandler);
+
+            // Как на checkout: если пользователь начал редактировать выбранную улицу,
+            // помечаем значение как ручной ввод.
+            const strictInputHandler = function () {
+                resetPacContainersForNextSearch();
+
+                if (isProgrammaticStreetUpdate) {
+                    return;
+                }
+
+                const currentValue = (streetInput.value || '').trim();
+
+                if (isPlaceSelected && selectedStreetValue && currentValue !== selectedStreetValue) {
+                    isPlaceSelected = false;
+                    selectedStreetValue = '';
+                    streetInput.dataset.placeSelected = 'false';
+                    streetInput.dataset.selectedValue = '';
+                }
+            };
+            streetInput._ccStrictInputHandler = strictInputHandler;
+            streetInput.addEventListener('input', streetInput._ccStrictInputHandler);
+            streetInput.addEventListener('focus', resetPacContainersForNextSearch);
+
+            const selectedAddressChangeHandler = function (event) {
+                const target = event?.target;
+                const name = target?.name || '';
+                const id = target?.id || '';
+                const wireModel = target?.getAttribute?.('wire:model') || target?.getAttribute?.('wire:model.live') || '';
+
+                if (
+                    name.includes('selected_address_id') ||
+                    id.includes('selected_address_id') ||
+                    wireModel.includes('selected_address_id')
+                ) {
+                    ensureForceCoordsButton();
+                    console.info('Filament Autocomplete: selected address changed', {
+                        name,
+                        id,
+                        value: target?.value,
+                    });
+                    lastGeocodedAddressId = null;
+                    setTimeout(geocodeExistingAddressIfMissingCoords, 220);
+                    setTimeout(geocodeExistingAddressIfMissingCoords, 650);
+                }
+            };
+
+            if (streetInput._ccSelectedAddressChangeHandler) {
+                document.removeEventListener('change', streetInput._ccSelectedAddressChangeHandler, true);
+            }
+
+            streetInput._ccSelectedAddressChangeHandler = selectedAddressChangeHandler;
+            document.addEventListener('change', streetInput._ccSelectedAddressChangeHandler, true);
+
+            ensureForceCoordsButton();
+            setTimeout(geocodeExistingAddressIfMissingCoords, 250);
+            setTimeout(geocodeExistingAddressIfMissingCoords, 900);
+
+            // Filament/Livewire может перерисовывать DOM и удалять динамически добавленную кнопку.
+            // Поддерживаем её наличие автоматически.
+            if (streetInput._ccForceBtnObserver) {
+                streetInput._ccForceBtnObserver.disconnect();
+                delete streetInput._ccForceBtnObserver;
+            }
+
+            const forceBtnObserver = new MutationObserver(function () {
+                ensureForceCoordsButton();
             });
+
+            forceBtnObserver.observe(form || document.body, {
+                childList: true,
+                subtree: true,
+            });
+
+            streetInput._ccForceBtnObserver = forceBtnObserver;
             
             // Помечаем, что автокомплит инициализирован
             streetInput.dataset.autocompleteInitialized = 'true';
