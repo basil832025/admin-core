@@ -83,6 +83,79 @@ class ExternalSyncService
         return $total;
     }
 
+    public function syncClientsFromAllSources(int $limit = 200): array
+    {
+        $sources = $this->activeSources();
+        $total = [
+            'sources' => $sources->count(),
+            'processed' => 0,
+            'created' => 0,
+            'updated' => 0,
+            'failed' => 0,
+            'errors' => [],
+        ];
+
+        foreach ($sources as $source) {
+            try {
+                $stats = $this->syncClientsForSource($source, $limit);
+                $total['processed'] += (int) ($stats['processed'] ?? 0);
+                $total['created'] += (int) ($stats['created'] ?? 0);
+                $total['updated'] += (int) ($stats['updated'] ?? 0);
+                $total['failed'] += (int) ($stats['failed'] ?? 0);
+            } catch (\Throwable $e) {
+                $total['failed']++;
+                $total['errors'][] = $source->name . ': ' . $e->getMessage();
+            }
+        }
+
+        return $total;
+    }
+
+    public function syncClientsForSource(Source $source, int $limit = 200): array
+    {
+        $orders = $this->fetchSourceOrders($source, $limit);
+
+        $processed = 0;
+        $created = 0;
+        $updated = 0;
+        $failed = 0;
+
+        foreach ($orders as $orderPayload) {
+            $processed++;
+
+            try {
+                $before = SourceClient::query()
+                    ->where('source_id', $source->id)
+                    ->where('external_phone', $this->normalizePhone((string) Arr::get($orderPayload, 'phone', '')))
+                    ->exists();
+
+                $localClient = $this->ensureLocalClient($source, $orderPayload);
+                $this->ensureClientAddress($localClient, $orderPayload);
+
+                $before ? $updated++ : $created++;
+            } catch (\Throwable $e) {
+                $failed++;
+            }
+        }
+
+        SyncRun::create([
+            'source_id' => $source->id,
+            'type' => 'clients',
+            'status' => $failed > 0 ? 'partial' : 'success',
+            'processed' => $processed,
+            'created' => $created,
+            'updated' => $updated,
+            'failed' => $failed,
+        ]);
+
+        return [
+            'processed' => $processed,
+            'created' => $created,
+            'updated' => $updated,
+            'failed' => $failed,
+        ];
+    }
+
     public function repairImportedOrders(?int $sourceId = null, ?string $externalOrderId = null): array
     {
         $query = SourceOrder::query()->with(['source', 'localOrder.items.modifiers', 'localOrder.adjustments']);

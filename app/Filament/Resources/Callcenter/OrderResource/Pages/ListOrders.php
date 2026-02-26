@@ -31,17 +31,34 @@ class ListOrders extends ListRecords
                         ->success()
                         ->send();
                 }),
+            Action::make('syncClients')
+                ->label('Синхронизировать клиентов')
+                ->icon('heroicon-m-users')
+                ->color('gray')
+                ->action(function (): void {
+                    $stats = app(ExternalSyncService::class)->syncClientsFromAllSources(200);
+                    $errors = array_slice((array) ($stats['errors'] ?? []), 0, 2);
+                    $errorsText = $errors ? (' Ошибки: ' . implode(' | ', $errors)) : '';
+
+                    Notification::make()
+                        ->title('Синхронизация клиентов завершена')
+                        ->body("Источников: {$stats['sources']}. Проверено: {$stats['processed']}. Новых: {$stats['created']}. Обновлено: {$stats['updated']}. Ошибок: {$stats['failed']}.{$errorsText}")
+                        ->color(($stats['failed'] ?? 0) > 0 ? 'warning' : 'success')
+                        ->send();
+                }),
             Action::make('syncOrders')
                 ->label('Получить новые заказы')
                 ->icon('heroicon-m-arrow-path')
                 ->color('primary')
                 ->action(function (): void {
                     $stats = app(ExternalSyncService::class)->syncOrdersFromAllSources(80);
+                    $errors = array_slice((array) ($stats['errors'] ?? []), 0, 2);
+                    $errorsText = $errors ? (' Ошибки: ' . implode(' | ', $errors)) : '';
 
                     Notification::make()
                         ->title('Синхронизация заказов завершена')
-                        ->body("Источников: {$stats['sources']}. Проверено заказов: {$stats['processed']}. Новых: {$stats['created']}. Уже были: {$stats['updated']}. Ошибок: {$stats['failed']}.")
-                        ->success()
+                        ->body("Источников: {$stats['sources']}. Проверено заказов: {$stats['processed']}. Новых: {$stats['created']}. Уже были: {$stats['updated']}. Ошибок: {$stats['failed']}.{$errorsText}")
+                        ->color(($stats['failed'] ?? 0) > 0 ? 'warning' : 'success')
                         ->send();
                 }),
             CreateAction::make(),
