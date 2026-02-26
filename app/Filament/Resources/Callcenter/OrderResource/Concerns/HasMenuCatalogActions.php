@@ -24,7 +24,10 @@ trait HasMenuCatalogActions
             ->modalCancelActionLabel('Закрити')
             ->modalContent(fn () => view('filament.callcenter.menu-catalog-slide-over', [
                 'componentId' => method_exists($this, 'getId') ? $this->getId() : null,
-                'fetchUrl' => route('admin.callcenter.menu-catalog'),
+                'fetchUrl' => route('admin.callcenter.menu-catalog', absolute: false),
+                'defaultSourceId' => (string) ((isset($this->record) && $this->record?->exists)
+                    ? ((int) ($this->record->source_id ?? 0))
+                    : 0),
             ]));
     }
 

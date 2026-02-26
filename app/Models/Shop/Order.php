@@ -3,6 +3,7 @@
 namespace App\Models\Shop;
 
 use App\Enums\OrderStatus;
+use App\Models\Callcenter\Source;
 use App\Models\Shop\Client;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -60,6 +61,10 @@ class Order extends Model
         'sale_sum',
         'total_price_sale',
         'short_name',
+        'source_id',
+        'external_order_id',
+        'has_unmatched_items',
+        'synced_at',
     ];
 
     protected $casts = [
@@ -76,6 +81,9 @@ class Order extends Model
         'sale_sum' => 'decimal:2',
         'total_price_sale' => 'decimal:2',
         'address'     => 'array',
+        'source_id' => 'integer',
+        'has_unmatched_items' => 'boolean',
+        'synced_at' => 'datetime',
 
     ];
 
@@ -161,6 +169,11 @@ class Order extends Model
     public function clients(): BelongsTo //Один заказ принадлежит одному клиенту.
     {
         return $this->belongsTo(Client::class, 'clients_id');
+    }
+
+    public function source(): BelongsTo
+    {
+        return $this->belongsTo(Source::class, 'source_id');
     }
 
     /** @return HasMany<OrderItem> */

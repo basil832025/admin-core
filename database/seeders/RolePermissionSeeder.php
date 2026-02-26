@@ -18,6 +18,7 @@ class RolePermissionSeeder extends Seeder
         Permission::findOrCreate('view orders');
         Permission::findOrCreate('edit products');
         Permission::findOrCreate('access_callcenter_orders');
+        Permission::findOrCreate('access_synced_site_directories', 'admin');
         Permission::findOrCreate('access_logistics_orders');
 
         // ---- Права на статусы ----
@@ -51,7 +52,7 @@ class RolePermissionSeeder extends Seeder
         $managerCanDowngrade = true;
 
         $manager->syncPermissions(array_filter(array_merge(
-            ['view orders', 'edit products', 'access_callcenter_orders', 'access_logistics_orders'],
+            ['view orders', 'edit products', 'access_callcenter_orders', 'access_synced_site_directories', 'access_logistics_orders'],
             $managerStatusPermissions,
             $managerCanDowngrade ? ['order_status_downgrade'] : []
         )));

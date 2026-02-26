@@ -9,6 +9,7 @@ use App\Filament\Clusters\Products\Resources\ProductResource;
 use App\Filament\Resources\Shop\OrderResource\Pages;
 use App\Filament\Resources\Shop\OrderResource\Widgets\OrderStats;
 use App\Forms\Components\AddressForm;
+use App\Models\Callcenter\Source as CallcenterSource;
 use App\Models\Setting;
 use App\Models\Shop\ClientAddress;
 use App\Models\Shop\FixedDiscount;
@@ -989,21 +990,22 @@ class OrderResource extends Resource
                             ]);
                     })
                     ->optionsLimit(50)
-                    ->afterStateUpdated(function ($state, Set $set) {
+                    ->afterStateUpdated(function ($state, Set $set, Get $get) {
                         // $state — это выбранный clients_id
                         $phone = $state
                             ? Client::query()->whereKey($state)->value('phone')
                             : null;
 
-                        $set('client_phone_view', $phone ?? '');
+                        $set('client_phone_view', $phone ?: (string) ($get('incoming_phone') ?? ''));
                     })
                     ->afterStateHydrated(function (Get $get, Set $set) {
                         // При открытии формы (редактирование/создание) подставим телефон,
                         // если клиент уже выбран:
                         $id = $get('clients_id');
+                        $fallback = (string) ($get('incoming_phone') ?? '');
                         $set('client_phone_view', $id
                             ? Client::query()->whereKey($id)->value('phone')
-                            : ''
+                            : $fallback
                         );
                     })
                     ->createOptionForm(fn (Form $form) => ClientResource::form($form))
@@ -1036,16 +1038,19 @@ class OrderResource extends Resource
                    // ->dependsOn('clients_id')
                     ->afterStateHydrated(function (TextInput $component, Get $get) {
                         $id = $get('clients_id');
-                        $component->state($id ? (Client::find($id)->phone ?? '') : '');
+                        $component->state($id ? (Client::find($id)->phone ?? '') : ((string) ($get('incoming_phone') ?? '')));
                     })
                     ->formatStateUsing(function (Get $get) {
                         $id = $get('clients_id');
-                        return $id ? (Client::find($id)->phone ?? '') : '';
+                        return $id ? (Client::find($id)->phone ?? '') : ((string) ($get('incoming_phone') ?? ''));
                     })
 
 
 
                     ->columnSpan(3),
+
+                Hidden::make('incoming_phone')
+                    ->dehydrated(false),
             ]),
 
                /* ->createOptionAction(function (FormAction $action) {
@@ -1943,7 +1948,7 @@ class OrderResource extends Resource
     {
         return $table
             ->modifyQueryUsing(fn (Builder $query) => $query
-                ->with(['clients', 'clientAddress', 'lastLiqpayLog', 'items.product']) // ← исправление N+1 проблемы
+                ->with(['clients', 'clientAddress', 'lastLiqpayLog', 'items.product', 'source']) // ← исправление N+1 проблемы
             )
             ->columns(array_filter([
                 TextColumn::make('number')
@@ -1999,6 +2004,15 @@ class OrderResource extends Resource
                         : null
                     )
                     ->openUrlInNewTab(),
+
+                static::class === \App\Filament\Resources\Callcenter\OrderResource::class
+                    ? TextColumn::make('source.name')
+                        ->label('Сайт')
+                        ->badge()
+                        ->sortable()
+                        ->toggleable()
+                        ->placeholder('—')
+                    : null,
 
                 static::class === \App\Filament\Resources\Callcenter\OrderResource::class
                     ? ViewColumn::make('status_compact')
@@ -2234,20 +2248,60 @@ class OrderResource extends Resource
                     ->sortable(false)
                     ->toggleable(),
             ]))  ->defaultSort('created_at', 'desc') // 👈 сортировка по умолчанию
-            ->filtersLayout(\Filament\Tables\Enums\FiltersLayout::AboveContent)
+            ->filtersLayout(\Filament\Tables\Enums\FiltersLayout::AboveContentCollapsible)
             ->filtersFormColumns(12)
             ->filters([
+                SelectFilter::make('source_id')
+                    ->label('Сайт')
+                    ->options(fn () => CallcenterSource::query()->orderBy('name')->pluck('name', 'id')->toArray())
+                    ->searchable()
+                    ->preload()
+                    ->columnSpan(1),
+
+                SelectFilter::make('import_type')
+                    ->label('Тип')
+                    ->options([
+                        'imported' => 'Импортированные',
+                        'local' => 'Локальные',
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $value = $data['value'] ?? null;
+
+                        return match ($value) {
+                            'imported' => $query->whereNotNull('source_id'),
+                            'local' => $query->whereNull('source_id'),
+                            default => $query,
+                        };
+                    })
+                    ->columnSpan(1),
+
+                SelectFilter::make('has_unmatched_items')
+                    ->label('Сопоставл.')
+                    ->options([
+                        '1' => 'Есть несопоставленные',
+                        '0' => 'Все сопоставлены',
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $value = $data['value'] ?? null;
+                        if ($value === null || $value === '') {
+                            return $query;
+                        }
+
+                        return $query->where('has_unmatched_items', (bool) $value);
+                    })
+                    ->columnSpan(1),
+
                 SelectFilter::make('payment')     // то же имя поля
                 ->label(__('Оплата'))
                     ->options(static::paymentOptionsAdmin())
                     ->multiple()
                     ->preload()
-                    ->columnSpan(2),
+                    ->columnSpan(1),
 
                 TrashedFilter::make()
-                    ->columnSpan(2),
+                    ->columnSpan(1),
                 Filter::make('created_at')
-                    ->columnSpan(8)
+                    ->columnSpan(7)
                     ->form([
                         ToggleButtons::make('quick_range')
                             ->label(__('order.filters.quick'))

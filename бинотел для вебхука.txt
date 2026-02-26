@@ -1,0 +1,31 @@
+- Основной webhook (API CALL SETTINGS):  
+https://braeden-inkiest-insistingly.ngrok-free.dev/integrations/binotel/call-settings?secret=binotel_local_secret_change_me_2026
+- Webhook завершения (API CALL COMPLETED):  
+https://braeden-inkiest-insistingly.ngrok-free.dev/integrations/binotel/call-completed?secret=binotel_local_secret_change_me_2026
+И попроси,
+
+
+- Основной webhook (API CALL SETTINGS):  
+https://test3.redbarbell.com.ua/integrations/binotel/call-settings?secret=binotel_local_secret_change_me_2026
+- Webhook завершения (API CALL COMPLETED):  
+https://test3.redbarbell.com.ua/integrations/binotel/call-completed?secret=binotel_local_secret_change_me_2026
+
+
+
+
+
+ чтобы метод был POST, Content-Type: application/json.
+ 
+ 
+ 
+curl.exe -X POST 'https://braeden-inkiest-insistingly.ngrok-free.dev/integrations/binotel/call-settings?secret=binotel_local_secret_change_me_2026' -H 'Content-Type: application/json' --data-raw '{"requestType":"apiCallSettings","externalNumber":"0681245640","callType":"0","pbxNumber":"0443334023","companyID":"26912"}'
+
+
+curl.exe -X POST "http://myadmin.test/integrations/binotel/call-settings?secret=binotel_local_secret_change_me_2026" `
+  -H "Content-Type: application/json" `
+  -d "{\"requestType\":\"apiCallSettings\",\"externalNumber\":\"0681245640\",\"callType\":\"0\",\"pbxNumber\":\"0443334023\",\"companyID\":\"26912\"}"
+  
+  
+  
+  curl.exe -X POST "https://braeden-inkiest-insistingly.ngrok-free.dev/integrations/binotel/call-settings?secret=binotel_local_secret_change_me_2026" -H "Content-Type: application/x-www-form-urlencoded" --data "requestType=apiCallSettings&externalNumber=0681245640&callType=0&pbxNumber=0443334023&companyID=26912"
+  curl.exe -X POST "https://braeden-inkiest-insistingly.ngrok-free.dev/integrations/binotel/call-settings?secret=binotel_local_secret_change_me_2026" -H "Content-Type: application/x-www-form-urlencoded" --data "requestType=apiCallSettings&externalNumber=0681245641&callType=0&pbxNumber=0443334023&companyID=26912"

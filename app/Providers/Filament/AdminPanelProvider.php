@@ -243,6 +243,11 @@ class AdminPanelProvider extends PanelProvider
             PanelsRenderHook::BODY_END,
             fn () => view('filament.hooks.logistics-route-map-init')
         );
+
+        $panel->renderHook(
+            PanelsRenderHook::BODY_END,
+            fn () => view('filament.hooks.binotel-incoming-call-popup')
+        );
         
     return $panel;
     }

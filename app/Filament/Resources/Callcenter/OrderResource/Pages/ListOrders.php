@@ -4,7 +4,10 @@ namespace App\Filament\Resources\Callcenter\OrderResource\Pages;
 
 use App\Enums\OrderStatus;
 use App\Filament\Resources\Callcenter\OrderResource;
+use App\Services\Callcenter\ExternalSyncService;
+use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Resources\Pages\ListRecords\Tab;
 
@@ -15,6 +18,32 @@ class ListOrders extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('syncCatalog')
+                ->label('Синхронизировать каталог')
+                ->icon('heroicon-m-squares-2x2')
+                ->color('gray')
+                ->action(function (): void {
+                    $stats = app(ExternalSyncService::class)->syncCatalogFromAllSources();
+
+                    Notification::make()
+                        ->title('Синхронизация каталога завершена')
+                        ->body("Источников: {$stats['sources']}. Обработано: {$stats['processed']}. Создано: {$stats['created']}. Обновлено: {$stats['updated']}. Ошибок: {$stats['failed']}.")
+                        ->success()
+                        ->send();
+                }),
+            Action::make('syncOrders')
+                ->label('Получить новые заказы')
+                ->icon('heroicon-m-arrow-path')
+                ->color('primary')
+                ->action(function (): void {
+                    $stats = app(ExternalSyncService::class)->syncOrdersFromAllSources(80);
+
+                    Notification::make()
+                        ->title('Синхронизация заказов завершена')
+                        ->body("Источников: {$stats['sources']}. Проверено заказов: {$stats['processed']}. Новых: {$stats['created']}. Уже были: {$stats['updated']}. Ошибок: {$stats['failed']}.")
+                        ->success()
+                        ->send();
+                }),
             CreateAction::make(),
         ];
     }

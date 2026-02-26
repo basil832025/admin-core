@@ -7,8 +7,10 @@ use App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActio
 use App\Filament\Resources\Callcenter\OrderResource;
 use App\Models\Shop\ClientAddress;
 use App\Services\OrderPricing;
+use Filament\Notifications\Notification;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\CreateRecord;
+use Illuminate\Support\Facades\Cache;
 
 class CreateOrder extends CreateRecord
 {
@@ -16,6 +18,12 @@ class CreateOrder extends CreateRecord
     use HasMenuCatalogActions;
 
     protected static string $resource = OrderResource::class;
+
+    public function mount(): void
+    {
+        parent::mount();
+        $this->applyBinotelTokenPrefill();
+    }
 
     protected function getHeaderActions(): array
     {
@@ -123,5 +131,56 @@ class CreateOrder extends CreateRecord
             'formatted_address' => $orderAddress['formatted_address'] ?? $clientAddress->formatted_address,
             'street_place_id' => $orderAddress['street_place_id'] ?? $clientAddress->street_place_id,
         ]);
+    }
+
+    protected function applyBinotelTokenPrefill(): void
+    {
+        $token = trim((string) request()->query('bt', ''));
+        if ($token === '') {
+            return;
+        }
+
+        $payload = Cache::get('binotel_bt:' . $token);
+        if (! is_array($payload)) {
+            Notification::make()
+                ->warning()
+                ->title('Дані дзвінка не знайдено')
+                ->body('Токен Binotel невалідний або прострочений.')
+                ->send();
+            return;
+        }
+
+        $clientId = isset($payload['client_id']) ? (int) $payload['client_id'] : 0;
+
+        if ($clientId > 0) {
+            $state = array_merge($this->data ?? [], [
+                'clients_id' => $clientId,
+                'incoming_phone' => (string) ($payload['phone'] ?? ''),
+                'client_phone_view' => (string) ($payload['phone'] ?? ''),
+            ]);
+
+            $this->form->fill($state);
+
+            Notification::make()
+                ->success()
+                ->title('Знайдено клієнта')
+                ->body(($payload['client_name'] ?? 'Клієнт') . ' · ' . ($payload['phone'] ?? ''))
+                ->send();
+
+            return;
+        }
+
+        Notification::make()
+            ->info()
+            ->title('Клієнта не знайдено')
+            ->body('Номер: ' . ($payload['phone'] ?? '—') . '. Створіть клієнта та замовлення вручну.')
+            ->send();
+
+        $state = array_merge($this->data ?? [], [
+            'incoming_phone' => (string) ($payload['phone'] ?? ''),
+            'client_phone_view' => (string) ($payload['phone'] ?? ''),
+        ]);
+
+        $this->form->fill($state);
     }
 }

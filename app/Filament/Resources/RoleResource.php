@@ -48,6 +48,7 @@ class RoleResource extends Resource implements HasShieldPermissions
         $allow = [
             'access_admin',
             'access_callcenter_orders',
+            'access_synced_site_directories',
             'access_logistics_orders',
             'set_order_status*',   // все статусы
             'order_status_downgrade'
@@ -56,6 +57,7 @@ class RoleResource extends Resource implements HasShieldPermissions
         $translations = [
             'access_admin' => 'Доступ в админку',
             'access_callcenter_orders' => 'Доступ: Колцентр (заказы)',
+            'access_synced_site_directories' => 'Доступ: Справочники сайтов',
             'access_logistics_orders' => 'Доступ: Логистика (заказы)',
             'set_order_status' => 'Установить статус заказа',
             'set_order_status_assembled' => 'Статус: Собран',

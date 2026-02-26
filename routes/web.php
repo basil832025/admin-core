@@ -23,6 +23,7 @@ use App\Http\Controllers\Front\ProductController;
 use App\Http\Controllers\Front\MenuController;
 use Illuminate\Support\Str;
 use App\Http\Controllers\Front\LiqPayController;
+use App\Http\Controllers\Integrations\BinotelWebhookController;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 
 
@@ -146,6 +147,10 @@ Route::get('/admin/callcenter/clients/phone-suggestions', function (\Illuminate\
     ->name('admin.callcenter.phone-suggestions')
     ->middleware(['web', 'auth:admin']);
 
+Route::get('/admin/integrations/binotel/incoming-call/next', [BinotelWebhookController::class, 'nextIncomingCall'])
+    ->name('admin.integrations.binotel.incoming-call.next')
+    ->middleware(['web', 'auth:admin']);
+
 Route::post('/admin/client-addresses/{address}/coords', function (\Illuminate\Http\Request $request, \App\Models\Shop\ClientAddress $address) {
     $payload = $request->validate([
         'latitude' => ['required', 'numeric'],
@@ -203,16 +208,62 @@ Route::post('/admin/client-addresses/{address}/coords', function (\Illuminate\Ht
 Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request $request) {
     $search = trim((string) $request->query('q', ''));
     $categoryId = (int) $request->query('category_id', 0);
+    $sourceIdRaw = (string) $request->query('source_id', $request->query('order_source_id', '0'));
+    $selectedSourceId = is_numeric($sourceIdRaw) ? (int) $sourceIdRaw : 0;
     $locales = \App\Models\Setting::getActiveLocales();
 
     if (empty($locales)) {
         $locales = ['uk', 'ru', 'en'];
     }
 
+    $mainSiteName = (string) (\App\Models\Setting::value('site_name') ?: 'Основной сайт');
+    $sources = collect([
+        [
+            'id' => 0,
+            'name' => $mainSiteName,
+        ],
+    ])->merge(
+        \App\Models\Callcenter\Source::query()
+            ->where('is_active', true)
+            ->where('sync_enabled', true)
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (\App\Models\Callcenter\Source $source) => [
+                'id' => (int) $source->id,
+                'name' => (string) $source->name,
+            ])
+    )->values();
+
+    if (! $sources->contains(fn (array $source): bool => (int) $source['id'] === $selectedSourceId)) {
+        $selectedSourceId = 0;
+    }
+
+    $applySourceFilter = function (\Illuminate\Database\Eloquent\Builder $query) use ($selectedSourceId): void {
+        if ($selectedSourceId === 0) {
+            $query->whereNotExists(function ($subQuery): void {
+                $subQuery->select(\Illuminate\Support\Facades\DB::raw(1))
+                    ->from('bs_cc_source_products as csp')
+                    ->whereColumn('csp.local_product_id', 'bs_products.id');
+            });
+
+            return;
+        }
+
+        $query->whereExists(function ($subQuery) use ($selectedSourceId): void {
+            $subQuery->select(\Illuminate\Support\Facades\DB::raw(1))
+                ->from('bs_cc_source_products as csp')
+                ->whereColumn('csp.local_product_id', 'bs_products.id')
+                ->where('csp.source_id', $selectedSourceId);
+        });
+    };
+
     $needle = '%' . addcslashes(mb_strtolower($search), '%_') . '%';
 
     $categories = \App\Models\Shop\ProductCategory::query()
-        ->whereHas('products', fn ($q) => $q->where('in_stock', 1))
+        ->whereHas('products', function ($q) use ($applySourceFilter): void {
+            $q->where('in_stock', 1);
+            $applySourceFilter($q);
+        })
         ->get(['id', 'title'])
         ->map(fn (\App\Models\Shop\ProductCategory $cat) => [
             'id' => (int) $cat->id,
@@ -220,10 +271,14 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
         ])
         ->values();
 
-    $products = \App\Models\Shop\Product::query()
+    $productsQuery = \App\Models\Shop\Product::query()
         ->select(['id', 'title', 'short_name', 'price', 'main_image', 'parent_id', 'category_id', 'in_stock'])
         ->whereNull('parent_id')
-        ->where('in_stock', 1)
+        ->where('in_stock', 1);
+
+    $applySourceFilter($productsQuery);
+
+    $products = $productsQuery
         ->when($categoryId > 0, fn ($q) => $q->where('category_id', $categoryId))
         ->when($search !== '', function ($q) use ($needle, $locales): void {
             $q->where(function ($w) use ($needle, $locales): void {
@@ -357,11 +412,175 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
     })->values();
 
     return response()->json([
+        'sources' => $sources,
+        'selected_source_id' => $selectedSourceId,
         'categories' => $categories,
         'products' => $productsPayload,
     ]);
 })
     ->name('admin.callcenter.menu-catalog')
+    ->middleware(['web', 'auth:admin']);
+
+Route::get('/admin/callcenter/synced-catalog/data', function (\Illuminate\Http\Request $request) {
+    $sourceId = (int) $request->query('source_id', 0);
+    $directory = (string) $request->query('directory', 'catalog');
+    $search = trim((string) $request->query('q', ''));
+    $categoryId = trim((string) $request->query('category_id', ''));
+
+    $sources = \App\Models\Callcenter\Source::query()
+        ->where('is_active', true)
+        ->where('sync_enabled', true)
+        ->orderBy('name')
+        ->get(['id', 'name', 'last_catalog_synced_at'])
+        ->map(fn (\App\Models\Callcenter\Source $source) => [
+            'id' => (int) $source->id,
+            'name' => (string) $source->name,
+            'last_catalog_synced_at' => $source->last_catalog_synced_at?->toDateTimeString(),
+            'last_catalog_synced_at_label' => $source->last_catalog_synced_at
+                ? $source->last_catalog_synced_at->format('d.m.Y H:i:s')
+                : '—',
+        ])
+        ->values();
+
+    if ($sources->isEmpty()) {
+        return response()->json([
+            'sources' => [],
+            'selected_source_id' => 0,
+            'categories' => [],
+            'products' => [],
+            'clients' => [],
+        ]);
+    }
+
+    if (! $sources->contains(fn (array $source): bool => (int) $source['id'] === $sourceId)) {
+        $sourceId = (int) $sources->first()['id'];
+    }
+
+    if ($directory === 'clients') {
+        $clients = \App\Models\Callcenter\SourceClient::query()
+            ->where('source_id', $sourceId)
+            ->when($search !== '', function ($query) use ($search): void {
+                $needle = '%' . $search . '%';
+                $query->where(function ($w) use ($needle): void {
+                    $w->where('name', 'like', $needle)
+                        ->orWhere('external_phone', 'like', $needle)
+                        ->orWhere('email', 'like', $needle);
+                });
+            })
+            ->orderByDesc('id')
+            ->limit(300)
+            ->get(['id', 'name', 'external_phone', 'email', 'local_client_id'])
+            ->map(fn (\App\Models\Callcenter\SourceClient $client) => [
+                'id' => (int) $client->id,
+                'name' => (string) ($client->name ?? ''),
+                'phone' => (string) ($client->external_phone ?? ''),
+                'email' => (string) ($client->email ?? ''),
+                'local_client_id' => $client->local_client_id ? (int) $client->local_client_id : null,
+            ])
+            ->values();
+
+        return response()->json([
+            'sources' => $sources,
+            'selected_source_id' => $sourceId,
+            'clients' => $clients,
+            'categories' => [],
+            'products' => [],
+        ]);
+    }
+
+    $categories = \App\Models\Callcenter\SourceCategory::query()
+        ->where('source_id', $sourceId)
+        ->whereIn('external_id', function ($query) use ($sourceId): void {
+            $query->select('external_category_id')
+                ->from('bs_cc_source_products')
+                ->where('source_id', $sourceId)
+                ->whereNotNull('external_category_id')
+                ->groupBy('external_category_id');
+        })
+        ->orderBy('id')
+        ->get(['external_id', 'title'])
+        ->map(function (\App\Models\Callcenter\SourceCategory $category): array {
+            $title = $category->title;
+            $name = is_array($title)
+                ? (string) ($title['uk'] ?? $title['ru'] ?? $title['en'] ?? $category->external_id)
+                : (string) ($title ?: $category->external_id);
+
+            return [
+                'id' => (string) $category->external_id,
+                'name' => $name,
+            ];
+        })
+        ->values();
+
+    $productsRows = \App\Models\Callcenter\SourceProduct::query()
+        ->with('localProduct:id,title,short_name,main_image,price')
+        ->where('source_id', $sourceId)
+        ->when($categoryId !== '', fn ($q) => $q->where('external_category_id', $categoryId))
+        ->when($search !== '', function ($q) use ($search): void {
+            $needle = '%' . mb_strtolower($search) . '%';
+            $q->whereRaw('LOWER(title) LIKE ?', [$needle]);
+        })
+        ->orderBy('external_parent_id')
+        ->orderBy('id')
+        ->get();
+
+    $products = $productsRows
+        ->groupBy(fn (\App\Models\Callcenter\SourceProduct $row) => $row->external_parent_id ?: $row->external_id)
+        ->map(function ($rows) {
+            /** @var \App\Models\Callcenter\SourceProduct $first */
+            $first = $rows->first();
+            $hasVariants = $rows->count() > 1;
+
+            $image = $first->localProduct?->main_image_url
+                ?: (is_string(data_get($first->payload, 'img')) ? (string) data_get($first->payload, 'img') : null);
+
+            if (! $hasVariants) {
+                $single = $rows->first();
+                $singlePrice = (float) ($single->price ?? $single->localProduct?->price ?? 0);
+
+                return [
+                    'id' => (int) $single->id,
+                    'external_parent_id' => (string) ($single->external_parent_id ?: $single->external_id),
+                    'title' => (string) ($single->title ?: 'Без названия'),
+                    'image' => $image,
+                    'has_variants' => false,
+                    'price' => $singlePrice,
+                    'unit' => (string) ($single->size_label ?: ''),
+                    'variants' => [],
+                ];
+            }
+
+            $variants = $rows->map(function (\App\Models\Callcenter\SourceProduct $row): array {
+                return [
+                    'id' => (int) $row->id,
+                    'title' => (string) ($row->title ?: 'Вариант'),
+                    'price' => (float) ($row->price ?? $row->localProduct?->price ?? 0),
+                    'unit' => (string) ($row->size_label ?: ''),
+                ];
+            })->values();
+
+            return [
+                'id' => (int) $first->id,
+                'external_parent_id' => (string) ($first->external_parent_id ?: $first->external_id),
+                'title' => (string) ($first->title ?: 'Без названия'),
+                'image' => $image,
+                'has_variants' => true,
+                'price' => 0,
+                'unit' => '',
+                'variants' => $variants,
+            ];
+        })
+        ->values();
+
+    return response()->json([
+        'sources' => $sources,
+        'selected_source_id' => $sourceId,
+        'categories' => $categories,
+        'products' => $products,
+        'clients' => [],
+    ]);
+})
+    ->name('admin.callcenter.synced-catalog.data')
     ->middleware(['web', 'auth:admin']);
 
 Route::get('/admin/clear-cache', function () {
@@ -445,6 +664,14 @@ Route::get('/filter', [CatalogController::class, 'filter'])
     ->name('catalog.filter');
 Route::post('/liqpay/callback', [LiqPayController::class, 'callback'])
     ->name('liqpay.callback')
+    ->withoutMiddleware([VerifyCsrfToken::class]);
+
+Route::post('/integrations/binotel/call-settings', [BinotelWebhookController::class, 'callSettings'])
+    ->name('integrations.binotel.call-settings')
+    ->withoutMiddleware([VerifyCsrfToken::class]);
+
+Route::post('/integrations/binotel/call-completed', [BinotelWebhookController::class, 'callCompleted'])
+    ->name('integrations.binotel.call-completed')
     ->withoutMiddleware([VerifyCsrfToken::class]);
 Route::get('/test/liqpay-status/{order}', function ($orderId) {
     $publicKey  = env('LIQPAY_PUBLIC_KEY');

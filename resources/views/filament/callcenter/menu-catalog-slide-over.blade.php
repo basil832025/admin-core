@@ -3,6 +3,8 @@
         loading: false,
         q: '',
         category: '',
+        source: @js((string) ($defaultSourceId ?? '0')),
+        sources: [],
         categories: [],
         products: [],
         timer: null,
@@ -21,7 +23,11 @@
         async load() {
             this.loading = true;
             try {
-                const params = new URLSearchParams({ q: this.q || '', category_id: this.category || '' });
+                const params = new URLSearchParams({
+                    q: this.q || '',
+                    category_id: this.category || '',
+                    source_id: this.source || '0',
+                });
                 const response = await fetch(`${this.fetchUrl}?${params.toString()}`, {
                     headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
                     credentials: 'same-origin',
@@ -33,8 +39,13 @@
                 }
 
                 const payload = await response.json();
+                this.sources = Array.isArray(payload.sources) ? payload.sources : [];
                 this.categories = Array.isArray(payload.categories) ? payload.categories : [];
                 this.products = Array.isArray(payload.products) ? payload.products : [];
+
+                if (!this.sources.find((s) => String(s.id) === String(this.source)) && this.sources.length) {
+                    this.source = String(this.sources[0].id);
+                }
             } finally {
                 this.loading = false;
             }
@@ -61,6 +72,20 @@
         </x-filament::input.wrapper>
 
         <div class="text-xs text-gray-500 self-center" x-show="loading">Завантаження...</div>
+    </div>
+
+    <div class="flex flex-wrap gap-2">
+        <template x-for="site in sources" :key="site.id">
+            <button
+                type="button"
+                class="rounded-lg border px-3 py-1.5 text-xs"
+                :style="String(source) === String(site.id)
+                    ? 'background:#111827;color:#ffffff;border-color:#111827;'
+                    : 'background:#ffffff;color:#334155;border-color:#d1d5db;'"
+                @click="source = String(site.id); category = ''; load()"
+                x-text="site.name"
+            ></button>
+        </template>
     </div>
 
     <div class="flex flex-wrap gap-2">

@@ -194,23 +194,26 @@ class OrderResource extends ShopOrderResource
                                 })
                                 ->toArray();
                         })
-                        ->afterStateUpdated(function ($state, Set $set) {
-                            $phone = $state
-                                ? Client::query()->whereKey($state)->value('phone')
-                                : null;
+                    ->afterStateUpdated(function ($state, Set $set) {
+                        $phone = $state
+                            ? Client::query()->whereKey($state)->value('phone')
+                            : null;
 
-                            $set('incoming_phone', $phone ?? '');
-                            $set('history_refresh', (string) microtime(true));
-                        })
-                        ->afterStateHydrated(function (Get $get, Set $set) {
-                            $id = $get('clients_id');
+                        if ($phone) {
+                            $set('incoming_phone', $phone);
+                        }
 
-                            $set('incoming_phone', $id
-                                ? (Client::query()->whereKey($id)->value('phone') ?? '')
-                                : ''
-                            );
-                            $set('history_refresh', (string) microtime(true));
-                        })
+                        $set('history_refresh', (string) microtime(true));
+                    })
+                    ->afterStateHydrated(function (Get $get, Set $set) {
+                        $id = $get('clients_id');
+
+                        if ($id) {
+                            $set('incoming_phone', Client::query()->whereKey($id)->value('phone') ?? '');
+                        }
+
+                        $set('history_refresh', (string) microtime(true));
+                    })
                         ->createOptionAction(fn (FormAction $action) => $action
                             ->mountUsing(function (Form $form, LivewireComponent $livewire): void {
                                 $incomingPhone = static::extractPhoneFromSuggestion((string) data_get($livewire, 'data.incoming_phone', ''));
