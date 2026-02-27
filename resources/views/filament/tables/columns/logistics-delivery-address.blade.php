@@ -3,6 +3,7 @@
     $cellAddress = $address ?? '—';
     $cellIsPickup = (bool) ($isPickup ?? false);
     $cellCanOpenRoute = (bool) ($canOpenRoute ?? false);
+    $cellDeliveryNote = trim((string) ($deliveryNote ?? ''));
     $cellPalette = is_array($palette ?? null) ? $palette : [];
     $bg = $cellPalette['bg'] ?? 'rgba(59, 130, 246, 0.16)';
     $border = $cellPalette['border'] ?? 'rgba(59, 130, 246, 0.48)';
@@ -27,4 +28,10 @@
             {{ __('logistics.actions.route_hint') }}
         @endif
     </div>
+
+    @if($cellDeliveryNote !== '')
+        <div class="mt-2 rounded px-2 py-1 text-[11px]" style="background:#f3f4f6;color:#15803d;">
+            {{ $cellDeliveryNote }}
+        </div>
+    @endif
 </button>

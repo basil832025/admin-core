@@ -4,6 +4,7 @@ namespace App\Models\Shop;
 
 //use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Hash;
 
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -19,6 +20,7 @@ class Client extends Authenticatable
         'email',
         'birthday',
         'note',
+        'client_group_id',
         'is_active',
         'gender',
         'password',
@@ -93,5 +95,10 @@ class Client extends Authenticatable
     public function addresses(): HasMany
     {
         return $this->hasMany(ClientAddress::class);
+    }
+
+    public function group(): BelongsTo
+    {
+        return $this->belongsTo(ClientGroup::class, 'client_group_id');
     }
 }

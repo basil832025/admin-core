@@ -248,6 +248,11 @@ class AdminPanelProvider extends PanelProvider
             PanelsRenderHook::BODY_END,
             fn () => view('filament.hooks.binotel-incoming-call-popup')
         );
+
+        $panel->renderHook(
+            PanelsRenderHook::BODY_END,
+            fn () => view('filament.hooks.courier-comment-popup')
+        );
         
     return $panel;
     }

@@ -11,6 +11,7 @@ use App\Models\Location;
 use App\Models\Shop\Order as ShopOrder;
 use App\Services\DeliveryCalculationService;
 use Filament\Notifications\Notification;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\DatePicker;
 use Filament\Tables;
 use Filament\Tables\Actions\Action;
@@ -92,7 +93,7 @@ class OrderResource extends CallcenterOrderResource
     {
         return $table
             ->modifyQueryUsing(fn (Builder $query) => $query
-                ->with(['clients', 'clientAddress', 'lastLiqpayLog', 'items.product'])
+                ->with(['clients.group', 'clientAddress', 'lastLiqpayLog', 'items.product'])
             )
             ->recordUrl(null)
             ->columns([
@@ -111,10 +112,34 @@ class OrderResource extends CallcenterOrderResource
                     ->extraCellAttributes(['style' => 'min-width:3rem;width:3rem;'])
                     ->searchable(isIndividual: true)
                     ->sortable()
-                    ->description(fn (ShopOrder $record) => $record->created_at?->format('d.m H:i')),
+                    ->description(function (ShopOrder $record) {
+                        $createdAt = $record->created_at?->format('d.m H:i') ?? '—';
+                        $recordKey = (string) $record->getKey();
+                        $hasCourierComment = trim((string) ($record->courier_comment ?? '')) !== '';
+                        $isCash = (($record->payment instanceof PaymentMethodEnum ? $record->payment->value : (int) $record->payment) === PaymentMethodEnum::CASH->value);
+                        $cashFrom = (float) ($record->cash_from ?? 0);
+                        $buttonStyle = $hasCourierComment
+                            ? 'display:inline-flex;align-items:center;border-radius:6px;border:1px solid #fca5a5;background:#fee2e2;color:#b91c1c;padding:2px 8px;font-size:11px;font-weight:600;'
+                            : 'display:inline-flex;align-items:center;border-radius:6px;border:1px solid #86efac;background:#dcfce7;color:#15803d;padding:2px 8px;font-size:11px;font-weight:600;';
+
+                        $cashInfo = '';
+                        if ($isCash && $cashFrom > 0) {
+                            $cashInfo = '<div style="margin-top:4px;display:inline-block;background:#ffedd5;color:#9a3412;padding:2px 6px;border-radius:6px;font-size:11px;font-weight:600;">Сдача с ' . e(number_format($cashFrom, 2, ',', ' ')) . ' грн</div>';
+                        }
+
+                        return new HtmlString(
+                            '<div class="leading-snug">'
+                            . '<div>' . e($createdAt) . '</div>'
+                            . $cashInfo
+                            . '<div style="margin-top:4px;"><button type="button" style="' . e($buttonStyle) . '" wire:click.stop.prevent="mountTableAction(&quot;courier_comment&quot;, &quot;' . e($recordKey) . '&quot;)">Комментарий курьера</button></div>'
+                            . '</div>'
+                        );
+                    })
+                    ->html(),
 
                 TextColumn::make('clients.name')
                     ->label(__('order.columns.client'))
+                    ->formatStateUsing(fn (?string $state): string => e($state ?? '—'))
                     ->sortable()
                     ->searchable(isIndividual: true, query: function (Builder $query, string $search): Builder {
                         return $query->whereHas('clients', function (Builder $q) use ($search): void {
@@ -124,7 +149,34 @@ class OrderResource extends CallcenterOrderResource
                     })
                     ->extraHeaderAttributes(['style' => 'min-width:10rem;width:10rem;'])
                     ->extraCellAttributes(['style' => 'min-width:10rem;width:10rem;'])
-                    ->description(fn (ShopOrder $record) => $record->clients?->phone),
+                    ->description(function (ShopOrder $record) {
+                        $phone = trim((string) ($record->clients?->phone ?? ''));
+                        $group = $record->clients?->group;
+                        $groupName = trim((string) ($group?->display_name ?? ''));
+                        $isBlacklist = (bool) ($group?->is_blacklist ?? false);
+                        $courierComment = trim((string) ($record->courier_comment ?? ''));
+
+                        $phoneBadge = $phone !== ''
+                            ? '<span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs" style="background:#dcfce7;color:#166534;border:1px solid #86efac;">' . e($phone) . '</span>'
+                            : '<span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs" style="background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;">—</span>';
+
+                        $groupBadge = $groupName !== ''
+                            ? '<span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs" style="background:' . ($isBlacklist ? '#fee2e2' : '#eff6ff') . ';color:' . ($isBlacklist ? '#b91c1c' : '#1d4ed8') . ';border:1px solid ' . ($isBlacklist ? '#fecaca' : '#bfdbfe') . ';font-weight:600;">' . e(($isBlacklist ? '👎 ' : '') . $groupName) . '</span>'
+                            : '';
+
+                        $courierBadge = $courierComment !== ''
+                            ? '<div style="margin-top:4px;display:block;background:#fee2e2;color:#b91c1c;padding:2px 6px;border-radius:6px;font-size:11px;font-weight:600;">' . e($courierComment) . '</div>'
+                            : '';
+
+                        return new HtmlString(
+                            '<div class="leading-snug">'
+                            . '<div>' . $phoneBadge . '</div>'
+                            . ($groupBadge !== '' ? '<div class="mt-1">' . $groupBadge . '</div>' : '')
+                            . $courierBadge
+                            . '</div>'
+                        );
+                    })
+                    ->html(),
 
                 ViewColumn::make('status_compact')
                     ->label(__('order.columns.status'))
@@ -151,9 +203,11 @@ class OrderResource extends CallcenterOrderResource
                     ->view('filament.tables.columns.logistics-delivery-address')
                     ->viewData(function (ShopOrder $record): array {
                         $deliveryAddress = static::buildDeliveryAddress($record);
+                        $deliveryNote = trim(strip_tags((string) ($record->clientAddress?->note ?? '')));
 
                         return [
                             'address' => $deliveryAddress,
+                            'deliveryNote' => $deliveryNote,
                             'isPickup' => (bool) $record->self_pickup,
                             'canOpenRoute' => ! $record->self_pickup && trim($deliveryAddress) !== '' && trim($deliveryAddress) !== '—',
                             'palette' => static::resolveAddressPalette($record),
@@ -185,11 +239,32 @@ class OrderResource extends CallcenterOrderResource
                             : '—';
                         $grand = number_format((float) ($record->grand_total ?? 0), 2, ',', ' ') . ' грн';
 
+                        $isCash = (($record->payment instanceof PaymentMethodEnum ? $record->payment->value : (int) $record->payment) === PaymentMethodEnum::CASH->value);
+                        $cashFromValue = (float) ($record->cash_from ?? 0);
+
+                        $cashHint = '';
+                        if ($isCash && $cashFromValue > 0) {
+                            $changeValue = max(0, $cashFromValue - (float) ($record->grand_total ?? 0));
+
+                            $cashFromText = number_format($cashFromValue, 2, ',', ' ');
+                            $changeText = number_format($changeValue, 2, ',', ' ');
+
+                            $cashFromText = rtrim(rtrim($cashFromText, '0'), ',');
+                            $changeText = rtrim(rtrim($changeText, '0'), ',');
+
+                            $cashHint = '<div class="mt-1 inline-block rounded px-1.5 py-0.5 text-[11px] font-semibold" style="background:#dcfce7;color:#166534;">'
+                                . '<span style="color:#1d4ed8;">' . e($cashFromText) . '</span>'
+                                . '<span>/</span>'
+                                . '<span>' . e($changeText) . '</span>'
+                                . '</div>';
+                        }
+
                         return new HtmlString(
                             '<div class="leading-snug">'
                             . '<div>' . e($total) . '</div>'
                             . '<div class="text-green-700">' . e($discount) . '</div>'
                             . '<div class="font-semibold">' . e($grand) . '</div>'
+                            . $cashHint
                             . '</div>'
                         );
                     })
@@ -396,6 +471,32 @@ class OrderResource extends CallcenterOrderResource
                         ]);
                     })
                     ->action(fn () => null),
+
+                Action::make('courier_comment')
+                    ->label('Комментарий курьера')
+                    ->icon('heroicon-m-chat-bubble-left-ellipsis')
+                    ->color('gray')
+                    ->extraAttributes(['class' => 'hidden'])
+                    ->fillForm(fn (ShopOrder $record): array => [
+                        'courier_comment' => (string) ($record->courier_comment ?? ''),
+                    ])
+                    ->form([
+                        Textarea::make('courier_comment')
+                            ->label('Комментарий курьера')
+                            ->rows(5)
+                            ->placeholder('Комментарий во время/после доставки')
+                            ->columnSpanFull(),
+                    ])
+                    ->action(function (array $data, ShopOrder $record): void {
+                        $record->update([
+                            'courier_comment' => trim((string) ($data['courier_comment'] ?? '')) ?: null,
+                        ]);
+
+                        Notification::make()
+                            ->success()
+                            ->title('Комментарий курьера сохранён')
+                            ->send();
+                    }),
             ])
             ->bulkActions([]);
     }

@@ -26,6 +26,7 @@ class OrderItem extends Model
         'sku','unit_price',
         'unit_price_effective','subtotal','discount_total',
         'tax_rate','tax_total','total','currency',
+        'kitchen_note',
         'product_snapshot','promotion_data',
         // добавь сюда все нужные поля, которые массово заполняются
     ];

@@ -79,6 +79,22 @@ class ListSyncedCatalog extends Page
                         ->body("Источников: {$stats['sources']}. Обработано: {$stats['processed']}. Создано: {$stats['created']}. Обновлено: {$stats['updated']}. Ошибок: {$stats['failed']}.")
                         ->send();
                 }),
+
+            Action::make('syncClients')
+                ->label('Синхронизировать клиентов')
+                ->icon('heroicon-m-users')
+                ->color('gray')
+                ->action(function (): void {
+                    $stats = app(ExternalSyncService::class)->syncClientsFromAllSources(200);
+                    $errors = array_slice((array) ($stats['errors'] ?? []), 0, 2);
+                    $errorsText = $errors ? (' Ошибки: ' . implode(' | ', $errors)) : '';
+
+                    Notification::make()
+                        ->title('Синхронизация клиентов завершена')
+                        ->body("Источников: {$stats['sources']}. Проверено: {$stats['processed']}. Новых: {$stats['created']}. Обновлено: {$stats['updated']}. Ошибок: {$stats['failed']}.{$errorsText}")
+                        ->color(($stats['failed'] ?? 0) > 0 ? 'warning' : 'success')
+                        ->send();
+                }),
         ];
     }
 }

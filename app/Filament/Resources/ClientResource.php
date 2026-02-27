@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 use App\Filament\Resources\ClientResource\RelationManagers\AddressesRelationManager;
 use App\Models\Shop\Client;
+use App\Models\Shop\ClientGroup;
 
 use App\Filament\Resources\ClientResource\Pages;
 
@@ -142,6 +143,16 @@ class ClientResource extends Resource
                     //  ->required(fn (string $context): bool => $context === 'create'),
                     FileUpload::make('photo')->image()->directory('clients')->label(__('client.fields.photo')),
                     Textarea::make('note')->label(__('client.fields.note')),
+                    Select::make('client_group_id')
+                        ->label('Группа клиента')
+                        ->options(fn () => ClientGroup::query()
+                            ->orderBy('id')
+                            ->get()
+                            ->mapWithKeys(fn (ClientGroup $group) => [$group->id => $group->display_name])
+                            ->all())
+                        ->searchable()
+                        ->preload()
+                        ->nullable(),
                     Toggle::make('is_active')->label(__('client.fields.is_active'))->default(true),
                 ])
                 ->columns(2)
@@ -167,9 +178,17 @@ class ClientResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('name')->searchable()->label(__('client.columns.name')),
+                TextColumn::make('name')
+                    ->searchable()
+                    ->label(__('client.columns.name'))
+                    ->color(fn (Client $record) => $record->group?->is_blacklist ? 'danger' : null),
                 TextColumn::make('phone')->label(__('client.columns.phone')),
                 TextColumn::make('email')->label(__('client.columns.email')),
+                TextColumn::make('group.name')
+                    ->label('Группа клиента')
+                    ->formatStateUsing(fn (?string $state, Client $record): string => $record->group?->display_name ?? '—')
+                    ->color(fn (Client $record) => $record->group?->is_blacklist ? 'danger' : null)
+                    ->toggleable(),
                 TextColumn::make('gender')->label(__('client.columns.gender')),
                 BooleanColumn::make('is_active')->label(__('client.columns.is_active')),
             ])

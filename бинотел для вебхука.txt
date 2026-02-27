@@ -29,3 +29,6 @@ curl -X POST "https://test3.redbarbell.com.ua/integrations/binotel/call-settings
   
   curl.exe -X POST "https://braeden-inkiest-insistingly.ngrok-free.dev/integrations/binotel/call-settings?secret=binotel_local_secret_change_me_2026" -H "Content-Type: application/x-www-form-urlencoded" --data "requestType=apiCallSettings&externalNumber=0681245640&callType=0&pbxNumber=0443334023&companyID=26912"
   curl.exe -X POST "https://braeden-inkiest-insistingly.ngrok-free.dev/integrations/binotel/call-settings?secret=binotel_local_secret_change_me_2026" -H "Content-Type: application/x-www-form-urlencoded" --data "requestType=apiCallSettings&externalNumber=0681245641&callType=0&pbxNumber=0443334023&companyID=26912"
+  
+  
+  php artisan db:seed --class="Database\\Seeders\\ClientGroupsSeeder"

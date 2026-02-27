@@ -1,19 +1,134 @@
 @php
     $isCallcenterOrderForm = request()->routeIs('filament.admin.resources.callcenter.orders.create')
         || request()->routeIs('filament.admin.resources.callcenter.orders.edit');
+    $isCallcenterOrdersList = request()->routeIs('filament.admin.resources.callcenter.orders.index');
+    $isLogisticsOrdersList = request()->routeIs('filament.admin.resources.logistics.orders.index');
+    $isKitchenTicketsList = request()->routeIs('filament.admin.resources.kitchen.kitchen-tickets.index');
 @endphp
+
+@if($isCallcenterOrdersList || $isLogisticsOrdersList || $isKitchenTicketsList)
+    <style>
+        .fi-resource-list-records-page .fi-ta,
+        .fi-resource-list-records-page .fi-ta *:not(svg):not(path) {
+            font-size: 12px !important;
+            line-height: 1.25rem !important;
+        }
+
+        .fi-resource-list-records-page .fi-ta .fi-ta-header-cell-label,
+        .fi-resource-list-records-page .fi-ta .fi-input,
+        .fi-resource-list-records-page .fi-ta input,
+        .fi-resource-list-records-page .fi-ta textarea,
+        .fi-resource-list-records-page .fi-ta select,
+        .fi-resource-list-records-page .fi-ta .fi-badge,
+        .fi-resource-list-records-page .fi-ta .fi-dropdown-list-item-label,
+        .fi-resource-list-records-page .fi-ta .fi-ta-text,
+        .fi-resource-list-records-page .fi-ta .fi-ta-text-item,
+        .fi-resource-list-records-page .fi-ta .fi-ta-text-item-label,
+        .fi-resource-list-records-page .fi-ta .fi-ta-summary-row-heading,
+        .fi-resource-list-records-page .fi-ta td,
+        .fi-resource-list-records-page .fi-ta th {
+            font-size: 12px !important;
+            line-height: 1.25rem !important;
+        }
+    </style>
+@endif
 
 @if($isCallcenterOrderForm)
     <style>
+        [x-cloak] {
+            display: none !important;
+        }
+
+        .fi-resource-edit-record-page .fi-fo,
+        .fi-resource-create-record-page .fi-fo {
+            column-gap: 0.5rem !important;
+            row-gap: 0.75rem !important;
+        }
+
+        .fi-resource-edit-record-page .fi-section-content-ctn.p-6,
+        .fi-resource-create-record-page .fi-section-content-ctn.p-6,
+        .fi-resource-edit-record-page .fi-section-content.p-6,
+        .fi-resource-create-record-page .fi-section-content.p-6 {
+            padding: 0.5rem !important;
+        }
+
+        .fi-resource-edit-record-page .fi-fo-label,
+        .fi-resource-create-record-page .fi-fo-label,
+        .fi-resource-edit-record-page .fi-fo-field-wrp-label,
+        .fi-resource-create-record-page .fi-fo-field-wrp-label,
+        .fi-resource-edit-record-page .fi-fo-field-wrp-label span,
+        .fi-resource-create-record-page .fi-fo-field-wrp-label span,
+        .fi-resource-edit-record-page label,
+        .fi-resource-create-record-page label,
+        .fi-resource-edit-record-page .fi-section-header-heading,
+        .fi-resource-create-record-page .fi-section-header-heading,
+        .fi-resource-edit-record-page .fi-tabs-item-label,
+        .fi-resource-create-record-page .fi-tabs-item-label,
+        .fi-resource-edit-record-page .fi-ta-header-cell-label,
+        .fi-resource-create-record-page .fi-ta-header-cell-label,
+        .callcenter-items-table .table-repeater-header-column,
+        .callcenter-items-table .table-repeater-header-column * {
+            font-size: 12px !important;
+            line-height: 1.25rem !important;
+        }
+
+        .fi-resource-edit-record-page .fi-input,
+        .fi-resource-create-record-page .fi-input,
+        .fi-resource-edit-record-page input,
+        .fi-resource-create-record-page input,
+        .fi-resource-edit-record-page .fi-select-input,
+        .fi-resource-create-record-page .fi-select-input,
+        .fi-resource-edit-record-page .choices__inner,
+        .fi-resource-create-record-page .choices__inner,
+        .fi-resource-edit-record-page .choices__item,
+        .fi-resource-create-record-page .choices__item,
+        .fi-resource-edit-record-page .ts-control,
+        .fi-resource-create-record-page .ts-control,
+        .fi-resource-edit-record-page .ts-control .item,
+        .fi-resource-create-record-page .ts-control .item,
+        .fi-resource-edit-record-page .flatpickr-input,
+        .fi-resource-create-record-page .flatpickr-input {
+            font-size: 12px !important;
+            line-height: 1.25rem !important;
+        }
+
         .callcenter-items-table .table-repeater-header-column,
         .callcenter-items-table .table-repeater-column {
             padding-left: 0 !important;
             padding-right: 0 !important;
         }
 
+        .callcenter-items-table .table-repeater-container thead .table-repeater-header-column {
+            background: #e0f2fe !important;
+        }
+
+        .callcenter-items-table .table-repeater-container tbody tr {
+            border-bottom: 1px solid #dbeafe;
+        }
+
+        .callcenter-items-table .table-repeater-container tbody tr + tr {
+            box-shadow: inset 0 1px 0 #e0f2fe;
+        }
+
         .callcenter-items-table .table-repeater-container table {
             border-collapse: separate !important;
             border-spacing: 4px 0 !important;
+            font-size: 12px !important;
+            line-height: 1.25rem;
+        }
+
+        .callcenter-items-table .table-repeater-container table th,
+        .callcenter-items-table .table-repeater-container table td,
+        .callcenter-items-table .callcenter-inline-display,
+        .callcenter-items-table .callcenter-inline-input-display,
+        .callcenter-items-table .callcenter-inline-input-price,
+        .callcenter-items-table .callcenter-inline-input-qty,
+        .callcenter-items-table .callcenter-inline-select .choices__inner,
+        .callcenter-items-table .callcenter-inline-select .choices__item,
+        .callcenter-items-table .callcenter-unit-text,
+        .callcenter-items-table .callcenter-inline-item-total {
+            font-size: 12px !important;
+            line-height: 1.25rem !important;
         }
 
         .callcenter-inline-hidden {
@@ -47,6 +162,10 @@
             padding-left: 0;
         }
 
+        .callcenter-items-table .callcenter-inline-input-display.is-qty-display {
+            text-align: center;
+        }
+
         .callcenter-items-table .callcenter-inline-input-display:hover {
             background: transparent;
         }
@@ -61,13 +180,182 @@
             font-size: 12px !important;
         }
 
+        .callcenter-kitchen-note-btn {
+            width: 22px;
+            height: 22px;
+            border-radius: 999px;
+            border: 1px solid #16a34a;
+            color: #15803d;
+            background: #f0fdf4;
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .callcenter-kitchen-note-btn.is-active {
+            background: #22c55e;
+            color: #ffffff;
+            border-color: #16a34a;
+        }
+
+        .callcenter-kitchen-note-popover {
+            position: absolute;
+            top: -4px;
+            left: calc(100% + 8px);
+            z-index: 80;
+            width: 260px;
+            background: #ffffff;
+            border: 1px solid #bbf7d0;
+            border-radius: 10px;
+            box-shadow: 0 12px 28px rgba(2, 6, 23, 0.18);
+            padding: 8px;
+        }
+
+        .callcenter-kitchen-note-textarea {
+            width: 100%;
+            min-height: 84px;
+            border: 1px solid #86efac;
+            border-radius: 8px;
+            padding: 6px 8px;
+            font-size: 12px;
+            line-height: 1.35;
+            resize: vertical;
+            outline: none;
+        }
+
+        .callcenter-kitchen-note-textarea:focus {
+            border-color: #16a34a;
+            box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+        }
+
+        .callcenter-kitchen-note-actions {
+            margin-top: 8px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 6px;
+        }
+
+        .callcenter-kitchen-note-save,
+        .callcenter-kitchen-note-cancel {
+            border-radius: 8px;
+            font-size: 12px;
+            line-height: 1;
+            padding: 6px 10px;
+            cursor: pointer;
+        }
+
+        .callcenter-kitchen-note-save {
+            border: 1px solid #16a34a;
+            background: #16a34a;
+            color: #ffffff;
+        }
+
+        .callcenter-kitchen-note-cancel {
+            border: 1px solid #d1d5db;
+            background: #ffffff;
+            color: #334155;
+        }
+
+        .callcenter-items-table .callcenter-inline-select-display.has-note {
+            white-space: normal;
+            overflow: visible;
+            text-overflow: unset;
+            line-height: 1.2;
+            padding-top: 4px;
+            padding-bottom: 4px;
+        }
+
+        .callcenter-items-table .callcenter-inline-select-display-note {
+            display: block;
+            margin-top: 4px;
+            margin-left: 8px;
+            margin-right: 4px;
+            color: #15803d;
+            font-size: 11px;
+            line-height: 1.2;
+            font-weight: 700;
+            background: #dcfce7;
+            border: 1px solid #86efac;
+            border-radius: 6px;
+            padding: 3px 6px;
+            white-space: normal;
+            word-break: break-word;
+        }
+
         .callcenter-items-table .callcenter-unit-text {
-            font-size: 12px !important;
+            font-size: 10px !important;
             line-height: 1.25rem;
+            background: #fef08a;
+            border-radius: 6px;
+            padding: 0 4px;
+        }
+
+        .callcenter-items-table .callcenter-inline-item-total {
+            color: #0369a1 !important;
+            font-size: 12px !important;
+            line-height: 1.25rem !important;
+            font-weight: 700 !important;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .callcenter-items-table .callcenter-inline-item-total,
+        .callcenter-items-table .callcenter-inline-item-total * {
+            color: #0369a1 !important;
+            font-size: 12px !important;
+            font-weight: 700 !important;
         }
 
         .callcenter-items-table .callcenter-inline-input-price {
             min-height: 28px !important;
+        }
+
+        .callcenter-items-table .callcenter-inline-editable-wrapper .fi-input-wrp {
+            display: none !important;
+        }
+
+        .callcenter-items-table .callcenter-inline-editable-wrapper.is-editing .fi-input-wrp {
+            display: flex !important;
+            align-items: center !important;
+            min-height: 28px !important;
+            padding-left: 2px !important;
+            padding-right: 2px !important;
+            box-shadow: none !important;
+            border-color: #d1d5db !important;
+            background: #ffffff !important;
+        }
+
+        .callcenter-items-table .callcenter-inline-price-wrapper.is-editing .fi-input-wrp-input {
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            width: 100% !important;
+            min-width: 0 !important;
+        }
+
+        .callcenter-items-table .callcenter-inline-price-wrapper.is-editing .callcenter-inline-input-price {
+            width: 100% !important;
+            min-width: 0 !important;
+            text-align: right !important;
+            font-variant-numeric: tabular-nums;
+            line-height: 1.1 !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+        }
+
+        .callcenter-items-table .callcenter-inline-input-qty {
+            min-height: 28px !important;
+            text-align: center !important;
+            -moz-appearance: textfield;
+            appearance: textfield;
+        }
+
+        .callcenter-items-table .callcenter-inline-input-qty::-webkit-outer-spin-button,
+        .callcenter-items-table .callcenter-inline-input-qty::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
         }
 
         .callcenter-items-table .callcenter-inline-select .ts-control {
@@ -79,6 +367,16 @@
         }
 
         .callcenter-items-table .callcenter-inline-select .choices[data-type*="select-one"]::after {
+            display: none !important;
+        }
+
+        /* Hide clear/remove crosses in all selects on callcenter order form */
+        .fi-resource-edit-record-page .choices__button,
+        .fi-resource-create-record-page .choices__button,
+        .fi-resource-edit-record-page .ts-wrapper .clear-button,
+        .fi-resource-create-record-page .ts-wrapper .clear-button,
+        .fi-resource-edit-record-page .ts-control .remove,
+        .fi-resource-create-record-page .ts-control .remove {
             display: none !important;
         }
 
@@ -129,6 +427,18 @@
 
     <script>
         (function () {
+            if (typeof window.textareaFormComponent !== 'function') {
+                window.textareaFormComponent = function (config = {}) {
+                    return {
+                        state: config.state ?? '',
+                        shouldAutosize: !!(config.shouldAutosize ?? false),
+                        initialHeight: Number(config.initialHeight ?? 0),
+                        init() {},
+                        autosize() {},
+                    };
+                };
+            }
+
             const TEXT_EMPTY = '-';
 
             function formatOneDecimal(value) {
@@ -147,13 +457,102 @@
                 return number.toFixed(1).replace('.', ',');
             }
 
+            function escapeHtml(value) {
+                return String(value)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            }
+
+            window.callcenterSaveKitchenNote = function (el) {
+                const row = el?.closest('tr')
+                    || el?.closest('.table-repeater-row')
+                    || el?.closest('[data-repeater-item]')
+                    || el?.closest('.table-repeater-container')
+                    || document;
+                const select = row.querySelector('select[name$="[product_id]"]') || row.querySelector('select[name*="product_id"]');
+                const idInput = row.querySelector('input[name$="[id]"]') || row.querySelector('input[name*="[id]"]');
+                const orderItemId = Number(el?.dataset?.orderItemId || idInput?.value || 0);
+                let input = row.querySelector('input[name$="[kitchen_note]"]')
+                    || row.querySelector('input[name*="kitchen_note"]');
+
+                if (!input && select?.name && typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+                    const expectedName = select.name.replace('[product_id]', '[kitchen_note]');
+                    input = document.querySelector(`input[name="${CSS.escape(expectedName)}"]`);
+                }
+
+                const popover = el?.closest('.callcenter-kitchen-note-popover');
+                const textarea = popover ? popover.querySelector('.callcenter-kitchen-note-textarea') : null;
+                const noteValue = String(textarea?.value || '').trim();
+
+                if (!input) {
+                    return { orderItemId, noteValue };
+                }
+
+                input.value = noteValue;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+
+                if (select) {
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+
+                return { orderItemId, noteValue };
+            };
+
+            window.callcenterHandleKitchenNoteSave = function (el, wire) {
+                const payload = window.callcenterSaveKitchenNote(el) || {};
+                const orderItemId = Number(payload.orderItemId || 0);
+                const noteValue = String(payload.noteValue || '');
+
+                if (!wire || orderItemId <= 0) {
+                    return;
+                }
+
+                if (typeof wire.persistKitchenNoteInline === 'function') {
+                    wire.persistKitchenNoteInline(orderItemId, noteValue);
+                    return;
+                }
+
+                if (typeof wire.call === 'function') {
+                    wire.call('persistKitchenNoteInline', orderItemId, noteValue);
+                }
+            };
+
+            function resolveKitchenNoteInput(host, sourceSelect) {
+                const row = host.closest('tr')
+                    || host.closest('.table-repeater-row')
+                    || host.closest('[data-repeater-item]')
+                    || host.parentElement;
+                let noteInput = row
+                    ? (
+                        row.querySelector('input[name$="[kitchen_note]"]')
+                        || row.querySelector('input[name*="kitchen_note"]')
+                    )
+                    : null;
+
+                if (!noteInput && sourceSelect?.name && typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+                    const expectedName = sourceSelect.name.replace('[product_id]', '[kitchen_note]');
+                    noteInput = document.querySelector(`input[name="${CSS.escape(expectedName)}"]`);
+                }
+
+                return noteInput;
+            }
+
             function makeDisplayElement(target, className) {
-                let display = target.parentElement.querySelector(`.${className}`);
+                const host = target || null;
+                if (!host) {
+                    return null;
+                }
+
+                let display = host.querySelector(`.${className}`);
 
                 if (!display) {
                     display = document.createElement('span');
                     display.className = `callcenter-inline-display ${className}`;
-                    target.parentElement.appendChild(display);
+                    host.appendChild(display);
                 }
 
                 return display;
@@ -166,8 +565,20 @@
 
                 input.dataset.inlineInit = '1';
 
-                const display = makeDisplayElement(input, 'callcenter-inline-input-display');
+                const editableWrapper = input.closest('.callcenter-inline-editable-wrapper');
+                const host = editableWrapper || input.parentElement;
+                const display = makeDisplayElement(host, 'callcenter-inline-input-display');
+                const editorContainer = editableWrapper?.querySelector('.fi-input-wrp') || input;
                 const isPriceInput = input.classList.contains('callcenter-inline-input-price');
+                const isQtyInput = input.classList.contains('callcenter-inline-input-qty');
+
+                if (!display || !editorContainer) {
+                    return;
+                }
+
+                if (isQtyInput) {
+                    display.classList.add('is-qty-display');
+                }
 
                 const updateDisplay = () => {
                     const value = (input.value || '').trim();
@@ -195,7 +606,10 @@
                     }
 
                     display.classList.add('callcenter-inline-hidden');
-                    input.classList.remove('callcenter-inline-hidden');
+                    editorContainer.classList.remove('callcenter-inline-hidden');
+                    if (editableWrapper) {
+                        editableWrapper.classList.add('is-editing');
+                    }
                     input.focus();
                     input.select();
                 };
@@ -209,8 +623,11 @@
                     }
 
                     updateDisplay();
-                    input.classList.add('callcenter-inline-hidden');
+                    editorContainer.classList.add('callcenter-inline-hidden');
                     display.classList.remove('callcenter-inline-hidden');
+                    if (editableWrapper) {
+                        editableWrapper.classList.remove('is-editing');
+                    }
                 };
 
                 display.addEventListener('click', openEditor);
@@ -266,7 +683,6 @@
 
                 const sourceSelect = host.querySelector('select');
                 const editorContainer = host.querySelector('div[wire\\:ignore]') || sourceSelect;
-
                 if (!sourceSelect || !editorContainer) {
                     return;
                 }
@@ -277,7 +693,22 @@
 
                 const updateDisplay = () => {
                     const value = getSelectText(sourceSelect, editorContainer);
-                    display.textContent = value || TEXT_EMPTY;
+                    const noteInput = resolveKitchenNoteInput(host, sourceSelect);
+                    const note = (noteInput?.value || '').trim();
+
+                    if (note !== '') {
+                        const title = value || TEXT_EMPTY;
+
+                        display.classList.add('has-note');
+                        display.innerHTML = `
+                            <span class="block truncate overflow-hidden text-ellipsis">${escapeHtml(title)}</span>
+                            <span class="callcenter-inline-select-display-note">${escapeHtml(note)}</span>
+                        `;
+                    } else {
+                        display.classList.remove('has-note');
+                        display.textContent = value || TEXT_EMPTY;
+                    }
+
                     display.classList.toggle('is-empty', value === '');
                 };
 
@@ -313,7 +744,22 @@
 
                 sourceSelect.addEventListener('input', updateDisplay);
 
+                const bindNoteListeners = () => {
+                    const noteInput = resolveKitchenNoteInput(host, sourceSelect);
+
+                    if (!noteInput || noteInput.dataset.noteBound === '1') {
+                        return;
+                    }
+
+                    noteInput.dataset.noteBound = '1';
+                    noteInput.addEventListener('input', updateDisplay);
+                    noteInput.addEventListener('change', updateDisplay);
+                };
+
+                bindNoteListeners();
+
                 const syncObserver = new MutationObserver(() => {
+                    bindNoteListeners();
                     updateDisplay();
                 });
 
@@ -340,7 +786,7 @@
             }
 
             function initInlineEditors(root = document) {
-                root.querySelectorAll('.callcenter-items-table .callcenter-inline-input-price').forEach(setupInput);
+                root.querySelectorAll('.callcenter-items-table .callcenter-inline-input-price, .callcenter-items-table .callcenter-inline-input-qty').forEach(setupInput);
                 root.querySelectorAll('.callcenter-items-table .callcenter-inline-select').forEach(setupSelect);
             }
 
@@ -710,6 +1156,11 @@
             });
 
             document.addEventListener('filament:form-mounted', () => {
+                initInlineEditors(document);
+                initPhoneAutocomplete(document);
+            });
+
+            document.addEventListener('DOMContentLoaded', () => {
                 initInlineEditors(document);
                 initPhoneAutocomplete(document);
             });

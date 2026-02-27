@@ -2,6 +2,7 @@
 namespace App\Models\Kitchen;
 
 use App\Enums\OrderStatus;
+use App\Models\Shop\OrderItem;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -25,6 +26,11 @@ protected $casts = [
 public function ticket(): BelongsTo
 {
 return $this->belongsTo(KitchenTicket::class, 'kitchen_ticket_id');
+}
+
+public function orderItem(): BelongsTo
+{
+return $this->belongsTo(OrderItem::class, 'order_item_id');
 }
 
 public function moveTo(OrderStatus $to, ?int $byUserId = null): void

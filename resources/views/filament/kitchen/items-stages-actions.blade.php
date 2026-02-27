@@ -5,9 +5,16 @@
     $recordKey = $recordKey ?? $record?->getKey();
     $stage = $record?->stage;
     $stageEnum = $stage instanceof OrderStatus ? $stage : (filled($stage) ? OrderStatus::from($stage) : null);
+    $orderKitchenNote = trim((string) ($record?->order?->kitchen_note ?? ''));
 @endphp
 
 @if ($recordKey)
+    @if($orderKitchenNote !== '')
+        <div class="mb-3 rounded-md" style="background:#fee2e2;color:#b91c1c;padding:8px 10px;">
+            {{ $orderKitchenNote }}
+        </div>
+    @endif
+
     <div class="flex flex-wrap items-center gap-2">
         @if (in_array($stageEnum, [OrderStatus::Processing, OrderStatus::Filling], true))
             <x-filament::button

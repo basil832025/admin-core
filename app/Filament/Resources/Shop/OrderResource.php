@@ -1948,14 +1948,14 @@ class OrderResource extends Resource
     {
         return $table
             ->modifyQueryUsing(fn (Builder $query) => $query
-                ->with(['clients', 'clientAddress', 'lastLiqpayLog', 'items.product', 'source']) // ← исправление N+1 проблемы
+                ->with(['clients.group', 'clientAddress', 'lastLiqpayLog', 'items.product', 'source']) // ← исправление N+1 проблемы
             )
             ->columns(array_filter([
                 TextColumn::make('number')
                     ->label('')
                     ->extraHeaderAttributes([
 
-                        'style' => 'line-height:1.1;min-width:3rem;width:3rem;',
+                        'style' => 'line-height:1.1;min-width:8rem;width:8rem;',
                         'x-data' => '{}',
                         // вставляем "родной" лейбл Filament, чтобы стили совпали
                         'x-html' => json_encode(
@@ -1965,11 +1965,31 @@ class OrderResource extends Resource
                         ) ])
                     ->grow(false) // чтобы колонка не ужималась другими
 
-                    ->extraCellAttributes(['style' => 'min-width:3rem;width:3rem;'])
+                    ->extraCellAttributes(['style' => 'min-width:8rem;width:8rem;'])
                     ->searchable(isIndividual: true)
                     ->verticalAlignment(VerticalAlignment::Center)
                     ->sortable()
-                    ->description(fn (Order $record) => $record->created_at?->format('d.m H:i')),
+                    ->description(function (Order $record) {
+                        $date = $record->created_at?->format('d.m H:i') ?? '—';
+
+                        if (static::class !== \App\Filament\Resources\Callcenter\OrderResource::class) {
+                            return $date;
+                        }
+
+                        $siteName = trim((string) ($record->source?->name ?? ''));
+                        $siteBadge = $siteName === ''
+                            ? ''
+                            : '<span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold" style="background:#D9F99D;color:#365314;">'
+                                . e($siteName)
+                                . '</span>';
+
+                        return new HtmlString(
+                            '<div class="leading-snug">'
+                            . '<div>' . e($date) . '</div>'
+                            . ($siteBadge !== '' ? '<div class="mt-1">' . $siteBadge . '</div>' : '')
+                            . '</div>'
+                        );
+                    }),
                   //  ->extraAttributes(['class' => 'cursor-pointer underline']),
                   //  ->action('statuses'), // клик по номеру откроет модалку статусов
 
@@ -1986,16 +2006,40 @@ class OrderResource extends Resource
                     ->extraHeaderAttributes(['style' => 'min-width:10rem;width:10rem;'])
                     ->extraCellAttributes(['style' => 'min-width:10rem;width:10rem;'])
                     ->description(function (Order $record) {
-                        $phone = $record->clients?->phone;
-                        if (! $phone) {
+                        $phoneBadge = '';
+                        $groupBadge = '';
+
+                        $phone = trim((string) ($record->clients?->phone ?? ''));
+                        if ($phone !== '') {
+                            $phoneBadge = '<span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs" '
+                                . 'style="background-color:#dcfce7;color:#166534;border:1px solid #86efac;">'
+                                . e($phone)
+                                . '</span>';
+                        }
+
+                        if (static::class === \App\Filament\Resources\Callcenter\OrderResource::class) {
+                            $group = $record->clients?->group;
+                            $groupName = trim((string) ($group?->display_name ?? ''));
+
+                            if ($groupName !== '') {
+                                $isBlacklist = (bool) ($group->is_blacklist ?? false);
+
+                                $groupBadge = '<span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs" '
+                                    . 'style="background:' . ($isBlacklist ? '#fee2e2' : '#eff6ff') . ';color:' . ($isBlacklist ? '#b91c1c' : '#1d4ed8') . ';border:1px solid ' . ($isBlacklist ? '#fecaca' : '#bfdbfe') . ';font-weight:600;">'
+                                    . e(($isBlacklist ? '👎 ' : '') . $groupName)
+                                    . '</span>';
+                            }
+                        }
+
+                        if ($phoneBadge === '' && $groupBadge === '') {
                             return null;
                         }
 
                         return new HtmlString(
-                            '<span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs" '
-                            . 'style="background-color:#fee2e2;color:#b91c1c;border:1px solid #fecaca;">'
-                            . e($phone) .
-                            '</span>'
+                            '<div class="space-y-1">'
+                            . ($phoneBadge !== '' ? '<div>' . $phoneBadge . '</div>' : '')
+                            . ($groupBadge !== '' ? '<div>' . $groupBadge . '</div>' : '')
+                            . '</div>'
                         );
                     })
                     ->url(fn (Order $record) =>
@@ -2004,15 +2048,6 @@ class OrderResource extends Resource
                         : null
                     )
                     ->openUrlInNewTab(),
-
-                static::class === \App\Filament\Resources\Callcenter\OrderResource::class
-                    ? TextColumn::make('source.name')
-                        ->label('Сайт')
-                        ->badge()
-                        ->sortable()
-                        ->toggleable()
-                        ->placeholder('—')
-                    : null,
 
                 static::class === \App\Filament\Resources\Callcenter\OrderResource::class
                     ? ViewColumn::make('status_compact')
@@ -2084,11 +2119,33 @@ class OrderResource extends Resource
                             : '—';
                         $grand = number_format((float) ($record->grand_total ?? 0), 2, ',', ' ') . ' грн';
 
+                        $isCallcenter = static::class === \App\Filament\Resources\Callcenter\OrderResource::class;
+                        $isCash = (($record->payment instanceof PaymentMethodEnum ? $record->payment->value : (int) $record->payment) === PaymentMethodEnum::CASH->value);
+                        $cashFromValue = (float) ($record->cash_from ?? 0);
+
+                        $cashHint = '';
+                        if ($isCallcenter && $isCash && $cashFromValue > 0) {
+                            $changeValue = max(0, $cashFromValue - (float) ($record->grand_total ?? 0));
+
+                            $cashFromText = number_format($cashFromValue, 2, ',', ' ');
+                            $changeText = number_format($changeValue, 2, ',', ' ');
+
+                            $cashFromText = rtrim(rtrim($cashFromText, '0'), ',');
+                            $changeText = rtrim(rtrim($changeText, '0'), ',');
+
+                            $cashHint = '<div class="mt-1 inline-block rounded px-1.5 py-0.5 text-[11px] font-semibold" style="background:#dcfce7;color:#166534;">'
+                                . '<span style="color:#1d4ed8;">' . e($cashFromText) . '</span>'
+                                . '<span>/</span>'
+                                . '<span>' . e($changeText) . '</span>'
+                                . '</div>';
+                        }
+
                         return new HtmlString(
                             '<div class="leading-snug">'
                             . '<div>' . e($total) . '</div>'
                             . '<div class="text-green-700">' . e($discount) . '</div>'
                             . '<div class="font-semibold">' . e($grand) . '</div>'
+                            . $cashHint
                             . '</div>'
                         );
                     })
@@ -2143,6 +2200,8 @@ class OrderResource extends Resource
                     ->description(function (Order $record) {
                         if ($record->self_pickup) return null;
 
+                        $addressLine = null;
+
                         // 1) сначала пробуем привязанный адрес
                         if ($a = $record->clientAddress) {
                             $parts = [
@@ -2153,20 +2212,41 @@ class OrderResource extends Resource
                                 $a->floor     ? __('order.address_prefixes.floor') . ' ' . $a->floor : null,
                             ];
                             $line = trim(implode(', ', array_filter($parts)));
-                            return $line !== '' ? $line : null;
+                            $addressLine = $line !== '' ? $line : null;
                         }
 
                         // 2) иначе — из JSON поля order.address (если есть)
-                        $addr = (array) ($record->address ?? []);
-                        $parts = [
-                            $addr['street']   ?? null,
-                            $addr['house']    ?? null,
-                            !empty($addr['apartment']) ? __('order.address_prefixes.apartment') . ' ' . $addr['apartment'] : null,
-                            !empty($addr['entrance'])  ? __('order.address_prefixes.entrance') . ' ' . $addr['entrance']  : null,
-                            !empty($addr['floor'])     ? __('order.address_prefixes.floor') . ' ' . $addr['floor']       : null,
-                        ];
-                        $line = trim(implode(', ', array_filter($parts)));
-                        return $line !== '' ? $line : '—';
+                        if ($addressLine === null) {
+                            $addr = (array) ($record->address ?? []);
+                            $parts = [
+                                $addr['street']   ?? null,
+                                $addr['house']    ?? null,
+                                !empty($addr['apartment']) ? __('order.address_prefixes.apartment') . ' ' . $addr['apartment'] : null,
+                                !empty($addr['entrance'])  ? __('order.address_prefixes.entrance') . ' ' . $addr['entrance']  : null,
+                                !empty($addr['floor'])     ? __('order.address_prefixes.floor') . ' ' . $addr['floor']       : null,
+                            ];
+                            $line = trim(implode(', ', array_filter($parts)));
+                            $addressLine = $line !== '' ? $line : '—';
+                        }
+
+                        if (static::class !== \App\Filament\Resources\Callcenter\OrderResource::class) {
+                            return $addressLine;
+                        }
+
+                        $courierComment = trim((string) ($record->courier_comment ?? ''));
+
+                        if ($courierComment === '') {
+                            return $addressLine;
+                        }
+
+                        return new HtmlString(
+                            '<div class="leading-snug">'
+                            . '<div>' . e($addressLine) . '</div>'
+                            . '<div style="margin-top:4px;display:inline-block;background:#fee2e2;color:#b91c1c;padding:2px 6px;border-radius:6px;font-weight:600;">'
+                            . e($courierComment)
+                            . '</div>'
+                            . '</div>'
+                        );
                     })
                     ->wrap()        // перенос длинных адресов
                     ->toggleable(), // можно спрятать в настройках таблицы

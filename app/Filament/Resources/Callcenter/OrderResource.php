@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Callcenter;
 
+use App\Enums\PaymentMethodEnum;
 use App\Filament\Resources\Callcenter\OrderResource\Pages;
 use App\Filament\Resources\Callcenter\OrderResource\Widgets;
 use App\Filament\Resources\Shop\OrderResource as ShopOrderResource;
@@ -18,6 +19,7 @@ use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Group;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Tabs;
@@ -115,6 +117,7 @@ class OrderResource extends ShopOrderResource
     protected static function getCallcenterInfoTabSchema(): array
     {
         $schema = parent::getInfoTabSchema();
+        $historyInjected = false;
 
         foreach ($schema as $component) {
             if (! $component instanceof Grid) {
@@ -194,6 +197,39 @@ class OrderResource extends ShopOrderResource
                                 })
                                 ->toArray();
                         })
+                    ->helperText(function (Get $get) {
+                        $clientId = (int) ($get('clients_id') ?? 0);
+
+                        if ($clientId <= 0) {
+                            return null;
+                        }
+
+                        $client = Client::query()
+                            ->with('group')
+                            ->find($clientId);
+
+                        $group = $client?->group;
+                        $groupName = $group?->display_name;
+
+                        if (! $groupName) {
+                            return null;
+                        }
+
+                        $isBlacklist = (bool) ($group->is_blacklist ?? false);
+                        $style = $isBlacklist
+                            ? 'display:inline-block;margin-top:2px;background:#fee2e2;color:#b91c1c;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;'
+                            : 'display:inline-block;margin-top:2px;background:#eff6ff;color:#1d4ed8;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;';
+
+                        $label = $isBlacklist
+                            ? '👎 Группа клиента: ' . $groupName
+                            : 'Группа клиента: ' . $groupName;
+
+                        return new \Illuminate\Support\HtmlString(
+                            '<span style="' . e($style) . '">'
+                            . e($label)
+                            . '</span>'
+                        );
+                    })
                     ->afterStateUpdated(function ($state, Set $set) {
                         $phone = $state
                             ? Client::query()->whereKey($state)->value('phone')
@@ -233,6 +269,7 @@ class OrderResource extends ShopOrderResource
                         ->hidden()
                         ->dehydrated(false);
                 }
+
             }
 
             if ($clientsIndex !== null) {
@@ -270,11 +307,44 @@ class OrderResource extends ShopOrderResource
                 array_splice($fields, $clientsIndex, 0, [$phoneInput]);
             }
 
-            $fields[] = Hidden::make('history_refresh')
-                ->default((string) microtime(true))
-                ->dehydrated(false);
+            if (! $historyInjected) {
+                $fields[] = Hidden::make('history_refresh')
+                    ->default((string) microtime(true))
+                    ->dehydrated(false);
+
+                $historyInjected = true;
+            }
 
             $component->schema($fields);
+        }
+
+        $notesPos = null;
+
+        foreach ($schema as $index => $component) {
+            if (method_exists($component, 'getName') && $component->getName() === 'notes') {
+                $notesPos = $index;
+                break;
+            }
+        }
+
+        $extraNotesFields = [
+            Textarea::make('kitchen_note')
+                ->label('Примечание для кухни')
+                ->placeholder('Общее примечание по заказу для поваров')
+                ->rows(3)
+                ->columnSpanFull(),
+
+            Textarea::make('courier_comment')
+                ->label('Комментарий курьера')
+                ->placeholder('Комментарий во время/после доставки')
+                ->rows(3)
+                ->columnSpanFull(),
+        ];
+
+        if ($notesPos !== null) {
+            array_splice($schema, $notesPos + 1, 0, $extraNotesFields);
+        } else {
+            $schema = array_merge($schema, $extraNotesFields);
         }
 
         foreach ($schema as $component) {
@@ -366,9 +436,13 @@ class OrderResource extends ShopOrderResource
             })
             ->addActionLabel(__('order.actions.add_item'))
             ->headers([
+                Header::make('kitchen_note_action')
+                    ->label('')
+                    ->align('center')
+                    ->width('4%'),
                 Header::make('product_id')
                     ->label(__('order.fields.product'))
-                    ->width('54%')
+                    ->width('50%')
                     ->markAsRequired(),
                 Header::make('unit')
                     ->label('Од.')
@@ -389,6 +463,9 @@ class OrderResource extends ShopOrderResource
                     ->align('center')
                     ->width('14%'),
                 Header::make('id')
+                    ->label('')
+                    ->width('0%'),
+                Header::make('kitchen_note')
                     ->label('')
                     ->width('0%'),
             ])
@@ -424,6 +501,46 @@ class OrderResource extends ShopOrderResource
             ->defaultItems(0)
             ->schema([
                 Hidden::make('id')->dehydrated(false),
+
+                Placeholder::make('kitchen_note_action')
+                    ->label('')
+                    ->hiddenLabel()
+                    ->extraAttributes([
+                        'class' => 'text-center',
+                    ])
+                    ->content(function (Get $get) {
+                        $note = trim((string) ($get('kitchen_note') ?? ''));
+                        $noteEscaped = e($note);
+                        $orderItemId = (int) ($get('id') ?? 0);
+                        $buttonClass = $note !== ''
+                            ? 'callcenter-kitchen-note-btn is-active'
+                            : 'callcenter-kitchen-note-btn';
+
+                        return new \Illuminate\Support\HtmlString(
+                            '<div x-data="{ open: false }" class="relative flex justify-center">'
+                            . '<button type="button" class="' . $buttonClass . '" title="Примечание для кухни" @click.prevent="open = !open">+</button>'
+                            . '<div x-show="open" x-cloak @click.outside="open = false" class="callcenter-kitchen-note-popover">'
+                            . '<textarea class="callcenter-kitchen-note-textarea" rows="4" placeholder="Например: без лука, хорошо пропечь, двойная начинка">' . $noteEscaped . '</textarea>'
+                            . '<div class="callcenter-kitchen-note-actions">'
+                            . '<button type="button" class="callcenter-kitchen-note-save" data-order-item-id="' . $orderItemId . '" @click.prevent.stop="window.callcenterHandleKitchenNoteSave($el, $wire); open = false;">Сохранить</button>'
+                            . '<button type="button" class="callcenter-kitchen-note-cancel" @click.prevent.stop="open = false">Закрыть</button>'
+                            . '</div>'
+                            . '</div>'
+                            . '</div>'
+                        );
+                    }),
+
+                Hidden::make('kitchen_note')
+                    ->live(debounce: 400)
+                    ->afterStateUpdated(function ($state, Get $get, $livewire): void {
+                        $note = trim((string) $state);
+
+                        static::persistOrderItemInlineChanges(
+                            $get,
+                            ['kitchen_note' => $note !== '' ? $note : null],
+                            $livewire
+                        );
+                    }),
 
                 Select::make('product_id')
                     ->extraAttributes([
@@ -510,6 +627,12 @@ class OrderResource extends ShopOrderResource
                     }),
 
                 TextInput::make('qty')
+                    ->extraFieldWrapperAttributes([
+                        'class' => 'callcenter-inline-editable-wrapper callcenter-inline-qty-wrapper',
+                    ])
+                    ->extraInputAttributes([
+                        'class' => 'callcenter-inline-input-qty',
+                    ])
                     ->numeric()
                     ->default(1)
                     ->minValue(1)
@@ -521,6 +644,9 @@ class OrderResource extends ShopOrderResource
                     }),
 
                 TextInput::make('unit_price')
+                    ->extraFieldWrapperAttributes([
+                        'class' => 'callcenter-inline-editable-wrapper callcenter-inline-price-wrapper',
+                    ])
                     ->extraInputAttributes([
                         'class' => 'callcenter-inline-input-price',
                     ])
@@ -538,7 +664,7 @@ class OrderResource extends ShopOrderResource
                     ->label('')
                     ->hiddenLabel()
                     ->extraAttributes([
-                        'class' => 'text-right',
+                        'class' => 'text-right callcenter-inline-item-total',
                     ])
                     ->content(function (Get $get) {
                         $qty = (float) ($get('qty') ?? 0);
@@ -567,11 +693,82 @@ class OrderResource extends ShopOrderResource
             'total_after_discount',
         ];
 
-        return array_values(array_filter(
+        $components = array_values(array_filter(
             $amountSection->getChildComponents(),
             fn ($component) => method_exists($component, 'getName')
                 && in_array($component->getName(), $moved, true)
         ));
+
+        $components[] = TextInput::make('cash_from')
+            ->label('Сдача с')
+            ->numeric()
+            ->step(0.01)
+            ->suffix('грн')
+            ->placeholder('0')
+            ->dehydrated(true)
+            ->live(debounce: 300)
+            ->dehydrateStateUsing(function ($state, Get $get) {
+                $payment = $get('payment');
+                $value = $payment instanceof PaymentMethodEnum ? $payment->value : (int) $payment;
+
+                if ($value !== PaymentMethodEnum::CASH->value) {
+                    return null;
+                }
+
+                $normalized = (float) str_replace(',', '.', (string) $state);
+
+                return $normalized > 0 ? $normalized : null;
+            })
+            ->visible(function (Get $get): bool {
+                $payment = $get('payment');
+                $value = $payment instanceof PaymentMethodEnum ? $payment->value : (int) $payment;
+
+                return $value === PaymentMethodEnum::CASH->value;
+            });
+
+        $components[] = Placeholder::make('cash_change')
+            ->label('')
+            ->hiddenLabel()
+            ->dehydrated(false)
+            ->visible(function (Get $get): bool {
+                $payment = $get('payment');
+                $value = $payment instanceof PaymentMethodEnum ? $payment->value : (int) $payment;
+
+                return $value === PaymentMethodEnum::CASH->value;
+            })
+            ->content(function (?Order $record, Get $get) {
+                $baseTotal = static::calcBaseTotalFromGet($get);
+
+                if (! $record) {
+                    $amount = (float) $baseTotal;
+                } else {
+                    $hasAdjustments = $record->adjustments()->exists();
+                    $record->refresh();
+                    $amount = $hasAdjustments
+                        ? (float) ($record->grand_total ?? 0)
+                        : (float) $baseTotal;
+                }
+
+                $deliveryPrice = (float) ($get('shipping_price') ?? 0);
+                $finalAmount = $amount + $deliveryPrice;
+
+                $cashRaw = (string) ($get('cash_from') ?? '0');
+                $cashFrom = (float) str_replace(',', '.', $cashRaw);
+
+                if ($cashFrom <= 0) {
+                    return 'Сдача 0,00 грн';
+                }
+
+                $change = $cashFrom - $finalAmount;
+
+                if ($change < 0) {
+                    return 'Недостатньо ' . number_format(abs($change), 2, ',', ' ') . ' грн';
+                }
+
+                return 'Сдача ' . number_format($change, 2, ',', ' ') . ' грн';
+            });
+
+        return $components;
     }
 
     protected static function getCallcenterRightTabs(): array

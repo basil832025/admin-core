@@ -151,6 +151,58 @@ Route::get('/admin/integrations/binotel/incoming-call/next', [BinotelWebhookCont
     ->name('admin.integrations.binotel.incoming-call.next')
     ->middleware(['web', 'auth:admin']);
 
+Route::get('/admin/callcenter/courier-comment/next', function () {
+    $orders = \App\Models\Callcenter\Order::query()
+        ->whereNotNull('courier_comment')
+        ->where('courier_comment', '!=', '')
+        ->where(function ($query): void {
+            $query->whereNull('courier_comment_read_at')
+                ->orWhereColumn('courier_comment_read_at', '<', 'courier_comment_changed_at');
+        })
+        ->orderBy('courier_comment_changed_at')
+        ->limit(30)
+        ->get();
+
+    $comments = $orders
+        ->map(function (\App\Models\Callcenter\Order $order): array {
+            $comment = trim((string) $order->courier_comment);
+
+            return [
+                'order_id' => (int) $order->id,
+                'order_number' => (string) ($order->number ?? $order->id),
+                'text' => $comment,
+                'updated_at' => optional($order->courier_comment_changed_at ?? $order->updated_at)?->toDateTimeString(),
+                'signature' => sha1($order->id . '|' . $comment),
+                'edit_url' => url('/admin/callcenter/orders/' . $order->id . '/edit'),
+            ];
+        })
+        ->filter(fn (array $item): bool => $item['text'] !== '')
+        ->values();
+
+    return response()->json([
+        'comments' => $comments,
+    ]);
+})
+    ->name('admin.callcenter.courier-comment.next')
+    ->middleware(['web', 'auth:admin']);
+
+Route::post('/admin/callcenter/courier-comment/mark-read', function (\Illuminate\Http\Request $request) {
+    $data = $request->validate([
+        'ids' => ['required', 'array'],
+        'ids.*' => ['integer', 'min:1'],
+    ]);
+
+    \App\Models\Callcenter\Order::query()
+        ->whereIn('id', $data['ids'])
+        ->update([
+            'courier_comment_read_at' => now(),
+        ]);
+
+    return response()->json(['ok' => true]);
+})
+    ->name('admin.callcenter.courier-comment.mark-read')
+    ->middleware(['web', 'auth:admin']);
+
 Route::post('/admin/client-addresses/{address}/coords', function (\Illuminate\Http\Request $request, \App\Models\Shop\ClientAddress $address) {
     $payload = $request->validate([
         'latitude' => ['required', 'numeric'],
@@ -272,7 +324,7 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
         ->values();
 
     $productsQuery = \App\Models\Shop\Product::query()
-        ->select(['id', 'title', 'short_name', 'price', 'main_image', 'parent_id', 'category_id', 'in_stock'])
+        ->select(['id', 'title', 'short_name', 'description', 'price', 'main_image', 'parent_id', 'category_id', 'in_stock'])
         ->whereNull('parent_id')
         ->where('in_stock', 1);
 
@@ -379,7 +431,7 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
             });
         })
         ->with(['children' => function ($q) {
-            $q->select(['id', 'title', 'price', 'main_image', 'parent_id', 'in_stock'])
+            $q->select(['id', 'title', 'description', 'price', 'main_image', 'parent_id', 'in_stock'])
                 ->where('in_stock', 1)
                 ->orderBy('sort')
                 ->orderBy('id');
@@ -390,20 +442,40 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
         ->get();
 
     $productsPayload = $products->map(function (\App\Models\Shop\Product $product) {
+        $locale = app()->getLocale();
         $variants = $product->children ?? collect();
         $hasVariants = $variants->isNotEmpty();
+
+        $productDescription = method_exists($product, 'getTranslation')
+            ? (string) ($product->getTranslation('description', $locale, false)
+                ?: $product->getTranslation('description', 'uk', false)
+                ?: $product->getTranslation('description', 'ru', false)
+                ?: $product->getTranslation('description', 'en', false)
+                ?: '')
+            : (string) ($product->description ?? '');
 
         return [
             'id' => (int) $product->id,
             'title' => (string) ($product->display_name ?? $product->title ?? ''),
+            'description' => trim(strip_tags($productDescription)),
             'image' => $product->main_image_url,
             'price' => (float) ($product->price ?? 0),
             'has_variants' => $hasVariants,
             'unit' => \App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions::resolveMenuUnitLabel((int) $product->id),
             'variants' => $variants->map(function (\App\Models\Shop\Product $variant) {
+                $locale = app()->getLocale();
+                $variantDescription = method_exists($variant, 'getTranslation')
+                    ? (string) ($variant->getTranslation('description', $locale, false)
+                        ?: $variant->getTranslation('description', 'uk', false)
+                        ?: $variant->getTranslation('description', 'ru', false)
+                        ?: $variant->getTranslation('description', 'en', false)
+                        ?: '')
+                    : (string) ($variant->description ?? '');
+
                 return [
                     'id' => (int) $variant->id,
                     'title' => (string) ($variant->display_name ?? $variant->title ?? ''),
+                    'description' => trim(strip_tags($variantDescription)),
                     'price' => (float) ($variant->price ?? 0),
                     'unit' => \App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions::resolveMenuUnitLabel((int) $variant->id),
                 ];

@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             UsersTableSeeder::class,
             RolePermissionSeeder::class,
+            ClientGroupsSeeder::class,
             GeneratePermissionsFromResourcesSeeder::class,
             GenerateShieldPermissionsSeeder::class, // Генерируем пермишены Shield после загрузки всех данных
             // ... другие сидеры

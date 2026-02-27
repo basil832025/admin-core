@@ -7,6 +7,7 @@
         sources: [],
         categories: [],
         products: [],
+        previewProductId: null,
         timer: null,
         componentId: @js($componentId),
         fetchUrl: @js($fetchUrl),
@@ -57,6 +58,18 @@
             if (!cmp) return;
 
             await cmp.call('addMenuProductToOrder', Number(productId));
+        },
+
+        openDescription(product) {
+            this.previewProductId = Number(product?.id || 0);
+        },
+
+        closeDescription() {
+            this.previewProductId = null;
+        },
+
+        isDescriptionOpen(product) {
+            return Number(this.previewProductId || 0) === Number(product?.id || -1);
         },
     }"
     class="space-y-4"
@@ -115,14 +128,20 @@
 
     <div class="grid grid-cols-1 gap-2 md:grid-cols-3">
         <template x-for="product in products" :key="product.id">
-            <div class="rounded-lg border border-gray-200 p-2">
+            <div class="rounded-lg border border-gray-200 p-2 relative">
                 <div class="flex gap-2">
-                    <img
-                        :src="product.image || '/images/placeholder-4x3.jpg'"
-                        alt=""
-                        class="rounded object-cover flex-none"
-                        style="width: 100px; height: 80px;"
-                    />
+                    <button
+                        type="button"
+                        class="flex-none rounded"
+                        @click.stop="openDescription(product)"
+                    >
+                        <img
+                            :src="product.image || '/images/placeholder-4x3.jpg'"
+                            alt=""
+                            class="rounded object-cover"
+                            style="width: 100px; height: 80px;"
+                        />
+                    </button>
                     <div class="min-w-0 flex-1">
                         <div class="truncate text-xs font-semibold" x-text="product.title"></div>
 
@@ -164,6 +183,23 @@
                             </div>
                         </template>
                     </div>
+                </div>
+
+                <div
+                    x-show="isDescriptionOpen(product)"
+                    x-cloak
+                    @click.outside="closeDescription()"
+                    class="absolute left-2 right-2 top-[88px] z-30 rounded-lg border border-slate-200 bg-white p-3 shadow-xl"
+                >
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="text-xs font-semibold text-slate-900" x-text="product.title"></div>
+                        <button
+                            type="button"
+                            class="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[11px] text-slate-600"
+                            @click="closeDescription()"
+                        >×</button>
+                    </div>
+                    <div class="mt-2 max-h-28 overflow-auto text-[11px] leading-snug text-slate-700" x-text="product.description || 'Опис відсутній'"></div>
                 </div>
             </div>
         </template>

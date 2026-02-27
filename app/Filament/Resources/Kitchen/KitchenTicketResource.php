@@ -69,7 +69,7 @@ class KitchenTicketResource extends Resource
             ->leftJoin('bs_shop_orders as so', 'so.id', '=', 'bs_kitchen_tickets.order_id')
             ->select('bs_kitchen_tickets.*')
             ->selectRaw('CONCAT(so.date_order, " ", TIME(so.time_order)) as order_dt')
-            ->with(['items'])
+            ->with(['items.orderItem', 'order'])
             ->when(
                 $scope === 'archived',
                 fn (Builder $q) =>
@@ -90,6 +90,8 @@ class KitchenTicketResource extends Resource
     {
         return \App\Models\Kitchen\KitchenTicket::query()
             ->with([
+                'items.orderItem',
+                'order',
                 'order.items.product', // чтобы в модалке были названия товаров
                 'order.clientAddress',
             ]);

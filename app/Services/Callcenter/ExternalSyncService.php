@@ -639,7 +639,6 @@ class ExternalSyncService
             [
                 'entrance' => trim((string) Arr::get($orderPayload, 'parad', '')) ?: null,
                 'floor' => trim((string) Arr::get($orderPayload, 'floar', '')) ?: null,
-                'note' => trim((string) Arr::get($orderPayload, 'comment', '')) ?: null,
             ]
         );
     }
@@ -979,10 +978,44 @@ class ExternalSyncService
 
     protected function fetchSourceOrders(Source $source, int $limit): array
     {
-        $response = $this->apiGet($source, '/api/get-last-orders', [
-            'apikey' => $source->api_key,
-            'limit' => min(max($limit, 1), 200),
-        ]);
+        $configuredEndpoint = null;
+        if ($source->slug === (string) config('services.pirogovaya_api.slug', 'pirogovaya')) {
+            $configuredEndpoint = (string) config('services.pirogovaya_api.orders_endpoint', '/api/get-last-orders');
+        }
+
+        $endpoints = collect([
+            $configuredEndpoint,
+            '/api/get-last-orders',
+            '/api/getLastOrders',
+        ])
+            ->filter(fn ($endpoint) => is_string($endpoint) && trim($endpoint) !== '')
+            ->map(fn (string $endpoint) => '/' . ltrim(trim($endpoint), '/'))
+            ->unique()
+            ->values();
+
+        $lastError = null;
+        $response = null;
+
+        foreach ($endpoints as $endpoint) {
+            try {
+                $response = $this->apiGet($source, $endpoint, [
+                    'apikey' => $source->api_key,
+                    'limit' => min(max($limit, 1), 200),
+                ]);
+                break;
+            } catch (\Throwable $e) {
+                $lastError = $e;
+                if (! str_contains($e->getMessage(), ' 404 ')) {
+                    throw $e;
+                }
+            }
+        }
+
+        if (! is_array($response)) {
+            $hint = "Endpoint orders not found on source API. Check source code has actionGetLastOrders and route /api/get-last-orders, or set CALLCENTER_PIROGOVAYA_ORDERS_ENDPOINT.";
+            $msg = $lastError ? ($lastError->getMessage() . ' | ' . $hint) : $hint;
+            throw new \RuntimeException($msg);
+        }
 
         if (isset($response['orders']) && is_array($response['orders'])) {
             return $response['orders'];

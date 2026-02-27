@@ -58,6 +58,7 @@ return [
         'slug' => env('CALLCENTER_PIROGOVAYA_SLUG', 'pirogovaya'),
         'base_url' => env('CALLCENTER_PIROGOVAYA_BASE_URL'),
         'api_key' => env('CALLCENTER_PIROGOVAYA_API_KEY'),
+        'orders_endpoint' => env('CALLCENTER_PIROGOVAYA_ORDERS_ENDPOINT', '/api/get-last-orders'),
     ],
 
     'postmark' => [

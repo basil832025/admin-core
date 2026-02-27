@@ -8,6 +8,18 @@ use App\Models\Shop\Order;
 
 class OrderObserver
 {
+    public function updating(Order $order): void
+    {
+        if (! $order->isDirty('courier_comment')) {
+            return;
+        }
+
+        $comment = trim((string) ($order->courier_comment ?? ''));
+        $order->courier_comment = $comment !== '' ? $comment : null;
+        $order->courier_comment_changed_at = now();
+        $order->courier_comment_read_at = null;
+    }
+
     public function saved(Order $order): void
     {
         // вспомогательные поля
@@ -27,6 +39,8 @@ class OrderObserver
         $ticket = KitchenTicket::firstWhere('order_id', $order->id);
         if (! $order->wasChanged('status')) {
             if ($ticket) {
+                $ticket->syncItemsFromOrder();
+
                 $dirty = false;
 
                 if ($ticket->urgent !== $urgent) {

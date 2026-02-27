@@ -5,6 +5,8 @@ namespace App\Filament\Resources\Callcenter\OrderResource\Pages;
 use App\Filament\Resources\Callcenter\OrderResource\Concerns\HasHistoryOrderActions;
 use App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions;
 use App\Filament\Resources\Callcenter\OrderResource;
+use App\Models\Kitchen\KitchenTicket;
+use App\Models\Shop\OrderItem;
 use App\Models\Shop\ClientAddress;
 use App\Services\OrderPricing;
 use Filament\Actions\DeleteAction;
@@ -115,6 +117,12 @@ class EditOrder extends EditRecord
         $this->syncClientAddressCoordinatesFromOrder();
         $this->record->recalculateTotalPrice();
         app(OrderPricing::class)->recalc($this->record);
+
+        $ticket = KitchenTicket::query()->where('order_id', $this->record->id)->first();
+
+        if ($ticket) {
+            $ticket->syncItemsFromOrder();
+        }
     }
 
     protected function normalizeAddressCoordinates(array $address): array
@@ -158,6 +166,28 @@ class EditOrder extends EditRecord
             'longitude' => (float) $lng,
             'formatted_address' => $orderAddress['formatted_address'] ?? $clientAddress->formatted_address,
             'street_place_id' => $orderAddress['street_place_id'] ?? $clientAddress->street_place_id,
+        ]);
+    }
+
+    public function persistKitchenNoteInline(int $orderItemId, ?string $note = null): void
+    {
+        if (! $this->record?->exists || $orderItemId <= 0) {
+            return;
+        }
+
+        $item = OrderItem::query()
+            ->where('shop_order_id', $this->record->id)
+            ->whereKey($orderItemId)
+            ->first();
+
+        if (! $item) {
+            return;
+        }
+
+        $normalized = trim((string) $note);
+
+        $item->update([
+            'kitchen_note' => $normalized !== '' ? $normalized : null,
         ]);
     }
 
