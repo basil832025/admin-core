@@ -47,7 +47,7 @@ use Filament\Tables\Actions\Action;               // <— для таблицы 
 use Filament\Tables\Actions\BulkActionGroup;
 use Filament\Tables\Actions\DeleteBulkAction;
 use Filament\Tables\Actions\EditAction;
-use Filament\Tables\Columns\Summarizers\Sum;
+use Filament\Tables\Columns\Summarizers\Summarizer;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ViewColumn;
 use Filament\Tables\Filters\Filter;
@@ -2197,7 +2197,25 @@ class OrderResource extends Resource
                     })
                     ->html()
                     ->alignRight()
-                    ->summarize([Sum::make('total_price')->money('UAH'), Sum::make('discount_total')->money('UAH'), Sum::make('shipping_total')->money('UAH'), Sum::make('grand_total')->money('UAH')]),
+                    ->summarize([
+                        Summarizer::make('totals_compact')
+                            ->label('')
+                            ->using(function ($query) {
+                                $sumTotal = (float) (clone $query)->sum('total_price');
+                                $sumDiscount = (float) (clone $query)->sum('discount_total');
+                                $sumShipping = (float) (clone $query)->sum('shipping_total');
+                                $sumGrand = (float) (clone $query)->sum('grand_total');
+
+                                return new HtmlString(
+                                    '<span style="display:block;line-height:1.2;margin:0;padding:0;">'
+                                    . '<span style="display:block;margin:0;padding:0;">' . number_format($sumTotal, 2, ',', ' ') . ' грн</span>'
+                                    . '<span style="display:block;margin:0;padding:0;color:#dc2626;">' . number_format($sumDiscount, 2, ',', ' ') . ' грн</span>'
+                                    . '<span style="display:block;margin:0;padding:0;color:#15803d;">' . number_format($sumShipping, 2, ',', ' ') . ' грн</span>'
+                                    . '<span style="display:block;margin:0;padding:0;color:#1d4ed8;font-weight:600;">' . number_format($sumGrand, 2, ',', ' ') . ' грн</span>'
+                                    . '</span>'
+                                );
+                            }),
+                    ]),
 
                 TextColumn::make('date_order')->label('')
                     ->extraHeaderAttributes([
