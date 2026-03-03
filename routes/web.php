@@ -312,6 +312,16 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
 
     $needle = '%' . addcslashes(mb_strtolower($search), '%_') . '%';
 
+    $compactDescription = static function (?string $value): string {
+        $text = trim((string) preg_replace('/\s+/u', ' ', strip_tags((string) $value)));
+
+        if ($text === '') {
+            return '';
+        }
+
+        return \Illuminate\Support\Str::limit($text, 260);
+    };
+
     if ($selectedSourceId > 0) {
         $categories = \App\Models\Callcenter\SourceCategory::query()
             ->where('source_id', $selectedSourceId)
@@ -338,7 +348,7 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
             ->values();
 
         $productsRows = \App\Models\Callcenter\SourceProduct::query()
-            ->with('localProduct:id,title,description,main_image,price,in_stock')
+            ->with('localProduct:id,title,short_desc,description,main_image,price,in_stock')
             ->where('source_id', $selectedSourceId)
             ->whereNotNull('local_product_id')
             ->whereHas('localProduct', fn ($q) => $q->where('in_stock', 1))
@@ -353,26 +363,9 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
 
         $productsPayload = $productsRows
             ->groupBy(fn (\App\Models\Callcenter\SourceProduct $row) => $row->external_parent_id ?: $row->external_id)
-            ->map(function ($rows) {
-                $resolveImportedDescription = function (?\App\Models\Shop\Product $localProduct, \App\Models\Callcenter\SourceProduct $sourceProduct): string {
+            ->map(function ($rows) use ($compactDescription) {
+                $resolveImportedDescription = function (?\App\Models\Shop\Product $localProduct, \App\Models\Callcenter\SourceProduct $sourceProduct) use ($compactDescription): string {
                     $locale = app()->getLocale();
-
-                    $localDescription = '';
-                    if ($localProduct) {
-                        $localDescription = method_exists($localProduct, 'getTranslation')
-                            ? (string) ($localProduct->getTranslation('description', $locale, false)
-                                ?: $localProduct->getTranslation('description', 'uk', false)
-                                ?: $localProduct->getTranslation('description', 'ru', false)
-                                ?: $localProduct->getTranslation('description', 'en', false)
-                                ?: '')
-                            : (string) ($localProduct->description ?? '');
-
-                        $localDescription = trim(strip_tags($localDescription));
-                    }
-
-                    if ($localDescription !== '') {
-                        return $localDescription;
-                    }
 
                     $payloadDescription = data_get($sourceProduct->payload, 'description');
                     if (! is_array($payloadDescription) || empty($payloadDescription)) {
@@ -388,7 +381,33 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
                             ?? '');
                     }
 
-                    return trim(strip_tags((string) $payloadDescription));
+                    $payloadDescription = $compactDescription((string) $payloadDescription);
+                    if ($payloadDescription !== '') {
+                        return $payloadDescription;
+                    }
+
+                    $localDescription = '';
+                    if ($localProduct) {
+                        $localShortDescription = trim(strip_tags((string) ($localProduct->short_desc ?? '')));
+
+                        if ($localShortDescription !== '') {
+                            return $compactDescription($localShortDescription);
+                        }
+
+                        $localDescription = method_exists($localProduct, 'getTranslation')
+                            ? (string) ($localProduct->getTranslation('description', $locale, false)
+                                ?: $localProduct->getTranslation('description', 'uk', false)
+                                ?: $localProduct->getTranslation('description', 'ru', false)
+                                ?: $localProduct->getTranslation('description', 'en', false)
+                                ?: '')
+                            : (string) ($localProduct->description ?? '');
+                    }
+
+                    if ($localDescription !== '') {
+                        return $compactDescription($localDescription);
+                    }
+
+                    return '';
                 };
 
                 /** @var \App\Models\Callcenter\SourceProduct $first */
@@ -456,7 +475,7 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
             ->values();
 
         $productsQuery = \App\Models\Shop\Product::query()
-            ->select(['id', 'title', 'short_name', 'description', 'price', 'main_image', 'parent_id', 'category_id', 'in_stock'])
+            ->select(['id', 'title', 'short_name', 'short_desc', 'description', 'price', 'main_image', 'parent_id', 'category_id', 'in_stock'])
             ->whereNull('parent_id')
             ->where('in_stock', 1);
 
@@ -555,7 +574,7 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
                 });
             })
             ->with(['children' => function ($q) {
-                $q->select(['id', 'title', 'description', 'price', 'main_image', 'parent_id', 'in_stock'])
+                $q->select(['id', 'title', 'short_desc', 'description', 'price', 'main_image', 'parent_id', 'in_stock'])
                     ->where('in_stock', 1)
                     ->orderBy('sort')
                     ->orderBy('id');
@@ -565,10 +584,12 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
             ->limit(120)
             ->get();
 
-        $productsPayload = $products->map(function (\App\Models\Shop\Product $product) {
+        $productsPayload = $products->map(function (\App\Models\Shop\Product $product) use ($compactDescription) {
             $locale = app()->getLocale();
             $variants = $product->children ?? collect();
             $hasVariants = $variants->isNotEmpty();
+
+            $productShortDescription = trim(strip_tags((string) ($product->short_desc ?? '')));
 
             $productDescription = method_exists($product, 'getTranslation')
                 ? (string) ($product->getTranslation('description', $locale, false)
@@ -578,16 +599,21 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
                     ?: '')
                 : (string) ($product->description ?? '');
 
+            $productDescription = $productShortDescription !== ''
+                ? $productShortDescription
+                : $productDescription;
+
             return [
                 'id' => (int) $product->id,
                 'title' => (string) ($product->display_name ?? $product->title ?? ''),
-                'description' => trim(strip_tags($productDescription)),
+                'description' => $compactDescription($productDescription),
                 'image' => $product->main_image_url,
                 'price' => (float) ($product->price ?? 0),
                 'has_variants' => $hasVariants,
                 'unit' => \App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions::resolveMenuUnitLabel((int) $product->id),
-                'variants' => $variants->map(function (\App\Models\Shop\Product $variant) {
+                'variants' => $variants->map(function (\App\Models\Shop\Product $variant) use ($compactDescription) {
                     $locale = app()->getLocale();
+                    $variantShortDescription = trim(strip_tags((string) ($variant->short_desc ?? '')));
                     $variantDescription = method_exists($variant, 'getTranslation')
                         ? (string) ($variant->getTranslation('description', $locale, false)
                             ?: $variant->getTranslation('description', 'uk', false)
@@ -596,10 +622,14 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
                             ?: '')
                         : (string) ($variant->description ?? '');
 
+                    $variantDescription = $variantShortDescription !== ''
+                        ? $variantShortDescription
+                        : $variantDescription;
+
                     return [
                         'id' => (int) $variant->id,
                         'title' => (string) ($variant->display_name ?? $variant->title ?? ''),
-                        'description' => trim(strip_tags($variantDescription)),
+                        'description' => $compactDescription($variantDescription),
                         'price' => (float) ($variant->price ?? 0),
                         'unit' => \App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions::resolveMenuUnitLabel((int) $variant->id),
                     ];

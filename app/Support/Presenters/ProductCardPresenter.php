@@ -135,6 +135,7 @@ class ProductCardPresenter
         return [
             'title'           => method_exists($p, 'getTranslation') ? $p->getTranslation('title', $this->locale) : $p->title,
             'description'     => method_exists($p, 'getTranslation') ? $p->getTranslation('description', $this->locale) : $p->description,
+            'short_desc'      => $p->short_desc,
             'old_price'       => $p->old_price,
             'price'           => $p->price,
             'main_image'      => $p->main_image_url,

@@ -322,11 +322,25 @@
                     </div>
 
                     {{-- Состав --}}
-                    @if($product['description'])
+                    @php
+                        $ingredientsSource = trim((string) ($product['short_desc'] ?? ''));
+
+                        if ($ingredientsSource === '') {
+                            $ingredientsSource = (string) ($product['description'] ?? '');
+                        }
+
+                        $ingredientsText = preg_replace('/\s+/u', ' ', strip_tags($ingredientsSource));
+                        $ingredientsText = trim((string) $ingredientsText);
+
+                        if (mb_strlen($ingredientsText) > 260) {
+                            $ingredientsText = \Illuminate\Support\Str::limit($ingredientsText, 260);
+                        }
+                    @endphp
+                    @if($ingredientsText !== '')
                         <div class="mt-6">
                             <div class="text-[#666666] text-lg font-semibold mb-2">{{ st('product.ingredients','Склад') }}:</div>
                             <div class="prose prose-sm max-w-none text-base text-[#A9A9A9]">
-                                {{ strip_tags($product['description']) }}
+                                {{ $ingredientsText }}
                             </div>
                         </div>
                     @endif
