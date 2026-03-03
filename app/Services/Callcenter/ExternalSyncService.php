@@ -244,6 +244,7 @@ class ExternalSyncService
         $processed = 0;
         $created = 0;
         $updated = 0;
+        $seenExternalIds = [];
 
         SourceProduct::query()
             ->where('source_id', $source->id)
@@ -273,9 +274,21 @@ class ExternalSyncService
             foreach ($variants as $variantPayload) {
                 $processed++;
                 [$sourceProduct, $isNew] = $this->upsertSourceProduct($source, $variantPayload);
+                $seenExternalIds[] = (string) $sourceProduct->external_id;
                 $this->ensureLocalProductFromSourceProduct($source, $sourceProduct, $variantPayload);
                 $isNew ? $created++ : $updated++;
             }
+        }
+
+        $seenExternalIds = array_values(array_unique(array_filter($seenExternalIds)));
+
+        if ($seenExternalIds !== []) {
+            SourceProduct::query()
+                ->where('source_id', $source->id)
+                ->whereNotIn('external_id', $seenExternalIds)
+                ->delete();
+
+            $this->pruneOrphanImportedProductsForSource($source);
         }
 
         $source->forceFill(['last_catalog_synced_at' => now()])->saveQuietly();
@@ -297,6 +310,31 @@ class ExternalSyncService
             'updated' => $updated,
             'failed' => 0,
         ];
+    }
+
+    protected function pruneOrphanImportedProductsForSource(Source $source): void
+    {
+        $slugPrefix = 'src-' . $source->slug . '-p-%';
+
+        Product::query()
+            ->where(function ($q) use ($source, $slugPrefix): void {
+                $q->where(function ($sub) use ($source): void {
+                    $sub->where('is_imported', true)
+                        ->where('import_source_id', $source->id);
+                })->orWhere('slug', 'like', $slugPrefix);
+            })
+            ->whereNotExists(function ($q) use ($source): void {
+                $q->select(DB::raw(1))
+                    ->from('bs_cc_source_products as csp')
+                    ->where('csp.source_id', $source->id)
+                    ->whereColumn('csp.local_product_id', 'bs_products.id');
+            })
+            ->whereNotExists(function ($q): void {
+                $q->select(DB::raw(1))
+                    ->from('bs_shop_order_items as soi')
+                    ->whereColumn('soi.product_id', 'bs_products.id');
+            })
+            ->delete();
     }
 
     public function syncOrdersForSource(Source $source, int $limit = 50): array
@@ -758,6 +796,8 @@ class ExternalSyncService
                 'category_id' => $fallbackCategory?->id,
                 'short_name' => Str::limit($titleBase, 250, ''),
                 'code2' => $externalProductId,
+                'is_imported' => true,
+                'import_source_id' => $source->id,
                 'sku' => $this->resolveSafeSku(trim((string) Arr::get($itemPayload, 'weight', ''))),
             ]);
         }
@@ -810,16 +850,25 @@ class ExternalSyncService
                 'category_id' => $categoryId,
                 'short_name' => Str::limit($fullTitle, 250, ''),
                 'code2' => (string) $sourceProduct->external_id,
+                'is_imported' => true,
+                'import_source_id' => $source->id,
                 'sku' => $this->resolveSafeSku($sizeLabel),
                 'main_image' => $imageUrl !== '' ? $imageUrl : null,
             ]);
         } else {
-            $product->fill([
+            $fillData = [
                 'price' => (float) ($sourceProduct->price ?? Arr::get($variantPayload, 'price', $product->price)),
                 'category_id' => $categoryId ?: $product->category_id,
                 'in_stock' => true,
                 'main_image' => $imageUrl !== '' ? $imageUrl : $product->main_image,
-            ])->saveQuietly();
+            ];
+
+            if (str_starts_with((string) $product->slug, 'src-' . $source->slug . '-p-')) {
+                $fillData['is_imported'] = true;
+                $fillData['import_source_id'] = $source->id;
+            }
+
+            $product->fill($fillData)->saveQuietly();
         }
 
         $sourceProduct->forceFill([

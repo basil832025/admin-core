@@ -44,7 +44,7 @@ class Product extends Model implements HasMedia
         'title','sku', 'slug', 'description', 'price', 'old_price',
         'quantity', 'in_stock','main_image','parent_id','short_name',
         'seo_title', 'seo_description', 'seo_keywords','category_id','dop_info',
-          'is_new',  'is_hit',  'is_home', 'code2', 'sort','short_desc', 'main_image_small',
+          'is_new',  'is_hit',  'is_home', 'code2', 'is_imported', 'import_source_id', 'sort','short_desc', 'main_image_small',
     ];
     protected $casts = [
         'title' => 'array',
@@ -54,6 +54,8 @@ class Product extends Model implements HasMedia
         'is_new'  => 'boolean',
         'is_hit'  => 'boolean',
         'is_home' => 'boolean',
+        'is_imported' => 'boolean',
+        'import_source_id' => 'int',
         'sort'    => 'integer',
     ];
     public $translatable = [

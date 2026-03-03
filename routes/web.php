@@ -378,6 +378,7 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
     if ($selectedSourceId > 0) {
         $categories = \App\Models\Callcenter\SourceCategory::query()
             ->where('source_id', $selectedSourceId)
+            ->where('external_id', '!=', '__fallback__')
             ->whereIn('external_id', function ($query) use ($selectedSourceId): void {
                 $query->select('external_category_id')
                     ->from('bs_cc_source_products')
@@ -535,8 +536,13 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
             ->values();
     } else {
         $categories = \App\Models\Shop\ProductCategory::query()
+            ->where('slug', 'not like', 'src-%-import')
             ->whereHas('products', function ($q) use ($applySourceFilter): void {
                 $q->where('in_stock', 1);
+                $q->where(function ($w): void {
+                    $w->whereNull('is_imported')
+                        ->orWhere('is_imported', false);
+                });
                 $applySourceFilter($q);
             })
             ->get(['id', 'title'])
@@ -549,7 +555,11 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
         $productsQuery = \App\Models\Shop\Product::query()
             ->select(['id', 'title', 'short_name', 'short_desc', 'description', 'price', 'main_image', 'parent_id', 'category_id', 'in_stock'])
             ->whereNull('parent_id')
-            ->where('in_stock', 1);
+            ->where('in_stock', 1)
+            ->where(function ($w): void {
+                $w->whereNull('is_imported')
+                    ->orWhere('is_imported', false);
+            });
 
         $applySourceFilter($productsQuery);
 
