@@ -459,6 +459,33 @@ class OrderResource extends Resource
 
                             $rows = $order->adjustments()->orderByDesc('id')->get();
                             if ($rows->isEmpty()) {
+                                if ((int) ($order->source_id ?? 0) > 0) {
+                                    $discountAmount = abs((float) ($order->discount_total ?? 0));
+                                    $subtotal = (float) ($order->subtotal ?? 0);
+
+                                    if ($discountAmount > 0) {
+                                        $percentText = '';
+                                        if ($subtotal > 0) {
+                                            $percent = round(($discountAmount / $subtotal) * 100, 2);
+                                            $percentText = ' (' . number_format($percent, 2, ',', ' ') . '%)';
+                                        }
+
+                                        return new HtmlString(
+                                            '<div class="space-y-1">'
+                                            . '<div class="flex justify-between text-sm">'
+                                            . '<div><span class="font-medium">Импортированная скидка</span></div>'
+                                            . '<div class="text-rose-600">-'
+                                            . number_format($discountAmount, 2, ',', ' ')
+                                            . ' '
+                                            . e($order->currency ?? 'UAH')
+                                            . e($percentText)
+                                            . '</div>'
+                                            . '</div>'
+                                            . '</div>'
+                                        );
+                                    }
+                                }
+
                                 return new HtmlString('<div class="text-sm text-gray-500">Скидки не применены</div>');
                             }
 
@@ -747,14 +774,28 @@ class OrderResource extends Resource
                                 return new \Illuminate\Support\HtmlString('<div class="text-lg font-semibold">'.$val.'</div>');
                             }
 
-                            // 3) Если заказ есть: если есть применённые скидки — показываем grand_total,
-                            //    иначе — тоже базовую сумму
+                            // 3) Если заказ есть: при скидках берем сумму товаров БЕЗ доставки,
+                            //    чтобы не дублировать доставку ниже в финальном расчете.
                             $hasAdjustments = $record->adjustments()->exists();
                             $record->refresh();
 
-                            $amount = $hasAdjustments
-                                ? (float) ($record->grand_total ?? 0)
-                                : (float) $baseTotal;
+                            if ($hasAdjustments) {
+                                if ((int) ($record->source_id ?? 0) > 0) {
+                                    $recordSubtotal = (float) ($record->subtotal ?? 0);
+                                    $recordDiscountAbs = abs((float) ($record->discount_total ?? 0));
+
+                                    if ($recordSubtotal > 0 && $recordDiscountAbs > 0) {
+                                        $discountPercent = min(1, $recordDiscountAbs / $recordSubtotal);
+                                        $amount = max(0, $baseTotal * (1 - $discountPercent));
+                                    } else {
+                                        $amount = (float) $baseTotal;
+                                    }
+                                } else {
+                                    $amount = (float) ($record->grand_total ?? 0);
+                                }
+                            } else {
+                                $amount = (float) $baseTotal;
+                            }
 
                             // 4) Добавляем сумму доставки
                             // Получаем адрес из формы (актуальные данные)
@@ -2107,7 +2148,7 @@ class OrderResource extends Resource
                         'x-data' => '{}',
                         'x-html' => json_encode(
                             '<span class="fi-ta-header-cell-label text-sm font-medium">'
-                            .'Сумма<br>Скидка<br>Сумма со скидкой'
+                            .'Сумма<br>Скидка<br>Доставка<br>Сумма со скидкой'
                             .'</span>'
                         ),
                     ])
@@ -2116,6 +2157,10 @@ class OrderResource extends Resource
                         $discountValue = (float) ($record->discount_total ?? 0);
                         $discount = $discountValue != 0
                             ? number_format($discountValue, 2, ',', ' ') . ' грн'
+                            : '—';
+                        $shippingValue = (float) ($record->shipping_total ?? $record->shipping_price ?? 0);
+                        $shipping = $shippingValue != 0
+                            ? number_format($shippingValue, 2, ',', ' ') . ' грн'
                             : '—';
                         $grand = number_format((float) ($record->grand_total ?? 0), 2, ',', ' ') . ' грн';
 
@@ -2143,15 +2188,16 @@ class OrderResource extends Resource
                         return new HtmlString(
                             '<div class="leading-snug">'
                             . '<div>' . e($total) . '</div>'
-                            . '<div class="text-green-700">' . e($discount) . '</div>'
-                            . '<div class="font-semibold">' . e($grand) . '</div>'
+                            . '<div style="color:#dc2626;">' . e($discount) . '</div>'
+                            . '<div style="color:#15803d;">' . e($shipping) . '</div>'
+                            . '<div style="color:#1d4ed8;font-weight:600;">' . e($grand) . '</div>'
                             . $cashHint
                             . '</div>'
                         );
                     })
                     ->html()
                     ->alignRight()
-                    ->summarize([Sum::make('total_price')->money('UAH'), Sum::make('discount_total')->money('UAH'), Sum::make('grand_total')->money('UAH')]),
+                    ->summarize([Sum::make('total_price')->money('UAH'), Sum::make('discount_total')->money('UAH'), Sum::make('shipping_total')->money('UAH'), Sum::make('grand_total')->money('UAH')]),
 
                 TextColumn::make('date_order')->label('')
                     ->extraHeaderAttributes([

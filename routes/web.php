@@ -259,7 +259,8 @@ Route::post('/admin/client-addresses/{address}/coords', function (\Illuminate\Ht
 
 Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request $request) {
     $search = trim((string) $request->query('q', ''));
-    $categoryId = (int) $request->query('category_id', 0);
+    $categoryIdRaw = trim((string) $request->query('category_id', ''));
+    $localCategoryId = (int) $categoryIdRaw;
     $sourceIdRaw = (string) $request->query('source_id', $request->query('order_source_id', '0'));
     $selectedSourceId = is_numeric($sourceIdRaw) ? (int) $sourceIdRaw : 0;
     $locales = \App\Models\Setting::getActiveLocales();
@@ -311,177 +312,301 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
 
     $needle = '%' . addcslashes(mb_strtolower($search), '%_') . '%';
 
-    $categories = \App\Models\Shop\ProductCategory::query()
-        ->whereHas('products', function ($q) use ($applySourceFilter): void {
-            $q->where('in_stock', 1);
-            $applySourceFilter($q);
-        })
-        ->get(['id', 'title'])
-        ->map(fn (\App\Models\Shop\ProductCategory $cat) => [
-            'id' => (int) $cat->id,
-            'name' => (string) $cat->name,
-        ])
-        ->values();
+    if ($selectedSourceId > 0) {
+        $categories = \App\Models\Callcenter\SourceCategory::query()
+            ->where('source_id', $selectedSourceId)
+            ->whereIn('external_id', function ($query) use ($selectedSourceId): void {
+                $query->select('external_category_id')
+                    ->from('bs_cc_source_products')
+                    ->where('source_id', $selectedSourceId)
+                    ->whereNotNull('external_category_id')
+                    ->groupBy('external_category_id');
+            })
+            ->orderBy('id')
+            ->get(['external_id', 'title'])
+            ->map(function (\App\Models\Callcenter\SourceCategory $category): array {
+                $title = $category->title;
+                $name = is_array($title)
+                    ? (string) ($title['uk'] ?? $title['ru'] ?? $title['en'] ?? $category->external_id)
+                    : (string) ($title ?: $category->external_id);
 
-    $productsQuery = \App\Models\Shop\Product::query()
-        ->select(['id', 'title', 'short_name', 'description', 'price', 'main_image', 'parent_id', 'category_id', 'in_stock'])
-        ->whereNull('parent_id')
-        ->where('in_stock', 1);
+                return [
+                    'id' => (string) $category->external_id,
+                    'name' => $name,
+                ];
+            })
+            ->values();
 
-    $applySourceFilter($productsQuery);
+        $productsRows = \App\Models\Callcenter\SourceProduct::query()
+            ->with('localProduct:id,title,description,main_image,price,in_stock')
+            ->where('source_id', $selectedSourceId)
+            ->whereNotNull('local_product_id')
+            ->whereHas('localProduct', fn ($q) => $q->where('in_stock', 1))
+            ->when($categoryIdRaw !== '', fn ($q) => $q->where('external_category_id', $categoryIdRaw))
+            ->when($search !== '', function ($q) use ($search): void {
+                $needle = '%' . mb_strtolower($search) . '%';
+                $q->whereRaw('LOWER(title) LIKE ?', [$needle]);
+            })
+            ->orderBy('external_parent_id')
+            ->orderBy('id')
+            ->get();
 
-    $products = $productsQuery
-        ->when($categoryId > 0, fn ($q) => $q->where('category_id', $categoryId))
-        ->when($search !== '', function ($q) use ($needle, $locales): void {
-            $q->where(function ($w) use ($needle, $locales): void {
-                // Поиск по самому товару (как в SearchController)
-                foreach ($locales as $loc) {
-                    $w->orWhereRaw(
-                        "LOWER(CASE WHEN JSON_VALID(`title`) THEN JSON_UNQUOTE(JSON_EXTRACT(`title`, '$.\"{$loc}\"')) ELSE `title` END) LIKE ?",
-                        [$needle]
-                    );
+        $productsPayload = $productsRows
+            ->groupBy(fn (\App\Models\Callcenter\SourceProduct $row) => $row->external_parent_id ?: $row->external_id)
+            ->map(function ($rows) {
+                $resolveImportedDescription = function (?\App\Models\Shop\Product $localProduct, \App\Models\Callcenter\SourceProduct $sourceProduct): string {
+                    $locale = app()->getLocale();
 
-                    $w->orWhereRaw(
-                        "LOWER(CASE WHEN JSON_VALID(`short_name`) THEN JSON_UNQUOTE(JSON_EXTRACT(`short_name`, '$.\"{$loc}\"')) ELSE `short_name` END) LIKE ?",
-                        [$needle]
-                    );
+                    $localDescription = '';
+                    if ($localProduct) {
+                        $localDescription = method_exists($localProduct, 'getTranslation')
+                            ? (string) ($localProduct->getTranslation('description', $locale, false)
+                                ?: $localProduct->getTranslation('description', 'uk', false)
+                                ?: $localProduct->getTranslation('description', 'ru', false)
+                                ?: $localProduct->getTranslation('description', 'en', false)
+                                ?: '')
+                            : (string) ($localProduct->description ?? '');
+
+                        $localDescription = trim(strip_tags($localDescription));
+                    }
+
+                    if ($localDescription !== '') {
+                        return $localDescription;
+                    }
+
+                    $payloadDescription = data_get($sourceProduct->payload, 'description');
+                    if (! is_array($payloadDescription) || empty($payloadDescription)) {
+                        $payloadDescription = data_get($sourceProduct->payload, 'text');
+                    }
+
+                    if (is_array($payloadDescription)) {
+                        $payloadDescription = (string) ($payloadDescription[$locale]
+                            ?? $payloadDescription['uk']
+                            ?? $payloadDescription['ua']
+                            ?? $payloadDescription['ru']
+                            ?? $payloadDescription['en']
+                            ?? '');
+                    }
+
+                    return trim(strip_tags((string) $payloadDescription));
+                };
+
+                /** @var \App\Models\Callcenter\SourceProduct $first */
+                $first = $rows->first();
+                $firstLocalProduct = $first->localProduct;
+                $hasVariants = $rows->count() > 1;
+
+                $image = $firstLocalProduct?->main_image_url
+                    ?: (is_string(data_get($first->payload, 'img')) ? (string) data_get($first->payload, 'img') : null);
+
+                if (! $hasVariants) {
+                    $single = $rows->first();
+                    $singleLocal = $single->localProduct;
+                    $singleId = (int) ($single->local_product_id ?? 0);
+
+                    return [
+                        'id' => $singleId,
+                        'title' => (string) ($single->title ?: ($singleLocal?->title ?? 'Без названия')),
+                        'description' => $resolveImportedDescription($singleLocal, $single),
+                        'image' => $image,
+                        'has_variants' => false,
+                        'price' => (float) ($single->price ?? $singleLocal?->price ?? 0),
+                        'unit' => $single->size_label ?: \App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions::resolveMenuUnitLabel($singleId),
+                        'variants' => [],
+                    ];
                 }
 
-                // fallback для не-JSON полей
-                $w->orWhereRaw('LOWER(`title`) LIKE ?', [$needle])
-                    ->orWhereRaw('LOWER(`short_name`) LIKE ?', [$needle]);
+                $variants = $rows
+                    ->map(function (\App\Models\Callcenter\SourceProduct $row): array {
+                        $localProductId = (int) ($row->local_product_id ?? 0);
 
-                $w->orWhereRaw('LOWER(`slug`) LIKE ?', [$needle])
-                    ->orWhereRaw('LOWER(`code2`) LIKE ?', [$needle])
-                    ->orWhereRaw('LOWER(`sku`) LIKE ?', [$needle]);
+                        return [
+                            'id' => $localProductId,
+                            'title' => (string) ($row->title ?: ($row->localProduct?->title ?? 'Вариант')),
+                            'price' => (float) ($row->price ?? $row->localProduct?->price ?? 0),
+                            'unit' => (string) ($row->size_label ?: \App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions::resolveMenuUnitLabel($localProductId)),
+                        ];
+                    })
+                    ->filter(fn (array $variant): bool => (int) ($variant['id'] ?? 0) > 0)
+                    ->values();
 
-                // Поиск по value_text характеристик родителя
-                $w->orWhereExists(function ($query) use ($needle) {
-                    $query->select(\Illuminate\Support\Facades\DB::raw(1))
-                        ->from('bs_product_characteristic_value')
-                        ->whereColumn('bs_product_characteristic_value.product_id', 'bs_products.id')
-                        ->whereRaw('LOWER(bs_product_characteristic_value.value_text) LIKE ?', [$needle]);
-                });
+                return [
+                    'id' => (int) ($first->local_product_id ?? 0),
+                    'title' => (string) ($first->title ?: ($firstLocalProduct?->title ?? 'Без названия')),
+                    'description' => $resolveImportedDescription($firstLocalProduct, $first),
+                    'image' => $image,
+                    'has_variants' => $variants->isNotEmpty(),
+                    'price' => 0,
+                    'unit' => '',
+                    'variants' => $variants->all(),
+                ];
+            })
+            ->values();
+    } else {
+        $categories = \App\Models\Shop\ProductCategory::query()
+            ->whereHas('products', function ($q) use ($applySourceFilter): void {
+                $q->where('in_stock', 1);
+                $applySourceFilter($q);
+            })
+            ->get(['id', 'title'])
+            ->map(fn (\App\Models\Shop\ProductCategory $cat) => [
+                'id' => (int) $cat->id,
+                'name' => (string) $cat->name,
+            ])
+            ->values();
 
-                // Поиск по value_text характеристик дочерних товаров
-                $w->orWhereExists(function ($query) use ($needle) {
-                    $query->select(\Illuminate\Support\Facades\DB::raw(1))
-                        ->from('bs_products AS child_products')
-                        ->join('bs_product_characteristic_value', 'child_products.id', '=', 'bs_product_characteristic_value.product_id')
-                        ->whereColumn('child_products.parent_id', 'bs_products.id')
-                        ->whereRaw('LOWER(bs_product_characteristic_value.value_text) LIKE ?', [$needle]);
-                });
+        $productsQuery = \App\Models\Shop\Product::query()
+            ->select(['id', 'title', 'short_name', 'description', 'price', 'main_image', 'parent_id', 'category_id', 'in_stock'])
+            ->whereNull('parent_id')
+            ->where('in_stock', 1);
 
-                // Поиск по JSON значению характеристик родителя
-                foreach ($locales as $loc) {
-                    $w->orWhereExists(function ($query) use ($needle, $loc) {
+        $applySourceFilter($productsQuery);
+
+        $products = $productsQuery
+            ->when($localCategoryId > 0, fn ($q) => $q->where('category_id', $localCategoryId))
+            ->when($search !== '', function ($q) use ($needle, $locales): void {
+                $q->where(function ($w) use ($needle, $locales): void {
+                    foreach ($locales as $loc) {
+                        $w->orWhereRaw(
+                            "LOWER(CASE WHEN JSON_VALID(`title`) THEN JSON_UNQUOTE(JSON_EXTRACT(`title`, '$.\"{$loc}\"')) ELSE `title` END) LIKE ?",
+                            [$needle]
+                        );
+
+                        $w->orWhereRaw(
+                            "LOWER(CASE WHEN JSON_VALID(`short_name`) THEN JSON_UNQUOTE(JSON_EXTRACT(`short_name`, '$.\"{$loc}\"')) ELSE `short_name` END) LIKE ?",
+                            [$needle]
+                        );
+                    }
+
+                    $w->orWhereRaw('LOWER(`title`) LIKE ?', [$needle])
+                        ->orWhereRaw('LOWER(`short_name`) LIKE ?', [$needle]);
+
+                    $w->orWhereRaw('LOWER(`slug`) LIKE ?', [$needle])
+                        ->orWhereRaw('LOWER(`code2`) LIKE ?', [$needle])
+                        ->orWhereRaw('LOWER(`sku`) LIKE ?', [$needle]);
+
+                    $w->orWhereExists(function ($query) use ($needle) {
                         $query->select(\Illuminate\Support\Facades\DB::raw(1))
                             ->from('bs_product_characteristic_value')
-                            ->join('bs_characteristic_values', 'bs_product_characteristic_value.characteristic_value_id', '=', 'bs_characteristic_values.id')
                             ->whereColumn('bs_product_characteristic_value.product_id', 'bs_products.id')
-                            ->whereRaw(
-                                "LOWER(CASE WHEN JSON_VALID(bs_characteristic_values.value) THEN JSON_UNQUOTE(JSON_EXTRACT(bs_characteristic_values.value, '$.\"{$loc}\"')) ELSE bs_characteristic_values.value END) LIKE ?",
-                                [$needle]
-                            );
+                            ->whereRaw('LOWER(bs_product_characteristic_value.value_text) LIKE ?', [$needle]);
                     });
-                }
 
-                // Поиск по JSON значению характеристик дочерних товаров
-                foreach ($locales as $loc) {
-                    $w->orWhereExists(function ($query) use ($needle, $loc) {
+                    $w->orWhereExists(function ($query) use ($needle) {
                         $query->select(\Illuminate\Support\Facades\DB::raw(1))
                             ->from('bs_products AS child_products')
                             ->join('bs_product_characteristic_value', 'child_products.id', '=', 'bs_product_characteristic_value.product_id')
-                            ->join('bs_characteristic_values', 'bs_product_characteristic_value.characteristic_value_id', '=', 'bs_characteristic_values.id')
                             ->whereColumn('child_products.parent_id', 'bs_products.id')
-                            ->whereRaw(
-                                "LOWER(CASE WHEN JSON_VALID(bs_characteristic_values.value) THEN JSON_UNQUOTE(JSON_EXTRACT(bs_characteristic_values.value, '$.\"{$loc}\"')) ELSE bs_characteristic_values.value END) LIKE ?",
-                                [$needle]
-                            );
+                            ->whereRaw('LOWER(bs_product_characteristic_value.value_text) LIKE ?', [$needle]);
                     });
-                }
 
-                // Поиск по всем вариантам (название/артикул/slug)
-                $w->orWhereExists(function ($query) use ($needle, $locales) {
-                    $query->select(\Illuminate\Support\Facades\DB::raw(1))
-                        ->from('bs_products AS child_products')
-                        ->whereColumn('child_products.parent_id', 'bs_products.id')
-                        ->where(function ($cw) use ($needle, $locales): void {
-                            foreach ($locales as $loc) {
-                                $cw->orWhereRaw(
-                                    "LOWER(CASE WHEN JSON_VALID(child_products.title) THEN JSON_UNQUOTE(JSON_EXTRACT(child_products.title, '$.\"{$loc}\"')) ELSE child_products.title END) LIKE ?",
+                    foreach ($locales as $loc) {
+                        $w->orWhereExists(function ($query) use ($needle, $loc) {
+                            $query->select(\Illuminate\Support\Facades\DB::raw(1))
+                                ->from('bs_product_characteristic_value')
+                                ->join('bs_characteristic_values', 'bs_product_characteristic_value.characteristic_value_id', '=', 'bs_characteristic_values.id')
+                                ->whereColumn('bs_product_characteristic_value.product_id', 'bs_products.id')
+                                ->whereRaw(
+                                    "LOWER(CASE WHEN JSON_VALID(bs_characteristic_values.value) THEN JSON_UNQUOTE(JSON_EXTRACT(bs_characteristic_values.value, '$.\"{$loc}\"')) ELSE bs_characteristic_values.value END) LIKE ?",
                                     [$needle]
                                 );
-
-                                $cw->orWhereRaw(
-                                    "LOWER(CASE WHEN JSON_VALID(child_products.short_name) THEN JSON_UNQUOTE(JSON_EXTRACT(child_products.short_name, '$.\"{$loc}\"')) ELSE child_products.short_name END) LIKE ?",
-                                    [$needle]
-                                );
-                            }
-
-                            // fallback для не-JSON полей вариантов
-                            $cw->orWhereRaw('LOWER(child_products.title) LIKE ?', [$needle])
-                                ->orWhereRaw('LOWER(child_products.short_name) LIKE ?', [$needle]);
-
-                            $cw->orWhereRaw('LOWER(child_products.slug) LIKE ?', [$needle])
-                                ->orWhereRaw('LOWER(child_products.code2) LIKE ?', [$needle])
-                                ->orWhereRaw('LOWER(child_products.sku) LIKE ?', [$needle]);
                         });
+                    }
+
+                    foreach ($locales as $loc) {
+                        $w->orWhereExists(function ($query) use ($needle, $loc) {
+                            $query->select(\Illuminate\Support\Facades\DB::raw(1))
+                                ->from('bs_products AS child_products')
+                                ->join('bs_product_characteristic_value', 'child_products.id', '=', 'bs_product_characteristic_value.product_id')
+                                ->join('bs_characteristic_values', 'bs_product_characteristic_value.characteristic_value_id', '=', 'bs_characteristic_values.id')
+                                ->whereColumn('child_products.parent_id', 'bs_products.id')
+                                ->whereRaw(
+                                    "LOWER(CASE WHEN JSON_VALID(bs_characteristic_values.value) THEN JSON_UNQUOTE(JSON_EXTRACT(bs_characteristic_values.value, '$.\"{$loc}\"')) ELSE bs_characteristic_values.value END) LIKE ?",
+                                    [$needle]
+                                );
+                        });
+                    }
+
+                    $w->orWhereExists(function ($query) use ($needle, $locales) {
+                        $query->select(\Illuminate\Support\Facades\DB::raw(1))
+                            ->from('bs_products AS child_products')
+                            ->whereColumn('child_products.parent_id', 'bs_products.id')
+                            ->where(function ($cw) use ($needle, $locales): void {
+                                foreach ($locales as $loc) {
+                                    $cw->orWhereRaw(
+                                        "LOWER(CASE WHEN JSON_VALID(child_products.title) THEN JSON_UNQUOTE(JSON_EXTRACT(child_products.title, '$.\"{$loc}\"')) ELSE child_products.title END) LIKE ?",
+                                        [$needle]
+                                    );
+
+                                    $cw->orWhereRaw(
+                                        "LOWER(CASE WHEN JSON_VALID(child_products.short_name) THEN JSON_UNQUOTE(JSON_EXTRACT(child_products.short_name, '$.\"{$loc}\"')) ELSE child_products.short_name END) LIKE ?",
+                                        [$needle]
+                                    );
+                                }
+
+                                $cw->orWhereRaw('LOWER(child_products.title) LIKE ?', [$needle])
+                                    ->orWhereRaw('LOWER(child_products.short_name) LIKE ?', [$needle]);
+
+                                $cw->orWhereRaw('LOWER(child_products.slug) LIKE ?', [$needle])
+                                    ->orWhereRaw('LOWER(child_products.code2) LIKE ?', [$needle])
+                                    ->orWhereRaw('LOWER(child_products.sku) LIKE ?', [$needle]);
+                            });
+                    });
                 });
-            });
-        })
-        ->with(['children' => function ($q) {
-            $q->select(['id', 'title', 'description', 'price', 'main_image', 'parent_id', 'in_stock'])
-                ->where('in_stock', 1)
-                ->orderBy('sort')
-                ->orderBy('id');
-        }])
-        ->orderBy('sort')
-        ->orderBy('id')
-        ->limit(120)
-        ->get();
+            })
+            ->with(['children' => function ($q) {
+                $q->select(['id', 'title', 'description', 'price', 'main_image', 'parent_id', 'in_stock'])
+                    ->where('in_stock', 1)
+                    ->orderBy('sort')
+                    ->orderBy('id');
+            }])
+            ->orderBy('sort')
+            ->orderBy('id')
+            ->limit(120)
+            ->get();
 
-    $productsPayload = $products->map(function (\App\Models\Shop\Product $product) {
-        $locale = app()->getLocale();
-        $variants = $product->children ?? collect();
-        $hasVariants = $variants->isNotEmpty();
+        $productsPayload = $products->map(function (\App\Models\Shop\Product $product) {
+            $locale = app()->getLocale();
+            $variants = $product->children ?? collect();
+            $hasVariants = $variants->isNotEmpty();
 
-        $productDescription = method_exists($product, 'getTranslation')
-            ? (string) ($product->getTranslation('description', $locale, false)
-                ?: $product->getTranslation('description', 'uk', false)
-                ?: $product->getTranslation('description', 'ru', false)
-                ?: $product->getTranslation('description', 'en', false)
-                ?: '')
-            : (string) ($product->description ?? '');
+            $productDescription = method_exists($product, 'getTranslation')
+                ? (string) ($product->getTranslation('description', $locale, false)
+                    ?: $product->getTranslation('description', 'uk', false)
+                    ?: $product->getTranslation('description', 'ru', false)
+                    ?: $product->getTranslation('description', 'en', false)
+                    ?: '')
+                : (string) ($product->description ?? '');
 
-        return [
-            'id' => (int) $product->id,
-            'title' => (string) ($product->display_name ?? $product->title ?? ''),
-            'description' => trim(strip_tags($productDescription)),
-            'image' => $product->main_image_url,
-            'price' => (float) ($product->price ?? 0),
-            'has_variants' => $hasVariants,
-            'unit' => \App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions::resolveMenuUnitLabel((int) $product->id),
-            'variants' => $variants->map(function (\App\Models\Shop\Product $variant) {
-                $locale = app()->getLocale();
-                $variantDescription = method_exists($variant, 'getTranslation')
-                    ? (string) ($variant->getTranslation('description', $locale, false)
-                        ?: $variant->getTranslation('description', 'uk', false)
-                        ?: $variant->getTranslation('description', 'ru', false)
-                        ?: $variant->getTranslation('description', 'en', false)
-                        ?: '')
-                    : (string) ($variant->description ?? '');
+            return [
+                'id' => (int) $product->id,
+                'title' => (string) ($product->display_name ?? $product->title ?? ''),
+                'description' => trim(strip_tags($productDescription)),
+                'image' => $product->main_image_url,
+                'price' => (float) ($product->price ?? 0),
+                'has_variants' => $hasVariants,
+                'unit' => \App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions::resolveMenuUnitLabel((int) $product->id),
+                'variants' => $variants->map(function (\App\Models\Shop\Product $variant) {
+                    $locale = app()->getLocale();
+                    $variantDescription = method_exists($variant, 'getTranslation')
+                        ? (string) ($variant->getTranslation('description', $locale, false)
+                            ?: $variant->getTranslation('description', 'uk', false)
+                            ?: $variant->getTranslation('description', 'ru', false)
+                            ?: $variant->getTranslation('description', 'en', false)
+                            ?: '')
+                        : (string) ($variant->description ?? '');
 
-                return [
-                    'id' => (int) $variant->id,
-                    'title' => (string) ($variant->display_name ?? $variant->title ?? ''),
-                    'description' => trim(strip_tags($variantDescription)),
-                    'price' => (float) ($variant->price ?? 0),
-                    'unit' => \App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions::resolveMenuUnitLabel((int) $variant->id),
-                ];
-            })->values()->all(),
-        ];
-    })->values();
+                    return [
+                        'id' => (int) $variant->id,
+                        'title' => (string) ($variant->display_name ?? $variant->title ?? ''),
+                        'description' => trim(strip_tags($variantDescription)),
+                        'price' => (float) ($variant->price ?? 0),
+                        'unit' => \App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions::resolveMenuUnitLabel((int) $variant->id),
+                    ];
+                })->values()->all(),
+            ];
+        })->values();
+    }
 
     return response()->json([
         'sources' => $sources,

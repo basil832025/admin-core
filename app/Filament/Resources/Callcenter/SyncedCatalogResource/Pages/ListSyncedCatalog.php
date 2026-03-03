@@ -19,6 +19,8 @@ class ListSyncedCatalog extends Page
 
     public function mount(): void
     {
+        app(ExternalSyncService::class)->ensureConfiguredSources();
+
         $this->defaultSourceId = (int) (Source::query()
             ->where('is_active', true)
             ->where('sync_enabled', true)

@@ -952,15 +952,26 @@ class ExternalSyncService
             ->get();
     }
 
+    public function ensureConfiguredSources(): void
+    {
+        $this->bootstrapConfiguredSources();
+    }
+
     protected function bootstrapConfiguredSources(): void
     {
-        $name = (string) config('services.pirogovaya_api.name', 'Pirogovaya');
-        $slug = (string) config('services.pirogovaya_api.slug', 'pirogovaya');
-        $baseUrl = trim((string) config('services.pirogovaya_api.base_url', ''));
-        $apiKey = trim((string) config('services.pirogovaya_api.api_key', ''));
-        $enabled = (bool) config('services.pirogovaya_api.enabled', false);
+        $this->bootstrapSourceFromConfig('services.pirogovaya_api', 'Pirogovaya', 'pirogovaya');
+        $this->bootstrapSourceFromConfig('services.pie_api', 'Pie', 'pie');
+    }
 
-        if (! $enabled || $baseUrl === '' || $apiKey === '') {
+    protected function bootstrapSourceFromConfig(string $configPath, string $defaultName, string $defaultSlug): void
+    {
+        $enabled = (bool) config("{$configPath}.enabled", false);
+        $name = (string) config("{$configPath}.name", $defaultName);
+        $slug = (string) config("{$configPath}.slug", $defaultSlug);
+        $baseUrl = trim((string) config("{$configPath}.base_url", ''));
+        $apiKey = trim((string) config("{$configPath}.api_key", ''));
+
+        if (! $enabled || $baseUrl === '' || $apiKey === '' || $slug === '') {
             return;
         }
 
@@ -981,6 +992,8 @@ class ExternalSyncService
         $configuredEndpoint = null;
         if ($source->slug === (string) config('services.pirogovaya_api.slug', 'pirogovaya')) {
             $configuredEndpoint = (string) config('services.pirogovaya_api.orders_endpoint', '/api/get-last-orders');
+        } elseif ($source->slug === (string) config('services.pie_api.slug', 'pie')) {
+            $configuredEndpoint = (string) config('services.pie_api.orders_endpoint', '/api/get-last-orders');
         }
 
         $endpoints = collect([

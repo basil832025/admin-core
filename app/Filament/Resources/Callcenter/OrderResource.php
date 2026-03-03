@@ -726,6 +726,36 @@ class OrderResource extends ShopOrderResource
                 return $value === PaymentMethodEnum::CASH->value;
             });
 
+        $components[] = Placeholder::make('imported_discount_info')
+            ->label('Импортированная скидка')
+            ->dehydrated(false)
+            ->content(function (?Order $record, Get $get) {
+                $sourceId = (int) ($get('source_id') ?? $record?->source_id ?? 0);
+                if ($sourceId <= 0) {
+                    return new \Illuminate\Support\HtmlString('—');
+                }
+
+                $discountAmount = abs((float) ($record?->discount_total ?? 0));
+                if ($discountAmount <= 0) {
+                    return new \Illuminate\Support\HtmlString('<span class="text-sm text-gray-500">Нет</span>');
+                }
+
+                $subtotal = (float) ($record?->subtotal ?? 0);
+                $percentText = '';
+                if ($subtotal > 0) {
+                    $percent = round(($discountAmount / $subtotal) * 100, 2);
+                    $percentText = ' (' . number_format($percent, 2, ',', ' ') . '%)';
+                }
+
+                return new \Illuminate\Support\HtmlString(
+                    '<span style="color:#dc2626;font-weight:600;">-'
+                    . number_format($discountAmount, 2, ',', ' ')
+                    . ' грн'
+                    . e($percentText)
+                    . '</span>'
+                );
+            });
+
         $components[] = Placeholder::make('cash_change')
             ->label('')
             ->hiddenLabel()

@@ -61,6 +61,15 @@ return [
         'orders_endpoint' => env('CALLCENTER_PIROGOVAYA_ORDERS_ENDPOINT', '/api/get-last-orders'),
     ],
 
+    'pie_api' => [
+        'enabled' => env('CALLCENTER_PIE_ENABLED', false),
+        'name' => env('CALLCENTER_PIE_NAME', 'Pie'),
+        'slug' => env('CALLCENTER_PIE_SLUG', 'pie'),
+        'base_url' => env('CALLCENTER_PIE_BASE_URL'),
+        'api_key' => env('CALLCENTER_PIE_API_KEY'),
+        'orders_endpoint' => env('CALLCENTER_PIE_ORDERS_ENDPOINT', '/api/get-last-orders'),
+    ],
+
     'postmark' => [
         'token' => env('POSTMARK_TOKEN'),
     ],

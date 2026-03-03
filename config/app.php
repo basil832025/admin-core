@@ -54,6 +54,8 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    'kiosk_api_key' => env('KIOSK_API_KEY', ''),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone
