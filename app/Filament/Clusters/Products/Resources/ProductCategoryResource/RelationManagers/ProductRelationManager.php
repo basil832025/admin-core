@@ -10,6 +10,7 @@ use App\Filament\Clusters\Products\Resources\ProductResource;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
+use Illuminate\Database\Eloquent\Builder;
 
 class ProductRelationManager extends RelationManager
 {
@@ -25,6 +26,13 @@ class ProductRelationManager extends RelationManager
         $defaultLocale = Setting::value('default_language_code') ?: config('app.locale');
 
         return $table
+            ->modifyQueryUsing(function (Builder $query): Builder {
+                return $query
+                    ->orderByRaw('COALESCE(parent_id, id) asc')
+                    ->orderByRaw('CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END asc')
+                    ->orderBy('sort')
+                    ->orderBy('id');
+            })
             ->columns([
                 TextColumn::make('title')
                     ->label(__('product.columns.title'))->sortable()->searchable()

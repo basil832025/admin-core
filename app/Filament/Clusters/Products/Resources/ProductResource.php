@@ -969,6 +969,10 @@ class ProductResource extends Resource
             ->defaultSort('sort', 'asc')
             ->query(fn () => Product::query()
                 ->parents()
+                ->where(function (Builder $q): void {
+                    $q->whereNull('is_imported')
+                        ->orWhere('is_imported', false);
+                })
                 ->with('mainCategory') // ← исправление N+1 проблемы
             )
             ->columns([
@@ -1085,7 +1089,19 @@ class ProductResource extends Resource
                     ->columnSpan(2)
                     ->placeholder(__('product.filters.category_all'))                         // вместо «Всі»
                    // ->searchPrompt('Введите текст для поиска…')
-                    ->relationship('mainCategory', 'id') // фильтруем по belongsTo 'category'
+                    ->relationship(
+                        'mainCategory',
+                        'id',
+                        fn (Builder $query): Builder => $query
+                            ->where('slug', 'not like', 'src-%-import')
+                            ->whereHas('products', fn (Builder $products): Builder => $products
+                                ->whereNull('parent_id')
+                                ->where(function (Builder $w): void {
+                                    $w->whereNull('is_imported')
+                                        ->orWhere('is_imported', false);
+                                })
+                            )
+                    ) // фильтруем по belongsTo 'category'
                     ->getOptionLabelFromRecordUsing(function (ProductCategory $record): string {
                         $locale = Setting::value('default_language_code') ?: app()->getLocale();
 

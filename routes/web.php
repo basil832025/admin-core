@@ -685,15 +685,18 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
                 ? $productShortDescription
                 : $productDescription;
 
-            return [
-                'id' => (int) $product->id,
-                'title' => (string) ($product->display_name ?? $product->title ?? ''),
-                'description' => $compactDescription($productDescription),
-                'image' => $product->main_image_url,
-                'price' => (float) ($product->price ?? 0),
-                'has_variants' => $hasVariants,
-                'unit' => \App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions::resolveMenuUnitLabel((int) $product->id),
-                'variants' => $variants->map(function (\App\Models\Shop\Product $variant) use ($compactDescription) {
+            $variantsPayload = [];
+
+            if ($hasVariants) {
+                $variantsPayload = collect([
+                    [
+                        'id' => (int) $product->id,
+                        'title' => (string) ($product->display_name ?? $product->title ?? ''),
+                        'description' => $compactDescription($productDescription),
+                        'price' => (float) ($product->price ?? 0),
+                        'unit' => \App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions::resolveMenuUnitLabel((int) $product->id),
+                    ],
+                ])->merge($variants->map(function (\App\Models\Shop\Product $variant) use ($compactDescription) {
                     $locale = app()->getLocale();
                     $variantShortDescription = trim(strip_tags((string) ($variant->short_desc ?? '')));
                     $variantDescription = method_exists($variant, 'getTranslation')
@@ -715,7 +718,21 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
                         'price' => (float) ($variant->price ?? 0),
                         'unit' => \App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions::resolveMenuUnitLabel((int) $variant->id),
                     ];
-                })->values()->all(),
+                }))
+                    ->unique('id')
+                    ->values()
+                    ->all();
+            }
+
+            return [
+                'id' => (int) $product->id,
+                'title' => (string) ($product->display_name ?? $product->title ?? ''),
+                'description' => $compactDescription($productDescription),
+                'image' => $product->main_image_url,
+                'price' => (float) ($product->price ?? 0),
+                'has_variants' => $hasVariants,
+                'unit' => \App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions::resolveMenuUnitLabel((int) $product->id),
+                'variants' => $variantsPayload,
             ];
         })->values();
     }
