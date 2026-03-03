@@ -480,6 +480,19 @@ class ExternalSyncService
         $shipping = (float) Arr::get($orderPayload, 'delivery', 0);
         $discount = abs((float) Arr::get($orderPayload, 'discount', 0));
         $expectedTotal = (float) Arr::get($orderPayload, 'total', 0);
+        $payloadItems = (array) Arr::get($orderPayload, 'items', []);
+
+        $payloadItemsSubtotal = collect($payloadItems)->sum(function ($item): float {
+            $qty = (float) Arr::get((array) $item, 'count', 1);
+            $qty = $qty > 0 ? $qty : 1;
+
+            $priceFull = Arr::get((array) $item, 'price_full');
+            if ($priceFull !== null && $priceFull !== '') {
+                return (float) $priceFull;
+            }
+
+            return $qty * (float) Arr::get((array) $item, 'price', 0);
+        });
 
         $order->forceFill([
             'shipping_total' => $shipping,
@@ -523,7 +536,18 @@ class ExternalSyncService
             $currentGrand = (float) $order->grand_total;
             $delta = round($expectedTotal - $currentGrand, 2);
 
-            if (abs($delta) >= 0.01) {
+            $localSubtotal = (float) $order->subtotal;
+            $canApplyTotalCorrection = $payloadItems !== []
+                && abs(round($localSubtotal - $payloadItemsSubtotal, 2)) < 0.01;
+
+            if (! $canApplyTotalCorrection) {
+                $order->adjustments()
+                    ->where('type', 'import_total_correction')
+                    ->whereNull('shop_order_item_id')
+                    ->delete();
+            }
+
+            if ($canApplyTotalCorrection && abs($delta) >= 0.01) {
                 $order->adjustments()->updateOrCreate(
                     [
                         'type' => 'import_total_correction',
@@ -533,14 +557,16 @@ class ExternalSyncService
                         'label' => 'Коррекция итога импорта (' . $source->name . ')',
                         'amount' => $delta,
                         'meta' => [
-                            'source' => $source->slug,
-                            'expected_total' => $expectedTotal,
-                            'was_grand_total' => $currentGrand,
-                        ],
-                    ]
-                );
+                                'source' => $source->slug,
+                                'expected_total' => $expectedTotal,
+                                'was_grand_total' => $currentGrand,
+                                'payload_items_subtotal' => $payloadItemsSubtotal,
+                                'local_subtotal' => $localSubtotal,
+                            ],
+                        ]
+                    );
 
-                $order->unsetRelation('items');
+                    $order->unsetRelation('items');
                 $order->load('items.modifiers');
                 app(OrderPricing::class)->recalc($order);
             }

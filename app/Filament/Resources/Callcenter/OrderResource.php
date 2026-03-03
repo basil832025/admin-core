@@ -735,7 +735,12 @@ class OrderResource extends ShopOrderResource
                     return new \Illuminate\Support\HtmlString('—');
                 }
 
-                $discountAmount = abs((float) ($record?->discount_total ?? 0));
+                $importDiscount = (float) ($record?->adjustments()
+                    ->where('type', 'import_discount')
+                    ->whereNull('shop_order_item_id')
+                    ->value('amount') ?? 0);
+
+                $discountAmount = abs($importDiscount);
                 if ($discountAmount <= 0) {
                     return new \Illuminate\Support\HtmlString('<span class="text-sm text-gray-500">Нет</span>');
                 }
