@@ -210,6 +210,35 @@ class ExternalSyncService
         return $stats;
     }
 
+    public function repairImportedOrderByLocalId(int $localOrderId): bool
+    {
+        $order = Order::query()->find($localOrderId);
+        if (! $order || (int) $order->source_id <= 0) {
+            return false;
+        }
+
+        $row = SourceOrder::query()
+            ->with('source')
+            ->where('source_id', (int) $order->source_id)
+            ->where('local_order_id', $order->id)
+            ->latest('id')
+            ->first();
+
+        if (! $row || ! $row->source || ! is_array($row->payload)) {
+            return false;
+        }
+
+        $this->synchronizeOrderTotalsFromPayload($order, $row->payload, $row->source);
+
+        $row->forceFill([
+            'sync_status' => 'imported',
+            'last_error' => null,
+            'synced_at' => now(),
+        ])->saveQuietly();
+
+        return true;
+    }
+
     public function syncCatalogForSource(Source $source): array
     {
         $processed = 0;

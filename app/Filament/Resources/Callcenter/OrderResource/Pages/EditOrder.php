@@ -8,6 +8,7 @@ use App\Filament\Resources\Callcenter\OrderResource;
 use App\Models\Kitchen\KitchenTicket;
 use App\Models\Shop\OrderItem;
 use App\Models\Shop\ClientAddress;
+use App\Services\Callcenter\ExternalSyncService;
 use App\Services\OrderPricing;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
@@ -21,6 +22,22 @@ class EditOrder extends EditRecord
     public ?string $prevStatus    = null;
 
     protected static string $resource = OrderResource::class;
+
+    public function mount(int | string $record): void
+    {
+        parent::mount($record);
+
+        if (! $this->record?->exists) {
+            return;
+        }
+
+        try {
+            app(ExternalSyncService::class)->repairImportedOrderByLocalId((int) $this->record->id);
+            $this->record->refresh();
+        } catch (\Throwable) {
+            // keep edit page usable even if self-heal fails
+        }
+    }
 
  /*   protected function getRedirectUrl(): string
     {
