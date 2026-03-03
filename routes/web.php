@@ -322,6 +322,59 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
         return \Illuminate\Support\Str::limit($text, 260);
     };
 
+    $normalizeImportedImage = static function (?string $image, ?\App\Models\Callcenter\Source $source): ?string {
+        $img = trim((string) $image);
+        if ($img === '') {
+            return null;
+        }
+
+        if (str_starts_with($img, '//')) {
+            return 'https:' . $img;
+        }
+
+        $base = rtrim((string) ($source?->base_url ?? ''), '/');
+
+        if (str_starts_with($img, 'http://') || str_starts_with($img, 'https://')) {
+            $sourceHost = parse_url($base, PHP_URL_HOST);
+            $imageHost = parse_url($img, PHP_URL_HOST);
+
+            if ($base !== '' && $sourceHost && $imageHost && strcasecmp($sourceHost, $imageHost) !== 0) {
+                if (str_contains(mb_strtolower($imageHost), 'pirogovaya.online')) {
+                    $path = (string) parse_url($img, PHP_URL_PATH);
+                    $query = (string) parse_url($img, PHP_URL_QUERY);
+
+                    return $base . '/' . ltrim($path, '/') . ($query !== '' ? ('?' . $query) : '');
+                }
+            }
+
+            return $img;
+        }
+
+        if ($base === '') {
+            return $img;
+        }
+
+        return $base . '/' . ltrim($img, '/');
+    };
+
+    $fallbackImportedImage = static function (?\App\Models\Callcenter\SourceProduct $row): ?string {
+        if (! $row) {
+            return null;
+        }
+
+        $base = rtrim((string) ($row->source?->base_url ?? ''), '/');
+        if ($base === '') {
+            return null;
+        }
+
+        $imageId = trim((string) ($row->external_parent_id ?: $row->external_id));
+        if ($imageId === '') {
+            return null;
+        }
+
+        return $base . '/images/catalog_products/' . $imageId . '.1.b.png';
+    };
+
     if ($selectedSourceId > 0) {
         $categories = \App\Models\Callcenter\SourceCategory::query()
             ->where('source_id', $selectedSourceId)
@@ -348,7 +401,11 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
             ->values();
 
         $productsRows = \App\Models\Callcenter\SourceProduct::query()
-            ->with('localProduct:id,title,short_desc,description,main_image,price,in_stock')
+            ->with([
+                'localProduct:id,title,short_desc,description,main_image,parent_id,price,in_stock',
+                'localProduct.parent:id,main_image',
+                'source:id,base_url',
+            ])
             ->where('source_id', $selectedSourceId)
             ->whereNotNull('local_product_id')
             ->whereHas('localProduct', fn ($q) => $q->where('in_stock', 1))
@@ -363,7 +420,7 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
 
         $productsPayload = $productsRows
             ->groupBy(fn (\App\Models\Callcenter\SourceProduct $row) => $row->external_parent_id ?: $row->external_id)
-            ->map(function ($rows) use ($compactDescription) {
+            ->map(function ($rows) use ($compactDescription, $normalizeImportedImage, $fallbackImportedImage) {
                 $resolveImportedDescription = function (?\App\Models\Shop\Product $localProduct, \App\Models\Callcenter\SourceProduct $sourceProduct) use ($compactDescription): string {
                     $locale = app()->getLocale();
 
@@ -414,20 +471,33 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
                 $first = $rows->first();
                 $firstLocalProduct = $first->localProduct;
                 $hasVariants = $rows->count() > 1;
+                $source = $first->source;
 
-                $image = $firstLocalProduct?->main_image_url
-                    ?: (is_string(data_get($first->payload, 'img')) ? (string) data_get($first->payload, 'img') : null);
+                $image = $rows->map(function (\App\Models\Callcenter\SourceProduct $row) use ($normalizeImportedImage, $source) {
+                    $localImage = $normalizeImportedImage($row->localProduct?->main_image_url, $source);
+                    $parentImage = $normalizeImportedImage($row->localProduct?->parent?->main_image_url, $source);
+                    $payloadImage = $normalizeImportedImage(is_string(data_get($row->payload, 'img')) ? (string) data_get($row->payload, 'img') : null, $source);
+
+                    return $localImage ?: ($parentImage ?: $payloadImage);
+                })->first(fn (?string $candidate): bool => is_string($candidate) && $candidate !== '');
+
+                if (! $image) {
+                    $image = $fallbackImportedImage($first);
+                }
 
                 if (! $hasVariants) {
                     $single = $rows->first();
                     $singleLocal = $single->localProduct;
                     $singleId = (int) ($single->local_product_id ?? 0);
+                    $fallbackImageId = (string) ($single->external_parent_id ?: $single->external_id ?: '');
 
                     return [
                         'id' => $singleId,
                         'title' => (string) ($single->title ?: ($singleLocal?->title ?? 'Без названия')),
                         'description' => $resolveImportedDescription($singleLocal, $single),
                         'image' => $image,
+                        'image_fallback_id' => $fallbackImageId,
+                        'source_base_url' => (string) ($source?->base_url ?? ''),
                         'has_variants' => false,
                         'price' => (float) ($single->price ?? $singleLocal?->price ?? 0),
                         'unit' => $single->size_label ?: \App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions::resolveMenuUnitLabel($singleId),
@@ -454,6 +524,8 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
                     'title' => (string) ($first->title ?: ($firstLocalProduct?->title ?? 'Без названия')),
                     'description' => $resolveImportedDescription($firstLocalProduct, $first),
                     'image' => $image,
+                    'image_fallback_id' => (string) ($first->external_parent_id ?: $first->external_id ?: ''),
+                    'source_base_url' => (string) ($source?->base_url ?? ''),
                     'has_variants' => $variants->isNotEmpty(),
                     'price' => 0,
                     'unit' => '',

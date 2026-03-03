@@ -71,6 +71,22 @@
         isDescriptionOpen(product) {
             return Number(this.previewProductId || 0) === Number(product?.id || -1);
         },
+
+        resolveImage(product) {
+            const direct = String(product?.image || '').trim();
+            if (direct !== '') {
+                return direct;
+            }
+
+            const base = String(product?.source_base_url || '').replace(/\/$/, '');
+            const fallbackId = String(product?.image_fallback_id || '').trim();
+
+            if (base !== '' && fallbackId !== '') {
+                return `${base}/images/catalog_products/${fallbackId}.1.b.png`;
+            }
+
+            return '/images/placeholder-4x3.jpg';
+        },
     }"
     class="space-y-4"
 >
@@ -136,7 +152,7 @@
                         @click.stop="openDescription(product)"
                     >
                         <img
-                            :src="product.image || '/images/placeholder-4x3.jpg'"
+                            :src="resolveImage(product)"
                             alt=""
                             class="rounded object-cover"
                             style="width: 100px; height: 80px;"

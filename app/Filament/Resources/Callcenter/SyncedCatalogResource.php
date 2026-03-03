@@ -95,10 +95,49 @@ class SyncedCatalogResource extends Resource
 
                 ImageColumn::make('preview')
                     ->label('Фото')
-                    ->getStateUsing(fn (SourceProduct $record): ?string =>
-                        $record->localProduct?->main_image_url
-                        ?: (is_string(data_get($record->payload, 'img')) ? data_get($record->payload, 'img') : null)
-                    )
+                    ->getStateUsing(function (SourceProduct $record): ?string {
+                        $base = rtrim((string) ($record->source?->base_url ?? ''), '/');
+                        $imageId = trim((string) ($record->external_parent_id ?: $record->external_id));
+
+                        $local = trim((string) ($record->localProduct?->main_image_url ?? ''));
+                        $img = $local !== ''
+                            ? $local
+                            : trim((string) data_get($record->payload, 'img', ''));
+
+                        if ($img === '') {
+                            return ($base !== '' && $imageId !== '')
+                                ? ($base . '/images/catalog_products/' . $imageId . '.1.b.png')
+                                : null;
+                        }
+
+                        if (str_starts_with($img, 'http://') || str_starts_with($img, 'https://')) {
+                            $sourceHost = parse_url((string) ($record->source?->base_url ?? ''), PHP_URL_HOST);
+                            $imageHost = parse_url($img, PHP_URL_HOST);
+
+                            if ($sourceHost && $imageHost && strcasecmp($sourceHost, $imageHost) !== 0) {
+                                if (str_contains(mb_strtolower($imageHost), 'pirogovaya.online')) {
+                                    $path = (string) parse_url($img, PHP_URL_PATH);
+                                    $query = (string) parse_url($img, PHP_URL_QUERY);
+
+                                    if ($base !== '') {
+                                        return $base . '/' . ltrim($path, '/') . ($query !== '' ? ('?' . $query) : '');
+                                    }
+                                }
+                            }
+
+                            return $img;
+                        }
+
+                        if (str_starts_with($img, '//')) {
+                            return 'https:' . $img;
+                        }
+
+                        if ($base === '') {
+                            return $img;
+                        }
+
+                        return $base . '/' . ltrim($img, '/');
+                    })
                     ->defaultImageUrl(url('/images/placeholder-4x3.jpg'))
                     ->height(52)
                     ->width(72),

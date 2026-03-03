@@ -245,6 +245,13 @@ class ExternalSyncService
         $created = 0;
         $updated = 0;
 
+        SourceProduct::query()
+            ->where('source_id', $source->id)
+            ->where(function ($q): void {
+                $q->whereNull('alias')->orWhere('alias', '');
+            })
+            ->delete();
+
         $categories = $this->fetchSourceCategories($source);
         foreach ($categories as $categoryPayload) {
             $processed++;
@@ -256,6 +263,11 @@ class ExternalSyncService
 
         $products = $this->fetchSourceProducts($source);
         foreach ($products as $productPayload) {
+            $productAlias = trim((string) Arr::get($productPayload, 'alias', ''));
+            if ($productAlias === '') {
+                continue;
+            }
+
             $variants = $this->extractProductVariants($productPayload);
 
             foreach ($variants as $variantPayload) {
@@ -776,7 +788,7 @@ class ExternalSyncService
 
         $sizeLabel = trim((string) ($sourceProduct->size_label ?: Arr::get($variantPayload, 'size_label', '')));
         $fullTitle = trim($baseTitle . ($sizeLabel !== '' ? (' ' . $sizeLabel) : ''));
-        $imageUrl = trim((string) Arr::get($variantPayload, 'img', ''));
+        $imageUrl = $this->normalizeSourceImageUrl($source, Arr::get($variantPayload, 'img'));
 
         $product = null;
         if ($sourceProduct->local_product_id) {
@@ -816,6 +828,42 @@ class ExternalSyncService
         ])->saveQuietly();
 
         return $product;
+    }
+
+    protected function normalizeSourceImageUrl(Source $source, mixed $image): ?string
+    {
+        $path = trim((string) $image);
+        if ($path === '') {
+            return null;
+        }
+
+        if (Str::startsWith($path, ['http://', 'https://'])) {
+            $sourceHost = parse_url((string) $source->base_url, PHP_URL_HOST);
+            $imageHost = parse_url($path, PHP_URL_HOST);
+
+            if ($sourceHost && $imageHost && strcasecmp($sourceHost, $imageHost) !== 0) {
+                if (str_contains(mb_strtolower($imageHost), 'pirogovaya.online')) {
+                    $pathPart = (string) parse_url($path, PHP_URL_PATH);
+                    $queryPart = (string) parse_url($path, PHP_URL_QUERY);
+                    $base = rtrim((string) $source->base_url, '/');
+
+                    return $base . '/' . ltrim($pathPart, '/') . ($queryPart !== '' ? ('?' . $queryPart) : '');
+                }
+            }
+
+            return $path;
+        }
+
+        if (Str::startsWith($path, '//')) {
+            return 'https:' . $path;
+        }
+
+        $base = rtrim((string) $source->base_url, '/');
+        if ($base === '') {
+            return $path;
+        }
+
+        return $base . '/' . ltrim($path, '/');
     }
 
     protected function resolveLocalCategoryId(Source $source, ?string $externalCategoryId, array $variantPayload): ?int
