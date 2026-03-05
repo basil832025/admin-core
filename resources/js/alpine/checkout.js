@@ -523,7 +523,7 @@ window.availablePromosComponent = function (initialSelected) {
 
                     // re-render totals if needed
                     if (window.checkoutTotals && typeof window.checkoutTotals.setPromoDiscount === 'function') {
-                        window.checkoutTotals.setPromoDiscount(Number(data.discount || 0));
+                        window.checkoutTotals.setPromoDiscount(0);
                     } else if (window.checkoutTotals && typeof window.checkoutTotals.render === 'function') {
                         window.checkoutTotals.render();
                     }
@@ -907,6 +907,7 @@ function bindCheckoutAutosave() {
             ),
 
             payment_method: form.querySelector('[name="payment_method"]:checked')?.value || '',
+            selected_promo: form.querySelector('[name="selected_promo"]')?.value || 'none',
 
             comment_kitchen: form.querySelector('[name="comment_kitchen"]')?.value || '',
             comment_courier: form.querySelector('[name="comment_courier"]')?.value || '',

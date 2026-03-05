@@ -52,6 +52,13 @@ public function index()
 
     $items  = $this->cart->items();
     $info   = $this->cart->info();
+
+    if ($this->isCartEmpty($items, $info)) {
+        $this->resetCheckoutDynamicState();
+        return redirect()->route('home');
+    }
+
+    $sessionData = $this->syncCheckoutStateWithCart($items, $sessionData);
     // 1) Точки самовывоза из bs_locations
     $locations = Location::query()
         ->where('is_active', 1)
@@ -353,6 +360,9 @@ public function saveFormData(Request $request)
     if ($request->has('payment_method')) {
         $data['payment_method'] = $request->input('payment_method');
     }
+    if ($request->has('selected_promo')) {
+        $data['selected_promo'] = (string) $request->input('selected_promo', 'none');
+    }
 
     if ($request->has('use_bonus')) {
         $data['use_bonus'] = $request->boolean('use_bonus');
@@ -373,6 +383,10 @@ public function saveFormData(Request $request)
     $existingData = session('checkout.form_data', []);
     $mergedData = array_merge($existingData, $data);
     session(['checkout.form_data' => $mergedData]);
+
+    if (array_key_exists('selected_promo', $data)) {
+        session(['checkout.selected_promo' => $data['selected_promo'] ?: 'none']);
+    }
 
     // Обновляем черновик заказа, если он существует
     $client = Auth::user();
@@ -444,7 +458,8 @@ public function saveFormData(Request $request)
                 $order->shipping_price = 0;
             }
 // ✅ 1) Способ получения (доставка/самовывоз)
-            $shippingMethod = $mergedData['shipping_method'] ?? 'delivery';
+            $shippingMethod = $mergedData['shipping_method'] ?? ($order->self_pickup ? 'pickup' : 'delivery');
+            $order->shipping_method = $shippingMethod;
 
 // если у тебя в заказе есть поле self_pickup:
             $order->self_pickup = ($shippingMethod === 'pickup');
@@ -474,6 +489,40 @@ public function saveFormData(Request $request)
                     $order->client_address_id = null;
                 }
             }
+
+            if ($shippingMethod !== 'pickup' && ! $useNew && empty($mergedData['selected_address_id'])) {
+                $order->shipping_price = 0;
+            }
+
+            $selection = (string) ($mergedData['selected_promo'] ?? session('checkout.selected_promo', 'none'));
+            $pricing = app(OrderPricing::class);
+
+            $order->adjustments()->whereIn('type', ['fixed', 'time'])->delete();
+            if ($selection !== '' && $selection !== 'none') {
+                [$kind, $id] = explode(':', $selection) + [null, null];
+                $id = (int) $id;
+
+                if ($kind === 'fixed') {
+                    $pricing->applyFixedExclusive($order, $id, 'single');
+                } elseif ($kind === 'time') {
+                    $pricing->applyTimeExclusive($order, $id, 'single');
+                } else {
+                    $pricing->recalc($order);
+                }
+            } else {
+                $pricing->recalc($order);
+            }
+
+            $promoDiscount = abs((float) $order->adjustments()
+                ->whereNull('shop_order_item_id')
+                ->whereIn('type', ['fixed', 'time'])
+                ->sum('amount'));
+            session(['checkout.promo_discount' => $promoDiscount]);
+
+            $useBonus = !empty($mergedData['use_bonus']);
+            $bonusAmount = $useBonus ? max(0, (float) ($mergedData['bonus_amount'] ?? 0)) : 0.0;
+            $order->sale_sum = $bonusAmount;
+            $order->grand_total = $this->calculatePayableTotal($order);
 
             $order->save();
         }
@@ -689,6 +738,14 @@ public function applyCoupon(Request $request)
 
 public function submit(Request $request)
 {
+    $items = $this->cart->items();
+    $info = $this->cart->info();
+
+    if ($this->isCartEmpty($items, $info)) {
+        $this->resetCheckoutDynamicState();
+        return redirect()->route('home');
+    }
+
     $client = auth()->user();
     $couponCode = trim((string) $request->input('coupon', ''));
     // 1. Базовая валидация
@@ -1111,6 +1168,7 @@ public function submit(Request $request)
     }
     session()->forget('checkout.selected_promo');
     session()->forget('checkout.promo_discount');
+    session()->forget('checkout.cart_signature');
     session()->forget('checkout.form_data');
 
     return redirect()->route('checkout.success', $order);
@@ -1392,6 +1450,83 @@ private function calculatePayableTotal(Order $order): float
     return max(0, round($goodsTotal + $shipping, 2));
 }
 
+private function syncCheckoutStateWithCart(array $items, array $sessionData): array
+{
+    $currentSignature = $this->buildCartSignature($items);
+    $previousSignature = session('checkout.cart_signature');
+
+    $cartChanged = $previousSignature !== null && $previousSignature !== $currentSignature;
+    $cartEmpty = count($items) === 0;
+
+    if ($cartChanged || $cartEmpty) {
+        session([
+            'checkout.selected_promo' => 'none',
+            'checkout.promo_discount' => 0,
+        ]);
+
+        unset($sessionData['use_bonus'], $sessionData['bonus_amount'], $sessionData['selected_promo']);
+        session(['checkout.form_data' => $sessionData]);
+    }
+
+    session(['checkout.cart_signature' => $currentSignature]);
+
+    return $sessionData;
+}
+
+private function buildCartSignature(array $items): string
+{
+    if (empty($items)) {
+        return 'empty';
+    }
+
+    $normalized = collect($items)
+        ->map(function ($item): array {
+            if (is_array($item)) {
+                return [
+                    'product_id' => (int) ($item['product_id'] ?? ($item['product']['id'] ?? 0)),
+                    'qty' => (float) ($item['qty'] ?? $item['quantity'] ?? 0),
+                    'unit_price' => (float) ($item['unit_price'] ?? $item['price'] ?? 0),
+                    'meta' => $item['meta'] ?? null,
+                ];
+            }
+
+            return [
+                'product_id' => (int) ($item->product_id ?? ($item->product->id ?? 0)),
+                'qty' => (float) ($item->qty ?? $item->quantity ?? 0),
+                'unit_price' => (float) ($item->unit_price ?? $item->price ?? 0),
+                'meta' => $item->meta ?? null,
+            ];
+        })
+        ->sortBy(fn (array $row) => json_encode($row))
+        ->values()
+        ->all();
+
+    return sha1(json_encode($normalized));
+}
+
+private function isCartEmpty(array $items, array $info): bool
+{
+    if (!empty($items)) {
+        return false;
+    }
+
+    $qty = (int) ($info['qty'] ?? 0);
+
+    return $qty <= 0;
+}
+
+private function resetCheckoutDynamicState(): void
+{
+    $sessionData = session('checkout.form_data', []);
+    unset($sessionData['use_bonus'], $sessionData['bonus_amount']);
+
+    session([
+        'checkout.form_data' => $sessionData,
+        'checkout.selected_promo' => 'none',
+        'checkout.promo_discount' => 0,
+    ]);
+}
+
 /**
  * Проверка условий для акции (время, день недели, способ получения, диаметры)
  */
@@ -1547,7 +1682,3 @@ public function checkPromoConditionsAjax(Request $request)
 }
 
 }
-    $useBonusChecked = (bool) ($sessionData['use_bonus'] ?? true);
-    $bonusUsedFromSession = $useBonusChecked
-        ? (float) ($sessionData['bonus_amount'] ?? 0)
-        : 0.0;

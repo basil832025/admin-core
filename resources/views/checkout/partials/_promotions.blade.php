@@ -219,7 +219,7 @@
                             }
 
                             if (window.checkoutTotals && typeof window.checkoutTotals.setPromoDiscount === 'function') {
-                                window.checkoutTotals.setPromoDiscount(Number(data.discount || 0));
+                                window.checkoutTotals.setPromoDiscount(0);
                             }
 
                             const totalUahEl = document.querySelector('[data-checkout-total-uah]');

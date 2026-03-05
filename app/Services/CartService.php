@@ -25,6 +25,8 @@ class CartService
             $this->addToSession($productId, $qty, $price, $meta);
         }
 
+        $this->resetCheckoutState();
+
         [$cartTotalQty, $cartTotalSum] = $this->computeTotals();
         $lineArray = $this->getLineArrayByProductId($productId);
 
@@ -51,6 +53,8 @@ class CartService
             Session::put(self::SESSION_KEY, $items);
         }
 
+        $this->resetCheckoutState();
+
         [$cartTotalQty, $cartTotalSum] = $this->computeTotals();
         $lineArray = $this->getLineArrayByProductId($productId);
 
@@ -72,6 +76,8 @@ class CartService
         } else {
             Session::forget(self::SESSION_KEY);
         }
+
+        $this->resetCheckoutState();
 
         return $this->buildSummaryPayload(0, 0);
     }
@@ -341,6 +347,8 @@ class CartService
             $this->addToSession($productId, $delta, $price, $meta);
         }
 
+        $this->resetCheckoutState();
+
         // общий итог + текущая строка
         [$cartTotalQty, $cartTotalSum] = $this->computeTotals();
         $lineArray = $this->getLineArrayByProductId($productId);
@@ -362,6 +370,8 @@ class CartService
 
         if ($user) $this->setForUser($user, $productId, $qty, $price, $meta);
         else       $this->setInSession($productId, $qty, $price, $meta);
+
+        $this->resetCheckoutState();
 
         [$q,$s] = $this->computeTotals();
         $row    = $this->getLineArrayByProductId($productId);
@@ -539,8 +549,35 @@ class CartService
     protected function recalc(Order $order): void
     {
         $total = $order->items()->sum(DB::raw('qty * unit_price'));
+
+        $order->adjustments()
+            ->whereIn('type', ['fixed', 'time', 'coupon'])
+            ->delete();
+
         $order->total_price = $total;
+        $order->sale_prc = 0;
+        $order->sale_sum = 0;
+        $order->discount_total = 0;
+        $order->subtotal = $total;
+        $order->total_price_sale = $total;
+        $order->grand_total = max(0, round((float) $total + (float) ($order->shipping_price ?? 0), 2));
         $order->save();
+    }
+
+    protected function resetCheckoutState(): void
+    {
+        $formData = Session::get('checkout.form_data', []);
+
+        unset(
+            $formData['selected_promo'],
+            $formData['use_bonus'],
+            $formData['bonus_amount']
+        );
+
+        Session::put('checkout.form_data', $formData);
+        Session::put('checkout.selected_promo', 'none');
+        Session::put('checkout.promo_discount', 0);
+        Session::forget('checkout.cart_signature');
     }
 
     // --------------------------------------------------------------------
