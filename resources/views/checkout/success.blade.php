@@ -45,7 +45,7 @@
 
             {{-- Информация о заказе --}}
             @php
-                $total   = (float)($order->total_price_sale ?? $order->total_price ?? 0);
+                $total   = (float)($order->grand_total ?? $order->total_price_sale ?? $order->total_price ?? 0);
                 $date    = $order->date_order ?? $order->dat ?? $order->created_at;
                 $dateStr = $date ? \Illuminate\Support\Carbon::parse($date)->format('d.m.Y') : '';
                 $number  = $order->number ?? ('#'.str_pad($order->id, 5, '0', STR_PAD_LEFT));

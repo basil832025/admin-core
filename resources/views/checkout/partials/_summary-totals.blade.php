@@ -4,8 +4,7 @@
     $bonusUsed  = (bool) old('use_bonus', $sessionData['use_bonus'] ?? 1)
         ? old('bonus_amount', $sessionData['bonus_amount'] ?? ($totals['bonus_used'] ?? 0))
         : 0;
-   // $grandTotal = $totals['grand_total'] ?? max($itemsTotal - $discount - $bonusUsed, 0);
-    $grandTotal = $totals['total_price_sale'] ?? max($itemsTotal - $discount - $bonusUsed, 0);
+    $grandTotal = $totals['grand_total'] ?? max($itemsTotal - $discount - $bonusUsed, 0);
  //   dump($grandTotal);
 @endphp
 
