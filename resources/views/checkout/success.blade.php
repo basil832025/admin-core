@@ -85,6 +85,19 @@
                 {{ st('order.success.back_to_home', 'Вернуться на Главную') }}
             </a>
 
+            @auth
+                @if((int) ($order->clients_id ?? 0) > 0)
+                    <a href="{{ route('profile.orders.show', $order->id) }}"
+                       class="block mx-auto text-center mb-4
+          w-full max-w-[560px] h-[46px]
+          bg-white border border-[#FF7500] text-[#FF7500] font-semibold text-[16px]
+          rounded-[6px] leading-[46px]
+          hover:bg-[#FFF7ED] transition">
+                        {{ st('order.success.view_order_status', 'Переглянути статус замовлення') }}
+                    </a>
+                @endif
+            @endauth
+
             {{-- Кнопка "Продублювати заказ на Email" — как в Figma --}}
             <button
                 type="button"

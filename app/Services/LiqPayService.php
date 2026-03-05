@@ -40,9 +40,9 @@ class LiqPayService
             'order_id'    => 'order_'.$order->id,
             'version'     => '3',
             'result_url'  => route('checkout.success', $order, true),
-          //  'server_url'  => route('liqpay.callback', [], true),
+            'server_url'  => route('liqpay.callback', [], true),
            // 'server_url'  => 'https://jaxson-semipreserved-judgmentally.ngrok-free.dev/liqpay/callback',
-            'server_url'  => 'https://braeden-inkiest-insistingly.ngrok-free.dev/liqpay/callback',
+          //  'server_url'  => 'https://braeden-inkiest-insistingly.ngrok-free.dev/liqpay/callback',
             'language'    => $lang,
         ];
 

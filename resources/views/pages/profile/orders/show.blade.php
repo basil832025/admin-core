@@ -3,8 +3,10 @@
         'items.product.parent.productCharacteristicValues.characteristic.svgImage',
         'items.product.productCharacteristicValues.characteristic.svgImage',
         'items.product.productCharacteristicValues.characteristicValue',
-        'clientAddress', 
-        'clients'
+        'clientAddress',
+        'clients',
+        'adjustments',
+        'loyaltyTransactions',
     ]);
     
     $orderDate = $order->created_at;
@@ -31,11 +33,65 @@
     $items = $order->items;
     $total = $order->grand_total ?? $order->total_price ?? 0;
     
-    // Бонусы из транзакций
-    $bonusAmount = 0;
-    if ($order->loyaltyTransactions) {
-        $accrualTransactions = $order->loyaltyTransactions()->where('type', 'accrual')->get();
-        $bonusAmount = $accrualTransactions->sum('amount');
+    $orderAdjustments = $order->adjustments
+        ->filter(fn ($adj) => empty($adj->shop_order_item_id));
+
+    $discountAmount = abs((float) $orderAdjustments
+        ->whereIn('type', ['fixed', 'time', 'coupon'])
+        ->sum('amount'));
+
+    $resolveAdjustmentLabel = function ($adj): string {
+        $fallback = $adj->label ?: st('profile.orders.discount', 'Скидка');
+
+        if ($adj->type === 'fixed') {
+            $fixedId = (int) data_get($adj->meta, 'id');
+            if ($fixedId > 0) {
+                $fixed = \App\Models\Shop\FixedDiscount::withTrashed()->find($fixedId);
+                if ($fixed) {
+                    return (string) ($fixed->getNameForLocale(app()->getLocale()) ?: $fallback);
+                }
+            }
+        }
+
+        if ($adj->type === 'time') {
+            $timeId = (int) data_get($adj->meta, 'id');
+            if ($timeId > 0) {
+                $time = \App\Models\Shop\TimeDiscount::withTrashed()->find($timeId);
+                if ($time) {
+                    $name = $time->getTranslation('name', app()->getLocale())
+                        ?: $time->getTranslation('name', config('app.fallback_locale'));
+
+                    if (!empty($name)) {
+                        return (string) $name;
+                    }
+                }
+            }
+        }
+
+        return (string) $fallback;
+    };
+
+    $promoLines = $orderAdjustments
+        ->whereIn('type', ['fixed', 'time', 'coupon'])
+        ->filter(fn ($adj) => (float) $adj->amount < 0)
+        ->map(fn ($adj) => [
+            'label' => $resolveAdjustmentLabel($adj),
+            'amount' => abs((float) $adj->amount),
+        ])
+        ->values();
+
+    $bonusAccrued = (float) $order->loyaltyTransactions
+        ->where('type', 'accrual')
+        ->where('source', 'order')
+        ->sum('amount');
+
+    $bonusSpent = abs((float) $order->loyaltyTransactions
+        ->where('type', 'spend')
+        ->where('source', 'order')
+        ->sum('amount'));
+
+    if ($bonusSpent <= 0) {
+        $bonusSpent = max(0, (float) ($order->sale_sum ?? 0));
     }
     
     // Адрес доставки
@@ -299,7 +355,7 @@
                         {{-- Статус заказа --}}
                         <div class="bg-white rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.08)] p-4 md:p-6">
                             <h2 class="text-[16px] font-semibold text-[#19191A] mb-3">
-                                {{ $statusLabel }}
+                                {{ st('profile.orders.order_status_title', 'Статус замовлення') }}: {{ $statusLabel }}
                             </h2>
                             <p class="text-[14px] text-gray-600 mb-3">
                                 {{ st('profile.orders.thank_you', 'Спасибо за заказ!') }}
@@ -420,7 +476,49 @@
                                         {{ st('profile.orders.goods', 'Товары') }}
                                     </span>
                                     <span class="text-[14px] font-semibold text-[#19191A]">
-                                        {{ number_format($total, 0, '.', ' ') }} {{ st('profile.orders.uah', 'грн') }}
+                                        {{ number_format((float) ($order->total_price ?? 0), 0, '.', ' ') }} {{ st('profile.orders.uah', 'грн') }}
+                                    </span>
+                                </div>
+
+                                @if($promoLines->isNotEmpty())
+                                    @foreach($promoLines as $promoLine)
+                                        <div class="flex justify-between">
+                                            <span class="text-[14px] text-gray-600">
+                                                {{ $promoLine['label'] }}
+                                            </span>
+                                            <span class="text-[14px] font-semibold text-[#19191A]">
+                                                -{{ number_format($promoLine['amount'], 0, '.', ' ') }} {{ st('profile.orders.uah', 'грн') }}
+                                            </span>
+                                        </div>
+                                    @endforeach
+                                @elseif($discountAmount > 0)
+                                    <div class="flex justify-between">
+                                        <span class="text-[14px] text-gray-600">
+                                            {{ st('profile.orders.discount', 'Скидка') }}
+                                        </span>
+                                        <span class="text-[14px] font-semibold text-[#19191A]">
+                                            -{{ number_format($discountAmount, 0, '.', ' ') }} {{ st('profile.orders.uah', 'грн') }}
+                                        </span>
+                                    </div>
+                                @endif
+
+                                @if($bonusSpent > 0)
+                                    <div class="flex justify-between">
+                                        <span class="text-[14px] text-gray-600">
+                                            {{ st('profile.orders.bonuses_spent', 'Списано бонусов') }}
+                                        </span>
+                                        <span class="text-[14px] font-semibold text-[#19191A]">
+                                            -{{ number_format($bonusSpent, 0, '.', ' ') }} {{ st('profile.orders.uah', 'грн') }}
+                                        </span>
+                                    </div>
+                                @endif
+
+                                <div class="flex justify-between">
+                                    <span class="text-[14px] text-gray-600">
+                                        {{ st('profile.orders.delivery', 'Доставка') }}
+                                    </span>
+                                    <span class="text-[14px] font-semibold text-[#19191A]">
+                                        {{ number_format((float) ($order->shipping_price ?? 0), 0, '.', ' ') }} {{ st('profile.orders.uah', 'грн') }}
                                     </span>
                                 </div>
 
@@ -433,13 +531,13 @@
                                     </span>
                                 </div>
 
-                                @if($bonusAmount > 0)
+                                @if($bonusAccrued > 0)
                                     <div class="flex justify-between">
                                         <span class="text-[14px] text-gray-600">
-                                            {{ st('profile.orders.bonuses_title', 'Бонусы') }}
+                                            {{ st('profile.orders.bonuses_accrued', 'Начислено бонусов') }}
                                         </span>
                                         <span class="text-[14px] font-semibold text-[#16A34A]">
-                                            +{{ number_format($bonusAmount, 0, '.', ' ') }}
+                                            +{{ number_format($bonusAccrued, 0, '.', ' ') }}
                                         </span>
                                     </div>
                                 @endif
