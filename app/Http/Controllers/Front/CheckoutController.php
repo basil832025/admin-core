@@ -1092,17 +1092,14 @@ public function submit(Request $request)
     }
 
 // === 9. Реальное списание бонусов по заказу ===
+    $used = 0.0;
     if ($requestedBonus > 0) {
         $used = $this->loyalty->spendOnOrder($order, $requestedBonus);
-
-        if ($used > 0) {
-            $currentSaleSum = (float)$order->sale_sum;
-
-            $order->sale_sum         = $currentSaleSum + $used;
-            $order->total_price_sale = max(0, $order->total_price - $order->sale_sum);
-            $order->save();
-        }
     }
+
+    $order->sale_sum = max(0, round($used, 2));
+    $order->total_price_sale = max(0, round((float) $order->total_price - (float) $order->sale_sum, 2));
+    $order->save();
 
     // === 9.1 Финальный пересчёт grand_total для оплаты / Filament ===
     // Считаем от фактической суммы товаров + adjustments,
