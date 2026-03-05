@@ -522,7 +522,9 @@ window.availablePromosComponent = function (initialSelected) {
                     if (totalKopEl) totalKopEl.textContent = data.total_kop;
 
                     // re-render totals if needed
-                    if (window.checkoutTotals && typeof window.checkoutTotals.render === 'function') {
+                    if (window.checkoutTotals && typeof window.checkoutTotals.setPromoDiscount === 'function') {
+                        window.checkoutTotals.setPromoDiscount(Number(data.discount || 0));
+                    } else if (window.checkoutTotals && typeof window.checkoutTotals.render === 'function') {
                         window.checkoutTotals.render();
                     }
                 })

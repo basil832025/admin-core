@@ -6,10 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\Shop\Order;
 use App\Models\Shop\LiqPayLog;
 use App\Services\LiqPayService;
+use App\Services\CashalotFiscalService;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethodEnum;
+use App\Mail\CashalotReceiptMail;
 use App\Mail\OrderNotificationMail;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -140,6 +143,29 @@ class LiqPayController extends Controller
                             'trace'    => $e->getTraceAsString(),
                         ]);
                     }
+                }
+
+                try {
+                    $cashalotLog = app(CashalotFiscalService::class)->fiscalizePaidOrder($order, $payload);
+
+                    if ($cashalotLog && $cashalotLog->status === 'success') {
+                        $order->loadMissing('clients');
+
+                        $clientEmail = trim((string) ($order->clients?->email ?? ''));
+
+                        if ($clientEmail !== '' && filter_var($clientEmail, FILTER_VALIDATE_EMAIL)) {
+                            $mailKey = 'cashalot_receipt_mail_sent:' . $cashalotLog->id;
+
+                            if (Cache::add($mailKey, true, now()->addDays(30))) {
+                                Mail::to($clientEmail)->send(new CashalotReceiptMail($order, $cashalotLog));
+                            }
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    Log::error('LiqPay callback: Cashalot fiscalization failed', [
+                        'order_id' => $order->id,
+                        'error' => $e->getMessage(),
+                    ]);
                 }
             }
         }

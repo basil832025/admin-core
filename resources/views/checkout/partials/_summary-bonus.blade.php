@@ -87,18 +87,12 @@
             },
             updateTotals() {
                 const itemsTotal = {{ (float)$itemsTotal }};
-                const baseDiscount = {{ (float)$discount }};
                 const bonus = Number(this.value) || 0;
-                const discount = Number(baseDiscount) || 0;
                 const subtotalEl = document.querySelector('[data-checkout-subtotal]');
-                const discountEl = document.querySelector('[data-checkout-discount]');
                 const bonusEl    = document.querySelector('[data-checkout-bonus]');
 
                 if (subtotalEl) {
                     subtotalEl.textContent = this.formatMoney(itemsTotal) + ' {{ st('cart.summary.currency_short', 'грн') }}';
-                }
-                if (discountEl) {
-                    discountEl.textContent = this.formatMoney(discount);
                 }
                 if (bonusEl) {
                     bonusEl.textContent = this.formatMoney(bonus);

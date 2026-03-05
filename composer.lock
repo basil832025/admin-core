@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "efc3ff27afa14219a36d7079ebb77fac",
+    "content-hash": "52faff9f0b7a06f6bc2565c0836e8922",
     "packages": [
         {
             "name": "amidesfahani/filament-tinyeditor",
@@ -2003,6 +2003,62 @@
                 }
             ],
             "time": "2023-10-12T05:21:21+00:00"
+        },
+        {
+            "name": "gavan4eg/cashalotapi",
+            "version": "1.0.0",
+            "dist": {
+                "type": "path",
+                "url": "packages/cashalotapi",
+                "reference": "9d79537704a52a331d8fe5269365a246e9c1f297"
+            },
+            "require": {
+                "illuminate/support": "^6|^7|^8|^9|^10|^11|^12"
+            },
+            "require-dev": {
+                "orchestra/testbench": "^6|^7|^8|^9|^10",
+                "phpunit/phpunit": "^6|^7|^8|^9|^10"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Gavan4eg\\CashalotApi\\CashalotApiServiceProvider"
+                    ],
+                    "aliases": {
+                        "CashalotApi": "Gavan4eg\\CashalotApi\\Facades\\CashalotApi"
+                    }
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Gavan4eg\\CashalotApi\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Gavan4eg\\CashalotApi\\Tests\\": "tests"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Alex",
+                    "email": "alexdevlaravel@gmail.com"
+                }
+            ],
+            "description": "cashalot laravel api",
+            "homepage": "https://github.com/gavan4eg/cashalotapi",
+            "keywords": [
+                "CashalotApi",
+                "Laravel"
+            ],
+            "transport-options": {
+                "symlink": false,
+                "relative": true
+            }
         },
         {
             "name": "graham-campbell/result-type",

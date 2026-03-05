@@ -986,6 +986,8 @@ Route::post('/checkout/check-promo-conditions', [CheckoutController::class, 'che
     ->name('checkout.check-promo-conditions');
 Route::get('/checkout/{order}/pay/liqpay', [CheckoutController::class, 'payLiqPay'])
     ->name('checkout.pay.liqpay');
+Route::post('/checkout/{order}/pay/liqpay/email', [CheckoutController::class, 'saveLiqPayEmail'])
+    ->name('checkout.pay.liqpay.email');
 Route::get('/filter', [CatalogController::class, 'filter'])
     ->name('catalog.filter');
 Route::post('/liqpay/callback', [LiqPayController::class, 'callback'])

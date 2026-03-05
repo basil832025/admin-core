@@ -17,6 +17,7 @@
         "filament/spatie-laravel-translatable-plugin": "^3.2",
         "flowframe/laravel-trend": "^0.4.0",
         "guzzlehttp/guzzle": "^7.10",
+        "gavan4eg/cashalotapi": "*",
         "kerigard/laravel-lang-ru": "^2.0",
         "laravel/framework": "^12.0",
         "laravel/socialite": "^5.23",
@@ -98,5 +99,14 @@
         }
     },
     "minimum-stability": "stable",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "repositories": [
+        {
+            "type": "path",
+            "url": "packages/cashalotapi",
+            "options": {
+                "symlink": false
+            }
+        }
+    ]
 }

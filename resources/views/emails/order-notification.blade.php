@@ -1,11 +1,78 @@
 <x-mail::message>
-# Новый заказ №{{ $order->id }}
+@php
+    $order->load([
+        'items.product.parent.productCharacteristicValues.characteristic.svgImage',
+        'items.product.productCharacteristicValues.characteristic.svgImage',
+        'items.product.productCharacteristicValues.characteristicValue',
+        'adjustments',
+        'clientAddress',
+        'clients',
+    ]);
+
+    $orderNumber = $order->number ?? $order->id;
+    $adminOrderUrl = route('filament.admin.resources.shop.orders.edit', ['record' => $order->id]);
+
+    $deliveryAddress = '';
+    if ($order->clientAddress) {
+        $addrParts = [];
+        if ($order->clientAddress->city) $addrParts[] = $order->clientAddress->city;
+        if ($order->clientAddress->street) $addrParts[] = 'ул. ' . $order->clientAddress->street;
+        if ($order->clientAddress->house) $addrParts[] = 'д. ' . $order->clientAddress->house;
+        if ($order->clientAddress->apartment) $addrParts[] = 'кв. ' . $order->clientAddress->apartment;
+        $deliveryAddress = implode(', ', $addrParts);
+    }
+
+    if ($order->payment) {
+        if ($order->payment === \App\Enums\PaymentMethodEnum::LIQPAY || $order->payment->value === 11) {
+            $paymentLabel = 'LiqPay';
+        } elseif ($order->payment === \App\Enums\PaymentMethodEnum::CARD || $order->payment->value === 1) {
+            $paymentLabel = 'Картой при получении';
+        } elseif ($order->payment === \App\Enums\PaymentMethodEnum::CASH || $order->payment->value === 2) {
+            $paymentLabel = 'Наличными';
+        } else {
+            $paymentLabel = (string) $order->payment->label('ru');
+        }
+    } else {
+        $paymentLabel = 'Картой при получении';
+    }
+
+    $items = $order->items;
+    $itemsTotal = (float) ($order->total_price ?? 0);
+    $shipping = (float) ($order->shipping_price ?? 0);
+
+    $adjustments = $order->adjustments()->whereNull('shop_order_item_id')->get();
+    $discountsList = [];
+    $discountTotal = 0.0;
+    foreach ($adjustments as $adj) {
+        $amount = (float) ($adj->amount ?? 0);
+        if ($amount < 0) {
+            $discountTotal += abs($amount);
+            $discountsList[] = [
+                'label' => $adj->label ?? 'Скидка',
+                'amount' => abs($amount),
+            ];
+        }
+    }
+
+    $bonusesSpent = max(0, (float) ($order->sale_sum ?? 0));
+    $bonusesEarned = 0;
+    if (method_exists($order, 'loyaltyTransactions')) {
+        $bonusesEarned = (float) $order->loyaltyTransactions()
+            ->where('type', \App\Models\Shop\LoyaltyTransaction::TYPE_ACCRUAL)
+            ->where('source', 'order')
+            ->sum('amount');
+    }
+
+    $total = (float) ($order->grand_total ?? ($itemsTotal - $bonusesSpent + $shipping));
+@endphp
+
+# Новый заказ №{{ $orderNumber }}
 
 Поступил новый заказ с сайта.
 
 ## Информация о заказе
 
-**Номер заказа:** №{{ $order->id }}  
+**Номер заказа:** №{{ $orderNumber }}  
 **Дата создания:** {{ $order->created_at->format('d.m.Y H:i') }}  
 **Статус:** {{ $order->status->getLabel() }}
 
@@ -14,26 +81,12 @@
 @if($order->clients)
 **Имя:** {{ $order->clients->name ?? '—' }}  
 **Телефон:** {{ $order->clients->phone ?? '—' }}  
-@if($order->clients->email)
-**Email:** {{ $order->clients->email }}
-@endif
+**Email:** {{ $order->clients->email ?? '—' }}
 @else
 **Имя:** {{ $order->short_name ?? '—' }}
 @endif
 
 ## Адрес доставки
-
-@php
-    $deliveryAddress = '';
-    if ($order->clientAddress) {
-        $addrParts = [];
-        if ($order->clientAddress->city) $addrParts[] = $order->clientAddress->city;
-        if ($order->clientAddress->street) $addrParts[] = $order->clientAddress->street;
-        if ($order->clientAddress->house) $addrParts[] = 'д.' . $order->clientAddress->house;
-        if ($order->clientAddress->apartment) $addrParts[] = 'кв.' . $order->clientAddress->apartment;
-        $deliveryAddress = implode(', ', $addrParts);
-    }
-@endphp
 
 {{ $deliveryAddress ?: '—' }}
 
@@ -51,77 +104,9 @@
 
 ## Способ оплаты
 
-@if($order->payment)
-    @if($order->payment === \App\Enums\PaymentMethodEnum::LIQPAY || $order->payment->value === 11)
-        LiqPay
-    @elseif($order->payment === \App\Enums\PaymentMethodEnum::CARD || $order->payment->value === 1)
-        {{ st('cart.payment.card_on_delivery', 'Картой при получении') }}
-    @elseif($order->payment === \App\Enums\PaymentMethodEnum::CASH || $order->payment->value === 2)
-        {{ st('cart.payment.cash', 'Наличными') }}
-    @else
-        {{ $order->payment->label() }}
-    @endif
-@else
-    {{ st('cart.payment.card_on_delivery', 'Картой при получении') }}
-@endif
+{{ $paymentLabel }}
 
 ## Товары
-
-@php
-    $order->load([
-        'items.product.parent.productCharacteristicValues.characteristic.svgImage',
-        'items.product.productCharacteristicValues.characteristic.svgImage',
-        'items.product.productCharacteristicValues.characteristicValue',
-        'adjustments'
-    ]);
-    $items = $order->items;
-    
-    // Сумма товаров без скидок
-    $itemsTotal = (float)($order->total_price ?? 0);
-    
-    // Все скидки (adjustments с отрицательными amount)
-    // Берем только adjustments на уровне заказа (не на уровне товара)
-    $adjustments = $order->adjustments()->whereNull('shop_order_item_id')->get();
-    $discountTotal = 0;
-    $discountsList = [];
-    
-    foreach ($adjustments as $adj) {
-        $amount = (float)($adj->amount ?? 0);
-        if ($amount < 0) {
-            $discountAmount = abs($amount);
-            $discountTotal += $discountAmount;
-            $discountsList[] = [
-                'label' => $adj->label ?? 'Скидка',
-                'amount' => $discountAmount,
-            ];
-        }
-    }
-    
-    // Стоимость доставки
-    $shipping = (float)($order->shipping_price ?? 0);
-
-    // Списанные бонусы (по правилам — это часть sale_sum)
-    $bonusesSpent = 0;
-    if ($order->sale_sum > 0) {
-        // пока считаем, что вся суммовая скидка = бонусы (если добавятся другие источники —
-        // можно будет поделить по метаданным adjustments)
-        $bonusesSpent = (float)$order->sale_sum;
-    }
-
-    // Начисленные бонусы по заказу (loyaltyTransactions type=accrual, source=order)
-    $bonusesEarned = 0;
-    if ($order->relationLoaded('loyaltyTransactions') || method_exists($order, 'loyaltyTransactions')) {
-        $accrualTx = $order->loyaltyTransactions()
-            ->where('type', \App\Models\Shop\LoyaltyTransaction::TYPE_ACCRUAL)
-            ->where('source', 'order')
-            ->get();
-        $bonusesEarned = (float)$accrualTx->sum('amount');
-    }
-    
-    // Итоговая сумма с учетом скидок, бонусов и доставки
-    $total = (float)($order->grand_total
-        ?? ($itemsTotal - $discountTotal - $bonusesSpent + $shipping));
-@endphp
 
 <x-mail::table>
 | Название | Количество | Цена за единицу | Сумма |
@@ -131,17 +116,16 @@
     $product = $item->product;
     $snapshot = $item->product_snapshot ?? [];
     $name = $snapshot['name'] ?? $snapshot['title'] ?? null;
-    
+
     if (!$name && $product) {
         $parent = $product->parent ?? $product;
         $name = $parent->display_name ?? $parent->displayName ?? $parent->title ?? 'Товар';
     }
     $name = $name ?? 'Товар';
-    
-    // Получаем характеристики (размер, вес, но не персоны)
+
     $productChars = [];
     $personSlug = 'persons';
-    
+
     if ($product && $product->relationLoaded('productCharacteristicValues')) {
         $charValues = $product->productCharacteristicValues
             ->filter(function($cv) use ($personSlug) {
@@ -149,7 +133,7 @@
                 if (!$char) return false;
                 return $char->is_main_tab && $char->is_active && ($char->slug ?? null) !== $personSlug;
             });
-        
+
         foreach ($charValues as $cv) {
             $char = $cv->characteristic;
             if (!$char) continue;
@@ -162,12 +146,12 @@
         $charValues = $product->productCharacteristicValues()
             ->whereHas('characteristic', function($q) use ($personSlug) {
                 $q->where('is_main_tab', 1)
-                  ->where('is_active', 1)
-                  ->where('slug', '!=', $personSlug);
+                    ->where('is_active', 1)
+                    ->where('slug', '!=', $personSlug);
             })
             ->with(['characteristic.svgImage', 'characteristicValue'])
             ->get();
-        
+
         foreach ($charValues as $cv) {
             $char = $cv->characteristic;
             if (!$char) continue;
@@ -177,8 +161,7 @@
             }
         }
     }
-    
-    // Если не нашли в модели, пробуем из snapshot (исключаем персоны)
+
     if (empty($productChars)) {
         $characteristics = $snapshot['characteristics'] ?? [];
         if (!empty($characteristics) && is_array($characteristics)) {
@@ -198,12 +181,11 @@
             }
         }
     }
-    
-    // Добавляем характеристики к названию
+
     if (!empty($productChars)) {
         $name .= ' (' . implode(', ', $productChars) . ')';
     }
-    
+
     $qty = (int)($item->qty ?? 1);
     $price = (float)($item->unit_price ?? 0);
     if (!empty($item->subtotal) && (float)$item->subtotal > 0) {
@@ -222,9 +204,9 @@
 
 **Товары:** {{ number_format($itemsTotal, 2, '.', ' ') }} грн
 
-@if($shipping > 0)
+**Скидка:** -{{ number_format($discountTotal, 2, '.', ' ') }} грн
+
 **Доставка:** {{ number_format($shipping, 2, '.', ' ') }} грн
-@endif
 
 @if(!empty($discountsList))
 @foreach($discountsList as $discount)
@@ -232,9 +214,7 @@
 @endforeach
 @endif
 
-@if($bonusesSpent > 0)
 **Списано бонусов:** {{ number_format($bonusesSpent, 2, '.', ' ') }} грн
-@endif
 
 @if($bonusesEarned > 0)
 **Начислено бонусов:** {{ number_format($bonusesEarned, 2, '.', ' ') }} бонусов
@@ -243,10 +223,14 @@
 **Итого к оплате:** {{ number_format($total, 2, '.', ' ') }} грн
 
 @if($order->notes)
-## Комментарии
+## Комментарий клиента
 
 {{ $order->notes }}
 @endif
 
-Спасибо за использование нашего сервиса!
+<x-mail::button :url="$adminOrderUrl">
+Открыть заказ в админке
+</x-mail::button>
+
+С уважением, команда «Три Пироги».
 </x-mail::message>

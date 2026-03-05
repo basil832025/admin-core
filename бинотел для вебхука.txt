@@ -32,3 +32,9 @@ curl -X POST "https://test3.redbarbell.com.ua/integrations/binotel/call-settings
   
   
   php artisan db:seed --class="Database\\Seeders\\ClientGroupsSeeder"
+  
+  
+  ngrok http 80  //заупстить тунель для 
+  
+  https://braeden-inkiest-insistingly.ngrok-free.dev -> http://localhost:80
+  

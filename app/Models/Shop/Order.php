@@ -18,6 +18,7 @@ use App\Enums\PaymentMethodEnum;
 use App\Services\LoyaltyService;
 use App\Models\Shop\LoyaltyTransaction;
 use App\Models\Shop\LiqPayLog;
+use App\Models\Shop\CashalotLog;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Order extends Model
@@ -151,6 +152,16 @@ class Order extends Model
     {
         // последний лог по этому заказу
         return $this->hasOne(LiqPayLog::class, 'shop_order_id')->latestOfMany();
+    }
+
+    public function cashalotLogs(): HasMany
+    {
+        return $this->hasMany(CashalotLog::class, 'shop_order_id');
+    }
+
+    public function lastCashalotLog(): HasOne
+    {
+        return $this->hasOne(CashalotLog::class, 'shop_order_id')->latestOfMany();
     }
     // Что логировать
     public function getActivitylogOptions(): LogOptions

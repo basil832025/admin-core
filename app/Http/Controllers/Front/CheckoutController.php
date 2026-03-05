@@ -686,6 +686,10 @@ public function submit(Request $request)
         'agree'            => 'accepted',
     ]);
 
+    if ($request->input('payment_method') === 'liqpay') {
+        $validated['contact_email'] = trim((string) ($request->input('contact_email') ?? ''));
+    }
+
     // 2. Условная валидация: если выбран режим "fixed", дата и время обязательны
     $deliveryMode = $request->input('delivery_mode', 'asap');
     if ($deliveryMode === 'fixed') {
@@ -992,10 +996,6 @@ public function submit(Request $request)
                         ],
                     ]);
 
-                    // обновляем суммарную скидку и итог по заказу
-                    $currentSale = (float) ($order->sale_sum ?? 0);
-                    $order->sale_sum         = $currentSale + $discount;
-                    $order->total_price_sale = max(0, $order->total_price - $order->sale_sum);
                     // если у заказа есть поле promo_code — сохраним код
                     if ($order->isFillable('promo_code')) {
                         $order->promo_code = $promo->code;
@@ -1028,12 +1028,9 @@ public function submit(Request $request)
     }
 
     // === 9.1 Финальный пересчёт grand_total для оплаты / Filament ===
-    // Берём итог по товарам с учётом всех скидок и бонусов (total_price_sale),
-    // а затем добавляем стоимость доставки.
-    $goodsTotal = (float) ($order->total_price_sale ?? $order->total_price ?? 0);
-    $shipping   = (float) ($order->shipping_price ?? 0);
-
-    $order->grand_total = max(0, round($goodsTotal + $shipping, 2));
+    // Считаем от фактической суммы товаров + adjustments,
+    // затем отдельно вычитаем бонусы (sale_sum), и добавляем доставку.
+    $order->grand_total = $this->calculatePayableTotal($order);
     $order->save();
 
     // 10. Отправляем уведомление на почту:
@@ -1083,18 +1080,17 @@ public function submit(Request $request)
         }
     }
 
-// 11. Очищаем только гостевую корзину
-    if (method_exists($this->cart, 'clearAfterCheckout')) {
-        $this->cart->clearAfterCheckout();
-    }
-    session()->forget('checkout.selected_promo');
-    // Очищаем сохраненные данные формы после успешного оформления
-    session()->forget('checkout.form_data');
-
     if ($paymentEnum === PaymentMethodEnum::LIQPAY) {
         // своя страница с кнопкой LiqPay
         return redirect()->route('checkout.pay.liqpay', $order);
     }
+
+// 11. Для не-LiqPay очищаем корзину и форму после успешного оформления
+    if (method_exists($this->cart, 'clearAfterCheckout')) {
+        $this->cart->clearAfterCheckout();
+    }
+    session()->forget('checkout.selected_promo');
+    session()->forget('checkout.form_data');
 
     return redirect()->route('checkout.success', $order);
 
@@ -1303,12 +1299,76 @@ public function payLiqPay(Order $order)
         abort(404);
     }
 
+    $order->loadMissing('clients');
+
+    $expectedGrandTotal = $this->calculatePayableTotal($order);
+    if (round((float) $order->grand_total, 2) !== $expectedGrandTotal) {
+        $order->grand_total = $expectedGrandTotal;
+        $order->save();
+        $order->refresh();
+    }
+
+    $sessionEmail = trim((string) session('checkout.form_data.contact_email', ''));
+    $clientEmail = trim((string) ($order->clients?->email ?: $sessionEmail));
+    $emailRequired = $clientEmail === '';
+
     $liqpayForm = LiqPayService::make()->formForOrder($order);
 
     return view('checkout.liqpay', [
         'order'     => $order,
+        'clientEmail' => $clientEmail,
+        'emailRequired' => $emailRequired,
         'liqpayForm'=> $liqpayForm,
     ]);
+}
+
+public function saveLiqPayEmail(Request $request, Order $order)
+{
+    if ($order->clients_id) {
+        $orderClientId = (int) $order->clients_id;
+        $currentUserId = auth()->check() ? (int) auth()->id() : null;
+
+        if (! $currentUserId || $currentUserId !== $orderClientId) {
+            abort(403);
+        }
+    }
+
+    if ($order->payment !== PaymentMethodEnum::LIQPAY) {
+        abort(404);
+    }
+
+    $validated = $request->validate([
+        'contact_email' => 'required|email|max:255',
+    ]);
+
+    $email = trim((string) $validated['contact_email']);
+
+    $order->loadMissing('clients');
+
+    if ($order->clients) {
+        $order->clients->email = $email;
+        $order->clients->save();
+    }
+
+    $sessionData = session('checkout.form_data', []);
+    $sessionData['contact_email'] = $email;
+    session(['checkout.form_data' => $sessionData]);
+
+    return redirect()
+        ->route('checkout.pay.liqpay', $order)
+        ->with('success', st('checkout.liqpay.email_saved', 'Email збережено. Тепер можна перейти до оплати.'));
+}
+
+private function calculatePayableTotal(Order $order): float
+{
+    $itemsTotal = (float) ($order->total_price ?? 0);
+    $adjustmentsTotal = (float) $order->adjustments()->sum('amount');
+    $bonusTotal = max(0, (float) ($order->sale_sum ?? 0));
+    $shipping = (float) ($order->shipping_price ?? 0);
+
+    $goodsTotal = max(0, round($itemsTotal + $adjustmentsTotal - $bonusTotal, 2));
+
+    return max(0, round($goodsTotal + $shipping, 2));
 }
 
 /**

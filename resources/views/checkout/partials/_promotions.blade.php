@@ -218,6 +218,10 @@
                                 discountEl.textContent = data.discount_formatted;
                             }
 
+                            if (window.checkoutTotals && typeof window.checkoutTotals.setPromoDiscount === 'function') {
+                                window.checkoutTotals.setPromoDiscount(Number(data.discount || 0));
+                            }
+
                             const totalUahEl = document.querySelector('[data-checkout-total-uah]');
                             const totalKopEl = document.querySelector('[data-checkout-total-kop]');
 
@@ -235,4 +239,3 @@
 
     </script>
 @endpush
-

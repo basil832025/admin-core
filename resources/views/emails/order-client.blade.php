@@ -85,9 +85,12 @@
             ];
         }
     }
+
+    $shipping = (float)($order->shipping_price ?? 0);
+    $bonusesSpent = max(0, (float)($order->sale_sum ?? 0));
     
-    // Итоговая сумма с учетом скидок
-    $total = $order->grand_total ?? ($itemsTotal - $discountTotal);
+    // Итоговая сумма с учетом скидок, бонусов и доставки
+    $total = $order->grand_total ?? ($itemsTotal - $discountTotal - $bonusesSpent + $shipping);
 @endphp
 
 <x-mail::table>
@@ -189,11 +192,17 @@
 
 **{{ st('order.email.items_total', 'Товари') }}:** {{ number_format($itemsTotal, 2, '.', ' ') }} {{ st('order.email.currency', 'грн') }}
 
+**{{ st('order.email.discount_total', 'Знижка') }}:** -{{ number_format($discountTotal, 2, '.', ' ') }} {{ st('order.email.currency', 'грн') }}
+
 @if(!empty($discountsList))
 @foreach($discountsList as $discount)
 **{{ $discount['label'] }}:** -{{ number_format($discount['amount'], 2, '.', ' ') }} {{ st('order.email.currency', 'грн') }}
 @endforeach
 @endif
+
+**{{ st('order.email.shipping', 'Доставка') }}:** {{ number_format($shipping, 2, '.', ' ') }} {{ st('order.email.currency', 'грн') }}
+
+**{{ st('order.email.bonuses_spent', 'Списано бонусів') }}:** {{ number_format($bonusesSpent, 2, '.', ' ') }} {{ st('order.email.currency', 'грн') }}
 
 **{{ st('order.email.total_to_pay', 'Разом до оплати') }}:** {{ number_format($total, 2, '.', ' ') }} {{ st('order.email.currency', 'грн') }}
 

@@ -28,8 +28,10 @@ class OrderNotificationMail extends Mailable
      */
     public function envelope(): Envelope
     {
+        $orderNumber = $this->order->number ?? $this->order->id;
+
         return new Envelope(
-            subject: 'Новый заказ №' . $this->order->id,
+            subject: 'Новый заказ №' . $orderNumber,
         );
     }
 
