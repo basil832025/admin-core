@@ -59,14 +59,22 @@ public function index()
         ->get();
     // Сумма товаров и скидка — подстрой под свою структуру info()
     $itemsTotal = (float)($info['items_total'] ?? $info['total_price'] ?? 0);
-    $discount   = (float)($info['discount'] ?? 0);
+    $discountBase = (float)($info['discount'] ?? 0);
+    $promoDiscount = (float) session('checkout.promo_discount', 0);
+    $discount   = max(0, $discountBase + $promoDiscount);
 
     $client   = Auth::user();          // твоя модель клиента
     $clientId = $client?->id;
     $phone    = $client?->phone ?? null;
 
+    $useBonusChecked = (bool) ($sessionData['use_bonus'] ?? true);
+    $bonusUsedFromSession = $useBonusChecked
+        ? (float) ($sessionData['bonus_amount'] ?? 0)
+        : 0.0;
+
     $balance = $this->loyalty->getBalance($clientId, $phone);
     $limit   = $this->loyalty->getBonusLimitForOrder($itemsTotal, $discount, $balance);
+    $bonusUsed = max(0, min($bonusUsedFromSession, $limit));
     // 👇 база для начисления и теоретические бонусы
     $bonusEarn = $this->loyalty->previewEarnForCart($itemsTotal, $discount);
 
@@ -74,11 +82,11 @@ public function index()
         'qty'          => (int)($info['qty'] ?? 0),
         'items_total'  => $itemsTotal,
         'discount'     => $discount,
-        'grand_total'  => max($itemsTotal - $discount, 0),
+        'grand_total'  => max($itemsTotal - $discount - $bonusUsed, 0),
         'bonus_points' => $balance,
         'bonus_limit'  => $limit,
         'bonus_earn'   => $bonusEarn,
-        'bonus_used'   => 0,
+        'bonus_used'   => $bonusUsed,
     ];
     $productIds  = collect($items)->pluck('product_id');
 
@@ -346,6 +354,13 @@ public function saveFormData(Request $request)
         $data['payment_method'] = $request->input('payment_method');
     }
 
+    if ($request->has('use_bonus')) {
+        $data['use_bonus'] = $request->boolean('use_bonus');
+    }
+    if ($request->has('bonus_amount')) {
+        $data['bonus_amount'] = (float) $request->input('bonus_amount');
+    }
+
     // Комментарии
     if ($request->has('comment_kitchen')) {
         $data['comment_kitchen'] = $request->input('comment_kitchen');
@@ -474,6 +489,7 @@ public function updatePromo(Request $request)
     // если гость — не даём применять акцию, только после логина
     if (! $client) {
         session(['checkout.selected_promo' => 'none']);
+        session(['checkout.promo_discount' => 0]);
 
         return response()->json([
             'ok'            => false,
@@ -495,6 +511,8 @@ public function updatePromo(Request $request)
         // нет черновика — просто вернём сумму корзины
         $info      = $this->cart->info();
         $baseTotal = (float) ($info['total_price'] ?? 0);
+
+        session(['checkout.promo_discount' => 0]);
 
         return response()->json([
             'ok'        => true,
@@ -537,6 +555,8 @@ public function updatePromo(Request $request)
         ->sum('amount')); // amount отрицательный, поэтому abs()
 
     $total = (float) ($order->grand_total ?? 0);
+
+    session(['checkout.promo_discount' => $discount]);
 
     $uah = (int) floor($total);
     $kop = (int) round(($total - $uah) * 100);
@@ -1090,6 +1110,7 @@ public function submit(Request $request)
         $this->cart->clearAfterCheckout();
     }
     session()->forget('checkout.selected_promo');
+    session()->forget('checkout.promo_discount');
     session()->forget('checkout.form_data');
 
     return redirect()->route('checkout.success', $order);
@@ -1526,3 +1547,7 @@ public function checkPromoConditionsAjax(Request $request)
 }
 
 }
+    $useBonusChecked = (bool) ($sessionData['use_bonus'] ?? true);
+    $bonusUsedFromSession = $useBonusChecked
+        ? (float) ($sessionData['bonus_amount'] ?? 0)
+        : 0.0;

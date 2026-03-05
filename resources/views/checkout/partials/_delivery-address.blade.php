@@ -107,7 +107,7 @@ x-cloak
             ></button>
         @endif
 
-        <div class="space-y-4" x-show="!useNew && (showList || !selectedId)" x-cloak>
+        <div class="space-y-4" x-show="!useNew && (showList || !selectedId)" x-cloak data-field-wrap="selected_address_id">
             @foreach($addresses as $i => $addr)
                 @php
 
@@ -172,6 +172,18 @@ x-cloak
                 </label>
             @endforeach
         </div>
+
+        <input
+            id="selected_address_guard"
+            type="hidden"
+            x-model="selectedId"
+            data-required
+            data-required-if="shipping_method=delivery;use_new_address=0"
+        >
+        <p class="tp-error hidden mt-1" data-error-for="selected_address_guard">
+            {{ st('form.required','Це обов’язкове поле') }}
+        </p>
+
         @error('selected_address_id')
         <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
         @enderror

@@ -920,6 +920,9 @@ function bindCheckoutAutosave() {
             addr_comment: form.querySelector('[name="addr[comment]"]')?.value || '',
             addr_is_private_house: form.querySelector('[name="addr[is_private_house]"]')?.checked ? '1' : '0',
             addr_type: form.querySelector('[name="addr[type]"]')?.value || '',
+
+            use_bonus: form.querySelector('[name="use_bonus"]')?.checked ? '1' : '0',
+            bonus_amount: form.querySelector('[name="bonus_amount"]')?.value || '0',
         };
 
         fetch(saveUrl, {

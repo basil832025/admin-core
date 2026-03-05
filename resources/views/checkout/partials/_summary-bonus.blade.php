@@ -2,7 +2,10 @@
     $itemsTotal = $totals['items_total'] ?? ($totals['total_price'] ?? 0);
     $discount   = $totals['discount']    ?? 0;
 
-    $bonusUsed  = $totals['bonus_used']  ?? 0;
+    $useBonusChecked = (bool) old('use_bonus', $sessionData['use_bonus'] ?? 1);
+    $bonusUsed  = $useBonusChecked
+        ? old('bonus_amount', $sessionData['bonus_amount'] ?? ($totals['bonus_used'] ?? 0))
+        : 0;
 
     $userBonusPoints = $totals['bonus_points'] ?? 0;
     $bonusLimitMoney = $totals['bonus_limit']  ?? 0;
@@ -19,7 +22,7 @@
                 name="use_bonus"
                 value="1"
                 class="peer sr-only"
-                checked
+                @checked((bool)$useBonusChecked)
             >
             <span
                 class="w-6 h-6 rounded-[4px] border border-[#FF7500]
@@ -61,6 +64,7 @@
                 if (v > this.max) v = this.max;
                 this.value = v;
                 $refs.bonus.value = v;
+                $refs.bonus.dispatchEvent(new Event('change', { bubbles: true }));
                 this.updateTotals();
             },
             change(delta) {
@@ -69,6 +73,7 @@
                 if (v > this.max) v = this.max;
                 this.value = v;
                 $refs.bonus.value = v;
+                $refs.bonus.dispatchEvent(new Event('change', { bubbles: true }));
                 this.updateTotals();
             },
             formatMoney(amount) {
