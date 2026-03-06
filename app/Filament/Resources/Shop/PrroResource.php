@@ -20,7 +20,7 @@ class PrroResource extends Resource
     protected static ?string $navigationLabel = 'ПРРО';
     protected static ?string $modelLabel = 'ПРРО';
     protected static ?string $pluralModelLabel = 'ПРРО';
-    protected static ?string $navigationGroup = 'Магазин';
+    protected static ?string $navigationGroup = 'Настройки';
     protected static ?int $navigationSort = 96;
 
     public static function form(Form $form): Form
@@ -33,6 +33,10 @@ class PrroResource extends Resource
                         ->label('Дата регистрации')
                         ->default(now()->toDateString())
                         ->required(),
+
+                    Forms\Components\DatePicker::make('certificate_expires_at')
+                        ->label('Дата окончания сертификата')
+                        ->nullable(),
 
                     Forms\Components\TextInput::make('organization_name')
                         ->label('Название организации')
@@ -110,6 +114,11 @@ class PrroResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('registered_at')
                     ->label('Дата регистрации')
+                    ->date('d.m.Y')
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('certificate_expires_at')
+                    ->label('Сертификат до')
                     ->date('d.m.Y')
                     ->sortable(),
 

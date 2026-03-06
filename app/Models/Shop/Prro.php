@@ -10,6 +10,7 @@ class Prro extends Model
 
     protected $fillable = [
         'registered_at',
+        'certificate_expires_at',
         'organization_name',
         'prro_number',
         'certificate_path',
@@ -23,6 +24,7 @@ class Prro extends Model
 
     protected $casts = [
         'registered_at' => 'date',
+        'certificate_expires_at' => 'date',
         'use_for_liqpay' => 'boolean',
         'is_active' => 'boolean',
     ];
