@@ -10,7 +10,7 @@
     ]);
 
     $orderNumber = $order->number ?? $order->id;
-    $adminOrderUrl = route('filament.admin.resources.shop.orders.edit', ['record' => $order->id]);
+    $adminOrderUrl = url('/admin/callcenter/orders');
 
     $deliveryAddress = '';
     if ($order->clientAddress) {

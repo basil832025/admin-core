@@ -8,12 +8,19 @@ use Illuminate\Support\Str;
 
 class CashalotApiClient
 {
+    protected function prroConfig(): array
+    {
+        return app(PrroConfigService::class)->getForCashalot();
+    }
+
     public function registerCheck(array $check, array $options = []): array
     {
+        $prro = $this->prroConfig();
+
         $payload = [
             'Command' => 'RegisterCheck',
             'UID' => (string) ($options['uid'] ?? Str::uuid()),
-            'NumFiscal' => (string) config('cashalot.numfiscal', ''),
+            'NumFiscal' => (string) ($prro['numfiscal'] ?? ''),
             'Check' => $check,
             'AutoOpenShift' => (bool) Arr::get($options, 'auto_open_shift', config('cashalot.auto_open_shift', true)),
             'GetQrCode' => (bool) Arr::get($options, 'get_qr_code', config('cashalot.get_qr_code', true)),
@@ -39,30 +46,36 @@ class CashalotApiClient
 
     public function transactionsRegistrarState(array $options = []): array
     {
+        $prro = $this->prroConfig();
+
         return $this->send([
             'Command' => 'TransactionsRegistrarState',
             'UID' => (string) ($options['uid'] ?? Str::uuid()),
-            'NumFiscal' => (string) config('cashalot.numfiscal', ''),
+            'NumFiscal' => (string) ($prro['numfiscal'] ?? ''),
         ]);
     }
 
     public function openShift(array $options = []): array
     {
+        $prro = $this->prroConfig();
+
         return $this->send([
             'Command' => 'OpenShift',
             'UID' => (string) ($options['uid'] ?? Str::uuid()),
-            'NumFiscal' => (string) config('cashalot.numfiscal', ''),
+            'NumFiscal' => (string) ($prro['numfiscal'] ?? ''),
         ]);
     }
 
     public function sendCheckToConsumer(array $payload): array
     {
+        $prro = $this->prroConfig();
+
         return $this->send([
             'Command' => 'SendCheckToConsumer',
             'UID' => (string) ($payload['uid'] ?? Str::uuid()),
             'ServiceType' => (int) ($payload['service_type'] ?? config('cashalot.consumer_service_type', 0)),
             'PhoneNumber' => (string) ($payload['phone_number'] ?? ''),
-            'RegistrarNumFiscal' => (string) ($payload['registrar_num_fiscal'] ?? config('cashalot.numfiscal', '')),
+            'RegistrarNumFiscal' => (string) ($payload['registrar_num_fiscal'] ?? ($prro['numfiscal'] ?? '')),
             'OrderNumFiscal' => (string) ($payload['order_num_fiscal'] ?? ''),
             'OrderSum' => (float) ($payload['order_sum'] ?? 0),
             'OrderDateTime' => (string) ($payload['order_date_time'] ?? ''),
@@ -99,10 +112,11 @@ class CashalotApiClient
     protected function authPayload(): array
     {
         $payload = [];
+        $prro = $this->prroConfig();
 
-        $certificate = trim((string) config('cashalot.certificate', ''));
-        $privateKey = trim((string) config('cashalot.key', ''));
-        $password = (string) config('cashalot.password', '');
+        $certificate = trim((string) ($prro['certificate'] ?? ''));
+        $privateKey = trim((string) ($prro['key'] ?? ''));
+        $password = (string) ($prro['password'] ?? '');
         $useSmartId = (bool) config('cashalot.use_smart_id', false);
         $keyPin = trim((string) config('cashalot.key_pin', ''));
 

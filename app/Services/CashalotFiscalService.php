@@ -8,6 +8,11 @@ use Illuminate\Support\Str;
 
 class CashalotFiscalService
 {
+    protected function prroConfig(): array
+    {
+        return app(PrroConfigService::class)->getForCashalot();
+    }
+
     public function fiscalizePaidOrder(Order $order, ?array $liqpayPayload = null): ?CashalotLog
     {
         if (! (bool) config('cashalot.enabled', false)) {
@@ -108,10 +113,12 @@ class CashalotFiscalService
             return;
         }
 
+        $prro = $this->prroConfig();
+
         $consumerResponse = app(CashalotApiClient::class)->sendCheckToConsumer([
             'service_type' => $serviceType,
             'phone_number' => $phone,
-            'registrar_num_fiscal' => (string) config('cashalot.numfiscal', ''),
+            'registrar_num_fiscal' => (string) ($prro['numfiscal'] ?? ''),
             'order_num_fiscal' => (string) ($registerResponse['NumFiscal'] ?? ''),
             'order_sum' => $orderTotal,
             'order_date_time' => (string) ($registerResponse['OrderDateTime'] ?? now()->format('Y-m-d\TH:i:s')),
@@ -132,10 +139,12 @@ class CashalotFiscalService
 
     protected function hasRequiredConfig(): bool
     {
-        return trim((string) config('cashalot.numfiscal', '')) !== ''
-            && trim((string) config('cashalot.certificate', '')) !== ''
-            && trim((string) config('cashalot.key', '')) !== ''
-            && trim((string) config('cashalot.password', '')) !== '';
+        $prro = $this->prroConfig();
+
+        return trim((string) ($prro['numfiscal'] ?? '')) !== ''
+            && trim((string) ($prro['certificate'] ?? '')) !== ''
+            && trim((string) ($prro['key'] ?? '')) !== ''
+            && trim((string) ($prro['password'] ?? '')) !== '';
     }
 
     protected function buildRequestPayload(Order $order, array $liqpayPayload): array
