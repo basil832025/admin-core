@@ -71,6 +71,8 @@ class Order extends Model
         'external_order_id',
         'has_unmatched_items',
         'synced_at',
+        'kitchen_print_count',
+        'kitchen_last_printed_at',
     ];
 
     protected $casts = [
@@ -91,6 +93,8 @@ class Order extends Model
         'source_id' => 'integer',
         'has_unmatched_items' => 'boolean',
         'synced_at' => 'datetime',
+        'kitchen_print_count' => 'integer',
+        'kitchen_last_printed_at' => 'datetime',
         'courier_comment_changed_at' => 'datetime',
         'courier_comment_read_at' => 'datetime',
 

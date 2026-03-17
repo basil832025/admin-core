@@ -5,6 +5,8 @@ namespace App\Observers;
 use App\Enums\OrderStatus;
 use App\Models\Kitchen\KitchenTicket;
 use App\Models\Shop\Order;
+use App\Services\PrintNode\KitchenDuplicatePrintService;
+use Illuminate\Support\Facades\Log;
 
 class OrderObserver
 {
@@ -73,7 +75,7 @@ class OrderObserver
                 $ticket->syncItemsFromOrder();
 
                 if ($statusEnum !== OrderStatus::Processing) {
-                    $ticket->moveTo($statusEnum, auth('admin')->id());
+                    $ticket->moveTo($statusEnum, (int) auth('admin')->id());
                 }
             }
 
@@ -107,6 +109,17 @@ class OrderObserver
 
             // синхронизируем позиции уже ПОСЛЕ наличия тикета
             $ticket->syncItemsFromOrder();
+
+            try {
+                app(KitchenDuplicatePrintService::class)
+                    ->printForKitchenStatus($order, auth('admin')->user()?->name);
+            } catch (\Throwable $exception) {
+                Log::error('Kitchen duplicate print failed', [
+                    'order_id' => $order->id,
+                    'message' => $exception->getMessage(),
+                ]);
+            }
+
             return;
         }
 
@@ -137,7 +150,7 @@ class OrderObserver
                 $ticket->save();
             }
 
-            $ticket->moveTo($statusEnum, auth()->id());
+            $ticket->moveTo($statusEnum, (int) auth('admin')->id());
             return;
         }
 

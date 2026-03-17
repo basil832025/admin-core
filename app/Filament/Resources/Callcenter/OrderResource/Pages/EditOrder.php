@@ -2,16 +2,26 @@
 
 namespace App\Filament\Resources\Callcenter\OrderResource\Pages;
 
+use App\Filament\Resources\Callcenter\OrderResource;
 use App\Filament\Resources\Callcenter\OrderResource\Concerns\HasHistoryOrderActions;
 use App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions;
-use App\Filament\Resources\Callcenter\OrderResource;
 use App\Models\Kitchen\KitchenTicket;
-use App\Models\Shop\OrderItem;
 use App\Models\Shop\ClientAddress;
+use App\Models\Shop\OrderItem;
 use App\Services\Callcenter\ExternalSyncService;
 use App\Services\OrderPricing;
+use App\Services\PrintNode\KitchenDuplicatePrintService;
+use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
+use Filament\Forms\Components\Actions;
+use Filament\Forms\Components\Actions\Action as FormAction;
+use Filament\Forms\Components\Grid;
+use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Support\HtmlString;
 
 class EditOrder extends EditRecord
 {
@@ -19,11 +29,12 @@ class EditOrder extends EditRecord
     use HasMenuCatalogActions;
 
     public ?string $pendingStatus = null;
-    public ?string $prevStatus    = null;
+
+    public ?string $prevStatus = null;
 
     protected static string $resource = OrderResource::class;
 
-    public function mount(int | string $record): void
+    public function mount(int|string $record): void
     {
         parent::mount($record);
 
@@ -39,10 +50,10 @@ class EditOrder extends EditRecord
         }
     }
 
- /*   protected function getRedirectUrl(): string
-    {
-        return $this->getResource()::getUrl('index');
-    }*/
+    /*   protected function getRedirectUrl(): string
+       {
+           return $this->getResource()::getUrl('index');
+       }*/
     protected function getHeaderActions(): array
     {
         return [
@@ -52,6 +63,96 @@ class EditOrder extends EditRecord
                 ->url($this->getResource()::getUrl('index')),
 
             $this->openMenuCatalogAction(),
+
+            Action::make('print_kitchen')
+                ->label(function (): string {
+                    $count = (int) ($this->record?->kitchen_print_count ?? 0);
+                    $base = 'Печать на кухню';
+
+                    if ($count > 1) {
+                        return $base.' ('.$count.') Дубликат';
+                    }
+
+                    if ($count > 0) {
+                        return $base.' ('.$count.')';
+                    }
+
+                    return $base;
+                })
+                ->icon('heroicon-o-printer')
+                ->color(fn (): string => ((int) ($this->record?->kitchen_print_count ?? 0)) > 0 ? 'warning' : 'gray')
+                ->modalHeading('Предпросмотр чека кухни')
+                ->modalDescription('Проверьте содержимое чека и укажите количество дубликатов перед печатью.')
+                ->modalSubmitAction(false)
+                ->modalCancelAction(false)
+                ->fillForm(function (): array {
+                    if (! $this->record?->exists) {
+                        return [
+                            'copies' => 1,
+                            'preview' => '',
+                        ];
+                    }
+
+                    $preview = app(KitchenDuplicatePrintService::class)
+                        ->buildKitchenPreview($this->record, auth('admin')->user()?->name);
+
+                    return [
+                        'copies' => (int) ($preview['copies'] ?? 1),
+                        'preview' => (string) ($preview['text'] ?? ''),
+                        'preview_html' => (string) ($preview['preview_html'] ?? ''),
+                    ];
+                })
+                ->form([
+                    Hidden::make('preview_html')
+                        ->dehydrated(false),
+                    Grid::make(12)
+                        ->schema([
+                            TextInput::make('copies')
+                                ->label('Количество дубликатов')
+                                ->numeric()
+                                ->minValue(1)
+                                ->maxValue(20)
+                                ->step(1)
+                                ->required()
+                                ->columnSpan(3),
+
+                            Actions::make([
+                                FormAction::make('printKitchenTop')
+                                    ->label('Печать')
+                                    ->color('primary')
+                                    ->icon('heroicon-o-printer')
+                                    ->action(function (callable $get, $livewire): void {
+                                        $copies = max(1, (int) ($get('copies') ?? 1));
+                                        $this->sendKitchenPrintFromModal($copies);
+
+                                        if (method_exists($livewire, 'unmountAction')) {
+                                            $livewire->unmountAction();
+                                        }
+                                    }),
+                                FormAction::make('closeKitchenTop')
+                                    ->label('Закрыть')
+                                    ->color('gray')
+                                    ->action(function ($livewire): void {
+                                        if (method_exists($livewire, 'unmountAction')) {
+                                            $livewire->unmountAction();
+                                        }
+                                    }),
+                            ])
+                                ->alignment('left')
+                                ->extraAttributes([
+                                    'class' => 'pt-6',
+                                ])
+                                ->columnSpan(9),
+                        ]),
+                    Placeholder::make('preview_render')
+                        ->label('Предпросмотр чека')
+                        ->content(fn (callable $get): HtmlString => $this->buildKitchenPreviewIframe((string) ($get('preview_html') ?? '')))
+                        ->dehydrated(false)
+                        ->columnSpanFull(),
+                ])
+                ->action(function (array $data): void {
+                    $this->sendKitchenPrintFromModal((int) ($data['copies'] ?? 1));
+                }),
 
             $this->getSaveFormAction()
                 ->label(__('order.actions.save'))
@@ -65,15 +166,17 @@ class EditOrder extends EditRecord
     {
         return [];
     }
+
     protected function getFooterWidgets(): array
     {
         return [
-        //    OrderActivityWidget::class,   // покажется над формой
+            //    OrderActivityWidget::class,   // покажется над формой
         ];
     }
+
     public function syncAddressOnSave(array $data): array
     {
-        $addr   = $data['address'] ?? null;               // поля формы address.*
+        $addr = $data['address'] ?? null;               // поля формы address.*
         $select = $data['selected_address_id'] ?? null;   // '-1' = новый адрес
         $clientId = $data['clients_id'] ?? $this->record->clients_id ?? null;
 
@@ -98,37 +201,91 @@ class EditOrder extends EditRecord
 
         return $data;
     }
+
+    private function buildKitchenPreviewIframe(string $previewHtml): HtmlString
+    {
+        if (trim($previewHtml) === '') {
+            return new HtmlString('<div style="font-size:12px;color:#64748b;">Предпросмотр будет показан после генерации.</div>');
+        }
+
+        $sanitized = preg_replace('/<script\b[^>]*>.*?<\/script>/is', '', $previewHtml) ?? $previewHtml;
+        $srcDoc = '<!doctype html><html><head><meta charset="UTF-8"><style>html,body{margin:0;padding:0;background:#f8fafc;}*{box-sizing:border-box;}</style></head><body>'
+            .$sanitized
+            .'</body></html>';
+
+        $escapedSrcDoc = htmlspecialchars($srcDoc, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+        return new HtmlString(
+            '<iframe title="Kitchen receipt preview" sandbox="allow-same-origin" srcdoc="'.$escapedSrcDoc.'" '
+            .'style="width:100%;height:780px;border:1px solid #d1d5db;border-radius:8px;background:#fff;"></iframe>'
+        );
+    }
+
+    protected function sendKitchenPrintFromModal(int $copies): void
+    {
+        if (! $this->record?->exists) {
+            return;
+        }
+
+        try {
+            $copies = max(1, $copies);
+
+            $result = app(KitchenDuplicatePrintService::class)
+                ->sendKitchenPrint($this->record, auth('admin')->user()?->name, 'manual', $copies);
+
+            $this->record->refresh();
+
+            $count = (int) ($result['count'] ?? $this->record->kitchen_print_count ?? 0);
+            $title = ($result['duplicate'] ?? false)
+                ? 'Дубликат отправлен на печать'
+                : 'Чек кухни отправлен на печать';
+
+            Notification::make()
+                ->success()
+                ->title($title)
+                ->body('Количество печатей: '.$count.'. Дубликатов в задании: '.$copies)
+                ->send();
+        } catch (\Throwable $exception) {
+            Notification::make()
+                ->danger()
+                ->title('Ошибка печати кухни')
+                ->body($exception->getMessage())
+                ->send();
+        }
+    }
+
     protected function mutateFormDataBeforeSave(array $data): array
     {
         return $this->syncAddressOnSave($data);
     }
- /*   protected function mutateFormDataBeforeFill(array $data): array
-    {
-        // гарантируем массив
-        $data['address'] = is_array($data['address'] ?? null) ? $data['address'] : [];
 
-        // гарантируем все ключи, чтобы entangle не падал
-        $data['address'] += [
-            'street_place_id'   => null,
-            'street'            => null,
-            'house'             => null,
-            'apartment'         => null,
-            'intercom'          => null,
-            'floor'             => null,
-            'entrance'          => null,
-            'zip'               => null,
-            'city'              => 'Київ',
-            'country'           => null,
-            'note'              => null,
-            'type'              => null,
-            'is_private_house'  => false,
-            'latitude'          => null,
-            'longitude'         => null,
-            'formatted_address' => null,
-        ];
+    /*   protected function mutateFormDataBeforeFill(array $data): array
+       {
+           // гарантируем массив
+           $data['address'] = is_array($data['address'] ?? null) ? $data['address'] : [];
 
-        return $data;
-    }*/
+           // гарантируем все ключи, чтобы entangle не падал
+           $data['address'] += [
+               'street_place_id'   => null,
+               'street'            => null,
+               'house'             => null,
+               'apartment'         => null,
+               'intercom'          => null,
+               'floor'             => null,
+               'entrance'          => null,
+               'zip'               => null,
+               'city'              => 'Київ',
+               'country'           => null,
+               'note'              => null,
+               'type'              => null,
+               'is_private_house'  => false,
+               'latitude'          => null,
+               'longitude'         => null,
+               'formatted_address' => null,
+           ];
+
+           return $data;
+       }*/
     protected function afterSave(): void
     {
         $this->syncClientAddressCoordinatesFromOrder();
@@ -207,5 +364,4 @@ class EditOrder extends EditRecord
             'kitchen_note' => $normalized !== '' ? $normalized : null,
         ]);
     }
-
 }
