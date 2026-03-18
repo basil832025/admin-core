@@ -59,7 +59,7 @@ class PrintOperationService
     public function print(string $operationCode, array $params = [], array $context = [], ?int $copiesOverride = null): array
     {
         if (! $this->printNode->isEnabled()) {
-            throw new \RuntimeException('PrintNode вимкнений або не заданий API key.');
+            throw new \RuntimeException('PrintService вимкнений або не налаштований (api_base_url / tenant_code).');
         }
 
         $profile = $this->findActiveProfile($operationCode);
@@ -67,8 +67,8 @@ class PrintOperationService
             throw new \RuntimeException('Немає активного профілю друку для операції: '.$operationCode);
         }
 
-        $printerId = $this->resolvePrinterId($profile);
-        if (! $printerId) {
+        $printerSelector = $this->resolvePrinterSelector($profile);
+        if (! $printerSelector) {
             throw new \RuntimeException('Не вдалося знайти принтер для профілю друку.');
         }
 
@@ -83,7 +83,7 @@ class PrintOperationService
         $copies = $copiesOverride !== null ? max(1, (int) $copiesOverride) : max(1, (int) $profile->copies);
 
         $result = $this->printNode->createPdfBase64PrintJob(
-            printerId: $printerId,
+            printerSelector: $printerSelector,
             title: $this->resolvePrintTitle($operationCode),
             pdfBinary: $pdfBinary,
             qty: $copies,
@@ -91,7 +91,7 @@ class PrintOperationService
 
         return [
             'printjob_id' => $result['printjob_id'] ?? null,
-            'printer_id' => $printerId,
+            'printer_selector' => $printerSelector,
             'copies' => $copies,
             'profile_id' => $profile->id,
             'template_id' => $profile->template->id,
@@ -108,12 +108,13 @@ class PrintOperationService
             ->first();
     }
 
-    private function resolvePrinterId(PrintOperationProfile $profile): ?int
+    private function resolvePrinterSelector(PrintOperationProfile $profile): ?string
     {
-        $configuredId = (int) ($profile->printer_id ?: Setting::admin('printnode.printer_id', 0));
-        $configuredName = trim((string) ($profile->printer_name ?: Setting::admin('printnode.printer_name', '')));
+        $configuredId = (int) ($profile->printer_id ?: Setting::admin('printservice.printer_id', Setting::admin('printnode.printer_id', 0)));
+        $configuredName = trim((string) ($profile->printer_name
+            ?: Setting::admin('printservice.printer_selector', Setting::admin('printnode.printer_name', ''))));
 
-        return $this->printNode->resolvePrinterId($configuredId > 0 ? $configuredId : null, $configuredName);
+        return $this->printNode->resolvePrinterSelector($configuredId > 0 ? $configuredId : null, $configuredName);
     }
 
     /**
@@ -126,20 +127,20 @@ class PrintOperationService
         [$templateDefaultWidth, $templateDefaultHeight] = $this->resolveTemplatePaperDefaults($profile);
         [$templateMarginTop, $templateMarginRight, $templateMarginBottom, $templateMarginLeft] = $this->resolveTemplateMarginDefaults($profile);
 
-        $globalPreset = (string) Setting::admin('printnode.pdf_paper_preset', '80mm');
+        $globalPreset = (string) Setting::admin('printservice.pdf_paper_preset', Setting::admin('printnode.pdf_paper_preset', '80mm'));
         [$globalDefaultWidth, $globalDefaultHeight] = $this->resolveGlobalPaperDefaults($globalPreset);
 
-        $baseWidth = $templateDefaultWidth ?? (float) Setting::admin('printnode.pdf_page_width_mm', $globalDefaultWidth);
-        $baseHeight = $templateDefaultHeight ?? (float) Setting::admin('printnode.pdf_page_height_mm', $globalDefaultHeight);
+        $baseWidth = $templateDefaultWidth ?? (float) Setting::admin('printservice.pdf_page_width_mm', Setting::admin('printnode.pdf_page_width_mm', $globalDefaultWidth));
+        $baseHeight = $templateDefaultHeight ?? (float) Setting::admin('printservice.pdf_page_height_mm', Setting::admin('printnode.pdf_page_height_mm', $globalDefaultHeight));
 
         $widthMm = (float) ($paper['width_mm'] ?? $baseWidth);
         $heightMm = (float) ($paper['height_mm'] ?? $baseHeight);
-        $fontSize = (float) ($paper['font_size_pt'] ?? Setting::admin('printnode.pdf_font_size_pt', 10));
-        $lineHeight = (float) ($paper['line_height'] ?? Setting::admin('printnode.pdf_line_height', 1.25));
-        $baseMarginTop = $templateMarginTop ?? (float) Setting::admin('printnode.pdf_margin_top_mm', 3);
-        $baseMarginRight = $templateMarginRight ?? (float) Setting::admin('printnode.pdf_margin_right_mm', 2);
-        $baseMarginBottom = $templateMarginBottom ?? (float) Setting::admin('printnode.pdf_margin_bottom_mm', 3);
-        $baseMarginLeft = $templateMarginLeft ?? (float) Setting::admin('printnode.pdf_margin_left_mm', 2);
+        $fontSize = (float) ($paper['font_size_pt'] ?? Setting::admin('printservice.pdf_font_size_pt', Setting::admin('printnode.pdf_font_size_pt', 10)));
+        $lineHeight = (float) ($paper['line_height'] ?? Setting::admin('printservice.pdf_line_height', Setting::admin('printnode.pdf_line_height', 1.25)));
+        $baseMarginTop = $templateMarginTop ?? (float) Setting::admin('printservice.pdf_margin_top_mm', Setting::admin('printnode.pdf_margin_top_mm', 3));
+        $baseMarginRight = $templateMarginRight ?? (float) Setting::admin('printservice.pdf_margin_right_mm', Setting::admin('printnode.pdf_margin_right_mm', 2));
+        $baseMarginBottom = $templateMarginBottom ?? (float) Setting::admin('printservice.pdf_margin_bottom_mm', Setting::admin('printnode.pdf_margin_bottom_mm', 3));
+        $baseMarginLeft = $templateMarginLeft ?? (float) Setting::admin('printservice.pdf_margin_left_mm', Setting::admin('printnode.pdf_margin_left_mm', 2));
 
         $marginTop = (float) ($paper['margin_top_mm'] ?? $baseMarginTop);
         $marginRight = (float) ($paper['margin_right_mm'] ?? $baseMarginRight);

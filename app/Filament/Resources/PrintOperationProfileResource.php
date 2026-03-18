@@ -65,7 +65,7 @@ class PrintOperationProfileResource extends Resource
                 Section::make('Принтер и копии')
                     ->schema([
                         TextInput::make('printer_id')
-                            ->label('PrintNode printerId')
+                            ->label('PrintService printer selector ID')
                             ->numeric()
                             ->minValue(1)
                             ->helperText('Приоритетнее, чем имя принтера.'),

@@ -35,6 +35,44 @@ class KitchenDuplicatePrintService
     /**
      * @return array<string, mixed>
      */
+    public function sendOperationReceipt(
+        Order $order,
+        string $operationCode,
+        ?string $operatorName = null,
+        int $copies = 1
+    ): array {
+        if (! $this->printNode->isEnabled()) {
+            throw new \RuntimeException('PrintService вимкнений або не налаштований (api_base_url / site api key).');
+        }
+
+        if (! $this->printOperationService->hasActiveProfile($operationCode)) {
+            throw new \RuntimeException('Немає активного профілю друку для операції: '.$operationCode);
+        }
+
+        $vars = $this->buildKitchenTemplateVars($order, $operatorName, false, (int) ($order->kitchen_print_count ?? 0));
+        $context = $this->buildKitchenOperationContext($vars);
+        $context['client_name'] = trim((string) ($order->clients?->name ?? ''));
+
+        $result = $this->printOperationService->print(
+            $operationCode,
+            params: [],
+            context: $context,
+            copiesOverride: max(1, $copies),
+        );
+
+        Log::info('Operation receipt sent', [
+            'operation_code' => $operationCode,
+            'order_id' => $order->id,
+            'printjob_id' => $result['printjob_id'] ?? null,
+            'copies' => $result['copies'] ?? $copies,
+        ]);
+
+        return $result;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     public function sendKitchenPrint(
         Order $order,
         ?string $operatorName = null,
@@ -43,10 +81,10 @@ class KitchenDuplicatePrintService
     ): array
     {
         if (! $this->printNode->isEnabled()) {
-            throw new \RuntimeException('PrintNode вимкнений або не заданий API key.');
+            throw new \RuntimeException('PrintService вимкнений або не налаштований (api_base_url / tenant_code).');
         }
 
-        if ($context === 'auto' && ! (bool) Setting::admin('printnode.trigger_on_processing', true)) {
+        if ($context === 'auto' && ! (bool) Setting::admin('printservice.trigger_on_processing', Setting::admin('printnode.trigger_on_processing', true))) {
             return [
                 'printed' => false,
                 'reason' => 'trigger_disabled',
@@ -54,17 +92,15 @@ class KitchenDuplicatePrintService
             ];
         }
 
-        $configuredId = (int) Setting::admin('printnode.printer_id', 0);
-        $configuredName = trim((string) Setting::admin('printnode.printer_name', ''));
-        $printerId = $this->printNode->resolvePrinterId($configuredId > 0 ? $configuredId : null, $configuredName);
+        $configuredId = (int) Setting::admin('printservice.printer_id', Setting::admin('printnode.printer_id', 0));
+        $configuredName = trim((string) Setting::admin('printservice.printer_selector', Setting::admin('printnode.printer_name', '')));
+        $printerSelector = $this->printNode->resolvePrinterSelector($configuredId > 0 ? $configuredId : null, $configuredName);
 
-        if (! $printerId) {
-            throw new \RuntimeException('Не вдалося знайти принтер. Перевірте printer_id або printer_name.');
+        if (! $printerSelector) {
+            throw new \RuntimeException('Не вдалося знайти принтер. Перевірте printer_selector або printer_id.');
         }
 
-        $copies = $copiesOverride !== null
-            ? max(1, (int) $copiesOverride)
-            : max(1, (int) Setting::admin('printnode.kitchen_duplicate_copies', 2));
+        $copies = $copiesOverride !== null ? max(1, (int) $copiesOverride) : 1;
         $currentCount = (int) ($order->kitchen_print_count ?? 0);
         $nextCount = $currentCount + 1;
         $isDuplicate = $nextCount > 1;
@@ -80,7 +116,7 @@ class KitchenDuplicatePrintService
                 PrintOperationCode::KitchenWorkReceipt->value,
                 params: [],
                 context: $context,
-                copiesOverride: $copies,
+                copiesOverride: $copiesOverride !== null ? $copies : null,
             );
 
             $order->kitchen_print_count = $nextCount;
@@ -89,8 +125,8 @@ class KitchenDuplicatePrintService
 
             Log::info('Kitchen duplicate print sent via operation profile', [
                 'order_id' => $order->id,
-                'printer_id' => $result['printer_id'] ?? null,
-                'copies' => $copies,
+                'printer_selector' => $result['printer_selector'] ?? null,
+                'copies' => $result['copies'] ?? ($copiesOverride !== null ? $copies : 1),
                 'printjob_id' => $result['printjob_id'] ?? null,
                 'duplicate' => $isDuplicate,
                 'count' => $nextCount,
@@ -105,13 +141,12 @@ class KitchenDuplicatePrintService
             ];
         }
 
-        $contentType = mb_strtolower(trim((string) Setting::admin('printnode.content_type', 'auto')));
+        $contentType = mb_strtolower(trim((string) Setting::admin('printservice.content_type', Setting::admin('printnode.content_type', 'auto'))));
         if (! in_array($contentType, ['auto', 'raw_base64', 'pdf_base64'], true)) {
             $contentType = 'auto';
         }
 
-        $printerMeta = $this->printNode->findPrinterById($printerId);
-        $printerName = mb_strtolower((string) ($printerMeta['name'] ?? ''));
+        $printerName = mb_strtolower($printerSelector);
 
         $usePdf = $contentType === 'pdf_base64'
             || ($contentType === 'auto' && str_contains($printerName, 'pdf'));
@@ -119,17 +154,17 @@ class KitchenDuplicatePrintService
         if ($usePdf) {
             $pdfBinary = $this->buildSimplePdfFromText($textPayload);
             $result = $this->printNode->createPdfBase64PrintJob(
-                printerId: $printerId,
+                printerSelector: $printerSelector,
                 title: $title,
                 pdfBinary: $pdfBinary,
                 qty: $copies,
             );
         } else {
-            $encoding = mb_strtolower(trim((string) Setting::admin('printnode.raw_encoding', 'utf-8')));
+            $encoding = mb_strtolower(trim((string) Setting::admin('printservice.raw_encoding', Setting::admin('printnode.raw_encoding', 'utf-8'))));
             $textPayload = $this->applyEncoding($textPayload, $encoding);
 
             $result = $this->printNode->createRawPrintJob(
-                printerId: $printerId,
+                printerSelector: $printerSelector,
                 title: $title,
                 rawContent: $textPayload,
                 qty: $copies,
@@ -142,7 +177,7 @@ class KitchenDuplicatePrintService
 
         Log::info('Kitchen duplicate print sent', [
             'order_id' => $order->id,
-            'printer_id' => $printerId,
+            'printer_selector' => $printerSelector,
             'copies' => $copies,
             'printjob_id' => $result['printjob_id'] ?? null,
             'duplicate' => $isDuplicate,
@@ -190,8 +225,28 @@ class KitchenDuplicatePrintService
             'preview_html' => $this->buildReceiptPreviewHtml($text),
             'count' => $nextCount,
             'duplicate' => $isDuplicate,
-            'copies' => max(1, (int) Setting::admin('printnode.kitchen_duplicate_copies', 2)),
+            'copies' => 1,
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function buildOperationPreview(Order $order, string $operationCode, ?string $operatorName = null): array
+    {
+        if (! $this->printOperationService->hasActiveProfile($operationCode)) {
+            throw new \RuntimeException('Немає активного профілю друку для операції: '.$operationCode);
+        }
+
+        $vars = $this->buildKitchenTemplateVars($order, $operatorName, false, (int) ($order->kitchen_print_count ?? 0));
+        $context = $this->buildKitchenOperationContext($vars);
+        $context['client_name'] = trim((string) ($order->clients?->name ?? ''));
+
+        return $this->printOperationService->buildPreview(
+            $operationCode,
+            params: [],
+            context: $context,
+        );
     }
 
     /**
@@ -215,15 +270,15 @@ class KitchenDuplicatePrintService
     public function sendTestReceipt(string $templateType = 'kitchen', int $copies = 1): array
     {
         if (! $this->printNode->isEnabled()) {
-            throw new \RuntimeException('PrintNode вимкнений або не заданий API key.');
+            throw new \RuntimeException('PrintService вимкнений або не налаштований (api_base_url / tenant_code).');
         }
 
-        $configuredId = (int) Setting::admin('printnode.printer_id', 0);
-        $configuredName = trim((string) Setting::admin('printnode.printer_name', ''));
-        $printerId = $this->printNode->resolvePrinterId($configuredId > 0 ? $configuredId : null, $configuredName);
+        $configuredId = (int) Setting::admin('printservice.printer_id', Setting::admin('printnode.printer_id', 0));
+        $configuredName = trim((string) Setting::admin('printservice.printer_selector', Setting::admin('printnode.printer_name', '')));
+        $printerSelector = $this->printNode->resolvePrinterSelector($configuredId > 0 ? $configuredId : null, $configuredName);
 
-        if (! $printerId) {
-            throw new \RuntimeException('Не вдалося знайти принтер. Перевірте printer_id або printer_name.');
+        if (! $printerSelector) {
+            throw new \RuntimeException('Не вдалося знайти принтер. Перевірте printer_selector або printer_id.');
         }
 
         $copies = max(1, $copies);
@@ -237,7 +292,7 @@ class KitchenDuplicatePrintService
         };
 
         $result = $this->printNode->createPdfBase64PrintJob(
-            printerId: $printerId,
+            printerSelector: $printerSelector,
             title: $title,
             pdfBinary: $this->buildSimplePdfFromBodyHtml($payload['body_html']),
             qty: $copies,
@@ -392,7 +447,7 @@ class KitchenDuplicatePrintService
         $template = trim((string) ($templateOverride ?? ''));
 
         if ($template === '') {
-            $template = trim((string) Setting::admin('printnode.receipt_template', ''));
+            $template = trim((string) Setting::admin('printservice.receipt_template', Setting::admin('printnode.receipt_template', '')));
         }
 
         if ($template === '') {
@@ -415,7 +470,7 @@ class KitchenDuplicatePrintService
 
     private function resolvePresetTemplate(): string
     {
-        $key = (string) Setting::admin('printnode.template_key', 'classic');
+        $key = (string) Setting::admin('printservice.template_key', Setting::admin('printnode.template_key', 'classic'));
 
         return match ($key) {
             'compact_58' => implode("\n", [
@@ -784,18 +839,18 @@ class KitchenDuplicatePrintService
      */
     private function resolvePdfLayoutSettings(int $lineCount): array
     {
-        $preset = (string) Setting::admin('printnode.pdf_paper_preset', '80mm');
+        $preset = (string) Setting::admin('printservice.pdf_paper_preset', Setting::admin('printnode.pdf_paper_preset', '80mm'));
         $defaultWidth = $preset === '58mm' ? 58.0 : 80.0;
         $defaultHeight = $preset === '58mm' ? 150.0 : 180.0;
 
-        $widthMm = (float) Setting::admin('printnode.pdf_page_width_mm', $defaultWidth);
-        $configuredHeightMm = (float) Setting::admin('printnode.pdf_page_height_mm', $defaultHeight);
-        $fontSize = (float) Setting::admin('printnode.pdf_font_size_pt', 10);
-        $lineHeight = (float) Setting::admin('printnode.pdf_line_height', 1.25);
-        $marginTop = (float) Setting::admin('printnode.pdf_margin_top_mm', 3);
-        $marginRight = (float) Setting::admin('printnode.pdf_margin_right_mm', 2);
-        $marginBottom = (float) Setting::admin('printnode.pdf_margin_bottom_mm', 3);
-        $marginLeft = (float) Setting::admin('printnode.pdf_margin_left_mm', 2);
+        $widthMm = (float) Setting::admin('printservice.pdf_page_width_mm', Setting::admin('printnode.pdf_page_width_mm', $defaultWidth));
+        $configuredHeightMm = (float) Setting::admin('printservice.pdf_page_height_mm', Setting::admin('printnode.pdf_page_height_mm', $defaultHeight));
+        $fontSize = (float) Setting::admin('printservice.pdf_font_size_pt', Setting::admin('printnode.pdf_font_size_pt', 10));
+        $lineHeight = (float) Setting::admin('printservice.pdf_line_height', Setting::admin('printnode.pdf_line_height', 1.25));
+        $marginTop = (float) Setting::admin('printservice.pdf_margin_top_mm', Setting::admin('printnode.pdf_margin_top_mm', 3));
+        $marginRight = (float) Setting::admin('printservice.pdf_margin_right_mm', Setting::admin('printnode.pdf_margin_right_mm', 2));
+        $marginBottom = (float) Setting::admin('printservice.pdf_margin_bottom_mm', Setting::admin('printnode.pdf_margin_bottom_mm', 3));
+        $marginLeft = (float) Setting::admin('printservice.pdf_margin_left_mm', Setting::admin('printnode.pdf_margin_left_mm', 2));
 
         $widthMm = $widthMm > 20 ? $widthMm : $defaultWidth;
         $configuredHeightMm = $configuredHeightMm > 40 ? $configuredHeightMm : $defaultHeight;
@@ -919,19 +974,19 @@ class KitchenDuplicatePrintService
     private function resolveTemplateByType(string $templateType): string
     {
         if ($templateType === 'client') {
-            return trim((string) Setting::admin('printnode.client_receipt_template', '')) ?: $this->resolveDefaultClientTemplate();
+            return trim((string) Setting::admin('printservice.client_receipt_template', Setting::admin('printnode.client_receipt_template', ''))) ?: $this->resolveDefaultClientTemplate();
         }
 
         if ($templateType === 'courier') {
-            return trim((string) Setting::admin('printnode.courier_receipt_template', '')) ?: $this->resolveDefaultCourierTemplate();
+            return trim((string) Setting::admin('printservice.courier_receipt_template', Setting::admin('printnode.courier_receipt_template', ''))) ?: $this->resolveDefaultCourierTemplate();
         }
 
-        return trim((string) Setting::admin('printnode.receipt_template', '')) ?: $this->resolvePresetTemplate();
+        return trim((string) Setting::admin('printservice.receipt_template', Setting::admin('printnode.receipt_template', ''))) ?: $this->resolvePresetTemplate();
     }
 
     private function resolveClientLogoDataUri(): ?string
     {
-        $path = trim((string) Setting::admin('printnode.client_logo_path', ''));
+        $path = trim((string) Setting::admin('printservice.client_logo_path', Setting::admin('printnode.client_logo_path', '')));
 
         if ($path === '') {
             return null;

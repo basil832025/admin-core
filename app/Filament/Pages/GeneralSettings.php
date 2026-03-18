@@ -28,7 +28,6 @@ use Filament\Forms\Components\Toggle;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use App\Services\PrintNode\KitchenDuplicatePrintService;
-use AmidEsfahani\FilamentTinyEditor\TinyEditor;
 
 class GeneralSettings extends Page implements Forms\Contracts\HasForms
 {
@@ -325,258 +324,44 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
 
     protected static function printNodeTab(): Tab
     {
-        return Tab::make('PrintNode')->schema([
-            Section::make('PrintNode (дублікат чека на кухню)')
-                ->description('Налаштування автоматичного друку при переведенні замовлення у статус «На кухні». Принтер можна вказати за назвою як у Windows/PrintNode.')
+        return Tab::make('PrintService')->schema([
+            Section::make('PrintService (дублікат чека на кухню)')
+                ->description('Налаштування автоматичного друку при переведенні замовлення у статус «На кухні». Принтер вказується як printer_selector для Windows Agent.')
                 ->schema([
                     Grid::make(12)
                         ->statePath('admin_settings')
                         ->schema([
-                            Toggle::make('printnode.enabled')
-                                ->label('Увімкнути інтеграцію PrintNode')
+                            Toggle::make('printservice.enabled')
+                                ->label('Увімкнути інтеграцію PrintService')
                                 ->default(false)
                                 ->columnSpan(6),
 
-                            Toggle::make('printnode.trigger_on_processing')
+                            Toggle::make('printservice.trigger_on_processing')
                                 ->label('Друкувати при статусі «На кухні»')
                                 ->default(true)
                                 ->columnSpan(6),
 
-                            TextInput::make('printnode.api_key')
-                                ->label('PrintNode API Key')
+                            TextInput::make('printservice.api_key')
+                                ->label('Site API Key (обовʼязково)')
                                 ->password()
                                 ->revealable()
                                 ->columnSpan(12),
 
-                            TextInput::make('printnode.printer_name')
-                                ->label('Назва принтера (як в Windows / PrintNode)')
+                            TextInput::make('printservice.api_base_url')
+                                ->label('Base URL (домен сервиса)')
+                                ->placeholder('https://printservice.test')
+                                ->helperText('Шлях /api/print/v1 додається автоматично.')
+                                ->default('https://printservice.test')
+                                ->columnSpan(8),
+
+                            TextInput::make('printservice.tenant_code')
+                                ->label('Tenant code')
+                                ->default('default')
+                                ->columnSpan(4),
+
+                            TextInput::make('printservice.printer_selector')
+                                ->label('Printer selector (як в Windows Agent)')
                                 ->placeholder('Наприклад: Microsoft Print to PDF або EPSON TM-T20')
-                                ->helperText('Якщо заповнено ID принтера, назва ігнорується.')
-                                ->columnSpan(8),
-
-                            TextInput::make('printnode.printer_id')
-                                ->label('PrintNode printerId (необов’язково)')
-                                ->numeric()
-                                ->minValue(1)
-                                ->columnSpan(4),
-
-                            TextInput::make('printnode.kitchen_duplicate_copies')
-                                ->label('Кількість копій дубліката')
-                                ->numeric()
-                                ->minValue(1)
-                                ->default(2)
-                                ->columnSpan(4),
-
-                            Select::make('printnode.content_type')
-                                ->label('Формат відправки в принтер')
-                                ->options([
-                                    'auto' => 'Авто (PDF для PDF-принтерів, RAW для термопринтерів)',
-                                    'pdf_base64' => 'Завжди PDF',
-                                    'raw_base64' => 'Завжди RAW',
-                                ])
-                                ->default('auto')
-                                ->columnSpan(8),
-
-                            Select::make('printnode.raw_encoding')
-                                ->label('Кодування RAW друку')
-                                ->options([
-                                    'utf-8' => 'UTF-8 (типово)',
-                                    'cp866' => 'CP866 (для деяких термопринтерів)',
-                                ])
-                                ->default('utf-8')
-                                ->columnSpan(8),
-
-                            Select::make('printnode.template_key')
-                                ->label('Готовий шаблон')
-                                ->options([
-                                    'classic' => 'Класичний (як дублікат доставки)',
-                                    'compact_58' => 'Компактний 58мм',
-                                    'compact_80' => 'Компактний 80мм',
-                                ])
-                                ->default('classic')
-                                ->live()
-                                ->afterStateUpdated(function (?string $state, Set $set): void {
-                                    $set('printnode.receipt_template', static::templateByKey($state));
-                                    $set('printnode.template_overwrite_pending', true);
-                                })
-                                ->helperText('При виборі шаблону текст нижче буде замінено, але запис в БД відбудеться тільки після натискання "Зберегти".')
-                                ->columnSpan(6),
-
-                            Hidden::make('printnode.template_overwrite_pending')
-                                ->dehydrated(false)
-                                ->default(false),
-
-                            Placeholder::make('printnode.template_overwrite_warning')
-                                ->label('')
-                                ->content('Увага: шаблон чека підставлено у форму. Зміни будуть застосовані тільки після натискання кнопки "Зберегти".')
-                                ->visible(fn (Get $get): bool => (bool) ($get('printnode.template_overwrite_pending') ?? false))
-                                ->columnSpan(12),
-
-                            Select::make('printnode.pdf_paper_preset')
-                                ->label('Розмір PDF (preset)')
-                                ->options([
-                                    '58mm' => '58 мм термочек',
-                                    '80mm' => '80 мм термочек',
-                                    'custom' => 'Кастомний',
-                                ])
-                                ->default('80mm')
-                                ->columnSpan(6),
-
-                            TextInput::make('printnode.pdf_page_width_mm')
-                                ->label('Ширина чека (мм)')
-                                ->numeric()
-                                ->step(0.1)
-                                ->default(80)
-                                ->columnSpan(3),
-
-                            TextInput::make('printnode.pdf_page_height_mm')
-                                ->label('Висота чека (мм)')
-                                ->numeric()
-                                ->step(0.1)
-                                ->default(180)
-                                ->helperText('Можна збільшити, якщо обрізає низ чека.')
-                                ->columnSpan(3),
-
-                            TextInput::make('printnode.pdf_font_size_pt')
-                                ->label('Розмір шрифту (pt)')
-                                ->numeric()
-                                ->step(0.5)
-                                ->default(10)
-                                ->columnSpan(3),
-
-                            TextInput::make('printnode.pdf_line_height')
-                                ->label('Міжрядковий інтервал')
-                                ->numeric()
-                                ->step(0.05)
-                                ->default(1.25)
-                                ->columnSpan(3),
-
-                            TextInput::make('printnode.pdf_margin_top_mm')
-                                ->label('Відступ зверху (мм)')
-                                ->numeric()
-                                ->step(0.1)
-                                ->default(3)
-                                ->columnSpan(3),
-
-                            TextInput::make('printnode.pdf_margin_right_mm')
-                                ->label('Відступ справа (мм)')
-                                ->numeric()
-                                ->step(0.1)
-                                ->default(2)
-                                ->columnSpan(3),
-
-                            TextInput::make('printnode.pdf_margin_bottom_mm')
-                                ->label('Відступ знизу (мм)')
-                                ->numeric()
-                                ->step(0.1)
-                                ->default(3)
-                                ->columnSpan(3),
-
-                            TextInput::make('printnode.pdf_margin_left_mm')
-                                ->label('Відступ зліва (мм)')
-                                ->numeric()
-                                ->step(0.1)
-                                ->default(2)
-                                ->columnSpan(3),
-
-                            TinyEditor::make('printnode.receipt_template')
-                                ->label('Шаблон чека')
-                                ->profile('full')
-                                ->maxHeight(520)
-                                ->fileAttachmentsDisk('public')
-                                ->fileAttachmentsDirectory('settings/printnode/templates')
-                                ->fileAttachmentsVisibility('public')
-                                ->placeholder(static::defaultReceiptTemplate())
-                                ->helperText('Доступні змінні: {{kitchen_header}}, {{order_number}}, {{operator}}, {{printed_at}}, {{phone}}, {{delivery_time}}, {{issued_time}}, {{delivery_type}}, {{note}}, {{address}}, {{items}}, {{total}}, {{print_count}}')
-                                ->columnSpan(12),
-
-                            Placeholder::make('printnode.client_receipt_header')
-                                ->label('')
-                                ->content('Чек для клієнта')
-                                ->columnSpan(12),
-
-                            FileUpload::make('printnode.client_logo_path')
-                                ->label('Логотип для чека клієнта')
-                                ->image()
-                                ->directory('settings/printnode')
-                                ->helperText('Рекомендовано чорно-білий логотип високого контрасту. Для стабільного друку з логотипом використовуйте PDF-формат.')
-                                ->columnSpan(6),
-
-                            Select::make('printnode.client_template_key')
-                                ->label('Готовий шаблон (клієнт)')
-                                ->options([
-                                    'client_classic' => 'Клієнтський з логотипом',
-                                    'client_compact' => 'Клієнтський компактний',
-                                ])
-                                ->default('client_classic')
-                                ->live()
-                                ->afterStateUpdated(function (?string $state, Set $set): void {
-                                    $set('printnode.client_receipt_template', static::clientTemplateByKey($state));
-                                    $set('printnode.client_template_overwrite_pending', true);
-                                })
-                                ->helperText('При виборі шаблону текст нижче буде замінено, але запис в БД відбудеться тільки після натискання "Зберегти".')
-                                ->columnSpan(6),
-
-                            Hidden::make('printnode.client_template_overwrite_pending')
-                                ->dehydrated(false)
-                                ->default(false),
-
-                            Placeholder::make('printnode.client_template_overwrite_warning')
-                                ->label('')
-                                ->content('Увага: шаблон клієнтського чека підставлено у форму. Зміни будуть застосовані тільки після натискання кнопки "Зберегти".')
-                                ->visible(fn (Get $get): bool => (bool) ($get('printnode.client_template_overwrite_pending') ?? false))
-                                ->columnSpan(12),
-
-                            TinyEditor::make('printnode.client_receipt_template')
-                                ->label('Шаблон чека клієнта')
-                                ->profile('full')
-                                ->maxHeight(520)
-                                ->fileAttachmentsDisk('public')
-                                ->fileAttachmentsDirectory('settings/printnode/templates')
-                                ->fileAttachmentsVisibility('public')
-                                ->placeholder(static::defaultClientReceiptTemplate())
-                                ->helperText('Доступні змінні: {{client_logo}}, {{order_number}}, {{printed_at}}, {{phone}}, {{delivery_time}}, {{delivery_type}}, {{address}}, {{items}}, {{total}}')
-                                ->columnSpan(12),
-
-                            Placeholder::make('printnode.courier_receipt_header')
-                                ->label('')
-                                ->content('Службовий чек для курʼєра')
-                                ->columnSpan(12),
-
-                            Select::make('printnode.courier_template_key')
-                                ->label('Готовий шаблон (курʼєр)')
-                                ->options([
-                                    'courier_service' => 'Службовий (курʼєр)',
-                                    'courier_compact' => 'Службовий компактний',
-                                ])
-                                ->default('courier_service')
-                                ->live()
-                                ->afterStateUpdated(function (?string $state, Set $set): void {
-                                    $set('printnode.courier_receipt_template', static::courierTemplateByKey($state));
-                                    $set('printnode.courier_template_overwrite_pending', true);
-                                })
-                                ->helperText('При виборі шаблону текст нижче буде замінено, але запис в БД відбудеться тільки після натискання "Зберегти".')
-                                ->columnSpan(6),
-
-                            Hidden::make('printnode.courier_template_overwrite_pending')
-                                ->dehydrated(false)
-                                ->default(false),
-
-                            Placeholder::make('printnode.courier_template_overwrite_warning')
-                                ->label('')
-                                ->content('Увага: шаблон службового чека підставлено у форму. Зміни будуть застосовані тільки після натискання кнопки "Зберегти".')
-                                ->visible(fn (Get $get): bool => (bool) ($get('printnode.courier_template_overwrite_pending') ?? false))
-                                ->columnSpan(12),
-
-                            TinyEditor::make('printnode.courier_receipt_template')
-                                ->label('Шаблон службового чека (курʼєр)')
-                                ->profile('full')
-                                ->maxHeight(520)
-                                ->fileAttachmentsDisk('public')
-                                ->fileAttachmentsDirectory('settings/printnode/templates')
-                                ->fileAttachmentsVisibility('public')
-                                ->placeholder(static::defaultCourierReceiptTemplate())
-                                ->helperText('Доступні змінні: {{order_number}}, {{printed_at}}, {{operator}}, {{client_name}}, {{phone}}, {{delivery_time}}, {{delivery_type}}, {{address}}, {{note}}, {{items}}, {{total}}')
                                 ->columnSpan(12),
                         ]),
                 ]),
@@ -716,9 +501,6 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
         if ($fresh) {
             $formData = $fresh->toArray();
             $formData['admin_settings'] = $fresh->admin_settings ?? [];
-            data_set($formData, 'admin_settings.printnode.template_overwrite_pending', false);
-            data_set($formData, 'admin_settings.printnode.client_template_overwrite_pending', false);
-            data_set($formData, 'admin_settings.printnode.courier_template_overwrite_pending', false);
             $this->form->fill($formData);
         }
 
@@ -737,7 +519,7 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
             Notification::make()
                 ->title('Тестовий друк відправлено')
                 ->success()
-                ->body('Перевірте принтер та чергу PrintNode')
+                ->body('Перевірте принтер та чергу PrintService')
                 ->send();
         } catch (\Throwable $exception) {
             Notification::make()

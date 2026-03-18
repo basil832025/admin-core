@@ -4,29 +4,52 @@ namespace App\Services\PrintNode;
 
 use App\Models\Setting;
 use Illuminate\Http\Client\Response;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 class PrintNodeService
 {
-    private const API_BASE = 'https://api.printnode.com';
+    private const DEFAULT_API_ORIGIN = 'http://printservice.test';
 
     public function isEnabled(): bool
     {
-        $enabled = (bool) Setting::admin('printnode.enabled', false);
+        $enabled = (bool) Setting::admin('printservice.enabled', Setting::admin('printnode.enabled', false));
 
-        return $enabled && $this->getApiKey() !== '';
+        return $enabled
+            && $this->getBaseUrl() !== ''
+            && $this->getApiKey() !== '';
+    }
+
+    public function getBaseUrl(): string
+    {
+        $apiBaseUrl = trim((string) Setting::admin('printservice.api_base_url', ''));
+
+        if ($apiBaseUrl === '') {
+            $apiBaseUrl = trim((string) env('PRINTSERVICE_API_BASE_URL', self::DEFAULT_API_ORIGIN));
+        }
+
+        return $this->normalizeApiBaseUrl($apiBaseUrl);
+    }
+
+    public function getTenantCode(): string
+    {
+        $tenantCode = trim((string) Setting::admin('printservice.tenant_code', ''));
+
+        if ($tenantCode !== '') {
+            return $tenantCode;
+        }
+
+        return trim((string) env('PRINTSERVICE_TENANT_CODE', 'default'));
     }
 
     public function getApiKey(): string
     {
-        $apiKey = trim((string) Setting::admin('printnode.api_key', ''));
+        $apiKey = trim((string) Setting::admin('printservice.api_key', ''));
 
         if ($apiKey !== '') {
             return $apiKey;
         }
 
-        return trim((string) env('PRINTNODE_API_KEY', ''));
+        return trim((string) env('PRINTSERVICE_API_KEY', ''));
     }
 
     /**
@@ -34,63 +57,36 @@ class PrintNodeService
      */
     public function getPrinters(bool $fresh = false): array
     {
-        $cacheKey = 'printnode:printers:' . sha1($this->getApiKey());
-
-        if ($fresh) {
-            Cache::forget($cacheKey);
-        }
-
-        return Cache::remember($cacheKey, now()->addSeconds(30), function (): array {
-            $response = $this->request('get', '/printers');
-            $data = $response->json();
-
-            return is_array($data) ? $data : [];
-        });
+        return [];
     }
 
-    public function resolvePrinterId(?int $configuredId = null, ?string $configuredName = null): ?int
+    public function resolvePrinterSelector(?int $configuredId = null, ?string $configuredName = null): ?string
     {
         if (! empty($configuredId) && $configuredId > 0) {
-            return $configuredId;
+            return (string) $configuredId;
         }
 
         $name = trim((string) $configuredName);
-        if ($name === '') {
-            return null;
+        if ($name !== '') {
+            return $name;
         }
 
-        $nameLower = mb_strtolower($name);
-        $printers = $this->getPrinters();
-
-        foreach ($printers as $printer) {
-            $candidate = mb_strtolower((string) ($printer['name'] ?? ''));
-            $description = mb_strtolower((string) ($printer['description'] ?? ''));
-            $state = mb_strtolower((string) ($printer['state'] ?? ''));
-
-            if ($state !== '' && $state !== 'online') {
-                continue;
-            }
-
-            if ($candidate === $nameLower || $description === $nameLower) {
-                return (int) ($printer['id'] ?? 0);
-            }
+        $fromNewKey = trim((string) Setting::admin('printservice.printer_selector', ''));
+        if ($fromNewKey !== '') {
+            return $fromNewKey;
         }
 
-        foreach ($printers as $printer) {
-            $candidate = mb_strtolower((string) ($printer['name'] ?? ''));
-            $description = mb_strtolower((string) ($printer['description'] ?? ''));
-            $state = mb_strtolower((string) ($printer['state'] ?? ''));
-
-            if ($state !== '' && $state !== 'online') {
-                continue;
-            }
-
-            if (str_contains($candidate, $nameLower) || str_contains($description, $nameLower)) {
-                return (int) ($printer['id'] ?? 0);
-            }
+        $fromLegacyPrintservice = trim((string) Setting::admin('printservice.printer_name', ''));
+        if ($fromLegacyPrintservice !== '') {
+            return $fromLegacyPrintservice;
         }
 
-        return null;
+        $fromLegacyPrintnode = trim((string) Setting::admin('printnode.printer_name', ''));
+        if ($fromLegacyPrintnode !== '') {
+            return $fromLegacyPrintnode;
+        }
+
+        return 'default';
     }
 
     /**
@@ -98,37 +94,34 @@ class PrintNodeService
      */
     public function findPrinterById(int $printerId): ?array
     {
-        foreach ($this->getPrinters() as $printer) {
-            if ((int) ($printer['id'] ?? 0) === $printerId) {
-                return $printer;
-            }
-        }
-
         return null;
     }
 
     /**
      * @return array<string, mixed>
      */
-    public function createRawPrintJob(int $printerId, string $title, string $rawContent, int $qty = 1, array $options = []): array
+    public function createRawPrintJob(string $printerSelector, string $title, string $rawContent, int $qty = 1, array $options = []): array
     {
         $payload = [
-            'printerId' => $printerId,
-            'title' => $title,
-            'contentType' => 'raw_base64',
-            'content' => base64_encode($rawContent),
-            'source' => 'myadmin-kitchen-duplicate',
-            'qty' => max(1, $qty),
+            'tenant_code' => $this->getTenantCode(),
+            'printer_selector' => $printerSelector,
+            'job_type' => 'raw',
+            'content_type' => 'text/plain',
+            'payload' => $rawContent,
+            'copies' => max(1, $qty),
+            'priority' => 50,
+            'idempotency_key' => 'myadmin-raw-'.sha1($title.'|'.$printerSelector.'|'.substr($rawContent, 0, 128).'|'.time()),
         ];
 
         if ($options !== []) {
-            $payload['options'] = $options;
+            $payload['meta'] = $options;
         }
 
-        $response = $this->request('post', '/printjobs', $payload);
+        $response = $this->request('post', '/jobs', $payload);
+        $data = $response->json();
 
         return [
-            'printjob_id' => (int) $response->body(),
+            'printjob_id' => (string) ($data['job_id'] ?? ''),
             'status' => $response->status(),
         ];
     }
@@ -136,42 +129,51 @@ class PrintNodeService
     /**
      * @return array<string, mixed>
      */
-    public function createPdfBase64PrintJob(int $printerId, string $title, string $pdfBinary, int $qty = 1, array $options = []): array
+    public function createPdfBase64PrintJob(string $printerSelector, string $title, string $pdfBinary, int $qty = 1, array $options = []): array
     {
         $payload = [
-            'printerId' => $printerId,
-            'title' => $title,
-            'contentType' => 'pdf_base64',
-            'content' => base64_encode($pdfBinary),
-            'source' => 'myadmin-kitchen-duplicate',
-            'qty' => max(1, $qty),
+            'tenant_code' => $this->getTenantCode(),
+            'printer_selector' => $printerSelector,
+            'job_type' => 'raw',
+            'content_type' => 'application/pdf;base64',
+            'payload' => base64_encode($pdfBinary),
+            'copies' => max(1, $qty),
+            'priority' => 50,
+            'idempotency_key' => 'myadmin-pdf-'.sha1($title.'|'.$printerSelector.'|'.strlen($pdfBinary).'|'.time()),
         ];
 
         if ($options !== []) {
-            $payload['options'] = $options;
+            $payload['meta'] = $options;
         }
 
-        $response = $this->request('post', '/printjobs', $payload);
+        $response = $this->request('post', '/jobs', $payload);
+        $data = $response->json();
 
         return [
-            'printjob_id' => (int) $response->body(),
+            'printjob_id' => (string) ($data['job_id'] ?? ''),
             'status' => $response->status(),
         ];
     }
 
     private function request(string $method, string $uri, array $payload = []): Response
     {
-        $apiKey = $this->getApiKey();
-
-        if ($apiKey === '') {
-            throw new \RuntimeException('PrintNode API key is not configured.');
+        $baseUrl = $this->getBaseUrl();
+        if ($baseUrl === '') {
+            throw new \RuntimeException('PrintService API base URL is not configured.');
         }
 
-        $url = rtrim(self::API_BASE, '/') . $uri;
+        $url = $baseUrl . $uri;
 
         $http = Http::timeout(20)
             ->acceptJson()
-            ->withBasicAuth($apiKey, '');
+            ->withOptions([
+                'verify' => $this->shouldVerifyTlsPeer($baseUrl),
+            ]);
+
+        $apiKey = $this->getApiKey();
+        if ($apiKey !== '') {
+            $http = $http->withToken($apiKey);
+        }
 
         $response = $method === 'get'
             ? $http->get($url)
@@ -179,12 +181,70 @@ class PrintNodeService
 
         if (! $response->successful()) {
             throw new \RuntimeException(sprintf(
-                'PrintNode request failed [%s] %s',
+                'PrintService request failed [%s] %s',
                 $response->status(),
                 $response->body()
             ));
         }
 
         return $response;
+    }
+
+    private function normalizeApiBaseUrl(string $value): string
+    {
+        $base = rtrim(trim($value), '/');
+        if ($base === '') {
+            return '';
+        }
+
+        if (str_ends_with($base, '/api/print/v1')) {
+            return $base;
+        }
+
+        return $base.'/api/print/v1';
+    }
+
+    private function shouldVerifyTlsPeer(string $baseUrl): bool
+    {
+        $configured = Setting::admin('printservice.verify_tls_peer', null);
+        if ($configured !== null) {
+            return $this->toBool($configured, true);
+        }
+
+        $env = env('PRINTSERVICE_VERIFY_TLS', null);
+        if ($env !== null) {
+            return $this->toBool($env, true);
+        }
+
+        $host = (string) parse_url($baseUrl, PHP_URL_HOST);
+        if (app()->environment('local') && str_ends_with($host, '.test')) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function toBool(mixed $value, bool $default): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (is_int($value)) {
+            return $value !== 0;
+        }
+
+        if (is_string($value)) {
+            $normalized = strtolower(trim($value));
+            if (in_array($normalized, ['1', 'true', 'yes', 'on'], true)) {
+                return true;
+            }
+
+            if (in_array($normalized, ['0', 'false', 'no', 'off'], true)) {
+                return false;
+            }
+        }
+
+        return $default;
     }
 }

@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources\Callcenter;
 
+use App\Enums\PrintOperationCode;
 use App\Enums\PaymentMethodEnum;
 use App\Filament\Resources\Callcenter\OrderResource\Pages;
 use App\Filament\Resources\Callcenter\OrderResource\Widgets;
 use App\Filament\Resources\Shop\OrderResource as ShopOrderResource;
+use App\Services\PrintNode\KitchenDuplicatePrintService;
 use App\Models\Shop\Client;
 use App\Models\Shop\OrderItem;
 use App\Models\Shop\ProductCharacteristicValue;
@@ -13,6 +15,7 @@ use App\Models\Callcenter\Order;
 use Awcodes\TableRepeater\Components\TableRepeater;
 use Awcodes\TableRepeater\Header;
 use Filament\Forms\Components\Actions\Action as FormAction;
+use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
@@ -28,6 +31,8 @@ use Filament\Forms\Components\View;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
+use Illuminate\Support\HtmlString;
+use Illuminate\Support\Facades\Log;
 use Livewire\Component as LivewireComponent;
 
 class OrderResource extends ShopOrderResource
@@ -803,6 +808,19 @@ class OrderResource extends ShopOrderResource
                 return 'Сдача ' . number_format($change, 2, ',', ' ') . ' грн';
             });
 
+        $components[] = Placeholder::make('sidebar_receipt_buttons')
+            ->label('')
+            ->hiddenLabel()
+            ->dehydrated(false)
+            ->content(fn (): HtmlString => new HtmlString(
+                '<div style="display:flex;gap:8px;">'
+                .'<button type="button" wire:click="mountAction(\'print_client_receipt_sidebar\')" style="display:block;flex:1;padding:10px 12px;border:1px solid #2563eb;border-radius:8px;background:#eff6ff;color:#1d4ed8;font-weight:700;cursor:pointer;text-align:center;">Клиентский чек</button>'
+                .'<button type="button" wire:click="mountAction(\'print_logistic_receipt_sidebar\')" style="display:block;flex:1;padding:10px 12px;border:1px solid #b45309;border-radius:8px;background:#fffbeb;color:#b45309;font-weight:700;cursor:pointer;text-align:center;">Чек для логиста</button>'
+                .'</div>'
+            ))
+            ->columnSpanFull()
+            ->visible(fn (LivewireComponent $livewire): bool => method_exists($livewire, 'mountAction'));
+
         return $components;
     }
 
@@ -972,7 +990,7 @@ class OrderResource extends ShopOrderResource
             }
         }
 
-        \Log::info('Callcenter unit lookup: no unit found', [
+        Log::info('Callcenter unit lookup: no unit found', [
             'product_id' => $productId,
             'checked_product_ids' => $productIds,
             'rows' => $rows->map(function (ProductCharacteristicValue $row) {
