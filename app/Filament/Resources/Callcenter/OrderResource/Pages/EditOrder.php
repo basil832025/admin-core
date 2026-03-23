@@ -303,6 +303,86 @@ class EditOrder extends EditRecord
                         ->columnSpanFull(),
                 ]),
 
+            Action::make('print_client_and_logistic_receipts_sidebar')
+                ->label('Клиентский + логиста чек')
+                ->icon('heroicon-o-printer')
+                ->color('gray')
+                ->extraAttributes(['class' => 'hidden'])
+                ->modalWidth('7xl')
+                ->modalHeading('Предпросмотр клиентского и логистического чека')
+                ->modalDescription('Будут напечатаны два отдельных чека на одном принтере. Проверьте содержимое и укажите количество копий.')
+                ->modalSubmitAction(false)
+                ->modalCancelAction(false)
+                ->fillForm(function (): array {
+                    if (! $this->record?->exists) {
+                        return [
+                            'copies' => 1,
+                            'preview_html' => '',
+                        ];
+                    }
+
+                    $preview = app(KitchenDuplicatePrintService::class)
+                        ->buildCombinedOperationPreview(
+                            $this->record,
+                            PrintOperationCode::ClientReceipt->value,
+                            PrintOperationCode::LogisticReceipt->value,
+                            auth('admin')->user()?->name,
+                        );
+
+                    return [
+                        'copies' => (int) ($preview['copies'] ?? 1),
+                        'preview_html' => (string) ($preview['preview_html'] ?? ''),
+                    ];
+                })
+                ->form([
+                    Hidden::make('preview_html')
+                        ->dehydrated(false),
+                    Grid::make(12)
+                        ->schema([
+                            TextInput::make('copies')
+                                ->label('Количество копий')
+                                ->numeric()
+                                ->minValue(1)
+                                ->maxValue(20)
+                                ->step(1)
+                                ->required()
+                                ->columnSpan(3),
+
+                            Actions::make([
+                                FormAction::make('printClientAndLogisticTop')
+                                    ->label('Печать')
+                                    ->color('primary')
+                                    ->icon('heroicon-o-printer')
+                                    ->action(function (callable $get, $livewire): void {
+                                        $copies = max(1, (int) ($get('copies') ?? 1));
+                                        $this->sendClientAndLogisticReceiptsFromSidebar($copies);
+
+                                        if (method_exists($livewire, 'unmountAction')) {
+                                            $livewire->unmountAction();
+                                        }
+                                    }),
+                                FormAction::make('closeClientAndLogisticTop')
+                                    ->label('Закрыть')
+                                    ->color('gray')
+                                    ->action(function ($livewire): void {
+                                        if (method_exists($livewire, 'unmountAction')) {
+                                            $livewire->unmountAction();
+                                        }
+                                    }),
+                            ])
+                                ->alignment('left')
+                                ->extraAttributes([
+                                    'class' => 'pt-6',
+                                ])
+                                ->columnSpan(9),
+                        ]),
+                    Placeholder::make('preview_render_client_and_logistic')
+                        ->label('Предпросмотр чеков')
+                        ->content(fn (callable $get): HtmlString => $this->buildKitchenPreviewIframe((string) ($get('preview_html') ?? '')))
+                        ->dehydrated(false)
+                        ->columnSpanFull(),
+                ]),
+
             $this->getSaveFormAction()
                 ->label(__('order.actions.save'))
                 ->formId('form'),
@@ -411,6 +491,38 @@ class EditOrder extends EditRecord
     public function sendLogisticReceiptFromSidebar(int $copies = 1): void
     {
         $this->sendOperationReceiptFromSidebar(PrintOperationCode::LogisticReceipt->value, 'Чек для логиста отправлен на печать', $copies);
+    }
+
+    public function sendClientAndLogisticReceiptsFromSidebar(int $copies = 1): void
+    {
+        if (! $this->record?->exists) {
+            return;
+        }
+
+        try {
+            $result = app(KitchenDuplicatePrintService::class)
+                ->sendCombinedOperationReceipts(
+                    $this->record,
+                    PrintOperationCode::ClientReceipt->value,
+                    PrintOperationCode::LogisticReceipt->value,
+                    auth('admin')->user()?->name,
+                    max(1, $copies),
+                );
+
+            Notification::make()
+                ->success()
+                ->title('Клиентский и логистический чеки отправлены на печать')
+                ->body('Client Job ID: '.(string) ($result['client_printjob_id'] ?? '-').'; Logistic Job ID: '.(string) ($result['logistic_printjob_id'] ?? '-'))
+                ->send();
+        } catch (
+            \Throwable $exception
+        ) {
+            Notification::make()
+                ->danger()
+                ->title('Ошибка печати')
+                ->body($exception->getMessage())
+                ->send();
+        }
     }
 
     private function sendOperationReceiptFromSidebar(string $operationCode, string $successTitle, int $copies = 1): void

@@ -73,6 +73,68 @@ class KitchenDuplicatePrintService
     /**
      * @return array<string, mixed>
      */
+    public function sendCombinedOperationReceipts(
+        Order $order,
+        string $primaryOperationCode,
+        string $secondaryOperationCode,
+        ?string $operatorName = null,
+        int $copies = 1
+    ): array {
+        if (! $this->printNode->isEnabled()) {
+            throw new \RuntimeException('PrintService вимкнений або не налаштований (api_base_url / site api key).');
+        }
+
+        if (! $this->printOperationService->hasActiveProfile($primaryOperationCode)) {
+            throw new \RuntimeException('Немає активного профілю друку для операції: '.$primaryOperationCode);
+        }
+
+        if (! $this->printOperationService->hasActiveProfile($secondaryOperationCode)) {
+            throw new \RuntimeException('Немає активного профілю друку для операції: '.$secondaryOperationCode);
+        }
+
+        $vars = $this->buildKitchenTemplateVars($order, $operatorName, false, (int) ($order->kitchen_print_count ?? 0));
+        $context = $this->buildKitchenOperationContext($vars);
+        $context['client_name'] = trim((string) ($order->clients?->name ?? ''));
+        $normalizedCopies = max(1, $copies);
+
+        $primaryResult = $this->printOperationService->print(
+            $primaryOperationCode,
+            params: [],
+            context: $context,
+            copiesOverride: $normalizedCopies,
+        );
+
+        $printerSelector = trim((string) ($primaryResult['printer_selector'] ?? ''));
+
+        $secondaryResult = $this->printOperationService->print(
+            $secondaryOperationCode,
+            params: [],
+            context: $context,
+            copiesOverride: $normalizedCopies,
+            printerSelectorOverride: $printerSelector !== '' ? $printerSelector : null,
+        );
+
+        Log::info('Combined operation receipts sent', [
+            'order_id' => $order->id,
+            'primary_operation_code' => $primaryOperationCode,
+            'secondary_operation_code' => $secondaryOperationCode,
+            'printer_selector' => $secondaryResult['printer_selector'] ?? $primaryResult['printer_selector'] ?? null,
+            'primary_printjob_id' => $primaryResult['printjob_id'] ?? null,
+            'secondary_printjob_id' => $secondaryResult['printjob_id'] ?? null,
+            'copies' => $normalizedCopies,
+        ]);
+
+        return [
+            'client_printjob_id' => $primaryResult['printjob_id'] ?? null,
+            'logistic_printjob_id' => $secondaryResult['printjob_id'] ?? null,
+            'printer_selector' => $secondaryResult['printer_selector'] ?? $primaryResult['printer_selector'] ?? null,
+            'copies' => $normalizedCopies,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     public function sendKitchenPrint(
         Order $order,
         ?string $operatorName = null,
@@ -247,6 +309,46 @@ class KitchenDuplicatePrintService
             params: [],
             context: $context,
         );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function buildCombinedOperationPreview(
+        Order $order,
+        string $primaryOperationCode,
+        string $secondaryOperationCode,
+        ?string $operatorName = null
+    ): array {
+        $primaryPreview = $this->buildOperationPreview($order, $primaryOperationCode, $operatorName);
+        $secondaryPreview = $this->buildOperationPreview($order, $secondaryOperationCode, $operatorName);
+
+        $primaryHtml = trim((string) ($primaryPreview['preview_html'] ?? ''));
+        $secondaryHtml = trim((string) ($secondaryPreview['preview_html'] ?? ''));
+
+        $combinedHtml = '<div class="combined-receipt-preview">'
+            .'<style>'
+            .'.combined-receipt-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start;}'
+            .'.combined-receipt-preview-col{display:flex;flex-direction:column;gap:8px;min-width:0;}'
+            .'.combined-receipt-preview-title{font-size:12px;font-weight:700;color:#334155;letter-spacing:.02em;text-transform:uppercase;}'
+            .'@media (max-width: 560px){.combined-receipt-preview-grid{grid-template-columns:1fr;}}'
+            .'</style>'
+            .'<div class="combined-receipt-preview-grid">'
+            .'<div class="combined-receipt-preview-col"><div class="combined-receipt-preview-title">Клиентский чек</div>'.$primaryHtml.'</div>'
+            .'<div class="combined-receipt-preview-col"><div class="combined-receipt-preview-title">Чек для логиста</div>'.$secondaryHtml.'</div>'
+            .'</div>'
+            .'</div>';
+
+        return [
+            'preview_html' => $combinedHtml,
+            'copies' => max(
+                1,
+                (int) ($primaryPreview['copies'] ?? 1),
+                (int) ($secondaryPreview['copies'] ?? 1),
+            ),
+            'primary_preview_html' => $primaryHtml,
+            'secondary_preview_html' => $secondaryHtml,
+        ];
     }
 
     /**

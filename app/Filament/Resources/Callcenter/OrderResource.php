@@ -813,9 +813,10 @@ class OrderResource extends ShopOrderResource
             ->hiddenLabel()
             ->dehydrated(false)
             ->content(fn (): HtmlString => new HtmlString(
-                '<div style="display:flex;gap:8px;">'
+                '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
                 .'<button type="button" wire:click="mountAction(\'print_client_receipt_sidebar\')" style="display:block;flex:1;padding:10px 12px;border:1px solid #2563eb;border-radius:8px;background:#eff6ff;color:#1d4ed8;font-weight:700;cursor:pointer;text-align:center;">Клиентский чек</button>'
                 .'<button type="button" wire:click="mountAction(\'print_logistic_receipt_sidebar\')" style="display:block;flex:1;padding:10px 12px;border:1px solid #b45309;border-radius:8px;background:#fffbeb;color:#b45309;font-weight:700;cursor:pointer;text-align:center;">Чек для логиста</button>'
+                .'<button type="button" wire:click="mountAction(\'print_client_and_logistic_receipts_sidebar\')" style="display:block;flex:1;min-width:220px;padding:10px 12px;border:1px solid #166534;border-radius:8px;background:#ecfdf5;color:#166534;font-weight:700;cursor:pointer;text-align:center;">Клиентский + логиста чек</button>'
                 .'</div>'
             ))
             ->columnSpanFull()

@@ -57,7 +57,13 @@ class PrintOperationService
      * @param  array<string, mixed>  $context
      * @return array<string, mixed>
      */
-    public function print(string $operationCode, array $params = [], array $context = [], ?int $copiesOverride = null): array
+    public function print(
+        string $operationCode,
+        array $params = [],
+        array $context = [],
+        ?int $copiesOverride = null,
+        ?string $printerSelectorOverride = null
+    ): array
     {
         if (! $this->printNode->isEnabled()) {
             throw new \RuntimeException('PrintService вимкнений або не налаштований (api_base_url / tenant_code).');
@@ -68,7 +74,11 @@ class PrintOperationService
             throw new \RuntimeException('Немає активного профілю друку для операції: '.$operationCode);
         }
 
-        $printerSelector = $this->resolvePrinterSelector($profile);
+        $printerSelector = trim((string) $printerSelectorOverride);
+        if ($printerSelector === '') {
+            $printerSelector = (string) $this->resolvePrinterSelector($profile);
+        }
+
         if (! $printerSelector) {
             throw new \RuntimeException('Не вдалося знайти принтер для профілю друку.');
         }
