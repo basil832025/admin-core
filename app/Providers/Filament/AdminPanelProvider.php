@@ -188,8 +188,6 @@ class AdminPanelProvider extends PanelProvider
                 FilamentShieldPlugin::make(),
                 FilamentTranslateFieldPlugin::make()
                     ->defaultLocales($locales),
-
-
             ]);
         // гамбургер на десктопе
         if ($hasSettings && Setting::admin('sidebar.collapsible_on_desktop', true)) {

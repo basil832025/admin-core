@@ -28,6 +28,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use App\Services\PrintNode\KitchenDuplicatePrintService;
+use Wiebenieuwenhuis\FilamentCodeEditor\Components\CodeEditor;
 
 class GeneralSettings extends Page implements Forms\Contracts\HasForms
 {
@@ -362,6 +363,13 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
                             TextInput::make('printservice.printer_selector')
                                 ->label('Printer selector (як в Windows Agent)')
                                 ->placeholder('Наприклад: Microsoft Print to PDF або EPSON TM-T20')
+                                ->columnSpan(12),
+
+                            CodeEditor::make('printservice.report_css_global')
+                                ->key('printservice_report_css_global_editor')
+                                ->label('Глобальний CSS для звітів')
+                                ->helperText('Застосовується до всіх шаблонів типу "Отчет". Локальний custom_css у шаблоні підключається після цього блоку і може перевизначати стилі.')
+                                ->default('table.report { width: 100%; border-collapse: collapse; }')
                                 ->columnSpan(12),
                         ]),
                 ]),

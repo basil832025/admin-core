@@ -2,6 +2,7 @@
 
 namespace App\Services\Printing;
 
+use App\Enums\PrintTemplateType;
 use App\Models\PrintOperationProfile;
 use App\Models\PrintTemplate;
 use App\Models\Setting;
@@ -233,18 +234,33 @@ class PrintOperationService
             return '';
         }
 
+        $globalReportCss = '';
+        if ($this->isReportTemplate($template)) {
+            $globalReportCss = trim((string) Setting::admin('printservice.report_css_global', ''));
+        }
+
         $presetCss = $this->presetCss((string) ($template->css_preset ?? 'none'));
         $customCss = trim((string) ($template->custom_css ?? ''));
 
-        if ($presetCss === '') {
-            return $customCss;
+        return $this->joinCssBlocks($globalReportCss, $presetCss, $customCss);
+    }
+
+    private function joinCssBlocks(string ...$blocks): string
+    {
+        $filtered = array_values(array_filter(array_map(static fn (string $css): string => trim($css), $blocks), static fn (string $css): bool => $css !== ''));
+
+        return implode("\n\n", $filtered);
+    }
+
+    private function isReportTemplate(PrintTemplate $template): bool
+    {
+        $type = $template->type;
+
+        if ($type instanceof PrintTemplateType) {
+            return $type === PrintTemplateType::Report;
         }
 
-        if ($customCss === '') {
-            return $presetCss;
-        }
-
-        return $presetCss."\n\n".$customCss;
+        return (string) $type === PrintTemplateType::Report->value;
     }
 
     private function presetCss(string $preset): string

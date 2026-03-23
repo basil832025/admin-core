@@ -19,6 +19,7 @@
         "flowframe/laravel-trend": "^0.4.0",
         "gavan4eg/cashalotapi": "*",
         "guzzlehttp/guzzle": "^7.10",
+        "kahusoftware/filament-ckeditor-field": "^1.0",
         "kerigard/laravel-lang-ru": "^2.0",
         "laravel/framework": "^12.0",
         "laravel/socialite": "^5.23",

@@ -454,44 +454,66 @@ class OrderResource extends Resource
 
                     Placeholder::make('ui_adjustments_list')
                         ->label(__('order.fields.applied_discounts'))
-                        ->content(function (?Order $order) {
+                        ->content(function (?Order $order, Get $get) {
                             if (! $order) return new HtmlString('—');
 
-                            $rows = $order->adjustments()->orderByDesc('id')->get();
+                            $orderId = (int) ($order->getKey() ?: ($get('id') ?? 0));
+                            $rows = $orderId > 0
+                                ? \Illuminate\Support\Facades\DB::table('bs_shop_order_adjustments')
+                                    ->where('shop_order_id', $orderId)
+                                    ->orderByDesc('id')
+                                    ->get(['id', 'type', 'label', 'amount'])
+                                : collect();
+
+                            $recordDiscountAmount = abs((float) ($order->discount_total ?? 0));
+                            $formDiscountAmount = abs((float) ($get('discount_total') ?? 0));
+                            $dbDiscountAmount = $orderId > 0
+                                ? abs((float) (\Illuminate\Support\Facades\DB::table('bs_shop_orders')->where('id', $orderId)->value('discount_total') ?? 0))
+                                : 0.0;
+                            $discountAmount = max($recordDiscountAmount, $formDiscountAmount, $dbDiscountAmount);
+                            $subtotal = (float) ($order->subtotal ?? 0);
+
+                            $discountFallbackHtml = static function (float $discountAmount, float $subtotal, ?string $currency): ?string {
+                                if ($discountAmount <= 0) {
+                                    return null;
+                                }
+
+                                $percentText = '';
+                                if ($subtotal > 0) {
+                                    $percent = round(($discountAmount / $subtotal) * 100, 2);
+                                    $percentText = ' (' . number_format($percent, 2, ',', ' ') . '%)';
+                                }
+
+                                return '<div class="space-y-1">'
+                                    . '<div class="flex justify-between text-sm">'
+                                    . '<div><span class="font-medium">Скидка по заказу</span></div>'
+                                    . '<div class="text-rose-600">-'
+                                    . number_format($discountAmount, 2, ',', ' ')
+                                    . ' '
+                                    . e($currency ?? 'UAH')
+                                    . e($percentText)
+                                    . '</div>'
+                                    . '</div>'
+                                    . '</div>';
+                            };
+
                             if ($rows->isEmpty()) {
-                                if ((int) ($order->source_id ?? 0) > 0) {
-                                    $discountAmount = abs((float) ($order->discount_total ?? 0));
-                                    $subtotal = (float) ($order->subtotal ?? 0);
-
-                                    if ($discountAmount > 0) {
-                                        $percentText = '';
-                                        if ($subtotal > 0) {
-                                            $percent = round(($discountAmount / $subtotal) * 100, 2);
-                                            $percentText = ' (' . number_format($percent, 2, ',', ' ') . '%)';
-                                        }
-
-                                        return new HtmlString(
-                                            '<div class="space-y-1">'
-                                            . '<div class="flex justify-between text-sm">'
-                                            . '<div><span class="font-medium">Импортированная скидка</span></div>'
-                                            . '<div class="text-rose-600">-'
-                                            . number_format($discountAmount, 2, ',', ' ')
-                                            . ' '
-                                            . e($order->currency ?? 'UAH')
-                                            . e($percentText)
-                                            . '</div>'
-                                            . '</div>'
-                                            . '</div>'
-                                        );
-                                    }
+                                $fallback = $discountFallbackHtml($discountAmount, $subtotal, $order->currency);
+                                if ($fallback !== null) {
+                                    return new HtmlString($fallback);
                                 }
 
                                 return new HtmlString('<div class="text-sm text-gray-500">Скидки не применены</div>');
                             }
 
                             $out = '<div class="space-y-1">';
+                            $hasDiscountRow = false;
                             foreach ($rows as $adj) {
                                 $cls = $adj->amount < 0 ? 'text-rose-600' : 'text-emerald-600';
+                                if ((float) $adj->amount < 0) {
+                                    $hasDiscountRow = true;
+                                }
+
                                 $out .= '<div class="flex justify-between text-sm">'
                                     .    '<div><span class="font-medium">'.e($adj->label).'</span> '
                                     .    ($adj->type ? '<span class="text-gray-500">('.e($adj->type).')</span>' : '')
@@ -500,6 +522,14 @@ class OrderResource extends Resource
                                     .    ' '.e($order->currency ?? 'UAH').'</div>'
                                     . '</div>';
                             }
+
+                            if (! $hasDiscountRow) {
+                                $fallback = $discountFallbackHtml($discountAmount, $subtotal, $order->currency);
+                                if ($fallback !== null) {
+                                    $out .= $fallback;
+                                }
+                            }
+
                             $out .= '</div>';
 
                             return new HtmlString($out);

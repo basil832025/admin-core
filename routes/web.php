@@ -151,6 +151,22 @@ Route::get('/admin/integrations/binotel/incoming-call/next', [BinotelWebhookCont
     ->name('admin.integrations.binotel.incoming-call.next')
     ->middleware(['web', 'auth:admin']);
 
+Route::post('/admin/print-templates/ckeditor-upload', function (\Illuminate\Http\Request $request) {
+    $validated = $request->validate([
+        'upload' => ['required', 'file', 'image', 'max:5120'],
+    ]);
+
+    /** @var \Illuminate\Http\UploadedFile $file */
+    $file = $validated['upload'];
+    $path = $file->store('settings/print-templates', 'public');
+
+    return response()->json([
+        'url' => \Illuminate\Support\Facades\Storage::disk('public')->url($path),
+    ]);
+})
+    ->name('admin.print-templates.ckeditor-upload')
+    ->middleware(['web', 'auth:admin']);
+
 Route::get('/admin/callcenter/courier-comment/next', function () {
     $orders = \App\Models\Callcenter\Order::query()
         ->whereNotNull('courier_comment')

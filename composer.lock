@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "b1867c9f566bb4742ebb4ed586706236",
+    "content-hash": "e7c3449380426114f945256a7551613a",
     "packages": [
         {
             "name": "amidesfahani/filament-tinyeditor",
@@ -2843,6 +2843,71 @@
                 }
             ],
             "time": "2025-08-22T14:27:06+00:00"
+        },
+        {
+            "name": "kahusoftware/filament-ckeditor-field",
+            "version": "v1.0.4",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/Kahu-Software-LLC/filament-ckeditor-field.git",
+                "reference": "a987371530bcc3cb12764fe6df1c350bf966ce25"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/Kahu-Software-LLC/filament-ckeditor-field/zipball/a987371530bcc3cb12764fe6df1c350bf966ce25",
+                "reference": "a987371530bcc3cb12764fe6df1c350bf966ce25",
+                "shasum": ""
+            },
+            "require": {
+                "filament/forms": "^3.0",
+                "php": "^8.1",
+                "spatie/laravel-package-tools": "^1.15.0"
+            },
+            "require-dev": {
+                "nunomaduro/collision": "^7.11|^8.4",
+                "orchestra/testbench": "^8.0|^9.0",
+                "pestphp/pest": "^2.1",
+                "pestphp/pest-plugin-arch": "^2.0",
+                "pestphp/pest-plugin-laravel": "^2.0",
+                "phpstan/phpstan": "^2.1"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Kahusoftware\\FilamentCkeditorField\\FilamentCkeditorFieldServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Kahusoftware\\FilamentCkeditorField\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Thomas Johnson",
+                    "email": "hello@kahusoftware.com",
+                    "role": "Developer"
+                }
+            ],
+            "description": "A basic CKEditor 5 form field configured with non-premium features.",
+            "homepage": "https://github.com/kahu-software-llc/filament-ckeditor-field",
+            "keywords": [
+                "Kahu-Software-LLC",
+                "filament-ckeditor-field",
+                "kahusoftware",
+                "laravel"
+            ],
+            "support": {
+                "issues": "https://github.com/Kahu-Software-LLC/filament-ckeditor-field/discussions/categories/q-a",
+                "source": "https://github.com/Kahu-Software-LLC/filament-ckeditor-field"
+            },
+            "time": "2026-01-16T22:47:55+00:00"
         },
         {
             "name": "kerigard/laravel-lang-ru",

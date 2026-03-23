@@ -761,8 +761,12 @@ class ExternalSyncService
 
         if ($sourceProduct && $sourceProduct->local_product_id) {
             $local = Product::find($sourceProduct->local_product_id);
-            if ($local) {
+            if ($local && $this->isProductLinkedToSource($local, $source)) {
                 return $local;
+            }
+
+            if ($sourceProduct) {
+                $sourceProduct->forceFill(['local_product_id' => null])->saveQuietly();
             }
         }
 
@@ -783,7 +787,10 @@ class ExternalSyncService
         $titleBase = trim((string) Arr::get($itemPayload, 'name', ''));
         $titleBase = $titleBase !== '' ? $titleBase : ('Товар #' . $externalProductId);
 
-        $product = Product::query()->where('code2', $externalProductId)->first();
+        $product = Product::query()
+            ->where('code2', $externalProductId)
+            ->where('import_source_id', $source->id)
+            ->first();
         if (! $product) {
             $slug = $this->uniqueSlug('src-' . $source->slug . '-p-' . $externalProductId, Product::class);
             $product = Product::create([
@@ -833,9 +840,18 @@ class ExternalSyncService
         $product = null;
         if ($sourceProduct->local_product_id) {
             $product = Product::find($sourceProduct->local_product_id);
+
+            if ($product && ! $this->isProductLinkedToSource($product, $source)) {
+                $sourceProduct->forceFill(['local_product_id' => null])->saveQuietly();
+                $product = null;
+            }
         }
+
         if (! $product) {
-            $product = Product::query()->where('code2', (string) $sourceProduct->external_id)->first();
+            $product = Product::query()
+                ->where('code2', (string) $sourceProduct->external_id)
+                ->where('import_source_id', $source->id)
+                ->first();
         }
 
         if (! $product) {
@@ -877,6 +893,21 @@ class ExternalSyncService
         ])->saveQuietly();
 
         return $product;
+    }
+
+    protected function isProductLinkedToSource(Product $product, Source $source): bool
+    {
+        $importSourceId = (int) ($product->import_source_id ?? 0);
+
+        if ($importSourceId > 0) {
+            return $importSourceId === (int) $source->id;
+        }
+
+        if ((bool) ($product->is_imported ?? false)) {
+            return false;
+        }
+
+        return true;
     }
 
     protected function normalizeSourceImageUrl(Source $source, mixed $image): ?string

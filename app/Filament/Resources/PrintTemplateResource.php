@@ -2,11 +2,11 @@
 
 namespace App\Filament\Resources;
 
-use AmidEsfahani\FilamentTinyEditor\TinyEditor;
 use App\Enums\PrintTemplateType;
 use App\Filament\Resources\PrintTemplateResource\Pages;
 use App\Models\PrintTemplate;
 use App\Models\ReportGroup;
+use App\Models\Setting;
 use App\Services\Printing\TwigTemplateRenderService;
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -35,6 +35,7 @@ use Filament\Tables\Table;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+use Kahusoftware\FilamentCkeditorField\CKEditor;
 use Wiebenieuwenhuis\FilamentCodeEditor\Components\CodeEditor;
 
 class PrintTemplateResource extends Resource
@@ -272,28 +273,7 @@ class PrintTemplateResource extends Resource
                                                 || (string) ($get('editor_mode') ?? 'code') === 'code')
                                             ->columnSpanFull(),
 
-                                        TinyEditor::make('template_body_visual')
-                                            ->key('template_body_tiny_editor')
-                                            ->label('HTML шаблон (Twig)')
-                                            ->default(fn (Get $get): string => (string) ($get('template_body') ?? ''))
-                                            ->profile('full')
-                                            ->maxHeight(700)
-                                            ->fileAttachmentsDisk('public')
-                                            ->fileAttachmentsDirectory('settings/print-templates')
-                                            ->fileAttachmentsVisibility('public')
-                                            ->live(onBlur: true)
-                                            ->afterStateUpdated(function (Get $get, Set $set, mixed $state): void {
-                                                $set('template_body', is_string($state) ? $state : '');
-
-                                                if ((bool) ($get('preview_auto_refresh') ?? false)) {
-                                                    static::renderPreview($get, $set);
-                                                }
-                                            })
-                                            ->helperText('Visual-режим для быстрой сборки макета. Для Twig-логики удобнее Code.')
-                                            ->visible(fn (Get $get): bool => (string) ($get('type') ?? '') !== PrintTemplateType::Report->value
-                                                && (string) ($get('editor_mode') ?? 'code') === 'visual')
-                                            ->dehydrated(false)
-                                            ->columnSpanFull(),
+                                        ...static::buildVisualEditorComponents(),
 
                                         Select::make('css_preset')
                                             ->label('CSS пресет')
@@ -305,7 +285,6 @@ class PrintTemplateResource extends Resource
                                             ])
                                             ->default('none')
                                             ->helperText('Стили применяются в Preview/PDF отдельно от HTML шаблона.')
-                                            ->visible(fn (Get $get): bool => (string) ($get('type') ?? '') === PrintTemplateType::Report->value)
                                             ->columnSpan(4),
 
                                         CodeEditor::make('custom_css')
@@ -314,7 +293,6 @@ class PrintTemplateResource extends Resource
                                             ->default('')
                                             ->formatStateUsing(fn (mixed $state): string => is_string($state) ? $state : '')
                                             ->helperText('Используйте классы в HTML шаблоне, а стили пишите здесь. TinyEditor не будет их удалять.')
-                                            ->visible(fn (Get $get): bool => (string) ($get('type') ?? '') === PrintTemplateType::Report->value)
                                             ->columnSpanFull(),
 
                                         Placeholder::make('twig_snippets')
@@ -339,7 +317,12 @@ class PrintTemplateResource extends Resource
                                             Action::make('switch_to_code_mode')
                                                 ->label('Code')
                                                 ->color('gray')
-                                                ->action(function (Set $set): void {
+                                                ->action(function (Get $get, Set $set): void {
+                                                    $visualHtml = (string) ($get('template_body_visual') ?? '');
+                                                    if ($visualHtml !== '') {
+                                                        $set('template_body', static::formatVisualHtmlForCode($visualHtml));
+                                                    }
+
                                                     $set('editor_mode', 'code');
                                                 }),
                                             Action::make('switch_to_visual_mode')
@@ -632,6 +615,96 @@ class PrintTemplateResource extends Resource
             ]),
         ]);
     }
+
+    /**
+     * @return array<int, \Filament\Forms\Components\Component>
+     */
+    private static function buildVisualEditorComponents(): array
+    {
+        return [
+            CKEditor::make('template_body_visual')
+                ->key('template_body_ckeditor')
+                ->label('HTML шаблон (Twig)')
+                ->placeholder('Type or paste your content here...')
+                ->uploadUrl(route('admin.print-templates.ckeditor-upload'))
+                ->afterStateHydrated(function (Get $get, Set $set, mixed $state): void {
+                    if (is_string($state) && trim($state) !== '') {
+                        return;
+                    }
+
+                    $set('template_body_visual', (string) ($get('template_body') ?? ''));
+                })
+                ->live(onBlur: true)
+                ->afterStateUpdated(function (Get $get, Set $set, mixed $state): void {
+                    $set('template_body', is_string($state) ? static::formatVisualHtmlForCode($state) : '');
+
+                    if ((bool) ($get('preview_auto_refresh') ?? false)) {
+                        static::renderPreview($get, $set);
+                    }
+                })
+                ->helperText('Visual-режим (CKEditor). Для сложной Twig-логики используйте Code.')
+                ->visible(fn (Get $get): bool => (string) ($get('type') ?? '') !== PrintTemplateType::Report->value
+                    && (string) ($get('editor_mode') ?? 'code') === 'visual')
+                ->dehydrated()
+                ->columnSpanFull(),
+        ];
+    }
+
+    public static function formatVisualHtmlForCode(string $html): string
+    {
+        $html = trim($html);
+        if ($html === '') {
+            return '';
+        }
+
+        $html = static::normalizeEditorHtmlForPrint($html);
+
+        $formatted = preg_replace('/>\s+</', ">\n<", $html) ?? $html;
+        $formatted = preg_replace('/\s*({%[^%]*%})\s*/', "\n$1\n", $formatted) ?? $formatted;
+        $formatted = preg_replace('/\s*({{[^}]*}})\s*/', "\n$1\n", $formatted) ?? $formatted;
+        $formatted = preg_replace('/\n{3,}/', "\n\n", $formatted) ?? $formatted;
+
+        return trim($formatted);
+    }
+
+    private static function normalizeEditorHtmlForPrint(string $html): string
+    {
+        $normalized = $html;
+
+        $normalized = preg_replace('/\s+storage=""/i', '', $normalized) ?? $normalized;
+        $normalized = preg_replace('/\s+height="auto"/i', '', $normalized) ?? $normalized;
+        $normalized = preg_replace('/\s+width="\d+(?:\.\d+)?px"/i', '', $normalized) ?? $normalized;
+        $normalized = preg_replace('/\s+height="\d+(?:\.\d+)?px"/i', '', $normalized) ?? $normalized;
+
+        $normalized = preg_replace_callback('/<img\b[^>]*>/i', static function (array $matches): string {
+            $imgTag = (string) ($matches[0] ?? '');
+
+            $imgTag = preg_replace_callback('/\sstyle="([^"]*)"/i', static function (array $styleMatches): string {
+                $style = (string) ($styleMatches[1] ?? '');
+                $parts = array_filter(array_map('trim', explode(';', $style)), static fn (string $part): bool => $part !== '');
+                $filtered = [];
+
+                foreach ($parts as $part) {
+                    if (preg_match('/^aspect-ratio\s*:/i', $part) === 1) {
+                        continue;
+                    }
+
+                    $filtered[] = $part;
+                }
+
+                if ($filtered === []) {
+                    return '';
+                }
+
+                return ' style="'.implode('; ', $filtered).';"';
+            }, $imgTag) ?? $imgTag;
+
+            return $imgTag;
+        }, $normalized) ?? $normalized;
+
+        return $normalized;
+    }
+
 
     private static function parsePreviewJson(mixed $value): array
     {
@@ -1141,7 +1214,11 @@ class PrintTemplateResource extends Resource
                 ->renderTemplate($template, $params, $context);
 
             $html = (string) ($rendered['html'] ?? '');
-            $css = static::resolveTemplateCss((string) ($get('css_preset') ?? 'none'), (string) ($get('custom_css') ?? ''));
+            $css = static::resolveTemplateCss(
+                (string) ($get('type') ?? ''),
+                (string) ($get('css_preset') ?? 'none'),
+                (string) ($get('custom_css') ?? ''),
+            );
             $styledHtml = static::injectCssIntoBodyHtml($html, $css);
 
             $set('preview_html', $styledHtml);
@@ -1253,20 +1330,26 @@ class PrintTemplateResource extends Resource
         return '<style>'.$css.'</style>'.$bodyHtml;
     }
 
-    private static function resolveTemplateCss(string $preset, string $customCss): string
+    private static function resolveTemplateCss(string $type, string $preset, string $customCss): string
     {
+        $globalReportCss = trim((string) Setting::admin('printservice.report_css_global', ''));
         $presetCss = static::presetCss($preset);
         $customCss = trim($customCss);
 
-        if ($presetCss === '') {
-            return $customCss;
+        $blocks = [];
+        if ($type === PrintTemplateType::Report->value && $globalReportCss !== '') {
+            $blocks[] = $globalReportCss;
         }
 
-        if ($customCss === '') {
-            return $presetCss;
+        if ($presetCss !== '') {
+            $blocks[] = $presetCss;
         }
 
-        return $presetCss."\n\n".$customCss;
+        if ($customCss !== '') {
+            $blocks[] = $customCss;
+        }
+
+        return implode("\n\n", $blocks);
     }
 
     private static function presetCss(string $preset): string
