@@ -375,6 +375,7 @@ class ReportExecutionService
         return match ($preset) {
             'a5' => [148.0, 210.0],
             'thermal_80' => [80.0, 3650.0],
+            'thermal_72' => [72.0, 3650.0],
             'thermal_58' => [58.0, 3650.0],
             'custom' => [
                 $customWidth > 20 ? $customWidth : 210.0,

@@ -455,6 +455,7 @@ class PrintOperationService
             'a4' => [210.0, 297.0],
             'a5' => [148.0, 210.0],
             'thermal_80' => [80.0, 3650.0],
+            'thermal_72' => [72.0, 3650.0],
             'thermal_58' => [58.0, 3650.0],
             'custom' => [
                 $customWidth > 20 ? $customWidth : 210.0,
@@ -471,6 +472,7 @@ class PrintOperationService
     {
         return match ($preset) {
             '58mm' => [58.0, 3650.0],
+            '72mm' => [72.0, 3650.0],
             default => [80.0, 3650.0],
         };
     }
@@ -478,7 +480,7 @@ class PrintOperationService
     private function isThermalLayout(PrintOperationProfile $profile, float $widthMm): bool
     {
         $templatePreset = (string) ($profile->template?->default_paper_preset ?? '');
-        if (in_array($templatePreset, ['thermal_80', 'thermal_58'], true)) {
+        if (in_array($templatePreset, ['thermal_80', 'thermal_72', 'thermal_58'], true)) {
             return true;
         }
 

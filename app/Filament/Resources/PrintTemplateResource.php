@@ -156,6 +156,7 @@ class PrintTemplateResource extends Resource
                                                 'a4' => 'A4 (210 x 297 мм)',
                                                 'a5' => 'A5 (148 x 210 мм)',
                                                 'thermal_80' => 'Термобумага 80 мм (рулон)',
+                                                'thermal_72' => 'Термобумага 72 мм (рулон)',
                                                 'thermal_58' => 'Термобумага 58 мм (рулон)',
                                                 'custom' => 'Ручной ввод (мм)',
                                             ])
@@ -1273,6 +1274,7 @@ class PrintTemplateResource extends Resource
         return match ($preset) {
             'a5' => [148.0, 210.0],
             'thermal_80' => [80.0, 3650.0],
+            'thermal_72' => [72.0, 3650.0],
             'thermal_58' => [58.0, 3650.0],
             'custom' => [
                 $customWidth > 20 ? $customWidth : 210.0,

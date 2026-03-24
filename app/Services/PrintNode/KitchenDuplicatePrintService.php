@@ -942,7 +942,11 @@ class KitchenDuplicatePrintService
     private function resolvePdfLayoutSettings(int $lineCount): array
     {
         $preset = (string) Setting::admin('printservice.pdf_paper_preset', Setting::admin('printnode.pdf_paper_preset', '80mm'));
-        $defaultWidth = $preset === '58mm' ? 58.0 : 80.0;
+        $defaultWidth = match ($preset) {
+            '58mm' => 58.0,
+            '72mm' => 72.0,
+            default => 80.0,
+        };
         $defaultHeight = $preset === '58mm' ? 150.0 : 180.0;
 
         $widthMm = (float) Setting::admin('printservice.pdf_page_width_mm', Setting::admin('printnode.pdf_page_width_mm', $defaultWidth));
