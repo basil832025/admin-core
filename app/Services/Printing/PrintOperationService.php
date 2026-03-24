@@ -146,12 +146,17 @@ class PrintOperationService
 
         $widthMm = (float) ($paper['width_mm'] ?? $baseWidth);
         $heightMm = (float) ($paper['height_mm'] ?? $baseHeight);
+        $isThermalLayout = $this->isThermalLayout($profile, $widthMm);
         $fontSize = (float) ($paper['font_size_pt'] ?? Setting::admin('printservice.pdf_font_size_pt', Setting::admin('printnode.pdf_font_size_pt', 10)));
         $lineHeight = (float) ($paper['line_height'] ?? Setting::admin('printservice.pdf_line_height', Setting::admin('printnode.pdf_line_height', 1.25)));
-        $baseMarginTop = $templateMarginTop ?? (float) Setting::admin('printservice.pdf_margin_top_mm', Setting::admin('printnode.pdf_margin_top_mm', 3));
-        $baseMarginRight = $templateMarginRight ?? (float) Setting::admin('printservice.pdf_margin_right_mm', Setting::admin('printnode.pdf_margin_right_mm', 2));
-        $baseMarginBottom = $templateMarginBottom ?? (float) Setting::admin('printservice.pdf_margin_bottom_mm', Setting::admin('printnode.pdf_margin_bottom_mm', 3));
-        $baseMarginLeft = $templateMarginLeft ?? (float) Setting::admin('printservice.pdf_margin_left_mm', Setting::admin('printnode.pdf_margin_left_mm', 2));
+        $defaultMarginTop = $isThermalLayout ? 0.0 : 3.0;
+        $defaultMarginRight = $isThermalLayout ? 0.0 : 2.0;
+        $defaultMarginBottom = $isThermalLayout ? 0.0 : 3.0;
+        $defaultMarginLeft = $isThermalLayout ? 0.0 : 2.0;
+        $baseMarginTop = $templateMarginTop ?? (float) Setting::admin('printservice.pdf_margin_top_mm', Setting::admin('printnode.pdf_margin_top_mm', $defaultMarginTop));
+        $baseMarginRight = $templateMarginRight ?? (float) Setting::admin('printservice.pdf_margin_right_mm', Setting::admin('printnode.pdf_margin_right_mm', $defaultMarginRight));
+        $baseMarginBottom = $templateMarginBottom ?? (float) Setting::admin('printservice.pdf_margin_bottom_mm', Setting::admin('printnode.pdf_margin_bottom_mm', $defaultMarginBottom));
+        $baseMarginLeft = $templateMarginLeft ?? (float) Setting::admin('printservice.pdf_margin_left_mm', Setting::admin('printnode.pdf_margin_left_mm', $defaultMarginLeft));
 
         $marginTop = (float) ($paper['margin_top_mm'] ?? $baseMarginTop);
         $marginRight = (float) ($paper['margin_right_mm'] ?? $baseMarginRight);
@@ -204,10 +209,11 @@ class PrintOperationService
     private function buildPdfFromHtml(string $bodyHtml, array $layout, ?PrintTemplate $template = null): string
     {
         $templateCss = $this->resolveTemplateCss($template);
+        $basePdfCss = 'html,body{margin:0;padding:0;}';
         $bodyHtml = $this->normalizeHtmlForPdf($bodyHtml);
 
         $html = '<!doctype html><html><head><meta charset="UTF-8">'
-            .($templateCss !== '' ? '<style>'.$templateCss.'</style>' : '')
+            .'<style>'.$basePdfCss.($templateCss !== '' ? "\n\n".$templateCss : '').'</style>'
             .'</head><body>'
             .$this->buildBodyWrapperHtml($bodyHtml, $layout)
             .'</body></html>';
@@ -467,6 +473,20 @@ class PrintOperationService
             '58mm' => [58.0, 3650.0],
             default => [80.0, 3650.0],
         };
+    }
+
+    private function isThermalLayout(PrintOperationProfile $profile, float $widthMm): bool
+    {
+        $templatePreset = (string) ($profile->template?->default_paper_preset ?? '');
+        if (in_array($templatePreset, ['thermal_80', 'thermal_58'], true)) {
+            return true;
+        }
+
+        if ($widthMm > 0 && $widthMm <= 82) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
