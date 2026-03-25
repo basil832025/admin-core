@@ -181,7 +181,9 @@ class CreateOrder extends CreateRecord
             ->body('Номер: ' . ($payload['phone'] ?? '—') . '. Створіть клієнта та замовлення вручну.')
             ->send();
 
-        $state = array_merge($this->data ?? [], $baseState);
+        $state = array_merge($this->data ?? [], $baseState, [
+            'clients_id' => null,
+        ]);
 
         $this->form->fill($state);
     }

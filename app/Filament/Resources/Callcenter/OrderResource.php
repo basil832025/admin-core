@@ -130,6 +130,9 @@ class OrderResource extends ShopOrderResource
             }
 
             $fields = $component->getChildComponents();
+            $fields = array_values(array_filter($fields, function ($field): bool {
+                return ! (method_exists($field, 'getName') && $field->getName() === 'incoming_phone');
+            }));
             $clientsIndex = null;
 
             foreach ($fields as $index => $field) {
