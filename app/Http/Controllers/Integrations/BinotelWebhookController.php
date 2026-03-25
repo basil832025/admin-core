@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Integrations;
 use App\Http\Controllers\Controller;
 use App\Models\Callcenter\Source;
 use App\Models\Setting;
+use App\Models\Shop\BinotelCallLog;
 use App\Models\Shop\Client;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,28 +22,49 @@ class BinotelWebhookController extends Controller
     {
         $payload = $this->extractPayload($request);
         $pbxMeta = $this->extractPbxMeta($payload);
-
-        if (! $this->isAuthorized($request)) {
-            return response()->json([
-                'error' => 'forbidden',
-                'message' => 'Request is not allowed.',
-            ], 403);
-        }
-
         $requestType = (string) ($payload['requestType'] ?? '');
-        if ($requestType !== 'apiCallSettings') {
-            return response()->json([
-                'error' => 'invalid_request_type',
-                'message' => 'Expected requestType=apiCallSettings',
-            ], 422);
-        }
-
         $phone = $this->normalizePhone((string) ($payload['externalNumber'] ?? ''));
         $client = $this->findClientByPhone($phone);
         $resolvedSite = $this->resolveSiteByIncomingLine(
             $this->normalizePhone($pbxMeta['number']),
             (string) $pbxMeta['name']
         );
+        $baseLogData = [
+            'event_type' => 'call_settings',
+            'request_type' => $requestType,
+            'call_type' => (string) ($payload['callType'] ?? ''),
+            'caller_phone' => $phone,
+            'client_id' => $client?->id,
+            'client_name' => $client?->name,
+            'pbx_number' => $pbxMeta['number'],
+            'pbx_name' => $pbxMeta['name'],
+            'source_id' => $resolvedSite['source_id'],
+            'source_name' => $resolvedSite['source_name'],
+            'point_name' => $resolvedSite['point_name'],
+            'internal_number' => (string) ($payload['internalNumber'] ?? ''),
+            'company_id' => (string) ($payload['companyID'] ?? ''),
+            'general_call_id' => $this->extractGeneralCallId($payload),
+            'ip' => (string) $request->ip(),
+            'request_payload' => $payload,
+        ];
+
+        if (! $this->isAuthorized($request)) {
+            $this->storeCallLog($baseLogData + ['status' => 'forbidden']);
+
+            return response()->json([
+                'error' => 'forbidden',
+                'message' => 'Request is not allowed.',
+            ], 403);
+        }
+
+        if ($requestType !== 'apiCallSettings') {
+            $this->storeCallLog($baseLogData + ['status' => 'invalid_request_type']);
+
+            return response()->json([
+                'error' => 'invalid_request_type',
+                'message' => 'Expected requestType=apiCallSettings',
+            ], 422);
+        }
 
         $token = Str::random(48);
         Cache::put(self::CACHE_PREFIX . $token, [
@@ -62,6 +84,10 @@ class BinotelWebhookController extends Controller
 
         $crmBaseUrl = rtrim((string) config('services.binotel.crm_base_url', config('app.url')), '/');
         $crmUrl = $crmBaseUrl . '/admin/callcenter/orders/create?bt=' . $token;
+        $this->storeCallLog($baseLogData + [
+            'status' => 'accepted',
+            'crm_url' => $crmUrl,
+        ]);
 
         $isIncoming = (string) ($payload['callType'] ?? '') === '0';
         $description = $isIncoming ? 'Вхідний дзвінок' : 'Вихідний дзвінок';
@@ -108,9 +134,38 @@ class BinotelWebhookController extends Controller
 
     public function callCompleted(Request $request): JsonResponse
     {
+        $payload = $this->extractPayload($request);
+        $pbxMeta = $this->extractPbxMeta($payload);
+        $phone = $this->normalizePhone((string) ($payload['externalNumber'] ?? ''));
+        $resolvedSite = $this->resolveSiteByIncomingLine(
+            $this->normalizePhone($pbxMeta['number']),
+            (string) $pbxMeta['name']
+        );
+        $client = $this->findClientByPhone($phone);
+
+        $this->storeCallLog([
+            'event_type' => 'call_completed',
+            'status' => 'success',
+            'request_type' => (string) ($payload['requestType'] ?? ''),
+            'call_type' => (string) ($payload['callType'] ?? ''),
+            'caller_phone' => $phone,
+            'client_id' => $client?->id,
+            'client_name' => $client?->name,
+            'pbx_number' => $pbxMeta['number'],
+            'pbx_name' => $pbxMeta['name'],
+            'source_id' => $resolvedSite['source_id'],
+            'source_name' => $resolvedSite['source_name'],
+            'point_name' => $resolvedSite['point_name'],
+            'internal_number' => (string) ($payload['internalNumber'] ?? ''),
+            'company_id' => (string) ($payload['companyID'] ?? ''),
+            'general_call_id' => $this->extractGeneralCallId($payload),
+            'ip' => (string) $request->ip(),
+            'request_payload' => $payload,
+        ]);
+
         Log::info('Binotel API CALL COMPLETED received', [
-            'request_type' => (string) $request->input('requestType', ''),
-            'call_id' => data_get($request->input('callDetails', []), 'generalCallID'),
+            'request_type' => (string) ($payload['requestType'] ?? ''),
+            'call_id' => $this->extractGeneralCallId($payload),
         ]);
 
         return response()->json(['status' => 'success']);
@@ -402,5 +457,46 @@ class BinotelWebhookController extends Controller
         $name = trim((string) Setting::value('site_name'));
 
         return $name !== '' ? $name : 'Основний сайт';
+    }
+
+    private function extractGeneralCallId(array $payload): ?string
+    {
+        $direct = trim((string) ($payload['generalCallID'] ?? $payload['generalCallId'] ?? ''));
+        if ($direct !== '') {
+            return $direct;
+        }
+
+        $callDetails = $payload['callDetails'] ?? null;
+        if (is_array($callDetails)) {
+            if (isset($callDetails['generalCallID'])) {
+                $id = trim((string) $callDetails['generalCallID']);
+                if ($id !== '') {
+                    return $id;
+                }
+            }
+
+            $first = reset($callDetails);
+            if (is_array($first)) {
+                $id = trim((string) ($first['generalCallID'] ?? $first['generalCallId'] ?? ''));
+
+                return $id !== '' ? $id : null;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function storeCallLog(array $data): void
+    {
+        try {
+            BinotelCallLog::query()->create($data);
+        } catch (\Throwable $e) {
+            Log::warning('Binotel call log write failed', [
+                'message' => $e->getMessage(),
+            ]);
+        }
     }
 }
