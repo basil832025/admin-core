@@ -57,7 +57,7 @@
             const cmp = window.Livewire.find(this.componentId);
             if (!cmp) return;
 
-            await cmp.call('addMenuProductToOrder', Number(productId));
+            await cmp.call('addMenuProductToOrder', Number(productId), Number(this.source || 0));
         },
 
         openDescription(product) {

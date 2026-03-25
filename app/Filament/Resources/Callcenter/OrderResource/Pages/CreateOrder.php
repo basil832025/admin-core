@@ -151,12 +151,17 @@ class CreateOrder extends CreateRecord
         }
 
         $clientId = isset($payload['client_id']) ? (int) $payload['client_id'] : 0;
+        $sourceId = isset($payload['source_id']) ? (int) $payload['source_id'] : 0;
+
+        $baseState = [
+            'incoming_phone' => (string) ($payload['phone'] ?? ''),
+            'client_phone_view' => (string) ($payload['phone'] ?? ''),
+            'source_id' => $sourceId > 0 ? $sourceId : null,
+        ];
 
         if ($clientId > 0) {
-            $state = array_merge($this->data ?? [], [
+            $state = array_merge($this->data ?? [], $baseState, [
                 'clients_id' => $clientId,
-                'incoming_phone' => (string) ($payload['phone'] ?? ''),
-                'client_phone_view' => (string) ($payload['phone'] ?? ''),
             ]);
 
             $this->form->fill($state);
@@ -176,10 +181,7 @@ class CreateOrder extends CreateRecord
             ->body('Номер: ' . ($payload['phone'] ?? '—') . '. Створіть клієнта та замовлення вручну.')
             ->send();
 
-        $state = array_merge($this->data ?? [], [
-            'incoming_phone' => (string) ($payload['phone'] ?? ''),
-            'client_phone_view' => (string) ($payload['phone'] ?? ''),
-        ]);
+        $state = array_merge($this->data ?? [], $baseState);
 
         $this->form->fill($state);
     }

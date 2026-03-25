@@ -312,6 +312,14 @@ class OrderResource extends ShopOrderResource
                 array_splice($fields, $clientsIndex, 0, [$phoneInput]);
             }
 
+            $hasSourceField = collect($fields)
+                ->contains(fn ($field) => method_exists($field, 'getName') && $field->getName() === 'source_id');
+
+            if (! $hasSourceField) {
+                $fields[] = Hidden::make('source_id')
+                    ->dehydrated(true);
+            }
+
             if (! $historyInjected) {
                 $fields[] = Hidden::make('history_refresh')
                     ->default((string) microtime(true))

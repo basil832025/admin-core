@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\Callcenter\Source as CallcenterSource;
 use App\Models\Setting;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -82,6 +83,7 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
                 ->button()
                 ->color('gray')
                 ->icon('heroicon-o-printer')
+                ->visible(fn (): bool => (string) request()->query('tab', '') !== '-callcenter-binotel-tab')
                 ->modalHeading('Тестовий друк чека')
                 ->modalDescription('Оберіть шаблон, перевірте превʼю з поточною шириною паперу та полями, після чого надрукуйте тест.')
                 ->modalSubmitActionLabel('Печать')
@@ -168,6 +170,7 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
                     static::generalTab(),
                     static::cartTab(),
                     static::adminTab(),
+                    static::binotelTab(),
                     static::printNodeTab(),
                 ])
                 ->persistTabInQueryString(),
@@ -320,6 +323,82 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
                                 ->columnSpan(6),
                         ]),
                 ]),
+        ]);
+    }
+
+    protected static function binotelTab(): Tab
+    {
+        return Tab::make('Callcenter / Binotel')->schema([
+            Section::make('Callcenter / Binotel')
+                ->description('Налаштування відповідності вхідних ліній Binotel до сайту замовлення.')
+                ->schema([
+                    Repeater::make('callcenter.binotel.rules')
+                        ->label('Правила визначення сайту за лінією')
+                        ->addActionLabel('Додати правило')
+                        ->collapsed()
+                        ->reorderableWithButtons()
+                        ->defaultItems(0)
+                        ->schema([
+                            Grid::make(12)
+                                ->schema([
+                                    TextInput::make('point_name')
+                                        ->label('Точка')
+                                        ->placeholder('Наприклад: Три пирога')
+                                        ->required()
+                                        ->maxLength(120)
+                                        ->columnSpan(5),
+
+                                    Select::make('source_id')
+                                        ->label('Сайт')
+                                        ->options(fn (): array => [
+                                            '0' => 'Основний сайт',
+                                        ] + CallcenterSource::query()
+                                            ->orderBy('name')
+                                            ->pluck('name', 'id')
+                                            ->mapWithKeys(fn ($name, $id) => [(string) $id => (string) $name])
+                                            ->toArray())
+                                        ->required()
+                                        ->searchable()
+                                        ->default('0')
+                                        ->columnSpan(5),
+
+                                    Toggle::make('is_active')
+                                        ->label('Активно')
+                                        ->default(true)
+                                        ->columnSpan(2),
+                                ]),
+
+                            Repeater::make('phones')
+                                ->label('Номери ліній (тільки цифри)')
+                                ->addActionLabel('Додати номер')
+                                ->defaultItems(1)
+                                ->columns(1)
+                                ->schema([
+                                    TextInput::make('number')
+                                        ->label('Телефон лінії')
+                                        ->placeholder('0442999148')
+                                        ->required()
+                                        ->rule('regex:/^[0-9]+$/')
+                                        ->minLength(10)
+                                        ->maxLength(16)
+                                        ->dehydrateStateUsing(fn ($state): string => preg_replace('/\D+/', '', (string) $state) ?: '')
+                                        ->helperText('Вводьте лише цифри без пробілів, скобок, дефісів та +.')
+                                        ->columnSpanFull(),
+                                ])
+                                ->itemLabel(fn (array $state): string => (string) ($state['number'] ?? 'Номер')),
+                        ])
+                        ->itemLabel(function (array $state): string {
+                            $point = trim((string) ($state['point_name'] ?? ''));
+                            $site = trim((string) ($state['source_id'] ?? ''));
+
+                            if ($point !== '') {
+                                return $point;
+                            }
+
+                            return $site !== '' ? ('Сайт #' . $site) : 'Правило';
+                        }),
+                ])
+                ->statePath('admin_settings'),
         ]);
     }
 

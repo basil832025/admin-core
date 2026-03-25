@@ -7,6 +7,7 @@ use App\Models\Shop\ProductCharacteristicValue;
 use App\Models\Shop\Order as ShopOrder;
 use App\Services\OrderPricing;
 use App\Services\DeliveryCalculationService;
+use Illuminate\Support\Facades\Log;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 
@@ -27,11 +28,11 @@ trait HasMenuCatalogActions
                 'fetchUrl' => route('admin.callcenter.menu-catalog', absolute: false),
                 'defaultSourceId' => (string) ((isset($this->record) && $this->record?->exists)
                     ? ((int) ($this->record->source_id ?? 0))
-                    : 0),
+                    : ((int) data_get($this->getCurrentFormStateForMenu(), 'source_id', 0))),
             ]));
     }
 
-    public function addMenuProductToOrder(int $productId): void
+    public function addMenuProductToOrder(int $productId, int $sourceId = 0): void
     {
         $product = Product::query()->select(['id', 'price', 'in_stock'])->find($productId);
 
@@ -96,6 +97,10 @@ trait HasMenuCatalogActions
 
         $state['items'] = $items->all();
 
+        if ($sourceId > 0) {
+            $state['source_id'] = $sourceId;
+        }
+
         $shippingPrice = $this->calculateShippingForMenuState($state);
         $state['shipping_price'] = $shippingPrice;
         $state['delivery_price_auto'] = 'menu_add_' . microtime(true);
@@ -103,6 +108,9 @@ trait HasMenuCatalogActions
 
         if (property_exists($this, 'data') && is_array($this->data)) {
             data_set($this->data, 'items', $state['items']);
+            if (array_key_exists('source_id', $state)) {
+                data_set($this->data, 'source_id', $state['source_id']);
+            }
             data_set($this->data, 'shipping_price', $shippingPrice);
             data_set($this->data, 'delivery_price_auto', $state['delivery_price_auto']);
             data_set($this->data, 'delivery_coords_trigger', $state['delivery_coords_trigger']);
@@ -112,7 +120,7 @@ trait HasMenuCatalogActions
         $this->form->fill($state);
         $this->dispatch('$refresh');
 
-        \Log::info('Callcenter menu: item added to create form', [
+        Log::info('Callcenter menu: item added to create form', [
             'product_id' => $product->id,
             'items_count' => count($state['items'] ?? []),
         ]);

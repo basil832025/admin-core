@@ -13,6 +13,7 @@ use App\Services\Callcenter\ExternalSyncService;
 use App\Services\OrderPricing;
 use App\Services\OrderZoneSyncService;
 use App\Services\PrintNode\KitchenDuplicatePrintService;
+use App\Models\Setting;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\Actions;
@@ -23,6 +24,7 @@ use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\HtmlString;
 
 class EditOrder extends EditRecord
@@ -37,6 +39,44 @@ class EditOrder extends EditRecord
     private bool $zoneNeedsRefresh = false;
 
     protected static string $resource = OrderResource::class;
+
+    public function getHeading(): string | Htmlable
+    {
+        $number = trim((string) ($this->record?->number ?? ''));
+        $sourceName = trim((string) ($this->record?->source?->name ?? ''));
+
+        if ($sourceName === '') {
+            $sourceName = trim((string) (Setting::value('site_name') ?: 'Основний сайт'));
+        }
+
+        if ($number === '') {
+            return parent::getHeading();
+        }
+
+        if ($sourceName === '') {
+            return 'Змінити ' . $number;
+        }
+
+        return new HtmlString(
+            'Змінити ' . e($number) . ' · <span style="color:#2563eb;font-weight:700;">' . e($sourceName) . '</span>'
+        );
+    }
+
+    public function getTitle(): string | Htmlable
+    {
+        $number = trim((string) ($this->record?->number ?? ''));
+        $sourceName = trim((string) ($this->record?->source?->name ?? ''));
+
+        if ($sourceName === '') {
+            $sourceName = trim((string) (Setting::value('site_name') ?: 'Основний сайт'));
+        }
+
+        if ($number === '') {
+            return parent::getTitle();
+        }
+
+        return 'Змінити ' . $number . ($sourceName !== '' ? (' · ' . $sourceName) : '');
+    }
 
     public function mount(int|string $record): void
     {
