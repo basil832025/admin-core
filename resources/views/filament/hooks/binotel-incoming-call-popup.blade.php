@@ -68,6 +68,7 @@
                 '<div data-role="phone" style="margin-top:2px;font-size:13px;color:#9a3412;"></div>' +
                 '<div data-role="pbx-number" style="margin-top:4px;font-size:12px;color:#7f1d1d;"></div>' +
                 '<div data-role="pbx-name" style="margin-top:2px;font-size:12px;color:#7f1d1d;"></div>' +
+                '<div data-role="site" style="margin-top:2px;font-size:12px;color:#1d4ed8;font-weight:700;"></div>' +
                 '<div data-role="desc" style="margin-top:6px;font-size:12px;color:#881337;"></div>' +
                 '<div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end;">' +
                     '<button type="button" data-role="dismiss" style="border:1px solid #fda4af;background:#fff1f2;color:#9f1239;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;">Скасувати</button>' +
@@ -98,6 +99,8 @@
             root.querySelector('[data-role="phone"]').textContent = call.phone ? ('Телефон: ' + call.phone) : 'Телефон: —';
             root.querySelector('[data-role="pbx-number"]').textContent = call.pbx_number ? ('Лінія (номер): ' + call.pbx_number) : 'Лінія (номер): —';
             root.querySelector('[data-role="pbx-name"]').textContent = call.pbx_name ? ('Лінія (назва): ' + call.pbx_name) : 'Лінія (назва): —';
+            const siteLabel = (call.point_name || call.source_name || 'Основний сайт');
+            root.querySelector('[data-role="site"]').textContent = 'Сайт: ' + siteLabel;
             root.querySelector('[data-role="desc"]').textContent = call.description || '';
             root.style.display = 'block';
         }
