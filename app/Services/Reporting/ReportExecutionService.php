@@ -8,6 +8,7 @@ use Dompdf\Dompdf;
 use Dompdf\Options;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Worksheet\MemoryDrawing;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class ReportExecutionService
@@ -106,6 +107,8 @@ class ReportExecutionService
                 }
                 $rowIndex++;
             }
+
+            $this->appendChartsForTemplate($sheet, $template, $datasets, $rowIndex + 1);
 
             ob_start();
             $writer = new Xlsx($spreadsheet);
@@ -489,5 +492,248 @@ class ReportExecutionService
         }
 
         return 'file://'.$normalized;
+    }
+
+    /**
+     * @param array<string, array<int|string, mixed>> $datasets
+     */
+    private function appendChartsForTemplate(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $sheet, PrintTemplate $template, array $datasets, int $startRow): void
+    {
+        if ((string) $template->code !== 'sales_receiving_delivery_time_analysis') {
+            return;
+        }
+
+        $received = $this->firstDatasetRow($datasets, 'received');
+        $delivered = $this->firstDatasetRow($datasets, 'delivered');
+
+        if ($received === [] && $delivered === []) {
+            return;
+        }
+
+        $colors = ['#4f81bd', '#c0504d', '#9bbb59', '#8064a2', '#4bacc6'];
+
+        $receivedValues = [
+            (float) ($received['slot_0900_1159'] ?? 0),
+            (float) ($received['slot_1200_1400'] ?? 0),
+            (float) ($received['slot_1401_1759'] ?? 0),
+            (float) ($received['slot_1800_2000'] ?? 0),
+            (float) ($received['slot_other'] ?? 0),
+        ];
+        $deliveredValues = [
+            (float) ($delivered['slot_0900_1159'] ?? 0),
+            (float) ($delivered['slot_1200_1400'] ?? 0),
+            (float) ($delivered['slot_1401_1759'] ?? 0),
+            (float) ($delivered['slot_1800_2000'] ?? 0),
+            (float) ($delivered['slot_other'] ?? 0),
+        ];
+
+        $sheet->setCellValue('A'.(string) $startRow, 'Оформлення замовлення');
+        $sheet->setCellValue('H'.(string) $startRow, 'Доставка замовлення');
+
+        $receivedResource = $this->buildDonutChartImageResource(
+            $receivedValues,
+            $colors,
+            (string) ($received['total_orders'] ?? '0')
+        );
+        $deliveredResource = $this->buildDonutChartImageResource(
+            $deliveredValues,
+            $colors,
+            (string) ($delivered['total_orders'] ?? '0')
+        );
+
+        if ($receivedResource) {
+            $drawing = new MemoryDrawing();
+            $drawing->setName('Received Chart');
+            $drawing->setDescription('Оформлення замовлення');
+            $drawing->setImageResource($receivedResource);
+            $drawing->setRenderingFunction(MemoryDrawing::RENDERING_PNG);
+            $drawing->setMimeType(MemoryDrawing::MIMETYPE_PNG);
+            $drawing->setHeight(220);
+            $drawing->setCoordinates('A'.(string) ($startRow + 1));
+            $drawing->setWorksheet($sheet);
+        }
+
+        if ($deliveredResource) {
+            $drawing = new MemoryDrawing();
+            $drawing->setName('Delivered Chart');
+            $drawing->setDescription('Доставка замовлення');
+            $drawing->setImageResource($deliveredResource);
+            $drawing->setRenderingFunction(MemoryDrawing::RENDERING_PNG);
+            $drawing->setMimeType(MemoryDrawing::MIMETYPE_PNG);
+            $drawing->setHeight(220);
+            $drawing->setCoordinates('H'.(string) ($startRow + 1));
+            $drawing->setWorksheet($sheet);
+        }
+    }
+
+    /**
+     * @param array<string, array<int|string, mixed>> $datasets
+     * @return array<string, mixed>
+     */
+    private function firstDatasetRow(array $datasets, string $key): array
+    {
+        $rows = $datasets[$key] ?? [];
+        if (! is_array($rows) || $rows === []) {
+            return [];
+        }
+
+        $first = reset($rows);
+
+        return is_array($first) ? $first : [];
+    }
+
+    /**
+     * @param array<int, float> $values
+     * @param array<int, string> $colors
+     */
+    private function buildDonutChartImageResource(array $values, array $colors, string $centerText): mixed
+    {
+        if (! function_exists('imagecreatetruecolor')) {
+            return null;
+        }
+
+        $numbers = [];
+        foreach ($values as $value) {
+            $num = (float) $value;
+            $numbers[] = $num > 0 ? $num : 0.0;
+        }
+
+        if ($numbers === []) {
+            return null;
+        }
+
+        $palette = [];
+        foreach ($colors as $color) {
+            $hex = trim((string) $color);
+            if ($hex !== '') {
+                $palette[] = $hex;
+            }
+        }
+
+        if ($palette === []) {
+            $palette = ['#4f81bd', '#c0504d', '#9bbb59', '#8064a2', '#4bacc6'];
+        }
+
+        $size = 220;
+        $img = imagecreatetruecolor($size, $size);
+        if (! $img) {
+            return null;
+        }
+
+        imagealphablending($img, false);
+        imagesavealpha($img, true);
+        $transparent = imagecolorallocatealpha($img, 255, 255, 255, 127);
+        imagefill($img, 0, 0, $transparent);
+        imagealphablending($img, true);
+
+        $cx = (int) ($size / 2);
+        $cy = (int) ($size / 2);
+        $diameter = 140;
+        $sum = array_sum($numbers);
+        if ($sum <= 0) {
+            $sum = 1.0;
+        }
+
+        $start = -90.0;
+        $segments = [];
+        foreach ($numbers as $index => $value) {
+            if ($value <= 0) {
+                continue;
+            }
+
+            $angle = 360.0 * ($value / $sum);
+            $end = $start + $angle;
+            [$r, $g, $b] = $this->hexToRgb($palette[$index % count($palette)]);
+            $color = imagecolorallocate($img, $r, $g, $b);
+
+            imagefilledarc(
+                $img,
+                $cx,
+                $cy,
+                $diameter,
+                $diameter,
+                (int) round($start),
+                (int) round($end),
+                $color,
+                IMG_ARC_PIE
+            );
+
+            $segments[] = [
+                'start' => $start,
+                'end' => $end,
+                'percent' => ($value / $sum) * 100,
+            ];
+
+            $start = $end;
+        }
+
+        $hole = imagecolorallocate($img, 255, 255, 255);
+        imagefilledellipse($img, $cx, $cy, 76, 76, $hole);
+        $stroke = imagecolorallocate($img, 226, 232, 240);
+        imageellipse($img, $cx, $cy, 76, 76, $stroke);
+
+        $text = trim($centerText);
+        if ($text !== '') {
+            $textColor = imagecolorallocate($img, 51, 65, 85);
+            $font = 3;
+            $textWidth = imagefontwidth($font) * strlen($text);
+            $textHeight = imagefontheight($font);
+            imagestring($img, $font, (int) round($cx - $textWidth / 2), (int) round($cy - $textHeight / 2), $text, $textColor);
+        }
+
+        $labelTextColor = imagecolorallocate($img, 31, 41, 55);
+        $labelFill = imagecolorallocate($img, 255, 255, 255);
+        $labelBorder = imagecolorallocate($img, 203, 213, 225);
+        $labelFont = 3;
+        $labelRadius = 70.0;
+
+        foreach ($segments as $segment) {
+            $percent = (float) ($segment['percent'] ?? 0);
+            if ($percent < 4.0) {
+                continue;
+            }
+
+            $mid = (((float) $segment['start']) + ((float) $segment['end'])) / 2.0;
+            $rad = deg2rad($mid);
+            $x = (int) round($cx + cos($rad) * $labelRadius);
+            $y = (int) round($cy + sin($rad) * $labelRadius);
+
+            $label = (string) round($percent).'%';
+            $labelWidth = imagefontwidth($labelFont) * strlen($label);
+            $labelHeight = imagefontheight($labelFont);
+            $padX = 4;
+            $padY = 2;
+            $left = $x - (int) round($labelWidth / 2) - $padX;
+            $top = $y - (int) round($labelHeight / 2) - $padY;
+            $right = $left + $labelWidth + ($padX * 2);
+            $bottom = $top + $labelHeight + ($padY * 2);
+
+            imagefilledrectangle($img, $left, $top, $right, $bottom, $labelFill);
+            imagerectangle($img, $left, $top, $right, $bottom, $labelBorder);
+            imagestring($img, $labelFont, $left + $padX, $top + $padY, $label, $labelTextColor);
+        }
+
+        return $img;
+    }
+
+    /**
+     * @return array{0: int, 1: int, 2: int}
+     */
+    private function hexToRgb(string $hex): array
+    {
+        $hex = ltrim(trim($hex), '#');
+        if (strlen($hex) === 3) {
+            $hex = $hex[0].$hex[0].$hex[1].$hex[1].$hex[2].$hex[2];
+        }
+
+        if (strlen($hex) !== 6 || ! ctype_xdigit($hex)) {
+            return [79, 129, 189];
+        }
+
+        return [
+            hexdec(substr($hex, 0, 2)),
+            hexdec(substr($hex, 2, 2)),
+            hexdec(substr($hex, 4, 2)),
+        ];
     }
 }

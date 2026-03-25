@@ -2,6 +2,7 @@
 
 namespace App\Models\Shop;
 
+use App\Models\DeliveryZone;
 use App\Enums\OrderStatus;
 use App\Models\Callcenter\Source;
 use App\Models\Shop\Client;
@@ -73,6 +74,9 @@ class Order extends Model
         'synced_at',
         'kitchen_print_count',
         'kitchen_last_printed_at',
+        'delivery_zone_id',
+        'zone_resolution_method',
+        'zone_resolved_at',
     ];
 
     protected $casts = [
@@ -97,6 +101,9 @@ class Order extends Model
         'kitchen_last_printed_at' => 'datetime',
         'courier_comment_changed_at' => 'datetime',
         'courier_comment_read_at' => 'datetime',
+        'delivery_zone_id' => 'integer',
+        'zone_resolution_method' => 'string',
+        'zone_resolved_at' => 'datetime',
 
     ];
 
@@ -197,6 +204,11 @@ class Order extends Model
     public function source(): BelongsTo
     {
         return $this->belongsTo(Source::class, 'source_id');
+    }
+
+    public function deliveryZone(): BelongsTo
+    {
+        return $this->belongsTo(DeliveryZone::class, 'delivery_zone_id');
     }
 
     /** @return HasMany<OrderItem> */

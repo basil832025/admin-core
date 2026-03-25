@@ -10,6 +10,7 @@ use Twig\Environment;
 use Twig\Extension\SandboxExtension;
 use Twig\Loader\ArrayLoader;
 use Twig\Sandbox\SecurityPolicy;
+use Twig\TwigFunction;
 
 class TwigTemplateRenderService
 {
@@ -258,7 +259,7 @@ class TwigTemplateRenderService
             ['escape', 'e', 'upper', 'lower', 'length', 'join', 'date', 'number_format', 'default', 'nl2br', 'raw'],
             [],
             [],
-            ['range']
+            ['range', 'chart_donut_png']
         );
 
         $twig = new Environment($loader, [
@@ -266,8 +267,185 @@ class TwigTemplateRenderService
             'strict_variables' => false,
         ]);
 
+        $twig->addFunction(new TwigFunction('chart_donut_png', function (mixed $values, mixed $colors, mixed $centerText = null, mixed $size = 220): string {
+            return $this->buildDonutChartPngDataUri($values, $colors, $centerText, $size);
+        }));
+
         $twig->addExtension(new SandboxExtension($policy, true));
 
         return $twig;
+    }
+
+    private function buildDonutChartPngDataUri(mixed $values, mixed $colors, mixed $centerText = null, mixed $size = 220): string
+    {
+        if (! function_exists('imagecreatetruecolor')) {
+            return '';
+        }
+
+        $numbers = [];
+        foreach (is_array($values) ? $values : [] as $value) {
+            $num = (float) $value;
+            $numbers[] = $num > 0 ? $num : 0.0;
+        }
+
+        if ($numbers === []) {
+            return '';
+        }
+
+        $palette = [];
+        foreach (is_array($colors) ? $colors : [] as $color) {
+            $hex = trim((string) $color);
+            if ($hex !== '') {
+                $palette[] = $hex;
+            }
+        }
+
+        if ($palette === []) {
+            $palette = ['#4f81bd', '#c0504d', '#9bbb59', '#8064a2', '#4bacc6'];
+        }
+
+        $sizePx = max(120, min(800, (int) $size));
+        $img = imagecreatetruecolor($sizePx, $sizePx);
+        if (! $img) {
+            return '';
+        }
+
+        imagealphablending($img, false);
+        imagesavealpha($img, true);
+
+        $transparent = imagecolorallocatealpha($img, 255, 255, 255, 127);
+        imagefill($img, 0, 0, $transparent);
+        imagealphablending($img, true);
+
+        $cx = (int) ($sizePx / 2);
+        $cy = (int) ($sizePx / 2);
+        $diameter = (int) round($sizePx * 0.636);
+        $sum = array_sum($numbers);
+        if ($sum <= 0) {
+            $sum = 1.0;
+        }
+
+        $start = -90.0;
+        $segments = [];
+        foreach ($numbers as $index => $value) {
+            if ($value <= 0) {
+                continue;
+            }
+
+            $angle = 360.0 * ($value / $sum);
+            $end = $start + $angle;
+
+            $hex = $palette[$index % count($palette)];
+            [$r, $g, $b] = $this->hexToRgb($hex);
+            $color = imagecolorallocate($img, $r, $g, $b);
+
+            imagefilledarc(
+                $img,
+                $cx,
+                $cy,
+                $diameter,
+                $diameter,
+                (int) round($start),
+                (int) round($end),
+                $color,
+                IMG_ARC_PIE
+            );
+
+            $segments[] = [
+                'start' => $start,
+                'end' => $end,
+                'percent' => ($value / $sum) * 100,
+            ];
+
+            $start = $end;
+        }
+
+        $hole = imagecolorallocate($img, 255, 255, 255);
+        $innerDiameter = (int) round($sizePx * 0.345);
+        imagefilledellipse($img, $cx, $cy, $innerDiameter, $innerDiameter, $hole);
+
+        $stroke = imagecolorallocate($img, 226, 232, 240);
+        imageellipse($img, $cx, $cy, $innerDiameter, $innerDiameter, $stroke);
+
+        $text = trim((string) ($centerText ?? ''));
+        if ($text !== '') {
+            $textColor = imagecolorallocate($img, 51, 65, 85);
+            $font = 3;
+            $textWidth = imagefontwidth($font) * strlen($text);
+            $textHeight = imagefontheight($font);
+            imagestring(
+                $img,
+                $font,
+                (int) round($cx - $textWidth / 2),
+                (int) round($cy - $textHeight / 2),
+                $text,
+                $textColor
+            );
+        }
+
+        $labelTextColor = imagecolorallocate($img, 31, 41, 55);
+        $labelFill = imagecolorallocate($img, 255, 255, 255);
+        $labelBorder = imagecolorallocate($img, 203, 213, 225);
+        $labelFont = 3;
+        $labelRadius = $sizePx * 0.318;
+
+        foreach ($segments as $segment) {
+            $percent = (float) ($segment['percent'] ?? 0);
+            if ($percent < 4.0) {
+                continue;
+            }
+
+            $mid = (((float) $segment['start']) + ((float) $segment['end'])) / 2.0;
+            $rad = deg2rad($mid);
+            $x = (int) round($cx + cos($rad) * $labelRadius);
+            $y = (int) round($cy + sin($rad) * $labelRadius);
+
+            $label = (string) round($percent).'%';
+            $labelWidth = imagefontwidth($labelFont) * strlen($label);
+            $labelHeight = imagefontheight($labelFont);
+
+            $padX = 4;
+            $padY = 2;
+            $left = $x - (int) round($labelWidth / 2) - $padX;
+            $top = $y - (int) round($labelHeight / 2) - $padY;
+            $right = $left + $labelWidth + ($padX * 2);
+            $bottom = $top + $labelHeight + ($padY * 2);
+
+            imagefilledrectangle($img, $left, $top, $right, $bottom, $labelFill);
+            imagerectangle($img, $left, $top, $right, $bottom, $labelBorder);
+            imagestring($img, $labelFont, $left + $padX, $top + $padY, $label, $labelTextColor);
+        }
+
+        ob_start();
+        imagepng($img);
+        $binary = (string) ob_get_clean();
+        imagedestroy($img);
+
+        if ($binary === '') {
+            return '';
+        }
+
+        return 'data:image/png;base64,'.base64_encode($binary);
+    }
+
+    /**
+     * @return array{0: int, 1: int, 2: int}
+     */
+    private function hexToRgb(string $hex): array
+    {
+        $hex = ltrim(trim($hex), '#');
+        if (strlen($hex) === 3) {
+            $hex = $hex[0].$hex[0].$hex[1].$hex[1].$hex[2].$hex[2];
+        }
+
+        if (strlen($hex) !== 6 || ! ctype_xdigit($hex)) {
+            return [79, 129, 189];
+        }
+
+        return [
+            hexdec(substr($hex, 0, 2)),
+            hexdec(substr($hex, 2, 2)),
+            hexdec(substr($hex, 4, 2)),
+        ];
     }
 }
