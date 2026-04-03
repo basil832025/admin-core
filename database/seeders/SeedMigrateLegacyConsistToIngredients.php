@@ -17,7 +17,14 @@ class SeedMigrateLegacyConsistToIngredients extends Seeder
         }
 
         if (! Schema::hasTable('catalog_consist_info') || ! Schema::hasTable('product_consist_assoc')) {
+            $snapshotPath = __DIR__ . '/dumps/ingredients_snapshot.php';
+            if (is_file($snapshotPath)) {
+                $this->syncFromSnapshot($snapshotPath);
+                return;
+            }
+
             $this->command?->error('Legacy tables catalog_consist_info / product_consist_assoc are missing.');
+            $this->command?->error('Also no snapshot found: database/seeders/dumps/ingredients_snapshot.php');
             return;
         }
 
@@ -168,6 +175,115 @@ class SeedMigrateLegacyConsistToIngredients extends Seeder
 
             $this->command?->info(
                 "Ingredient migration done. Ingredients created: {$createdIngredients}, updated: {$updatedIngredients}, products synced: {$syncedProducts}, pivot rows inserted: {$insertedPivots}"
+            );
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            throw $e;
+        }
+    }
+
+    private function syncFromSnapshot(string $snapshotPath): void
+    {
+        $snapshot = require $snapshotPath;
+
+        if (! is_array($snapshot)) {
+            $this->command?->error('Invalid ingredients snapshot format.');
+            return;
+        }
+
+        $ingredients = is_array($snapshot['ingredients'] ?? null) ? $snapshot['ingredients'] : [];
+        $productIngredients = is_array($snapshot['product_ingredients'] ?? null) ? $snapshot['product_ingredients'] : [];
+
+        if (empty($ingredients)) {
+            $this->command?->error('Ingredients snapshot is empty.');
+            return;
+        }
+
+        $upsertRows = [];
+        foreach ($ingredients as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $id = (int) ($row['id'] ?? 0);
+            if ($id <= 0) {
+                continue;
+            }
+
+            $nameRaw = $row['name'] ?? null;
+            $nameJson = is_array($nameRaw)
+                ? json_encode($nameRaw, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+                : (string) $nameRaw;
+
+            if ($nameJson === '' || $nameJson === 'null') {
+                continue;
+            }
+
+            $upsertRows[] = [
+                'id' => $id,
+                'name' => $nameJson,
+                'slug' => $row['slug'] ?? null,
+                'is_active' => (int) ($row['is_active'] ?? 1),
+                'legacy_consist_id' => isset($row['legacy_consist_id']) ? (int) $row['legacy_consist_id'] : null,
+                'updated_at' => now(),
+                'created_at' => now(),
+            ];
+        }
+
+        if (empty($upsertRows)) {
+            $this->command?->error('No valid ingredient rows in snapshot.');
+            return;
+        }
+
+        DB::beginTransaction();
+
+        try {
+            DB::table('bs_ingredients')->upsert(
+                $upsertRows,
+                ['id'],
+                ['name', 'slug', 'is_active', 'legacy_consist_id', 'updated_at']
+            );
+
+            $productIds = [];
+            $pivotRows = [];
+
+            foreach ($productIngredients as $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+
+                $productId = (int) ($row['product_id'] ?? 0);
+                $ingredientId = (int) ($row['ingredient_id'] ?? 0);
+                $sortOrder = (int) ($row['sort_order'] ?? 0);
+
+                if ($productId <= 0 || $ingredientId <= 0) {
+                    continue;
+                }
+
+                $productIds[$productId] = true;
+                $pivotRows[] = [
+                    'product_id' => $productId,
+                    'ingredient_id' => $ingredientId,
+                    'sort_order' => $sortOrder > 0 ? $sortOrder : 1,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+
+            if (! empty($productIds)) {
+                DB::table('bs_product_ingredient')
+                    ->whereIn('product_id', array_keys($productIds))
+                    ->delete();
+            }
+
+            if (! empty($pivotRows)) {
+                DB::table('bs_product_ingredient')->insert($pivotRows);
+            }
+
+            DB::commit();
+
+            $this->command?->info(
+                'Ingredients synced from snapshot. Ingredients upserted: ' . count($upsertRows) . ', pivot rows inserted: ' . count($pivotRows)
             );
         } catch (\Throwable $e) {
             DB::rollBack();
