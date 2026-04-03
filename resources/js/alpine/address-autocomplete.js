@@ -635,6 +635,11 @@ function initAddressAutocomplete(options = {}) {
             const form = streetInput.closest('form');
             if (form) {
                 form.addEventListener('submit', function(e) {
+                    const shippingMethod = (form.querySelector('input[name="shipping_method"]')?.value || '').trim();
+                    if (shippingMethod === 'pickup' || streetInput.disabled) {
+                        return;
+                    }
+
                     const currentValue = streetInput.value;
 
                     // Если адрес не был выбран из Google Places, но есть значение - блокируем отправку
@@ -1135,6 +1140,11 @@ function initAddressAutocomplete(options = {}) {
         const form = streetInput.closest('form');
         if (form) {
             form.addEventListener('submit', function(e) {
+                const shippingMethod = (form.querySelector('input[name="shipping_method"]')?.value || '').trim();
+                if (shippingMethod === 'pickup' || streetInput.disabled) {
+                    return;
+                }
+
                 const currentValue = streetInput.value;
 
                 if (!isPlaceSelected && currentValue && currentValue.trim() !== '') {

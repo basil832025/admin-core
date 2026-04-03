@@ -1494,6 +1494,11 @@ function initCheckoutAutocomplete() {
                 const form = streetInput.closest('form');
                 if (form) {
                     form.addEventListener('submit', (e) => {
+                        const shippingMethod = (form.querySelector('input[name="shipping_method"]')?.value || '').trim();
+                        if (shippingMethod === 'pickup' || streetInput.disabled) {
+                            return;
+                        }
+
                         const currentValue = streetInput.value;
 
                         if (!isPlaceSelected && currentValue && currentValue.trim() !== '') {

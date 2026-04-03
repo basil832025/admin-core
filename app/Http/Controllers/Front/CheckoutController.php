@@ -779,76 +779,80 @@ public function submit(Request $request)
         ]);
     }
 
-    // 2. Адрес: существующий или новый
-    $useNew = $request->boolean('use_new_address')
-        || ! $client
-        || ($client && ! $client->addresses()->exists());
+    $shippingMethod = $validated['shipping_method'];
 
+    // 2. Адрес: существующий или новый (только для доставки)
+    $useNew = false;
     $addressId = null;
     $addressSnapshot = null;
 
-    if ($useNew) {
-        $addr = $request->validate([
-            'addr.street'           => 'required|string|max:255',
-            'addr.house'            => 'required|string|max:50',
-            'addr.apartment'        => 'nullable|string|max:50',
-            'addr.intercom'         => 'nullable|string|max:50',
-            'addr.floor'            => 'nullable|string|max:20',
-            'addr.porch'            => 'nullable|string|max:20',
-            'addr.comment'          => 'nullable|string|max:500',
-            'addr.is_private_house' => 'nullable|boolean',
-            'addr.type'             => 'nullable|string|in:home,work,friends',
-            'addr.lat'              => 'nullable|numeric',
-            'addr.lng'              => 'nullable|numeric',
-        ]);
+    if ($shippingMethod === 'delivery') {
+        $useNew = $request->boolean('use_new_address')
+            || ! $client
+            || ($client && ! $client->addresses()->exists());
 
-        $addrData = [
-            'client_id'        => $client?->id,
-            'street'           => $addr['addr']['street'],
-            'house'            => $addr['addr']['house'],
-            'apartment'        => $addr['addr']['apartment'] ?? null,
-            'intercom'         => $addr['addr']['intercom'] ?? null,
-            'floor'            => $addr['addr']['floor'] ?? null,
-            'entrance'         => $addr['addr']['porch'] ?? null,
-            'note'             => $addr['addr']['comment'] ?? null,
-            'is_private_house' => !empty($addr['addr']['is_private_house']),
-            'type'             => $addr['addr']['type'] ?? null,
-            'city'             => 'Київ',
-            // координаты из формы checkout (заполняются Google Autocomplete)
-            'latitude'         => $addr['addr']['lat'] ?? null,
-            'longitude'        => $addr['addr']['lng'] ?? null,
-        ];
+        if ($useNew) {
+            $addr = $request->validate([
+                'addr.street'           => 'required|string|max:255',
+                'addr.house'            => 'required|string|max:50',
+                'addr.apartment'        => 'nullable|string|max:50',
+                'addr.intercom'         => 'nullable|string|max:50',
+                'addr.floor'            => 'nullable|string|max:20',
+                'addr.porch'            => 'nullable|string|max:20',
+                'addr.comment'          => 'nullable|string|max:500',
+                'addr.is_private_house' => 'nullable|boolean',
+                'addr.type'             => 'nullable|string|in:home,work,friends',
+                'addr.lat'              => 'nullable|numeric',
+                'addr.lng'              => 'nullable|numeric',
+            ]);
 
-        $address   = ClientAddress::create($addrData);
-        $addressId = $address->id;
-        $addressSnapshot = $addrData;
-    } else {
-        $addressId = $request->input('selected_address_id');
+            $addrData = [
+                'client_id'        => $client?->id,
+                'street'           => $addr['addr']['street'],
+                'house'            => $addr['addr']['house'],
+                'apartment'        => $addr['addr']['apartment'] ?? null,
+                'intercom'         => $addr['addr']['intercom'] ?? null,
+                'floor'            => $addr['addr']['floor'] ?? null,
+                'entrance'         => $addr['addr']['porch'] ?? null,
+                'note'             => $addr['addr']['comment'] ?? null,
+                'is_private_house' => !empty($addr['addr']['is_private_house']),
+                'type'             => $addr['addr']['type'] ?? null,
+                'city'             => 'Київ',
+                // координаты из формы checkout (заполняются Google Autocomplete)
+                'latitude'         => $addr['addr']['lat'] ?? null,
+                'longitude'        => $addr['addr']['lng'] ?? null,
+            ];
 
-        if ($client) {
-            $address = $client->addresses()
-                ->whereKey($addressId)
-                ->first();
+            $address   = ClientAddress::create($addrData);
+            $addressId = $address->id;
+            $addressSnapshot = $addrData;
         } else {
-            $address = ClientAddress::find($addressId);
-        }
+            $addressId = $request->input('selected_address_id');
 
-        if (! $address) {
-            return back()
-                ->withErrors(['selected_address_id' => 'Оберіть адресу доставки або введіть нову.'])
-                ->withInput();
-        }
+            if ($client) {
+                $address = $client->addresses()
+                    ->whereKey($addressId)
+                    ->first();
+            } else {
+                $address = ClientAddress::find($addressId);
+            }
 
-        $addressId       = $address->id;
-        $addressSnapshot = $address->only([
-            'street', 'house', 'apartment', 'intercom', 'floor',
-            'entrance', 'comment', 'is_private_house', 'type', 'city',
-        ]);
+            if (! $address) {
+                return back()
+                    ->withErrors(['selected_address_id' => 'Оберіть адресу доставки або введіть нову.'])
+                    ->withInput();
+            }
+
+            $addressId       = $address->id;
+            $addressSnapshot = $address->only([
+                'street', 'house', 'apartment', 'intercom', 'floor',
+                'entrance', 'comment', 'is_private_house', 'type', 'city',
+            ]);
+        }
     }
 
     // 3. Доставка (asap / fixed)
 
-    $shippingMethod = $request->input('shipping_method');
     $deliveryMode   = $request->input('delivery_mode', 'asap');
     $deliveryDate   = $request->input('delivery_date');
     $deliveryTimeRaw = $request->input('delivery_time'); // Диапазон типа "12:00-12:15"
@@ -956,8 +960,8 @@ public function submit(Request $request)
         'client_address_id' => $addressId,
         'address'           => $addressSnapshot,
 
-        'shipping_method'   => $validated['shipping_method'],
-        'self_pickup'       => $validated['shipping_method'] === 'pickup',
+        'shipping_method'   => $shippingMethod,
+        'self_pickup'       => $shippingMethod === 'pickup',
         'as_soon_possible'  => $deliveryMode === 'asap',
 
         'payment'           => $paymentEnum,
@@ -965,7 +969,7 @@ public function submit(Request $request)
         'notes'             => implode(' | ', $notesParts) ?: null,
 
         'total_price'       => $itemsTotal,
-        'shipping_price'    => $order->shipping_price ?? 0,
+        'shipping_price'    => $shippingMethod === 'pickup' ? 0 : ($order->shipping_price ?? 0),
     ]);
 
     $order->dat        = now()->toDateString();       // yyyy-mm-dd
