@@ -38,6 +38,30 @@ class SeedRestoreClassicPieVariantsFromBsProducts extends Seeder
     private array $weightCharacteristic = ['19' => 68, '23' => 4, '29' => 5, '33' => 6];
     private array $personsCharacteristicDefault = ['19' => 179, '23' => 7, '29' => 8, '33' => 9];
 
+    private array $legacyIdBySlug = [
+        'pirog-s-kurnum-file-surom-i-zelenu' => 5,
+        'pirog-s-indejkoj-gribami-surom-i-zelenu' => 6,
+        'pirog-s-pomidorami-surom-i-zelenu' => 10,
+        'pirog-s-surom-gribami-i-zelenu' => 11,
+        'pirog-s-surom-i-shpinatom' => 20,
+        'pirog-s-kartofelem-gribami-i-zelenu' => 23,
+        'pirog-s-kurinum-file-surom-sladkim-i-ostrum-percem' => 24,
+        'pirog-s-pomidorami-indejkoj-surom-i-zelenu' => 25,
+        'pirog-s-indejkoj-vyalenumi-suhofruktami-surom-i-percem' => 27,
+        'pirog-s-kapustoj-gribami-pomidorami-i-zelenu' => 29,
+        'pirog-s-rublenoj-telyatinoj-i-zelenu' => 30,
+        'pirog-s-baraninoj-telyatinoj-i-ostrum-percem' => 32,
+        'pirog-s-makom-i-vishnej' => 33,
+        'pirog-s-svininoj-pomidorami-zelenu-i-sladkim-percem' => 34,
+        'pirog-s-tvorogom-izumom-i-cukatami' => 35,
+        'pirig-z-yablukami-i-koriceu' => 37,
+        'pirog-s-grushej-yablokami-i-mindalnumi-orehami' => 39,
+        'pirog-s-klubnikoj-vishnej-i-yablokami' => 42,
+        'pirog-s-semgoj-surom-pomidorami-i-zelenu' => 81,
+        'pirog-s-tukvoj-i-surom' => 108,
+        'pirog-s-belumi-gribami-surom-kartofelem-i-zelenu' => 133,
+    ];
+
     public function run(): void
     {
         $processed = 0;
@@ -53,6 +77,13 @@ class SeedRestoreClassicPieVariantsFromBsProducts extends Seeder
                     ->whereNull('parent_id')
                     ->where('slug', $slug)
                     ->first();
+
+                if (! $parent && isset($this->legacyIdBySlug[$slug])) {
+                    $parent = DB::table('bs_products')
+                        ->whereNull('parent_id')
+                        ->where('id', $this->legacyIdBySlug[$slug])
+                        ->first();
+                }
 
                 if (! $parent) {
                     $skipped++;
