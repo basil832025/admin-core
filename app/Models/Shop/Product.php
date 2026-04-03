@@ -169,6 +169,14 @@ class Product extends Model implements HasMedia
 
     }
 
+    public function ingredients(): BelongsToMany
+    {
+        return $this->belongsToMany(Ingredient::class, 'bs_product_ingredient', 'product_id', 'ingredient_id')
+            ->withPivot(['sort_order'])
+            ->orderByPivot('sort_order')
+            ->orderBy('bs_ingredients.id');
+    }
+
     public function resolvedCategoryCharacteristics()
     {
         return $this->category
@@ -430,6 +438,7 @@ class Product extends Model implements HasMedia
         return $q->with([
             'productCharacteristicValues.characteristic.svgImage',
             'productCharacteristicValues.characteristicValue',
+            'ingredients',
             'children' => function ($query) {
                 $query->select(['id','title','price','old_price','main_image','slug','code2','description','category_id','seo_title','parent_id','sort']);
             },

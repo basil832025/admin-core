@@ -89,7 +89,7 @@
                                 :url="$p['url'] ?? ''"
                                 :article="$p['article'] ?? '12345'"
                                 :price="$p['price'] ?? '0.00'"
-                                :description="$p['description'] ?? ''"
+                                :description="$p['card_description'] ?? ($p['description'] ?? '')"
                                 :price_no_sale="$p['old_price'] ?? $p['price_no_sale'] ?? null"
                                 :image="$p['main_image'] ?? '/images/no-image.svg'"
                                 :characteristics="$p['characteristics'] ?? []"

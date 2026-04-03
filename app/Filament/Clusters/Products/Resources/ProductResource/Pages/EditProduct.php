@@ -75,7 +75,8 @@ class EditProduct extends EditRecord
     protected function mutateFormDataBeforeFill(array $data): array
     {
             $this->record->loadMissing('characteristicValues');
-      //  dd($data);
+            $data['legacy_consist_rows'] = ProductResource::legacyConsistRowsForProduct((int) $this->record->id);
+
         return $data;
     }
     protected function beforeValidate(): void
@@ -87,8 +88,13 @@ class EditProduct extends EditRecord
 
     protected function handleRecordUpdate($record, array $data): Product
     {
+        $legacyConsistRows = (array) ($data['legacy_consist_rows'] ?? []);
+        unset($data['legacy_consist_rows']);
+
         $record->update($data);
         $record->syncFromFormState($data);
+        ProductResource::syncLegacyConsistForProduct((int) $record->id, $legacyConsistRows);
+
         return $record;
     }
     // до сохранения Кастомное обновление модели

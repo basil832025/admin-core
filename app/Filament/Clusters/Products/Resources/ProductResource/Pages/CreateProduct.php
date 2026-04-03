@@ -42,8 +42,10 @@ class CreateProduct extends CreateRecord
 // В CreateProduct (страница ресурса)
     protected function mutateFormDataBeforeFill(array $data): array
     {
-       /* $data['characteristics'] ??= []; // гарантируем существование
-        return $data;*/
+        /* $data['characteristics'] ??= []; // гарантируем существование */
+        $data['legacy_consist_rows'] = [];
+
+        return $data;
     }
     public static function getNavigationLabel(): string
     {
@@ -84,6 +86,9 @@ class CreateProduct extends CreateRecord
     }
     protected function handleRecordCreation(array $data): Product
     {
+        $legacyConsistRows = (array) ($data['legacy_consist_rows'] ?? []);
+        unset($data['legacy_consist_rows']);
+
         $record = Product::create($data);
       //  dd('555');
         foreach ($data['images'] ?? [] as $imagePath) {
@@ -156,6 +161,8 @@ class CreateProduct extends CreateRecord
             }
         }*/
 
+
+        ProductResource::syncLegacyConsistForProduct((int) $record->id, $legacyConsistRows);
 
         return $record;
     }

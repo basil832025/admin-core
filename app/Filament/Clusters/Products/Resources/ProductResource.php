@@ -42,6 +42,7 @@ use SolutionForest\FilamentTranslateField\Forms\Component\Translate;
 use Illuminate\Support\Str;
 use  App\Models\Shop\ProductImage;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Field;
 //use Filament\Forms\Components\Field | Group;
@@ -110,6 +111,10 @@ class ProductResource extends Resource
 
                     Tab::make(__('product.tabs.characteristics'))
                         ->schema(fn (Get $get, ?Product $record) => static::characteristicTab($get, $record))
+                        ->columns(1),
+
+                    Tab::make('Склад')
+                        ->schema(static::legacyConsistTab())
                         ->columns(1),
 
                     Tab::make(__('product.tabs.seo'))
@@ -336,6 +341,126 @@ class ProductResource extends Resource
 
         ];
     }
+
+    protected static function legacyConsistTab(): array
+    {
+        return [
+            Section::make('Состав товара')
+                ->description('Источник: bs_ingredients + bs_product_ingredient')
+                ->schema([
+                    Repeater::make('legacy_consist_rows')
+                        ->label('Состав')
+                        ->addActionLabel('Додати інгредієнт')
+                        ->reorderable()
+                        ->defaultItems(0)
+                        ->itemLabel(function (array $state): ?string {
+                            $consistId = (int) ($state['consist_id'] ?? 0);
+                            if ($consistId <= 0) {
+                                return 'Інгредієнт';
+                            }
+
+                            return static::legacyConsistOptions()[$consistId] ?? ('ID: ' . $consistId);
+                        })
+                        ->schema([
+                            Select::make('consist_id')
+                                ->label('Інгредієнт')
+                                ->options(fn () => static::legacyConsistOptions())
+                                ->required()
+                                ->searchable()
+                                ->preload(),
+                        ])
+                        ->dehydrated(true)
+                        ->helperText('Порядок у списку зберігається при збереженні. На фронті використовується цей склад.'),
+                ]),
+        ];
+    }
+
+    public static function legacyConsistOptions(?string $locale = null): array
+    {
+        $loc = strtolower((string) ($locale ?: app()->getLocale()));
+        $rows = DB::table('bs_ingredients')
+            ->where('is_active', 1)
+            ->orderBy('id')
+            ->get(['id', 'name']);
+
+        $options = [];
+        foreach ($rows as $row) {
+            $decoded = json_decode((string) $row->name, true);
+            if (! is_array($decoded)) {
+                continue;
+            }
+
+            $title = trim((string) ($decoded[$loc] ?? $decoded['uk'] ?? $decoded['ru'] ?? $decoded['en'] ?? ''));
+            if ($title === '') {
+                continue;
+            }
+
+            $options[(int) $row->id] = $title;
+        }
+
+        return $options;
+    }
+
+    public static function legacyConsistIdsForProduct(int $productId): array
+    {
+        return DB::table('bs_product_ingredient')
+            ->where('product_id', $productId)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->pluck('ingredient_id')
+            ->map(fn ($v) => (int) $v)
+            ->values()
+            ->all();
+    }
+
+    public static function legacyConsistRowsForProduct(int $productId): array
+    {
+        return DB::table('bs_product_ingredient')
+            ->where('product_id', $productId)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get(['ingredient_id'])
+            ->map(fn ($row) => ['consist_id' => (int) $row->ingredient_id])
+            ->values()
+            ->all();
+    }
+
+    public static function syncLegacyConsistForProduct(int $productId, array $consistRows): void
+    {
+        $ids = collect($consistRows)
+            ->map(function ($row) {
+                if (is_array($row)) {
+                    return (int) ($row['consist_id'] ?? 0);
+                }
+
+                return (int) $row;
+            })
+            ->filter(fn ($v) => $v > 0)
+            ->values()
+            ->all();
+
+        DB::table('bs_product_ingredient')
+            ->where('product_id', $productId)
+            ->delete();
+
+        if (empty($ids)) {
+            return;
+        }
+
+        $insertRows = [];
+        foreach (array_values($ids) as $index => $consistId) {
+            $insertRows[] = [
+                'product_id' => $productId,
+                'ingredient_id' => $consistId,
+                'sort_order' => $index + 1,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+
+        DB::table('bs_product_ingredient')->insert($insertRows);
+    }
+
     protected static function calculationTab(Get $get, ?Product $record): array
     {
         $defaultLocale = Setting::value('default_language_code') ?: config('app.locale');

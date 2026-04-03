@@ -323,7 +323,11 @@
 
                     {{-- Состав --}}
                     @php
-                        $ingredientsSource = trim((string) ($product['short_desc'] ?? ''));
+                        $ingredientsSource = trim((string) ($product['ingredients_text'] ?? ''));
+
+                        if ($ingredientsSource === '') {
+                            $ingredientsSource = trim((string) ($product['short_desc'] ?? ''));
+                        }
 
                         if ($ingredientsSource === '') {
                             $ingredientsSource = (string) ($product['description'] ?? '');
@@ -332,9 +336,6 @@
                         $ingredientsText = preg_replace('/\s+/u', ' ', strip_tags($ingredientsSource));
                         $ingredientsText = trim((string) $ingredientsText);
 
-                        if (mb_strlen($ingredientsText) > 260) {
-                            $ingredientsText = \Illuminate\Support\Str::limit($ingredientsText, 260);
-                        }
                     @endphp
                     @if($ingredientsText !== '')
                         <div class="mt-6">
@@ -383,7 +384,7 @@
                                         :url="$p['url'] ?? ''"
                                         :article="$p['article'] ?? '12345'"
                                         :price="$p['price'] ?? '0.00'"
-                                        :description="$p['description'] ?? ''"
+                                        :description="$p['card_description'] ?? ($p['description'] ?? '')"
                                         :price_no_sale="$p['price_no_sale'] ?? '0.00'"
                                         :image="$p['main_image'] ?? '/images/no-image.svg'"
                                         :characteristics="$p['characteristics'] ?? []"

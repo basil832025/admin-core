@@ -127,6 +127,40 @@ class ProductCardPresenter
 
         // ссылки
 
+        $description = method_exists($p, 'getTranslation')
+            ? $p->getTranslation('description', $this->locale)
+            : $p->description;
+
+        $ingredientText = collect($p->ingredients ?? [])
+            ->map(function ($ingredient) {
+                if (method_exists($ingredient, 'getTranslation')) {
+                    $val = $ingredient->getTranslation('name', $this->locale);
+                    if (is_string($val) && trim($val) !== '') {
+                        return trim($val);
+                    }
+                }
+
+                $name = $ingredient->name ?? null;
+                if (is_array($name)) {
+                    $val = $name[$this->locale] ?? $name['uk'] ?? $name['ru'] ?? $name['en'] ?? reset($name);
+                    if (is_string($val) && trim($val) !== '') {
+                        return trim($val);
+                    }
+                }
+
+                return null;
+            })
+            ->filter(fn ($v) => is_string($v) && $v !== '')
+            ->values();
+
+        $ingredientsText = $ingredientText->isNotEmpty()
+            ? $ingredientText->implode(', ')
+            : '';
+
+        $cardDescription = $ingredientsText !== ''
+            ? $ingredientsText
+            : $description;
+
         $url          = ($categorySlug && $p->slug)
             ? route('product.show', ['categorySlug' => $categorySlug, 'itemSlug' => $p->slug])
             : null;
@@ -134,7 +168,9 @@ class ProductCardPresenter
 
         return [
             'title'           => method_exists($p, 'getTranslation') ? $p->getTranslation('title', $this->locale) : $p->title,
-            'description'     => method_exists($p, 'getTranslation') ? $p->getTranslation('description', $this->locale) : $p->description,
+            'description'     => $description,
+            'card_description'=> $cardDescription,
+            'ingredients_text'=> $ingredientsText,
             'short_desc'      => $p->short_desc,
             'old_price'       => $p->old_price,
             'price'           => $p->price,
