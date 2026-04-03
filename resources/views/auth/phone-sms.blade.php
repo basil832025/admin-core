@@ -7,12 +7,12 @@
 
     @section('content')
     <div class="bg-gray-50 flex items-start md:items-center justify-center pt-4 pb-4 md:py-8 px-4">
-        <div class="w-full max-w-[1440px] bg-white rounded-[24px] shadow-2xl overflow-hidden mt-0 md:mt-0">
+        <div class="w-full max-w-[1160px] bg-white rounded-[24px] shadow-2xl overflow-hidden mt-0 md:mt-0">
             {{-- Обертка: мобилка колонка, десктоп РАЗВОРОТ ряда --}}
-            <div class="w-full flex flex-col md:flex-row-reverse md:min-h-[900px]">
+            <div class="w-full flex flex-col md:flex-row-reverse md:min-h-[760px]">
 
                 {{-- Картинка: мобилка сверху, десктоп справа --}}
-                <div class="md:flex-1 md:flex md:items-center md:justify-end">
+                <div class="md:flex md:flex-none md:w-[520px] md:items-center md:justify-center">
                     {{-- Mobile: отступы 24px и высота 180px --}}
                     <div class="md:hidden px-6 pt-4">
                         {{--    <div class="h-[180px] w-full overflow-hidden rounded-[20px] bg-[#F6E6C6]">
@@ -26,8 +26,8 @@
                     </div>
 
                     {{-- Desktop --}}
-                    <div class="hidden md:flex w-full h-full max-w-[680px] pr-[48px] pt-[32px] pb-[32px] lg:w-[660px]">
-                        <div class="w-full flex-1 overflow-hidden rounded-[32px] bg-[#F6E6C6]">
+                    <div class="hidden md:flex w-[495px] h-[675px]">
+                        <div class="w-full h-full overflow-hidden rounded-[32px] bg-[#F6E6C6]">
                             <img
                                 src="{{ asset('images/svg/auth_right.png') }}"
                                 alt=""
@@ -41,12 +41,12 @@
                 {{-- Форма: мобилка снизу, десктоп слева --}}
                 <div
                     class="flex-1 flex flex-col justify-start md:justify-between
-           p-4 md:p-8 lg:p-12 xl:p-16 overflow-visible
+           p-4 md:p-6 lg:p-8 xl:p-10 overflow-visible
            pt-4 pb-[calc(50vh+env(safe-area-inset-bottom))] md:pt-8 md:pb-8"
                     x-data="authPhoneSmsPage()"
                 >
                     {{-- Форма входа --}}
-                    <div class="flex-1 flex flex-col justify-start md:justify-center max-w-md pt-0 md:pt-8">
+                    <div class="flex-1 flex flex-col justify-start md:justify-center max-w-[380px] pt-0 md:pt-4">
                         {{-- Первый шаг: Ввод телефона --}}
                         <div x-show="!loginPhoneSmsSent" x-cloak>
                             <p class="text-sm md:text-lg lg:text-xl text-gray-700 mb-6 md:mb-8 leading-relaxed">

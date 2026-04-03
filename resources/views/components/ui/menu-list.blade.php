@@ -56,6 +56,10 @@
                             ? route($it['route'], $it['params'] ?? [])
                             : '#'); // fallback
 
+                    if (!$isAuth && \Illuminate\Support\Str::startsWith((string) $href, '/profile')) {
+                        $href = route('auth.show');
+                    }
+
             @endphp
             <a href="{{ $href }}"
                class="group flex items-center gap-3 rounded-xl px-3 py-2 transition-colors w-full min-w-0

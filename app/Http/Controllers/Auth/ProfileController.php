@@ -16,6 +16,12 @@ class ProfileController extends Controller
         $user  = $request->user();
         $field = (string) $request->string('field');
 
+        if ($field === 'birthday') {
+            $request->merge([
+                'birthday' => $this->normalizeBirthdayInput((string) $request->input('birthday', '')),
+            ]);
+        }
+
         // Если день рождения уже задан — запретить менять
         if ($field === 'birthday' && $user->birthday) {
             return back(303)->withErrors([
@@ -105,5 +111,30 @@ class ProfileController extends Controller
         }
 
         return back(303)->with('success', __('Зміни збережено'));
+    }
+
+    private function normalizeBirthdayInput(string $input): string
+    {
+        $raw = trim($input);
+        if ($raw === '') {
+            return '';
+        }
+
+        $digits = preg_replace('/\D+/', '', $raw);
+        if (strlen($digits) === 8) {
+            return substr($digits, 0, 2).'.'.substr($digits, 2, 2).'.'.substr($digits, 4, 4);
+        }
+
+        $normalized = preg_replace('/[\/\-,\s]+/', '.', $raw);
+        $normalized = preg_replace('/\.+/', '.', (string) $normalized);
+        $normalized = trim((string) $normalized, '.');
+
+        if (preg_match('/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/', $normalized, $m)) {
+            return str_pad($m[1], 2, '0', STR_PAD_LEFT)
+                .'.'.str_pad($m[2], 2, '0', STR_PAD_LEFT)
+                .'.'.$m[3];
+        }
+
+        return $raw;
     }
 }

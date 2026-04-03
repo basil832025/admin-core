@@ -1125,7 +1125,7 @@ Route::middleware(['web'])->group(function () {
   //  Route::redirect('/profile', '/', 302)->name('profile.show');
     Route::redirect('/addresses', '/profile/addresses', 302)->name('addresses.index');
     // ВАЖНО: правильные имена для аутентификации
-    Route::redirect('/login', '/', 302)->name('login');   // если страницы логина пока нет
+    Route::redirect('/login', '/auth', 302)->name('login');
     // либо так: Route::view('/login', 'pages.stub')->name('login')->defaults('title','Увійти');
 
     Route::middleware('guest')->group(function () {

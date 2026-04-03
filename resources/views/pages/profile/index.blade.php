@@ -351,6 +351,40 @@
         readonly: {{ $birthdaySet ? 'true' : 'false' }},
         confirmOpen: false,
         selectedDate: '',
+        formatBirthdayMask(raw) {
+            const digits = String(raw ?? '').replace(/\D/g, '').slice(0, 8);
+            if (digits.length <= 2) return digits;
+            if (digits.length <= 4) return `${digits.slice(0, 2)}.${digits.slice(2)}`;
+            return `${digits.slice(0, 2)}.${digits.slice(2, 4)}.${digits.slice(4)}`;
+        },
+        onBirthdayInput(e) {
+            const el = e?.target;
+            if (!el) return;
+            el.value = this.formatBirthdayMask(el.value);
+        },
+        normalizeBirthdayInput(raw) {
+            const source = String(raw ?? '').trim();
+            if (!source) return '';
+
+            const digits = source.replace(/\D/g, '');
+            if (digits.length === 8) {
+                return `${digits.slice(0, 2)}.${digits.slice(2, 4)}.${digits.slice(4, 8)}`;
+            }
+
+            const normalized = source
+                .replace(/[\/,\-]+/g, '.')
+                .replace(/\s+/g, '')
+                .replace(/\.+/g, '.')
+                .replace(/^\.|\.$/g, '');
+
+            const m = normalized.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+            if (!m) return '';
+
+            const day = m[1].padStart(2, '0');
+            const month = m[2].padStart(2, '0');
+            const year = m[3];
+            return `${day}.${month}.${year}`;
+        },
         submitForm() {
             const f = this.$refs.form;
             if (!f) return;
@@ -359,27 +393,15 @@
         openConfirm(str) {
             if (this.readonly) return;
             if (!str) str = this.$refs.birthday.value;
-            // базовая валидация формата dd.mm.yyyy
-            const ok = /^\d{2}\.\d{2}\.\d{4}$/.test(str);
-            if (!ok) return;
-            this.selectedDate = str;
+
+            const normalized = this.normalizeBirthdayInput(str);
+            if (!normalized) return;
+
+            this.$refs.birthday.value = normalized;
+            this.selectedDate = normalized;
             this.confirmOpen = true;
         },
-        applyMask() {
-            if (!window.Inputmask || this.readonly) return;
-            Inputmask({
-                alias: 'datetime',
-                inputFormat: 'dd.mm.yyyy',
-                placeholder: 'ДД.ММ.ГГГГ',
-                clearIncomplete: true,
-                showMaskOnHover: false,
-                // ← вместо автосабмита открываем модалку подтверждения
-                oncomplete: () => this.openConfirm(this.$refs.birthday.value),
-            }).mask(this.$refs.birthday);
-        },
         init() {
-            if (!this.readonly) this.applyMask();
-
             const key = '{{ $fpLocaleKey }}' === 'ua' ? 'uk' : '{{ $fpLocaleKey }}';
             const l10n = key === 'ru' ? flatpickr.l10ns.ru
                         : key === 'uk' ? flatpickr.l10ns.uk
@@ -412,12 +434,14 @@
                                     name="birthday"
                                     type="text"
                                     inputmode="numeric"
+                                    autocomplete="off"
                                     minlength="10" maxlength="10"
                                     placeholder="{{ st('profile.date_format_ddmmyyyy','ДД.ММ.ГГГГ') }}"
                                     value="{{ old('birthday', $birthdayVal) }}"
                                     @if($birthdaySet) readonly @endif
+                                    @input="onBirthdayInput($event)"
                                     @keyup.enter.prevent="openConfirm()"
-                                    @blur="if($el.value.length===10) openConfirm()"
+                                    @blur="if(($el.value || '').trim() !== '') openConfirm()"
                                     class="h-11 w-full pl-3 pr-10 rounded-lg ring-1 ring-black/10 bg-white outline-none text-[15px]
                        placeholder:text-gray-400 {{ $birthdaySet ? 'bg-gray-50 text-gray-500' : '' }}">
                                 <button type="button" @click.prevent="openCal()" :disabled="readonly"
