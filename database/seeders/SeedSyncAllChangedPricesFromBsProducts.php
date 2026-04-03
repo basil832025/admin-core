@@ -52,6 +52,8 @@ class SeedSyncAllChangedPricesFromBsProducts extends Seeder
         $checkedVariants = 0;
         $updatedVariants = 0;
         $missingSizeInFamily = 0;
+        $unmappedParents = 0;
+        $unmappedSamples = [];
 
         DB::beginTransaction();
 
@@ -96,6 +98,10 @@ class SeedSyncAllChangedPricesFromBsProducts extends Seeder
                 }
 
                 if (empty($candidatesBySource)) {
+                    $unmappedParents++;
+                    if (count($unmappedSamples) < 20) {
+                        $unmappedSamples[] = $slug;
+                    }
                     continue;
                 }
 
@@ -152,8 +158,12 @@ class SeedSyncAllChangedPricesFromBsProducts extends Seeder
         }
 
         $this->command?->info(
-            "All mapped bs_products prices synced. Matched parents: {$matchedParents}, Updated parents: {$updatedParents}, Checked variants: {$checkedVariants}, Updated variants: {$updatedVariants}, Source sizes not present in family: {$missingSizeInFamily}"
+            "All mapped bs_products prices synced. Matched parents: {$matchedParents}, Updated parents: {$updatedParents}, Checked variants: {$checkedVariants}, Updated variants: {$updatedVariants}, Source sizes not present in family: {$missingSizeInFamily}, Unmapped parents: {$unmappedParents}"
         );
+
+        if (! empty($unmappedSamples)) {
+            $this->command?->warn('Unmapped parent slug samples: ' . implode(', ', $unmappedSamples));
+        }
     }
 
     private function dedupeBySize(array $variants): array

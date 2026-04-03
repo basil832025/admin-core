@@ -8,9 +8,8 @@ class SeedSyncLegacyVariantPrices extends Seeder
 {
     public function run(): void
     {
-        $this->call(SeedSyncAllChangedPricesFromBsProducts::class);
-        $this->call(SeedRestoreClassicPieVariantsFromBsProducts::class);
+        $this->call(SeedSyncMainSitePricesFromSnapshot::class);
 
-        $this->command?->info('Local bs_products variant price sync completed (all mapped products + classic matrix fallback).');
+        $this->command?->info('Local bs_products price sync completed from main-site snapshot.');
     }
 }
