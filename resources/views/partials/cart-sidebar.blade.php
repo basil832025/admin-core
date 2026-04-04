@@ -109,7 +109,13 @@
                         <div class="flex items-center gap-2 order-1">
                             <button
                                 class="w-6 h-6 flex items-center justify-center rounded-full bg-[#FF7500] text-white text-[16px] leading-none"
-                                @click="dec({{ $pid }})">−</button>
+                                @click="dec({{ $pid }})"
+                                aria-label="Зменшити кількість"
+                            >
+                                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                    <path d="M5 12H19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                                </svg>
+                            </button>
 
                             <input
                                 class="w-14 h-10 text-center border border-[#FF7500] rounded text-[16px] font-medium outline-none bg-white"
@@ -123,7 +129,14 @@
 
                             <button
                                 class="w-6 h-6 flex items-center justify-center rounded-full bg-[#FF7500] text-white text-[16px] leading-none"
-                                @click="inc({{ $pid }})">+</button>
+                                @click="inc({{ $pid }})"
+                                aria-label="Збільшити кількість"
+                            >
+                                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                    <path d="M5 12H19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                                    <path d="M12 5V19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                                </svg>
+                            </button>
                         </div>
 
                         {{-- сумма --}}

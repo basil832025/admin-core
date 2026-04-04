@@ -302,14 +302,25 @@
                                     class="w-6 h-6 grid place-items-center text-xl leading-none"
                                     @click="decrementQty"
                                     :disabled="adding || cartQty <= 1"
-                                >−</button>
+                                    aria-label="Зменшити кількість"
+                                >
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                        <path d="M5 12H19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                                    </svg>
+                                </button>
                                 <div class="w-8 text-center font-semibold" x-text="cartQty">1</div>
                                 <button
                                     type="button"
                                     class="w-6 h-6 grid place-items-center text-xl leading-none"
                                     @click="incrementQty"
                                     :disabled="adding"
-                                >+</button>
+                                    aria-label="Збільшити кількість"
+                                >
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                        <path d="M5 12H19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                                        <path d="M12 5V19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                                    </svg>
+                                </button>
                             </div>
                         </div>
                     </div>
