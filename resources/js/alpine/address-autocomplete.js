@@ -86,6 +86,25 @@ function showAddressErrorModal(message) {
     }, 10);
 }
 
+function normalizeAddressValue(value) {
+    return String(value || '')
+        .toLowerCase()
+        .replace(/[.,]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function isAddressSelectionMatch(currentValue, selectedValue) {
+    const currentNorm = normalizeAddressValue(currentValue);
+    const selectedNorm = normalizeAddressValue(selectedValue);
+
+    if (!currentNorm || !selectedNorm) return false;
+
+    return currentNorm === selectedNorm ||
+        currentNorm.includes(selectedNorm) ||
+        selectedNorm.includes(currentNorm);
+}
+
 /**
  * Загружает зависимости для фильтрации по зонам доставки (Google Maps API, jQuery, map-cart.js)
  * @param {Function} callback - Функция, которая будет вызвана после загрузки всех зависимостей
@@ -421,6 +440,7 @@ function initAddressAutocomplete(options = {}) {
             let selectedStreetValue = '';
             let isPlaceSelected = false;
             let isSelectingFromGoogle = false; // Флаг, что идет процесс выбора из Google Places
+            let lastGoogleSelectionAt = 0;
 
             autocomplete.addListener('place_changed', function () {
                 // Устанавливаем флаг, что выбор происходит из Google Places
@@ -498,6 +518,7 @@ function initAddressAutocomplete(options = {}) {
                     streetInput.value = fullStreetValue;
                     selectedStreetValue = fullStreetValue;
                     isPlaceSelected = true;
+                    lastGoogleSelectionAt = Date.now();
                     // Сбрасываем флаг выбора после небольшой задержки, чтобы blur не сработал раньше
                     setTimeout(() => {
                         isSelectingFromGoogle = false;
@@ -572,10 +593,14 @@ function initAddressAutocomplete(options = {}) {
             streetInput.addEventListener('input', function(e) {
                 const currentValue = e.target.value;
 
+                if (isSelectingFromGoogle) {
+                    return;
+                }
+
                 // Если адрес был выбран из Google Places
                 if (isPlaceSelected && selectedStreetValue) {
                     // Если пользователь начал редактировать выбранный адрес
-                    if (currentValue !== selectedStreetValue) {
+                    if (!isAddressSelectionMatch(currentValue, selectedStreetValue)) {
                         // Сбрасываем флаг выбора, разрешаем ввод для нового поиска
                         isPlaceSelected = false;
                         selectedStreetValue = '';
@@ -598,9 +623,22 @@ function initAddressAutocomplete(options = {}) {
                     }
 
                     const currentValue = e.target.value;
+                    if (!currentValue || currentValue.trim() === '') {
+                        isTypingForSearch = false;
+                        return;
+                    }
+
+                    if (selectedStreetValue && isAddressSelectionMatch(currentValue, selectedStreetValue)) {
+                        isPlaceSelected = true;
+                        return;
+                    }
+
+                    if (Date.now() - lastGoogleSelectionAt < 1200) {
+                        return;
+                    }
 
                     // Если адрес был выбран из Google Places, но значение изменилось - восстанавливаем
-                    if (isPlaceSelected && selectedStreetValue && currentValue !== selectedStreetValue) {
+                    if (isPlaceSelected && selectedStreetValue && !isAddressSelectionMatch(currentValue, selectedStreetValue)) {
                         e.target.value = selectedStreetValue;
                         return;
                     }
@@ -621,7 +659,7 @@ function initAddressAutocomplete(options = {}) {
                 if (isPlaceSelected && selectedStreetValue) {
                     // Разрешаем вставку, но проверим после события paste
                     setTimeout(() => {
-                        if (streetInput.value !== selectedStreetValue) {
+                        if (!isAddressSelectionMatch(streetInput.value, selectedStreetValue)) {
                             streetInput.value = selectedStreetValue;
                             showAddressErrorModal(addressText('manual_input_not_allowed'));     }
                     }, 0);
@@ -642,6 +680,11 @@ function initAddressAutocomplete(options = {}) {
 
                     const currentValue = streetInput.value;
 
+                    if (selectedStreetValue && isAddressSelectionMatch(currentValue, selectedStreetValue)) {
+                        isPlaceSelected = true;
+                        return;
+                    }
+
                     // Если адрес не был выбран из Google Places, но есть значение - блокируем отправку
                     if (!isPlaceSelected && currentValue && currentValue.trim() !== '') {
                         e.preventDefault();
@@ -652,7 +695,7 @@ function initAddressAutocomplete(options = {}) {
                     }
 
                     // Если адрес был выбран, но значение изменилось - блокируем отправку
-                    if (isPlaceSelected && selectedStreetValue && currentValue !== selectedStreetValue) {
+                    if (isPlaceSelected && selectedStreetValue && !isAddressSelectionMatch(currentValue, selectedStreetValue)) {
                         e.preventDefault();
                         e.stopPropagation();
                         streetInput.value = selectedStreetValue;
@@ -720,6 +763,7 @@ function initAddressAutocomplete(options = {}) {
         let selectedStreetValue = '';
         let isPlaceSelected = false;
         let isSelectingFromGoogle = false; // Флаг, что идет процесс выбора из Google Places
+        let lastGoogleSelectionAt = 0;
 
         // Создаем кастомный dropdown (без "powered by Google")
         function createCustomDropdown() {
@@ -822,8 +866,12 @@ function initAddressAutocomplete(options = {}) {
             const query = streetInput.value.trim();
             currentQuery = query;
 
+            if (isSelectingFromGoogle) {
+                return;
+            }
+
             // Если адрес был выбран из списка и значение не изменилось, не показываем dropdown
-            if (isPlaceSelected && selectedStreetValue && query === selectedStreetValue) {
+            if (isPlaceSelected && selectedStreetValue && isAddressSelectionMatch(query, selectedStreetValue)) {
                 return;
             }
 
@@ -837,10 +885,10 @@ function initAddressAutocomplete(options = {}) {
 
             // Если адрес был выбран, но пользователь начал редактировать, сбрасываем флаг
             // Но только если изменение значительное (не просто удаление пробела в конце)
-            if (isPlaceSelected && selectedStreetValue && query !== selectedStreetValue) {
+            if (isPlaceSelected && selectedStreetValue && !isAddressSelectionMatch(query, selectedStreetValue)) {
                 // Проверяем, не является ли это просто обрезкой пробелов или незначительным изменением
-                const trimmedQuery = query.trim();
-                const trimmedSelected = selectedStreetValue.trim();
+                const trimmedQuery = normalizeAddressValue(query);
+                const trimmedSelected = normalizeAddressValue(selectedStreetValue);
                 if (trimmedQuery !== trimmedSelected && !trimmedSelected.startsWith(trimmedQuery)) {
                     // Значительное изменение - сбрасываем флаг
                     isPlaceSelected = false;
@@ -1010,6 +1058,7 @@ function initAddressAutocomplete(options = {}) {
                                         if (fullStreetValue) {
                                             streetInput.value = fullStreetValue;
                                             selectedStreetValue = fullStreetValue;
+                                            lastGoogleSelectionAt = Date.now();
                                         }
 
                                         if (streetNumber && houseInput) {
@@ -1106,19 +1155,24 @@ function initAddressAutocomplete(options = {}) {
                 }
 
                 const currentValue = e.target.value;
+                if (!currentValue || currentValue.trim() === '') {
+                    return;
+                }
+
+                if (selectedStreetValue && isAddressSelectionMatch(currentValue, selectedStreetValue)) {
+                    isPlaceSelected = true;
+                    return;
+                }
+
+                if (Date.now() - lastGoogleSelectionAt < 1200) {
+                    return;
+                }
 
                 // Если адрес был выбран из Google Places, не валидируем
                 if (isPlaceSelected && selectedStreetValue) {
                     // Проверяем, что значение соответствует выбранному (с небольшой толерантностью)
-                    if (currentValue && currentValue.trim() !== '' && currentValue !== selectedStreetValue) {
-                        // Если значение отличается, но похоже на выбранное (может быть обрезано), не показываем ошибку
-                        if (selectedStreetValue.includes(currentValue.trim()) || currentValue.trim().includes(selectedStreetValue)) {
-                            // Значения похожи, восстанавливаем полное значение
-                            e.target.value = selectedStreetValue;
-                        } else {
-                            // Значения сильно отличаются, восстанавливаем выбранное значение
-                            e.target.value = selectedStreetValue;
-                        }
+                    if (currentValue && currentValue.trim() !== '' && !isAddressSelectionMatch(currentValue, selectedStreetValue)) {
+                        e.target.value = selectedStreetValue;
                     }
                     return; // Всегда выходим, если адрес был выбран
                 }
@@ -1132,6 +1186,16 @@ function initAddressAutocomplete(options = {}) {
         });
 
         streetInput.addEventListener('paste', function(e) {
+            if (isPlaceSelected && selectedStreetValue) {
+                setTimeout(() => {
+                    if (!isAddressSelectionMatch(streetInput.value, selectedStreetValue)) {
+                        streetInput.value = selectedStreetValue;
+                        showAddressErrorModal(addressText('manual_input_not_allowed'));
+                    }
+                }, 0);
+                return;
+            }
+
             if (!isPlaceSelected) {
                 e.preventDefault();
                 showAddressErrorModal(addressText('manual_input_not_allowed'));     }
@@ -1147,6 +1211,11 @@ function initAddressAutocomplete(options = {}) {
 
                 const currentValue = streetInput.value;
 
+                if (selectedStreetValue && isAddressSelectionMatch(currentValue, selectedStreetValue)) {
+                    isPlaceSelected = true;
+                    return;
+                }
+
                 if (!isPlaceSelected && currentValue && currentValue.trim() !== '') {
                     e.preventDefault();
                     e.stopPropagation();
@@ -1155,7 +1224,7 @@ function initAddressAutocomplete(options = {}) {
                     return false;
                 }
 
-                if (isPlaceSelected && selectedStreetValue && currentValue !== selectedStreetValue) {
+                if (isPlaceSelected && selectedStreetValue && !isAddressSelectionMatch(currentValue, selectedStreetValue)) {
                     e.preventDefault();
                     e.stopPropagation();
                     streetInput.value = selectedStreetValue;

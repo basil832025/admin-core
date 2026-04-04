@@ -36,10 +36,6 @@
     </p>
 </div>
 
-{{-- Ошибка строго снизу --}}
-<p class="mt-1 text-[11px] text-red-500 hidden" data-error-for="agree">
-    {{ st('form.required','Це обов’язкове поле') }}
-</p>
 {{-- Кнопка оформления --}}
 <button
     type="submit"

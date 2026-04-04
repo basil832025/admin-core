@@ -51,7 +51,7 @@
     >
 
     {{-- Дата* --}}
-        <label class="block relative">
+        <label class="block relative" data-field-wrap="delivery_date">
             <span class="sr-only">
                 {{ st('cart.delivery.date_label', 'Дата') }}
             </span>
@@ -61,6 +61,8 @@
                 name="delivery_date"
                 placeholder="{{ st('cart.delivery.date_label', 'Дата*') }}"
                 value="{{ old('delivery_date', $sessionData['delivery_date'] ?? '') }}"
+                data-required
+                data-required-if="shipping_method=delivery;delivery_mode=fixed"
                 :disabled="mode==='asap'"
                 :required="mode==='fixed'"
                 :class="[
@@ -68,6 +70,9 @@
                     mode==='asap' ? 'bg-[#F9FAFB] text-[#9CA3AF] cursor-not-allowed' : ''
                 ]"
             >
+            <p class="tp-error hidden" data-error-for="delivery_date">
+                {{ st('form.required','Це обов’язкове поле') }}
+            </p>
             @error('delivery_date')
             <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
             @enderror
@@ -89,8 +94,9 @@
                 name="delivery_time"
                 class="tp-input pr-10 appearance-none"
                 x-model="selectedTime"
+                data-required
+                data-required-if="shipping_method=delivery;delivery_mode=fixed"
                 :disabled="mode === 'asap'"
-                :data-required="mode === 'fixed' ? true : null"
             >
 
             <option value="">{{ st('cart.delivery.time_label', 'Час') }}</option>
@@ -114,4 +120,3 @@
 
     </div>
 </div>
-

@@ -1353,10 +1353,49 @@ function initCheckoutAutocomplete() {
                     let selectedStreetValue = '';
                     let isPlaceSelected = false;
                     let isSelectingFromGoogle = false;
+                    let lastGoogleSelectionAt = 0;
+
+                    const normalizeAddressValue = (value) => {
+                        return String(value || '')
+                            .toLowerCase()
+                            .replace(/[.,]/g, ' ')
+                            .replace(/\s+/g, ' ')
+                            .trim();
+                    };
+
+                    const isAddressSelectionMatch = (currentValue, selectedValue) => {
+                        const currentNorm = normalizeAddressValue(currentValue);
+                        const selectedNorm = normalizeAddressValue(selectedValue);
+
+                        if (!currentNorm || !selectedNorm) return false;
+
+                        return currentNorm === selectedNorm ||
+                            currentNorm.includes(selectedNorm) ||
+                            selectedNorm.includes(currentNorm);
+                    };
 
                     const showManualInputError = () => {
                         if (typeof window.showAddressErrorModal === 'function') {
                             window.showAddressErrorModal('Будь ласка, оберіть адресу зі списку Google. Ручне введення адреси не дозволено.');
+                        }
+                    };
+
+                    const hasValidSelectedCoords = () => {
+                        const lat = parseFloat(latEl?.value || '');
+                        const lng = parseFloat(lngEl?.value || '');
+                        return !Number.isNaN(lat) && !Number.isNaN(lng);
+                    };
+
+                    const clearSelectedCoords = () => {
+                        if (latEl) {
+                            latEl.value = '';
+                            latEl.dispatchEvent(new Event('input', { bubbles: true }));
+                            latEl.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+                        if (lngEl) {
+                            lngEl.value = '';
+                            lngEl.dispatchEvent(new Event('input', { bubbles: true }));
+                            lngEl.dispatchEvent(new Event('change', { bubbles: true }));
                         }
                     };
 
@@ -1442,6 +1481,9 @@ function initCheckoutAutocomplete() {
                             const value = streetInput.value || place?.formatted_address || '';
                             selectedStreetValue = value;
                             isPlaceSelected = !!value;
+                            if (value) {
+                                lastGoogleSelectionAt = Date.now();
+                            }
                             isSelectingFromGoogle = false;
                         }, 50);
                     } catch (e) {
@@ -1451,10 +1493,13 @@ function initCheckoutAutocomplete() {
                 });
 
                 streetInput.addEventListener('input', (e) => {
+                    if (isSelectingFromGoogle) return;
+
                     const currentValue = e.target.value;
-                    if (isPlaceSelected && selectedStreetValue && currentValue !== selectedStreetValue) {
+                    if (isPlaceSelected && selectedStreetValue && !isAddressSelectionMatch(currentValue, selectedStreetValue)) {
                         isPlaceSelected = false;
                         selectedStreetValue = '';
+                        clearSelectedCoords();
                     }
                 });
 
@@ -1463,8 +1508,22 @@ function initCheckoutAutocomplete() {
                         if (isSelectingFromGoogle) return;
 
                         const currentValue = e.target.value;
+                        if (!currentValue || currentValue.trim() === '') return;
 
-                        if (isPlaceSelected && selectedStreetValue && currentValue !== selectedStreetValue) {
+                        if (hasValidSelectedCoords()) {
+                            isPlaceSelected = true;
+                            if (!selectedStreetValue) selectedStreetValue = currentValue;
+                            return;
+                        }
+
+                        if (selectedStreetValue && isAddressSelectionMatch(currentValue, selectedStreetValue)) {
+                            isPlaceSelected = true;
+                            return;
+                        }
+
+                        if (Date.now() - lastGoogleSelectionAt < 1200) return;
+
+                        if (isPlaceSelected && selectedStreetValue && !isAddressSelectionMatch(currentValue, selectedStreetValue)) {
                             e.target.value = selectedStreetValue;
                             return;
                         }
@@ -1479,7 +1538,7 @@ function initCheckoutAutocomplete() {
                 streetInput.addEventListener('paste', (e) => {
                     if (isPlaceSelected && selectedStreetValue) {
                         setTimeout(() => {
-                            if (streetInput.value !== selectedStreetValue) {
+                            if (!isAddressSelectionMatch(streetInput.value, selectedStreetValue)) {
                                 streetInput.value = selectedStreetValue;
                                 showManualInputError();
                             }
@@ -1501,6 +1560,17 @@ function initCheckoutAutocomplete() {
 
                         const currentValue = streetInput.value;
 
+                        if (hasValidSelectedCoords()) {
+                            isPlaceSelected = true;
+                            if (!selectedStreetValue) selectedStreetValue = currentValue;
+                            return;
+                        }
+
+                        if (selectedStreetValue && isAddressSelectionMatch(currentValue, selectedStreetValue)) {
+                            isPlaceSelected = true;
+                            return;
+                        }
+
                         if (!isPlaceSelected && currentValue && currentValue.trim() !== '') {
                             e.preventDefault();
                             e.stopPropagation();
@@ -1509,7 +1579,7 @@ function initCheckoutAutocomplete() {
                             return false;
                         }
 
-                        if (isPlaceSelected && selectedStreetValue && currentValue !== selectedStreetValue) {
+                        if (isPlaceSelected && selectedStreetValue && !isAddressSelectionMatch(currentValue, selectedStreetValue)) {
                             e.preventDefault();
                             e.stopPropagation();
                             streetInput.value = selectedStreetValue;
@@ -1617,13 +1687,21 @@ function initCheckoutRequiredValidation() {
     const form = document.querySelector('[data-checkout-form]');
     if (!form) return;
 
+    function esc(value) {
+        const str = String(value || '');
+        if (window.CSS && typeof window.CSS.escape === 'function') {
+            return window.CSS.escape(str);
+        }
+        return str.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    }
+
     function getFieldValue(form, name) {
-        const els = form.querySelectorAll('[name="' + CSS.escape(name) + '"]');
+        const els = form.querySelectorAll('[name="' + esc(name) + '"]');
         if (!els.length) return '';
 
         const first = els[0];
         if (first.type === 'radio') {
-            const checked = form.querySelector('[name="' + CSS.escape(name) + '"]:checked');
+            const checked = form.querySelector('[name="' + esc(name) + '"]:checked');
             return checked ? (checked.value || '') : '';
         }
         if (first.type === 'checkbox') {
@@ -1646,32 +1724,65 @@ function initCheckoutRequiredValidation() {
     }
 
     function showError(form, name) {
-        const err = form.querySelector('[data-error-for="'+CSS.escape(name)+'"]');
+        const err = form.querySelector('[data-error-for="'+esc(name)+'"]');
         if (err) err.classList.remove('hidden');
 
-        const wrap = form.querySelector('[data-field-wrap="'+CSS.escape(name)+'"] .tp-float-wrap');
-        if (wrap) { wrap.classList.add('is-invalid'); return; }
+        const wrap = form.querySelector('[data-field-wrap="'+esc(name)+'"]');
+        if (wrap) {
+            wrap.classList.add('is-invalid');
+            const floatWrap = wrap.querySelector('.tp-float-wrap');
+            if (floatWrap) floatWrap.classList.add('is-invalid');
+        }
 
-        const el = form.querySelector('[name="'+CSS.escape(name)+'"]');
-        if (el) el.classList.add('is-invalid');
+        form.querySelectorAll('[name="'+esc(name)+'"]').forEach((el) => {
+            el.classList.add('is-invalid');
+        });
+
+        const byId = document.getElementById(name);
+        if (byId) byId.classList.add('is-invalid');
     }
 
     function clearError(form, name) {
-        const err = form.querySelector('[data-error-for="'+CSS.escape(name)+'"]');
+        const err = form.querySelector('[data-error-for="'+esc(name)+'"]');
         if (err) err.classList.add('hidden');
 
-        const wrap = form.querySelector('[data-field-wrap="'+CSS.escape(name)+'"] .tp-float-wrap');
-        if (wrap) { wrap.classList.remove('is-invalid'); return; }
+        const wrap = form.querySelector('[data-field-wrap="'+esc(name)+'"]');
+        if (wrap) {
+            wrap.classList.remove('is-invalid');
+            const floatWrap = wrap.querySelector('.tp-float-wrap');
+            if (floatWrap) floatWrap.classList.remove('is-invalid');
+        }
 
-        const el = form.querySelector('[name="'+CSS.escape(name)+'"]');
-        if (el) el.classList.remove('is-invalid');
+        form.querySelectorAll('[name="'+esc(name)+'"]').forEach((el) => {
+            el.classList.remove('is-invalid');
+        });
+
+        const byId = document.getElementById(name);
+        if (byId) byId.classList.remove('is-invalid');
     }
 
     function focusField(form, name) {
-        const el = form.querySelector('[name="'+CSS.escape(name)+'"]') || document.getElementById(name);
-        if (!el) return;
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        setTimeout(() => el.focus(), 150);
+        const escaped = esc(name);
+        const wrap = form.querySelector('[data-field-wrap="' + escaped + '"]');
+
+        let focusEl = wrap?.querySelector('input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])');
+
+        if (!focusEl) {
+            focusEl = form.querySelector('[name="' + escaped + '"]:not([type="hidden"]):not([disabled])');
+        }
+
+        if (!focusEl && name === 'delivery_date') {
+            focusEl = form.querySelector('[name="delivery_date"]') || null;
+        }
+
+        const scrollTarget = wrap || focusEl || document.getElementById(name);
+        if (!scrollTarget) return;
+
+        scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        if (focusEl && typeof focusEl.focus === 'function') {
+            setTimeout(() => focusEl.focus(), 150);
+        }
     }
 
     function validateForm(form) {

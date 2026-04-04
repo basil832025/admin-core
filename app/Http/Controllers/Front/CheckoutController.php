@@ -767,9 +767,11 @@ public function submit(Request $request)
         $validated['contact_email'] = trim((string) ($request->input('contact_email') ?? ''));
     }
 
-    // 2. Условная валидация: если выбран режим "fixed", дата и время обязательны
+    $shippingMethod = $validated['shipping_method'];
+
+    // 2. Условная валидация: дата/время обязательны только для доставки в режиме "fixed"
     $deliveryMode = $request->input('delivery_mode', 'asap');
-    if ($deliveryMode === 'fixed') {
+    if ($shippingMethod === 'delivery' && $deliveryMode === 'fixed') {
         $request->validate([
             'delivery_date' => 'required|string|max:50',
             'delivery_time' => 'required|string|max:20',
@@ -778,8 +780,6 @@ public function submit(Request $request)
             'delivery_time.required' => st('cart.delivery.time_required', 'Оберіть час доставки'),
         ]);
     }
-
-    $shippingMethod = $validated['shipping_method'];
 
     // 2. Адрес: существующий или новый (только для доставки)
     $useNew = false;

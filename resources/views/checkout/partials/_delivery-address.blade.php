@@ -174,13 +174,13 @@ x-cloak
         </div>
 
         <input
-            id="selected_address_guard"
+            id="selected_address_id"
             type="hidden"
             x-model="selectedId"
             data-required
             data-required-if="shipping_method=delivery;use_new_address=0"
         >
-        <p class="tp-error hidden mt-1" data-error-for="selected_address_guard">
+        <p class="tp-error hidden mt-1" data-error-for="selected_address_id">
             {{ st('form.required','Це обов’язкове поле') }}
         </p>
 
