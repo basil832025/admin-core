@@ -36,7 +36,7 @@
                 </div>
                     <a href="{{ $btnUrl }}"
                    class="inline-block mt-6 bg-[#FF7500] text-lg hover:bg-orange-600 text-white font-semibold px-6 py-3  rounded transition">
-                    Перейти к меню
+                    {{ st('about.go_to_menu', 'Перейти в меню') }}
                  </a>
             </div>
 
