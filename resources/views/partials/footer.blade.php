@@ -15,7 +15,7 @@
 
             {{-- Три пирога --}}
             <div>
-                <h3 class="text-lg font-semibold text-black"> {{ st('all.try-pyroha','Три пирога') }}</h3>
+                <h3 class="text-lg font-semibold text-black"> {{ st('all.try-pyroha','Три пироги') }}</h3>
                 @if($footer_left_menu)
 
                 <ul class="mt-4 space-y-2 text-[14px] text-[#929292] font-bold">
@@ -137,7 +137,7 @@
             {{-- нижняя строка копирайта --}}
             <div class="border-t border-black/10"></div>
             <div class="py-6 flex flex-col md:flex-row md:items-center md:justify-left gap-4">
-                <p class="text-[14px] text-[#A9A9A9]">© ТРИ ПИРОГА. Усі права захищені</p>
+                <p class="text-[14px] text-[#A9A9A9]">© ТРИ ПИРОГИ. Усі права захищені</p>
                 <div class="flex items-center gap-6">
                     <img src="/images/payments/mastercard.png" alt="Mastercard" class="h-5">
                     <img src="/images/payments/visa.png" alt="VISA" class="h-5">

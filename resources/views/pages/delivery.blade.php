@@ -134,15 +134,17 @@
 
                 </div>
         </section>
-                <!-- 3) Регионы (третьими на планшете, под картой; на lg встанут под заголовками слева) -->
-                <section id="delivery-regions" class="order-3 lg:col-span-1 self-end lg:mt-0 w-[446px]">
+                @if(false)
+                    <!-- 3) Регионы (третьими на планшете, под картой; на lg встанут под заголовками слева) -->
+                    <section id="delivery-regions" class="order-3 lg:col-span-1 self-end lg:mt-0 w-[446px]">
 
-                    <h3 class="xl:mt-10 text-2xl font-bold">{{page_field('delivery', 'delivery_by_city','') }}</h3>
-                    <div class="mt-4 grid grid-cols-1  sm:grid-cols-2 gap-x-12 text-base text-[#929292] leading-8">
-                        {!!page_field('delivery', 'delivery_region','') !!}
+                        <h3 class="xl:mt-10 text-2xl font-bold">{{page_field('delivery', 'delivery_by_city','') }}</h3>
+                        <div class="mt-4 grid grid-cols-1  sm:grid-cols-2 gap-x-12 text-base text-[#929292] leading-8">
+                            {!!page_field('delivery', 'delivery_region','') !!}
 
-                    </div>
-                </section>
+                        </div>
+                    </section>
+                @endif
         </div>
 
         <section class="mx-auto w-full desk:w-[1198px]  xl:mt-[80px] mt-[40px]">
@@ -155,7 +157,7 @@
 
                     <div class="flex justify-between  w-full">
                         <h5 class="font-semibold text-lg text-[#666666] mb-1">{{page_field('delivery', 'delivery_cash','') }}</h5>
-                        <img src="/images/svg/pay-cash.svg" alt="" class="w-8 h-8 shrink-0">
+                        <img src="/images/svg/pay-cash.svg" alt="" class="w-6 h-6 shrink-0">
                     </div>
                         <p class="text-[#9E9E9E] leading-4 text-sm  mt-3">
                             {{page_field('delivery', 'delivery_payincash','') }}

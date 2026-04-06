@@ -5,6 +5,8 @@
 @php
     $text = page_field('about', 'about_zagl','Ми печемо з душею, як для своїх') ?? ''; // строка из базы, например: "Мы печём с душой, как для своих"
     $parts = explode(' ', $text, 2);
+    $btnText = page_field('about', 'about_btn_text', 'Познакомиться с меню');
+    $btnUrl  = page_field('about', 'about_btn_url', '/pies');
 @endphp
 @section('content')
     <div class="mx-auto desk:w-[1198px] p-4  max-w-full">
@@ -32,10 +34,10 @@
                     {!! clean_html($page->content, 'safe',null,'<p><img><ul><li>') !!}
 
                 </div>
-                    <a href="#menu"
+                    <a href="{{ $btnUrl }}"
                    class="inline-block mt-6 bg-[#FF7500] text-lg hover:bg-orange-600 text-white font-semibold px-6 py-3  rounded transition">
                     Перейти к меню
-                </a>
+                 </a>
             </div>
 
             <!-- Правая колонка (картинки) -->
@@ -137,11 +139,6 @@
                     <p class="mt-4 max-w-[720px] mx-auto text-sm sm:text-base text-gray-600">
                         {{ page_field('about', 'about_subtitle', 'Осетинские пироги — это не просто еда...') }}
                     </p>
-
-                    @php
-                        $btnText = page_field('about', 'about_btn_text', 'Познакомиться с меню');
-                        $btnUrl  = page_field('about', 'about_btn_url', '/pies');
-                    @endphp
 
                     {{-- Кнопка ТОЛЬКО для lg+ (внутри контента) --}}
                     <div class="mt-6 hidden lg:block">
