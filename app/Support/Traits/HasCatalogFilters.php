@@ -17,6 +17,9 @@ trait HasCatalogFilters
         $rootIds = Product::query()
             ->active()
             ->MainProduct()
+            ->where(function (Builder $w) {
+                $this->applyMainSiteProductFilter($w);
+            })
             ->pluck('id');
 
         if ($rootIds->isEmpty()) {
@@ -26,6 +29,9 @@ trait HasCatalogFilters
         $childIds = Product::query()
             ->active()
             ->whereIn('parent_id', $rootIds)
+            ->where(function (Builder $w) {
+                $this->applyMainSiteProductFilter($w);
+            })
             ->pluck('id');
 
         $productIds = $rootIds->merge($childIds)->unique();
@@ -63,6 +69,9 @@ trait HasCatalogFilters
         $rootIds = Product::query()
             ->active()
             ->MainProduct()
+            ->where(function (Builder $w) {
+                $this->applyMainSiteProductFilter($w);
+            })
             ->pluck('id');
 
         if ($rootIds->isEmpty()) {
@@ -94,6 +103,10 @@ trait HasCatalogFilters
 
     protected function applyFilters(Builder $q, Request $request): void
     {
+        $q->where(function (Builder $w) {
+            $this->applyMainSiteProductFilter($w);
+        });
+
         // ----- меню -----
         $menuSlugs = collect($request->input('menu', []))
             ->filter()
@@ -186,6 +199,15 @@ trait HasCatalogFilters
     }
 
     /**
+     * Товары только основного сайта (без импортированных).
+     */
+    private function applyMainSiteProductFilter(Builder $query): void
+    {
+        $query->whereNull('is_imported')
+            ->orWhere('is_imported', false);
+    }
+
+    /**
      * Применить сортировку к запросу товаров по параметру ?sort=
      */
     protected function applySort(Builder $query, Request $request): Builder
@@ -214,14 +236,17 @@ trait HasCatalogFilters
                 break;
 
             case 'new':
-                // новые сначала
-                $query->orderBy('created_at', 'desc');
+                // Сначала товары с флагом "новинка", затем по дате, затем стабильный порядок
+                $query->orderByDesc('is_new')
+                    ->orderBy('created_at', 'desc')
+                    ->orderBy('sort', 'asc');
                 break;
 
             case 'popular':
             default:
-                // «популярні» – базовый порядок (можно по полю sort или по полю популярности)
-                $query->orderBy('sort', 'asc');
+                // Сначала товары с флагом "популярний", затем базовый порядок
+                $query->orderByDesc('is_hit')
+                    ->orderBy('sort', 'asc');
                 break;
         }
 
@@ -265,10 +290,8 @@ trait HasCatalogFilters
                 return max($oldPrice - $price, 0);
             }),
 
-            // Новинки — по дате ↓ (если дата есть в карточке)
-            'new' => $items->sortByDesc(function ($p) {
-                return $p['created_at'] ?? null;
-            }),
+            // Новинки/Популярні: сохраняем SQL-порядок
+            'new' => $items,
 
             // Популярні — базовый порядок (по sort)
             default => $items,

@@ -87,9 +87,9 @@ class OrderSuccessTranslationsSeeder extends Seeder
                 'group' => 'order',
                 'slug' => 'order.success.non_working_hours.call_center',
                 'value' => [
-                    'uk' => 'З Вами завтра з 08:30 зв\'яжеться оператор колл-центру для підтвердження замовлення.',
-                    'ru' => 'С Вами завтра с 08:30 свяжется оператор колл-центра для подтверждения заказа.',
-                    'en' => 'A call center operator will contact you tomorrow at 08:30 to confirm your order.',
+                    'uk' => 'З Вами зв\'яжеться оператор колл-центру о 08:30 для підтвердження замовлення.',
+                    'ru' => 'С Вами свяжется оператор колл-центра в 08:30 для подтверждения заказа.',
+                    'en' => 'A call center operator will contact you at 08:30 to confirm your order.',
                 ],
                 'description' => 'Текст о звонке оператора (нерабочее время)',
             ],

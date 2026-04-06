@@ -24,16 +24,6 @@
     $initialDiscount = null;
     $initialProductId = $pid ? (string)$pid : ($rows[0]['product_id'] ?? '');
 
-    // ДИАГНОСТИКА: Логируем входные данные
-    $debugInfo = [
-        'pid' => $pid,
-        'initialProductId' => $initialProductId,
-        'price_no_sale' => $price_no_sale,
-        'price' => $price,
-        'rows_count' => count($rows ?? []),
-        'rows_data' => [],
-    ];
-
     // Проверяем все варианты на наличие старой цены
     if (!empty($rows)) {
         foreach ($rows as $row) {
@@ -53,16 +43,6 @@
                 'old'   => $rowOldPrice,
             ];
 
-            // ДИАГНОСТИКА: Сохраняем данные варианта
-            $debugInfo['rows_data'][] = [
-                'id' => $rowId,
-                'price' => $rowPrice,
-                'old_price' => $rowOldPrice,
-                'raw_old_price' => $row['old_price'] ?? 'NOT SET',
-                'raw_row_keys' => array_keys($row), // ДИАГНОСТИКА: какие ключи есть в $row
-                'raw_row_full' => $row, // ДИАГНОСТИКА: полные данные варианта
-            ];
-
             // Рассчитываем скидку только для начального варианта
             if ($rowId === $initialProductId && $rowOldPrice && $rowOldPrice > 0 && $rowPrice && $rowPrice > 0 && $rowOldPrice > $rowPrice) {
                 $discount = round((($rowOldPrice - $rowPrice) / $rowOldPrice) * 100);
@@ -80,30 +60,11 @@
         }
     }
 
-    $debugInfo['initialDiscount'] = $initialDiscount;
-    $debugInfo['priceMap'] = $priceMap;
-
     // Высота карточки в зависимости от количества вариантов
     $rowsCount = count($rows ?? []);
     $isSingleVariant = $rowsCount <= 1;
     $cardHeight = $isSingleVariant ? 'md:h-[540px]' : 'md:h-[660px]';
 @endphp
-
-<!-- ДИАГНОСТИКА: Product Card Debug Info -->
-<!--
-DEBUG INFO:
-PID: {{ $pid }}
-Initial Product ID: {{ $initialProductId }}
-Price: {{ $price }}
-Price No Sale: {{ $price_no_sale }}
-Initial Discount: {{ $initialDiscount ?? 'null' }}
-Rows Count: {{ count($rows ?? []) }}
-Price Map: {{ json_encode($priceMap, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) }}
-Rows Data:
-@foreach($rows ?? [] as $row)
-- ID: {{ $row['product_id'] ?? 'N/A' }}, Price: {{ $row['price'] ?? 'N/A' }}, Old Price: {{ $row['old_price'] ?? 'null' }}, Raw Old Price: {{ var_export($row['old_price'] ?? null, true) }}
-@endforeach
--->
 
 <article
     x-data="{
@@ -197,7 +158,7 @@ Rows Data:
             {{ st('product.sku_label', 'Артикул') }}: {{ $article ?? '123456' }}
         </p>
 
-        <div class="w-full font-intro text-[13px] leading-[16px] text-[#A9A9A9] clamp-6 md:min-h-[96px] max-h-[96px] overflow-hidden break-words mb-2">
+        <div class="w-full font-intro text-[13px] leading-[16px] text-[#A9A9A9] clamp-6 md:min-h-[96px] md:max-h-[96px] md:overflow-hidden break-words mb-2">
             {!! $description !!}
         </div>
 

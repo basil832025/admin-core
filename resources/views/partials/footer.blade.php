@@ -61,7 +61,6 @@
                 @php
                     // phones from HeaderContacts composer
                     $phones = collect($headerPhones ?? []);
-                    $phoneCols = $phones->chunk(2); // по 2 номера в колонку
 
                     // email/address — берем из location, если есть (подстрой ключи под свою модель Location)
                     $email   = data_get($headerLocation, 'email')
@@ -75,17 +74,15 @@
 
                 <div class="mt-4 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-1 gap-6 text-[14px] font-bold">
                     {{-- телефоны --}}
-                    @foreach ($phoneCols as $col)
-                        <ul class="space-y-2 text-[#272828]">
-                            @foreach ($col as $p)
-                                <li>
-                                    <a href="tel:{{ $p['tel'] }}" class="hover:text-black">
-                                        {{ $p['display'] }}
-                                    </a>
-                                </li>
-                            @endforeach
-                        </ul>
-                    @endforeach
+                    <ul class="space-y-2 text-[#272828]">
+                        @foreach ($phones as $p)
+                            <li>
+                                <a href="tel:{{ $p['tel'] }}" class="hover:text-black">
+                                    {{ $p['display'] }}
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
 
                     {{-- email + address --}}
                     <ul class="space-y-2">

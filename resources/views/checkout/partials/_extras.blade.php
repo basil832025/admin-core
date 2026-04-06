@@ -7,7 +7,7 @@
 <div x-data="extrasComponent({{ $kitchenInitial }}, {{ $courierInitial }})"
      class="bg-white rounded shadow-[0_2px_10px_rgba(0,0,0,.08)] pt-3 pr-4 pb-3 pl-4">
 
-    <div class="text-[18px] md:text-[22px] leading-6 md:leading-7 font-semibold mb-3 md:mb-4">
+    <div class="checkout-section-title mb-3 md:mb-4">
         {{ st('cart.addons.title', 'Дополнения') }}
     </div>
 

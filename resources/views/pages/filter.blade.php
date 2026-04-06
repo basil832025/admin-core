@@ -5,7 +5,7 @@
 @section('content')
     <div
         x-data="{ filterOpen: false }"
-        class="mx-auto max-w-screen-xl px-2 md:px-4 lg:px-0"
+        class="mx-auto desk:w-[1198px] w-[357px] md:w-[736px] max-w-full"
     >
         {{-- верхняя панель: кнопка Фільтр + сортировка --}}
         <div class="flex items-center justify-between mb-6">

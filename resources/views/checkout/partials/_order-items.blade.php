@@ -129,7 +129,7 @@ document.addEventListener('alpine:init', () => {
     @cart-remove.stop="doRemove($event.detail)"
 >
     <div class="flex items-start justify-between gap-2">
-        <div class="text-[22px] md:text-[28px] leading-7 md:leading-8 font-semibold">{{ st('cart.miy-zakaz', 'Мій заказ') }}</div>
+        <div class="checkout-section-title">{{ st('cart.miy-zakaz', 'Мій заказ') }}</div>
 
         <a href="{{ $cartUrl }}"
            class="text-[#FF7500] font-medium hover:underline text-sm md:text-base whitespace-nowrap">{{ st('cart.redaguvaty', 'Редагувати') }}</a>

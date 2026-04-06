@@ -1,5 +1,5 @@
 <div class="bg-white rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.08)] p-4">
-    <div class="text-[18px] md:text-[22px] leading-6 md:leading-7 font-semibold mb-3 md:mb-4">{{ st('profile.kontaktni-dani', 'Контактні дані') }}</div>
+    <div class="checkout-section-title mb-3 md:mb-4">{{ st('profile.kontaktni-dani', 'Контактні дані') }}</div>
 
     <div class="flex flex-col gap-4 @auth md:flex-col @else md:flex-row @endauth">
         {{-- ЛЕВАЯ ЧАСТЬ: поля контактов --}}

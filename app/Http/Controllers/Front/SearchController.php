@@ -40,6 +40,9 @@ class SearchController extends Controller
             ->cardSelect()
             ->where('in_stock', true)
             ->whereRaw('COALESCE(parent_id,0)=0')
+            ->where(function (Builder $w) {
+                $this->applyMainSiteProductFilter($w);
+            })
             ->where(function (Builder $w) use ($locales, $needle) {
                 $this->applyTitleSlugLikeCI($w, $locales, $needle);
                 // Поиск по артикулу (code2)
@@ -56,6 +59,14 @@ class SearchController extends Controller
         // ==== КАТЕГОРИИ ====
         $categories = ProductCategory::query()
             ->select(['id','slug','title','parent_id'])
+            ->where('slug', 'not like', 'src-%-import')
+            ->whereHas('products', function (Builder $q): void {
+                $q->where('in_stock', true)
+                    ->whereRaw('COALESCE(parent_id,0)=0')
+                    ->where(function (Builder $w): void {
+                        $this->applyMainSiteProductFilter($w);
+                    });
+            })
             ->where(function (Builder $w) use ($locales, $needle) {
                 $this->applyTitleSlugLikeCI($w, $locales, $needle);
             })
@@ -82,6 +93,9 @@ class SearchController extends Controller
             ->with(['mainCategory:id,slug,title'])
             ->where('in_stock', true)
             ->whereRaw('COALESCE(parent_id,0)=0')
+            ->where(function (Builder $w) {
+                $this->applyMainSiteProductFilter($w);
+            })
             ->where(function (Builder $w) use ($locales, $needle) {
                 $this->applyTitleSlugLikeCI($w, $locales, $needle);
                 // Поиск по артикулу (code2)
@@ -110,6 +124,14 @@ class SearchController extends Controller
         // категории: прямые совпадения по title/slug
         $categories = ProductCategory::query()
             ->select(['id','slug','title'])
+            ->where('slug', 'not like', 'src-%-import')
+            ->whereHas('products', function (Builder $q): void {
+                $q->where('in_stock', true)
+                    ->whereRaw('COALESCE(parent_id,0)=0')
+                    ->where(function (Builder $w): void {
+                        $this->applyMainSiteProductFilter($w);
+                    });
+            })
             ->where(function (Builder $w) use ($locales, $needle) {
                 $this->applyTitleSlugLikeCI($w, $locales, $needle);
             })
@@ -148,6 +170,17 @@ class SearchController extends Controller
 
         // slug
         $w->orWhereRaw('LOWER(`slug`) LIKE ?', [$needle]);
+    }
+
+    /**
+     * Ограничение на товары только основного сайта (без импортированных).
+     */
+    private function applyMainSiteProductFilter(Builder $query): void
+    {
+        $query->where(function (Builder $w): void {
+            $w->whereNull('is_imported')
+                ->orWhere('is_imported', false);
+        });
     }
 
     /**
@@ -203,5 +236,52 @@ class SearchController extends Controller
                     );
             });
         }
+
+        // Поиск по названию характеристики (например: "Морепродукти") у родительского товара
+        foreach ($locales as $loc) {
+            $w->orWhereExists(function ($query) use ($needle, $loc) {
+                $query->select(DB::raw(1))
+                    ->from('bs_product_characteristic_value')
+                    ->join('bs_characteristics', 'bs_product_characteristic_value.characteristic_id', '=', 'bs_characteristics.id')
+                    ->whereColumn('bs_product_characteristic_value.product_id', 'bs_products.id')
+                    ->whereRaw(
+                        "LOWER(CASE WHEN JSON_VALID(bs_characteristics.name) THEN JSON_UNQUOTE(JSON_EXTRACT(bs_characteristics.name, '$.\"$loc\"')) ELSE bs_characteristics.name END) LIKE ?",
+                        [$needle]
+                    );
+            });
+        }
+
+        // Поиск по названию характеристики у дочерних товаров
+        foreach ($locales as $loc) {
+            $w->orWhereExists(function ($query) use ($needle, $loc) {
+                $query->select(DB::raw(1))
+                    ->from('bs_products AS child_products')
+                    ->join('bs_product_characteristic_value', 'child_products.id', '=', 'bs_product_characteristic_value.product_id')
+                    ->join('bs_characteristics', 'bs_product_characteristic_value.characteristic_id', '=', 'bs_characteristics.id')
+                    ->whereColumn('child_products.parent_id', 'bs_products.id')
+                    ->whereRaw(
+                        "LOWER(CASE WHEN JSON_VALID(bs_characteristics.name) THEN JSON_UNQUOTE(JSON_EXTRACT(bs_characteristics.name, '$.\"$loc\"')) ELSE bs_characteristics.name END) LIKE ?",
+                        [$needle]
+                    );
+            });
+        }
+
+        // Поиск по slug характеристики (например: moreprodukti)
+        $w->orWhereExists(function ($query) use ($needle) {
+            $query->select(DB::raw(1))
+                ->from('bs_product_characteristic_value')
+                ->join('bs_characteristics', 'bs_product_characteristic_value.characteristic_id', '=', 'bs_characteristics.id')
+                ->whereColumn('bs_product_characteristic_value.product_id', 'bs_products.id')
+                ->whereRaw('LOWER(bs_characteristics.slug) LIKE ?', [$needle]);
+        });
+
+        $w->orWhereExists(function ($query) use ($needle) {
+            $query->select(DB::raw(1))
+                ->from('bs_products AS child_products')
+                ->join('bs_product_characteristic_value', 'child_products.id', '=', 'bs_product_characteristic_value.product_id')
+                ->join('bs_characteristics', 'bs_product_characteristic_value.characteristic_id', '=', 'bs_characteristics.id')
+                ->whereColumn('child_products.parent_id', 'bs_products.id')
+                ->whereRaw('LOWER(bs_characteristics.slug) LIKE ?', [$needle]);
+        });
     }
 }

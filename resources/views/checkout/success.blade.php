@@ -35,7 +35,7 @@
                     <p class="text-[16px] leading-[24px] text-[#4B5563]">
                         {{ st('order.success.non_working_hours.thank_you', 'Благодарим Вас за заказ.') }}<br>
                         {{ st('order.success.non_working_hours.order_number', 'Номер заказа') }} {{ $orderNumber }}<br>
-                        {{ st('order.success.non_working_hours.call_center', 'С Вами завтра с 08:30 свяжется оператор колл центра для подтверждения заказа.') }}
+                        {{ st('order.success.non_working_hours.call_center', 'С Вами свяжется оператор колл-центра в 08:30 для подтверждения заказа.') }}
                     </p>
                 @endif
                 <p class="text-[16px] leading-[24px] text-[#4B5563] mt-6">
@@ -46,8 +46,8 @@
             {{-- Информация о заказе --}}
             @php
                 $total   = (float)($order->grand_total ?? $order->total_price_sale ?? $order->total_price ?? 0);
-                $date    = $order->date_order ?? $order->dat ?? $order->created_at;
-                $dateStr = $date ? \Illuminate\Support\Carbon::parse($date)->format('d.m.Y') : '';
+                $placedAt = $order->placedAt();
+                $dateStr = $placedAt?->format('d.m.Y') ?? '';
                 $number  = $order->number ?? ('#'.str_pad($order->id, 5, '0', STR_PAD_LEFT));
 
                 $payLabel = $order->payment?->label(app()->getLocale()) ?? '—';
@@ -62,7 +62,7 @@
 
                 <div class="text-right font-medium text-[#929292]">{{ st('order.success.date', 'Дата') }}:</div>
                 <div class="text-[#111827]">
-                    {{ \Carbon\Carbon::parse($order->created_at)->format('d.m.Y') }}
+                    {{ $dateStr }}
                 </div>
 
                 <div class="text-right font-medium text-[#929292]">{{ st('order.success.amount_to_pay', 'Сумма к оплате') }}:</div>

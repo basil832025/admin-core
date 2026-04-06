@@ -107,7 +107,7 @@
                             ">
                                     {{-- иконка-ответ --}}
                                     <svg width="16" height="16" viewBox="0 0 24 24" class="fill-current"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-10z"/></svg>
-                                    {{ __('Відповісти') }}
+                                    {{ st('reviews.reply', 'Відповісти') }}
                                 </button>
 
                                 {{-- дети --}}
@@ -152,18 +152,18 @@
               px-4 py-3 md:px-4 md:py-3">
 
                 <h3 class="text-[22px] md:text-[24px] font-semibold mb-4">
-                    {{ __('Оставить комментарий') }}
+                    {{ st('blog.comment_form.title', 'Оставить комментарий') }}
                 </h3>
 
                 {{-- бейдж «ответ на …» --}}
                 <template x-if="replyingTo">
                     <div class="mb-4 flex items-center justify-between rounded-md bg-[#FFF3E8] px-3 py-2 text-sm">
                         <div>
-                            {{ __('Ответ на') }}: <span class="font-semibold" x-text="replyingName"></span>
+                            {{ st('blog.comment_form.reply_to', 'Ответ на') }}: <span class="font-semibold" x-text="replyingName"></span>
                         </div>
                         <button type="button" class="text-[#FF7500] hover:underline"
                                 @click="replyingTo=null; replyingName=''; $refs.parent.value=''">
-                            {{ __('Отменить') }}
+                            {{ st('profile.cancel', 'Отменить') }}
                         </button>
                     </div>
                 </template>
@@ -184,30 +184,30 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label for="author_name" class="block mb-1 text-sm font-medium text-[#333]">
-                                Имя <span class="text-red-500">*</span>
+                                {{ st('profile.name', 'Имя') }} <span class="text-red-500">*</span>
                             </label>
                             <input id="author_name" name="author_name"
-                                   placeholder="Введите имя"
+                                   placeholder="{{ st('reviews.enter_your_name', 'Введите имя') }}"
                                    class="{{ $input }}" />
                             @error('author_name')<div class="text-red-600 text-sm mt-1">{{ $message }}</div>@enderror
                         </div>
 
                         <div>
                             <label for="author_email" class="block text-sm font-medium text-[#333]">
-                                {{ __('Email (не обязательно)') }}
+                                Email ({{ st('profile.neobovyazkovo', 'необязательно') }})
                             </label>
                             <input id="author_email" name="author_email"
                                    value="{{ old('author_email', auth('web')->user()->email ?? '') }}"
-                                   placeholder="{{ __('Email (не обязательно)') }}"
+                                   placeholder="Email ({{ st('profile.neobovyazkovo', 'необязательно') }})"
                                    class="{{ $input }}">
                             @error('author_email')<div class="text-red-600 text-sm mt-1">{{ $message }}</div>@enderror
                         </div>
                     </div>
 
                     <div>
-                        <label for="content" class="sr-only">Комментарий</label>
+                        <label for="content" class="sr-only">{{ st('cart.addons.kitchen.placeholder', 'Комментарий') }}</label>
                         <textarea id="content" name="content" x-ref="content" rows="5"
-                                  placeholder="{{ __('Комментарий…') }}"
+                                  placeholder="{{ st('cart.addons.kitchen.placeholder', 'Комментарий') }}…"
                                   class="w-full rounded-[10px] border border-[#E6E6E6] bg-white
                          px-4 py-3 placeholder:text-[#9E9E9E]
                          focus:outline-none focus:ring-2 focus:ring-[#FF7500] focus:border-[#FF7500]">{{ old('content') }}</textarea>
@@ -220,7 +220,7 @@
                        bg-[#FF7500] text-white font-semibold
                        shadow-[0_2px_0_rgba(0,0,0,0.12)]
                        hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FF7500]">
-                            {{ __('Отправить') }}
+                            {{ st('blog.comment_form.submit', 'Отправить') }}
                         </button>
                     </div>
                 </form>

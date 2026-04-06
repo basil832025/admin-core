@@ -279,7 +279,6 @@
                                     {!! str_repeat($personIcon, $people) !!}
                                 @else
                                     {!! $personIcon !!}
-                                    <span class="ml-1">&times;&nbsp;{{ $people }}</span>
                                 @endif
                                 {{-- Показываем текст для персон --}}
                                 @if(!empty(trim($val)))<span class="ml-1">{{ $val }}</span>@endif

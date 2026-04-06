@@ -93,6 +93,7 @@ class ProductCardPresenter
             'slug'        => $p->slug,
             'price'       => $p->price,
             'old_price'   => $p->old_price,
+            'article'     => $p->code2,
             'char_values' => $buildCharMap($p),
         ]];
 
@@ -104,6 +105,7 @@ class ProductCardPresenter
                 'slug'        => $child->slug,
                 'price'       => $child->price,
                 'old_price'   => $childOldPrice,
+                'article'     => $child->code2,
                 'char_values' => $buildCharMap($child),
             ];
         }

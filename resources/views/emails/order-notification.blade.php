@@ -73,7 +73,7 @@
 ## Информация о заказе
 
 **Номер заказа:** №{{ $orderNumber }}  
-**Дата создания:** {{ $order->created_at->format('d.m.Y H:i') }}  
+**Дата создания:** {{ ($order->placedAt() ?? $order->created_at)->format('d.m.Y H:i') }}  
 **Статус:** {{ $order->status->getLabel() }}
 
 ## Информация о клиенте

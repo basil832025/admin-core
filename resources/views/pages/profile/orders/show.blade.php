@@ -9,7 +9,7 @@
         'loyaltyTransactions',
     ]);
     
-    $orderDate = $order->created_at;
+    $orderDate = $order->placedAt() ?? $order->created_at;
     $day = $orderDate->format('d');
     $monthNames = [
         '01' => st('profile.bonuses.jan', 'Янв'),

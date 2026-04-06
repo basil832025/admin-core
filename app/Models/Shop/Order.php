@@ -332,6 +332,40 @@ class Order extends Model
 
         return $ts ? Carbon::parse($ts) : null;
     }
+
+    /**
+     * Когда заказ был фактически оформлен (переход в статус New).
+     */
+    public function placedAt(): ?Carbon
+    {
+        $placedAt = $this->statusTime(OrderStatus::New);
+        if ($placedAt) {
+            return $placedAt;
+        }
+
+        if ($this->dat) {
+            $placedAt = $this->dat instanceof Carbon
+                ? $this->dat->copy()
+                : Carbon::parse((string) $this->dat);
+
+            if ($this->time_start) {
+                try {
+                    $time = $this->time_start instanceof Carbon
+                        ? $this->time_start->format('H:i:s')
+                        : (string) $this->time_start;
+
+                    $placedAt->setTimeFromTimeString($time);
+                } catch (\Throwable) {
+                    // Оставляем только дату, если время не удалось распарсить.
+                }
+            }
+
+            return $placedAt;
+        }
+
+        return $this->created_at ? $this->created_at->copy() : null;
+    }
+
     public function recalculateTotalPrice(): void
     {
         $this->loadMissing('items.modifiers');

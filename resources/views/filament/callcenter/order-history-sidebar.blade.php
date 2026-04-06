@@ -33,7 +33,7 @@
             <div class="rounded-lg border border-gray-200 p-3">
                 <div class="flex items-center justify-between gap-2">
                     <div class="text-sm font-semibold">#{{ $order->number }}</div>
-                    <div class="text-xs text-gray-500">{{ $order->created_at?->format('d.m.Y H:i') }}</div>
+                    <div class="text-xs text-gray-500">{{ ($order->placedAt() ?? $order->created_at)?->format('d.m.Y H:i') }}</div>
                 </div>
 
                 <div class="mt-1 text-xs text-gray-500">

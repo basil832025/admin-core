@@ -55,7 +55,7 @@
     </section>
     <section class=" mt-[120px]">
         <div class="container mx-auto lg:px-4">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-center">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-center justify-items-center md:justify-items-stretch">
 
                 <!-- 1 -->
                 <div class="flex flex-col items-center justify-between text-center

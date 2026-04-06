@@ -121,7 +121,7 @@
                                 @if($people <= 4)
                                     {!! str_repeat($personIcon, $people) !!}
                                 @else
-                                    {!! $personIcon !!}<span class="ml-1">× {{ $people }}</span>
+                                    {!! $personIcon !!}
                                 @endif
                                 {{-- На странице товара показываем текст для всех вариантов --}}
                                 @if(!empty(trim($val)))<span class="ml-1">{{ $val }}</span>@endif

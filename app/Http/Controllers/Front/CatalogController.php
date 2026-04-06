@@ -31,7 +31,11 @@ class CatalogController extends Controller
                 : (function_exists('st') ? st('menu.news','Новинки') : 'Новинки');
 
             $q = Product::withCardRelations()
-                ->active()->cardSelect()->MainProduct();
+                ->active()->cardSelect()->MainProduct()
+                ->where(function (Builder $w) {
+                    $w->whereNull('is_imported')
+                        ->orWhere('is_imported', false);
+                });
             $this->applyFilters($q, request());
             $this->applySort($q, request());
 
@@ -114,7 +118,11 @@ class CatalogController extends Controller
                 })
                 ->get()  ;*/
             $q = Product::withCardRelations()
-                ->active()->cardSelect()->MainProduct()->orderBy('sort');
+                ->active()->cardSelect()->MainProduct()
+                ->where(function (Builder $w) {
+                    $w->whereNull('is_imported')
+                        ->orWhere('is_imported', false);
+                });
 
             $hasFilters = request()->has('menu') ||
                 request()->has('chars') ||
@@ -131,6 +139,8 @@ class CatalogController extends Controller
                         ->orWhereHas('mainCategory', fn($qqq) => $qqq->where('slug', $slug));
                 });
             }
+
+            $this->applySort($q, request());
 
             $items = $q->get();
 
@@ -174,11 +184,14 @@ class CatalogController extends Controller
             ->with(['mainCategory', 'categories'])
             ->active()
             ->cardSelect()
-            ->MainProduct();
+            ->MainProduct()
+            ->where(function (Builder $w) {
+                $w->whereNull('is_imported')
+                    ->orWhere('is_imported', false);
+            });
 
         $this->applyFilters($q, $request);
-
-        $q->orderBy('sort');
+        $this->applySort($q, $request);
 
         $items = $q->get();
 
@@ -275,14 +288,17 @@ class CatalogController extends Controller
                 break;
 
             case 'new':
-                // новые сначала
-                $query->orderBy('created_at', 'desc');
+                // Сначала товары с флагом "новинка", затем по дате, затем стабильный порядок
+                $query->orderByDesc('is_new')
+                    ->orderBy('created_at', 'desc')
+                    ->orderBy('sort', 'asc');
                 break;
 
             case 'popular':
             default:
-                // «популярні» – твой базовый порядок (можно по полю sort или по полю популярности)
-                $query->orderBy('sort', 'asc');
+                // Сначала товары с флагом "популярний", затем базовый порядок
+                $query->orderByDesc('is_hit')
+                    ->orderBy('sort', 'asc');
                 break;
         }
 
@@ -325,10 +341,8 @@ class CatalogController extends Controller
                 return max($oldPrice - $price, 0);
             }),
 
-            // Новинки — по дате ↓ (если дата есть в карточке)
-            'new' => $items->sortByDesc(function ($p) {
-                return $p['created_at'] ?? null;
-            }),
+            // Новинки/Популярні: сохраняем SQL-порядок
+            'new' => $items,
 
             // Популярні — базовый порядок (по sort)
             default => $items,

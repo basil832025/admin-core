@@ -18,7 +18,10 @@
         $ordersQuery->where('status', \App\Enums\OrderStatus::Cancelled);
     }
 
-    $orders = $ordersQuery->orderByDesc('created_at')->get();
+    $orders = $ordersQuery
+        ->orderByDesc('dat')
+        ->orderByDesc('id')
+        ->get();
 @endphp
 
 @extends('layouts.app')
@@ -65,7 +68,7 @@
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         @foreach($orders as $order)
                             @php
-                                $orderDate = $order->created_at;
+                                $orderDate = $order->placedAt() ?? $order->created_at;
                                 $day = $orderDate->format('d');
                                 $monthNames = [
                                     '01' => st('profile.bonuses.jan', 'Янв'),
@@ -185,4 +188,3 @@
         </div>
     </div>
 @endsection
-

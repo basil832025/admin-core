@@ -58,7 +58,7 @@ x-show="typeof method !== 'undefined' && method === 'delivery'"
 x-cloak
 >
     <div class="flex items-center justify-between">
-        <div class="text-[18px] md:text-[22px] leading-6 md:leading-7 font-semibold uppercase">
+        <div class="checkout-section-title">
             {{ st('cart.delivery.title', 'Адрес доставки') }}
         </div>
 

@@ -189,11 +189,13 @@ body.no-scroll { overflow: hidden !important; height: 100%; }
 @theme {
     --font-sans: "Intro", ui-sans-serif, system-ui, sans-serif;
 }
-.clamp-6{
-    display:-webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 6; /* кол-во строк */
-    overflow: hidden;
+@media (min-width: 768px) {
+    .clamp-6{
+        display:-webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 6; /* кол-во строк */
+        overflow: hidden;
+    }
 }
 /* 13/16 */
 @layer utilities {
@@ -208,6 +210,10 @@ div[x-show*="$store.search.open"][x-cloak] {
 }
 
 @layer components {
+    .checkout-section-title {
+        @apply text-[18px] md:text-[22px] leading-6 md:leading-7 font-semibold;
+    }
+
     /* Базовый инпут 46/6/#E5E7EB */
     .tp-input {
         @apply h-[46px] w-full rounded-[6px] border border-[#E5E7EB] px-4

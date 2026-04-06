@@ -24,7 +24,7 @@
 
     <input type="hidden" name="delivery_mode" x-model="mode">
 
-    <div class="text-[18px] md:text-[22px] leading-6 md:leading-7 font-semibold mb-3 md:mb-4">
+    <div class="checkout-section-title mb-3 md:mb-4">
         {{ st('cart.delivery.conditions_title', 'Умови доставки') }}
     </div>
 

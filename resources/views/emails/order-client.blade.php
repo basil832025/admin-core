@@ -8,7 +8,7 @@
 ## {{ st('order.email.order_info', 'Інформація про замовлення') }}
 
 **{{ st('order.email.order_number', 'Номер замовлення') }}:** №{{ $order->number ?? $order->id }}  
-**{{ st('order.email.order_date', 'Дата створення') }}:** {{ $order->created_at->format('d.m.Y H:i') }}  
+**{{ st('order.email.order_date', 'Дата створення') }}:** {{ ($order->placedAt() ?? $order->created_at)->format('d.m.Y H:i') }}  
 **{{ st('order.email.order_status', 'Статус') }}:** {{ $order->status->getLabel() }}
 
 @if($order->date_order)

@@ -17,13 +17,16 @@
         $rootId  = $rootId ?? ($rows[0]['product_id'] ?? null);
         $rootKey = $rootId !== null ? (string)$rootId : '';
         $priceMap = [];
+        $articleMap = [];
         foreach ($rows as $row) {
             $priceMap[(string)$row['product_id']] = [
                 'price' => (float)($row['price'] ?? 0),
                 'old'   => isset($row['old_price']) ? (float)$row['old_price'] : null,
             ];
+            $articleMap[(string)$row['product_id']] = trim((string)($row['article'] ?? ''));
         }
         $defaultPrice = (float)($product['price'] ?? 0);
+        $defaultArticle = trim((string)($product['article'] ?? ''));
 
         // расчет начальной скидки для начального варианта
         $initialDiscount = null;
@@ -44,11 +47,18 @@
             Alpine.store('sku', {
                 selected: '{{ $rootKey }}',
                 prices: @js($priceMap),
+                articles: @js($articleMap),
                 bonusPercent: {{ $bonusPercent ?? 0 }},
                 minOrderSumForEarn: {{ $minOrderSumForEarn ?? 0 }},
+                defaultArticle: @js($defaultArticle),
                 fmt(v){ const n=Number(v||0); const parts=n.toFixed(2).split('.'); return { uah: parts[0].replace(/\B(?=(\d{3})+(?!\d))/g,' '), kop: parts[1] }; },
                 price(){ const p=this.prices[this.selected]; return p?.price ?? {{ $defaultPrice }}; },
                 old(){ const p=this.prices[this.selected]; return (p?.old && p.old > (p?.price ?? 0)) ? p.old : null; },
+                article(){
+                    const value = this.articles[this.selected];
+                    if (typeof value === 'string' && value.trim() !== '') return value;
+                    return this.defaultArticle;
+                },
                 discountPercent(){
                     const oldPrice = this.old();
                     const currentPrice = this.price();
@@ -326,10 +336,9 @@
                     </div>
 
 
-                    {{-- бонусы --}}
-                    <div class="mt-4 flex items-center gap-1 text-[#A9A9A9] text-base" x-show="$store.sku.bonusEarn() > 0">
-                        <img src="{{ asset('images/svg/bonus.svg') }}" alt="" class="w-[22px] h-[19px] shrink-0" aria-hidden="true">
-                        <span class="whitespace-nowrap">{{ st('cart.za-pokupku-narahovano', 'За покупку вам будет начислено') }} <span class="text-[#FF7500] font-semibold" x-text="$store.sku.bonusEarn()"></span> {{ st('cart.balliv', 'баллов') }}</span>
+                    {{-- бонусы отключены по задаче, вместо них показываем артикул --}}
+                    <div class="mt-4 flex items-center gap-1 text-[#C04103] text-base">
+                        <span class="whitespace-nowrap">{{ st('product.sku_label', 'Артикул') }}: <span class="text-[#C04103] font-semibold" x-text="$store.sku.article() || '123'">{{ $defaultArticle !== '' ? $defaultArticle : '123' }}</span></span>
                     </div>
 
                     {{-- Состав --}}
@@ -374,11 +383,22 @@
         {{-- Рекомендации --}}
             <section class="mt-[40px] md:mt-8 xl:mt-[80px] recom-swiper" x-data x-init="
   new Swiper($refs.sw, {
-    slidesPerView: 1,
-    spaceBetween: 16,
-    speed: 500,
+    slidesPerView: 1.06,
+    spaceBetween: 12,
+    speed: 360,
+    watchOverflow: true,
+    grabCursor: true,
+    threshold: 4,
+    resistanceRatio: 0.65,
+    longSwipesRatio: 0.15,
+    longSwipesMs: 220,
+    touchReleaseOnEdges: true,
+    touchStartPreventDefault: false,
     navigation: { nextEl: $refs.next, prevEl: $refs.prev },
-    breakpoints: { 768:{slidesPerView:2}, 1024:{slidesPerView:3} },
+    breakpoints: {
+      768: { slidesPerView: 2, spaceBetween: 16, speed: 500, resistanceRatio: 0.85 },
+      1024: { slidesPerView: 3, spaceBetween: 16, speed: 500 },
+    },
   });
 ">
                 <h2 class="text-[26px] font-bold text-[#FF7500] mb-4">
@@ -409,7 +429,7 @@
                 </div>
 
                 {{-- стрелки снизу --}}
-                <div class="flex justify-center items-center gap-3 mt-6 mb-2">
+                <div class="hidden md:flex justify-center items-center gap-3 mt-6 mb-2">
                     <button x-ref="prev"
                             class="swiper-prev w-[34px] h-[34px] rounded-xl bg-[#FF7500] hover:bg-orange-600 text-white flex items-center justify-center transition">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18">

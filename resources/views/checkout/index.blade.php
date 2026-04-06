@@ -35,7 +35,7 @@
 
 @section('content')
     <div class="mx-auto desk:w-[1208px] px-4  md:p-6 max-w-full">
-        <h1 class="text-[26px] md:text-2xl font-semibold mb-4 md:mb-6">{{ st('cart.miy-zakaz', 'Мій заказ') }}</h1>
+        <h1 class="checkout-section-title mb-4 md:mb-6">{{ st('cart.miy-zakaz', 'Мій заказ') }}</h1>
 
 @push('scripts')
 <script>
@@ -290,4 +290,3 @@ document.addEventListener('alpine:init', () => {
     @endpush
 
 @endpush
-
