@@ -152,7 +152,19 @@
                bg-white border border-gray-200 rounded-lg shadow-lg
                text-xs text-gray-700 p-2"
     >
-        {{ $promo['description'] }}
+        <div class="flex justify-end mb-1">
+            <button
+                type="button"
+                class="w-5 h-5 inline-flex items-center justify-center text-gray-500 hover:text-gray-700"
+                @click.stop="open = false"
+                aria-label="{{ st('all.close', 'Закрити') }}"
+            >
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M6 6L18 18M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </button>
+        </div>
+        <div>{{ $promo['description'] }}</div>
     </div>
 </span>
 

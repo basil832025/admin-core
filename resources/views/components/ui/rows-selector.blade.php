@@ -203,7 +203,7 @@
         },
 
         async decrementQty() {
-            if (this.adding || this.cartQty <= 1) return;
+            if (this.adding || this.cartQty <= 0) return;
             this.adding = true;
 
             try {
@@ -345,11 +345,15 @@
                         type="button"
                         class="w-8 h-8 grid place-items-center text-[22px] leading-none rounded disabled:opacity-40"
                         @click="decrementQty"
-                        x-bind:disabled="adding || cartQty <= 1"
-                        aria-label="Зменшити кількість"
+                        x-bind:disabled="adding || cartQty <= 0"
+                        x-bind:aria-label="cartQty === 1 ? 'Видалити з кошика' : 'Зменшити кількість'"
                     >
-                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <svg x-show="cartQty > 1" class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                             <path d="M5 12H19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                        </svg>
+
+                        <svg x-show="cartQty === 1" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M3 3h1.6c.45 0 .84.3.95.74l.2.76M7 16h9.5c.45 0 .84-.3.95-.74L19.6 8H6.1M7 16L6.1 4.5M7 16l-1 2h11M10 20a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm7 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
                     </button>
 
