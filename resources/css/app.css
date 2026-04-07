@@ -275,6 +275,7 @@ input.tp-input:-webkit-autofill:focus {
     /* оранжевая радиокнопка как в фигме */
     appearance: none;
     @apply inline-block w-4 h-4 rounded-full border border-[#D1D5DB] align-middle relative;
+    flex-shrink: 0;
 }
 .tp-radio:checked{
     border-color:#FF7500;

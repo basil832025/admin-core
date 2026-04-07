@@ -353,7 +353,7 @@
                         </svg>
 
                         <svg x-show="cartQty === 1" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                            <path d="M3 3h1.6c.45 0 .84.3.95.74l.2.76M7 16h9.5c.45 0 .84-.3.95-.74L19.6 8H6.1M7 16L6.1 4.5M7 16l-1 2h11M10 20a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm7 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14zM14 11v6M10 11v6M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" stroke="currentColor" stroke-width="2" stroke-linecap="square"/>
                         </svg>
                     </button>
 

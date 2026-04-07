@@ -16,7 +16,7 @@
             {{-- Без акции --}}
             <label class="flex items-start gap-2 cursor-pointer relative group">
                 <input type="radio"
-                       class="tp-radio mt-[3px]"
+                       class="tp-radio mt-[3px] shrink-0"
                        name="promo_radio"
                        value="none"
                        @change="change('none')"
@@ -40,7 +40,7 @@
                     class="flex items-start gap-2 relative group"
                 >
                     <input type="radio"
-                           class="tp-radio mt-[3px]"
+                           class="tp-radio mt-[3px] shrink-0"
                            :class="promoActive ? '' : 'opacity-50 cursor-not-allowed'"
                            name="promo_radio"
                            value="{{ $value }}"
