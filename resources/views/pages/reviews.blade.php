@@ -189,15 +189,15 @@
                         <input type="text" name="hp" class="hidden" autocomplete="off"> {{-- honeypot --}}
 
                         <input x-ref="name" type="text" name="name" placeholder="{{ st('all.name','Ім’я') }}" required
-                               class="w-full border border-[#E5E7EB] rounded px-3 py-2 text-sm focus:border-[#FF7500]">
+                               class="w-full border border-[#E5E7EB] rounded px-3 py-2 text-base md:text-sm focus:border-[#FF7500]">
                         <div class="text-xs text-red-500" x-text="errors.name"></div>
 
                         <input x-ref="email" type="email" name="email" placeholder="Email"
-                               class="w-full border border-[#E5EE7] rounded px-3 py-2 text-sm focus:border-[#FF7500]">
+                               class="w-full border border-[#E5EE7] rounded px-3 py-2 text-base md:text-sm focus:border-[#FF7500]">
                         <div class="text-xs text-red-500" x-text="errors.email"></div>
 
                         <textarea x-ref="content" name="content" placeholder="{{ st('reviews.write_a_review','Напишіть відгук...') }}" required
-                                  class="w-full h-28 border border-[#E5E7EB] rounded px-3 py-2 text-sm resize-none focus:border-[#FF7500]"></textarea>
+                                  class="w-full h-28 border border-[#E5E7EB] rounded px-3 py-2 text-base md:text-sm resize-none focus:border-[#FF7500]"></textarea>
                         <div class="text-xs text-red-500" x-text="errors.content"></div>
 
                         <button type="submit" :disabled="sending"

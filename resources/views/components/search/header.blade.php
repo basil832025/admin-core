@@ -82,8 +82,13 @@
                            placeholder="{{ $placeholder }}" autocomplete="off"
                            class="w-full bg-transparent outline-none text-base"
                            x-init="$watch('$store.search.open', v => { if (v) $nextTick(()=> $refs.dInput?.focus()) })">
-                    <button type="button" class="p-1" aria-label="Закрити" @click="$store.search.open=false">
-                        <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><path d="M6.3 6.3a1 1 0 011.4 0L10 8.6l2.3-2.3a1 1 0 111.4 1.4L11.4 10l2.3 2.3a1 1 0 01-1.4 1.4L10 11.4l-2.3 2.3a1 1 0 01-1.4-1.4L8.6 10 6.3 7.7a1 1 0 010-1.4z"/></svg>
+                    <button
+                        type="button"
+                        class="p-2 -m-1"
+                        aria-label="Закрити"
+                        @click="clearTimeout($store.search._t); $store.search._t = null; $store.search.q = ''; $store.search.results = { products: [], categories: [] }; $store.search.notFound = false; $store.search.loading = false; $store.search.open = false"
+                    >
+                        <svg class="w-6 h-6" viewBox="0 0 20 20" fill="currentColor"><path d="M6.3 6.3a1 1 0 011.4 0L10 8.6l2.3-2.3a1 1 0 111.4 1.4L11.4 10l2.3 2.3a1 1 0 01-1.4 1.4L10 11.4l-2.3 2.3a1 1 0 01-1.4-1.4L8.6 10 6.3 7.7a1 1 0 010-1.4z"/></svg>
                     </button>
                 </div>
             </form>
@@ -162,8 +167,13 @@
                        placeholder="{{ $placeholder }}"
                        class="w-full bg-transparent outline-none text-base"
                        x-init="$watch('$store.search.open', v => { if (v) $nextTick(()=> $refs.mInput?.focus()) })">
-                <button type="button" class="p-1" aria-label="Закрити" @click="$store.search.open=false">
-                    <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><path d="M6.3 6.3a1 1 0 011.4 0L10 8.6l2.3-2.3a1 1 0 111.4 1.4L11.4 10l2.3 2.3a1 1 0 01-1.4 1.4L10 11.4l-2.3 2.3a1 1 0 01-1.4-1.4L8.6 10 6.3 7.7a1 1 0 010-1.4z"/></svg>
+                <button
+                    type="button"
+                    class="p-2 -m-1"
+                    aria-label="Закрити"
+                    @click="clearTimeout($store.search._t); $store.search._t = null; $store.search.q = ''; $store.search.results = { products: [], categories: [] }; $store.search.notFound = false; $store.search.loading = false; $store.search.open = false"
+                >
+                    <svg class="w-6 h-6" viewBox="0 0 20 20" fill="currentColor"><path d="M6.3 6.3a1 1 0 011.4 0L10 8.6l2.3-2.3a1 1 0 111.4 1.4L11.4 10l2.3 2.3a1 1 0 01-1.4 1.4L10 11.4l-2.3 2.3a1 1 0 01-1.4-1.4L8.6 10 6.3 7.7a1 1 0 010-1.4z"/></svg>
                 </button>
             </form>
 
