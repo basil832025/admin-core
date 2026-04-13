@@ -510,7 +510,10 @@ class ProductResource extends Resource
 
                                                     return \App\Models\Shop\Product::query()
                                                         ->when($currentId, fn($q) => $q->where('id', '!=', $currentId)) // без рекурсії
-                                                        ->orderBy('id', 'desc')
+                                                        ->orderByRaw('COALESCE(parent_id, id) asc')
+                                                        ->orderByRaw('CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END asc')
+                                                        ->orderBy('sort')
+                                                        ->orderBy('id')
                                                         ->get(['id', 'title', 'short_name'])
                                                         ->mapWithKeys(function ($p) use ($defaultLocale) {
                                                             $getTrans = function ($raw, $fallback = null) use ($defaultLocale) {
