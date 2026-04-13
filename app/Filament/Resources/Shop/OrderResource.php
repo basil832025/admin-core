@@ -2031,7 +2031,9 @@ class OrderResource extends Resource
                         // вставляем "родной" лейбл Filament, чтобы стили совпали
                         'x-html' => json_encode(
                             '<span class="fi-ta-header-cell-label text-sm font-medium">'
-                            .'Номер заказа<br>Дата заказа'
+                            . (static::class === \App\Filament\Resources\Callcenter\OrderResource::class
+                                ? 'Номер заказа<br>Дата заказа<br>Дата доставки'
+                                : 'Номер заказа<br>Дата заказа')
                             .'</span>'
                         ) ])
                     ->grow(false) // чтобы колонка не ужималась другими
@@ -2054,9 +2056,21 @@ class OrderResource extends Resource
                                 . e($siteName)
                                 . '</span>';
 
+                        $deliveryBadge = '';
+                        if ((bool) $record->as_soon_possible) {
+                            $deliveryBadge = '<span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold" style="background:#DBEAFE;color:#1D4ED8;">ASAP</span>';
+                        } elseif ($record->date_order || $record->time_order) {
+                            $deliveryDate = $record->date_order ? Carbon::parse($record->date_order)->format('d.m') : '—';
+                            $deliveryTime = $record->time_order ? Carbon::parse($record->time_order)->format('H:i') : '—';
+                            $deliveryBadge = '<span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold" style="background:#DBEAFE;color:#1D4ED8;">'
+                                . e($deliveryDate . ' ' . $deliveryTime)
+                                . '</span>';
+                        }
+
                         return new HtmlString(
                             '<div class="leading-snug">'
                             . '<div>' . e($date) . '</div>'
+                            . ($deliveryBadge !== '' ? '<div class="mt-1">' . $deliveryBadge . '</div>' : '')
                             . ($siteBadge !== '' ? '<div class="mt-1">' . $siteBadge . '</div>' : '')
                             . '</div>'
                         );
@@ -2247,29 +2261,31 @@ class OrderResource extends Resource
                             }),
                     ]),
 
-                TextColumn::make('date_order')->label('')
-                    ->extraHeaderAttributes([
-                        'class' => 'th-wrap min-w-[10rem]',      // ← класс(ы) на <th>
-                        'x-data' => '{}',
-                        'x-html' => json_encode(
-                            '<span class="fi-ta-header-cell-label text-sm font-medium">'
-                            .'Дата<br>доставки'
-                            .'</span>'
-                        ),
-                        'style'  => 'line-height: 1.1;', // опционально
-                    ])
-                    ->formatStateUsing(function ($state, Order $record) {
-                        if (! $state) {
-                            return '—';
-                        }
+                static::class !== \App\Filament\Resources\Callcenter\OrderResource::class
+                    ? TextColumn::make('date_order')->label('')
+                        ->extraHeaderAttributes([
+                            'class' => 'th-wrap min-w-[10rem]',
+                            'x-data' => '{}',
+                            'x-html' => json_encode(
+                                '<span class="fi-ta-header-cell-label text-sm font-medium">'
+                                .'Дата<br>доставки'
+                                .'</span>'
+                            ),
+                            'style'  => 'line-height: 1.1;',
+                        ])
+                        ->formatStateUsing(function ($state, Order $record) {
+                            if (! $state) {
+                                return '—';
+                            }
 
-                        $date = Carbon::parse($state)->format('d.m');
-                        $time = $record->time_order ? Carbon::parse($record->time_order)->format('H:i') : '—';
+                            $date = Carbon::parse($state)->format('d.m');
+                            $time = $record->time_order ? Carbon::parse($record->time_order)->format('H:i') : '—';
 
-                        return new HtmlString($date . '<br>' . $time);
-                    })
-                    ->html()
-                    ->toggleable(),
+                            return new HtmlString($date . '<br>' . $time);
+                        })
+                        ->html()
+                        ->toggleable()
+                    : null,
                 TextColumn::make('delivery_info')
                     ->label('Доставка')
                     ->getStateUsing(fn (Order $record) => $record->self_pickup ? 'Самовывоз' : 'Доставка')

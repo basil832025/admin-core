@@ -978,10 +978,29 @@ public function submit(Request $request)
     // === ДАТА ДОСТАВКИ ===
     if ($deliveryMode === 'fixed' && $deliveryDate) {
         try {
-            $date = Carbon::createFromFormat('d.m.Y', $deliveryDate);
+            // Поддерживаем оба формата, т.к. flatpickr отправляет Y-m-d,
+            // а altInput может давать d.m.Y.
+            if (preg_match('/^\d{2}\.\d{2}\.\d{4}$/', $deliveryDate)) {
+                $date = Carbon::createFromFormat('d.m.Y', $deliveryDate);
+            } elseif (preg_match('/^\d{4}-\d{2}-\d{2}$/', $deliveryDate)) {
+                $date = Carbon::createFromFormat('Y-m-d', $deliveryDate);
+            } else {
+                $date = Carbon::parse($deliveryDate);
+            }
+
             $order->date_order = $date->toDateString();
         } catch (\Throwable $e) {
-            $order->date_order = now()->toDateString();
+            \Log::warning('Failed to parse delivery date in submit', [
+                'date' => $deliveryDate,
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            // Не перетираем ранее установленную дату в черновике,
+            // но если её нет — ставим сегодня.
+            if (empty($order->date_order)) {
+                $order->date_order = now()->toDateString();
+            }
         }
     } else {
         // если пользователь не выбрал дату — авто: сегодня
