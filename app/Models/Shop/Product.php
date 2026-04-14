@@ -44,7 +44,7 @@ class Product extends Model implements HasMedia
         'title','sku', 'slug', 'description', 'price', 'old_price',
         'quantity', 'in_stock','main_image','parent_id','short_name',
         'seo_title', 'seo_description', 'seo_keywords','category_id','dop_info',
-          'is_new',  'is_hit',  'is_home', 'code2', 'is_imported', 'import_source_id', 'sort','short_desc', 'main_image_small',
+          'is_new',  'is_hit',  'is_home', 'is_promo', 'is_vegan', 'is_product_of_day', 'is_spicy', 'code2', 'is_imported', 'import_source_id', 'sort','short_desc', 'main_image_small',
     ];
     protected $casts = [
         'title' => 'array',
@@ -54,6 +54,10 @@ class Product extends Model implements HasMedia
         'is_new'  => 'boolean',
         'is_hit'  => 'boolean',
         'is_home' => 'boolean',
+        'is_promo' => 'boolean',
+        'is_vegan' => 'boolean',
+        'is_product_of_day' => 'boolean',
+        'is_spicy' => 'boolean',
         'is_imported' => 'boolean',
         'import_source_id' => 'int',
         'sort'    => 'integer',
@@ -429,7 +433,23 @@ class Product extends Model implements HasMedia
     }
     public function scopeCardSelect($q)
     {
-        return $q->select(['id','title','price','old_price','main_image','slug','code2','description','category_id','seo_title'])
+        return $q->select([
+            'id',
+            'title',
+            'price',
+            'old_price',
+            'main_image',
+            'slug',
+            'code2',
+            'description',
+            'category_id',
+            'seo_title',
+            'is_hit',
+            'is_promo',
+            'is_vegan',
+            'is_product_of_day',
+            'is_spicy',
+        ])
             ->with('categories:id,slug,title');
     }
 
@@ -440,7 +460,25 @@ class Product extends Model implements HasMedia
             'productCharacteristicValues.characteristicValue',
             'ingredients',
             'children' => function ($query) {
-                $query->select(['id','title','price','old_price','main_image','slug','code2','description','category_id','seo_title','parent_id','sort']);
+                $query->select([
+                    'id',
+                    'title',
+                    'price',
+                    'old_price',
+                    'main_image',
+                    'slug',
+                    'code2',
+                    'description',
+                    'category_id',
+                    'seo_title',
+                    'parent_id',
+                    'sort',
+                    'is_hit',
+                    'is_promo',
+                    'is_vegan',
+                    'is_product_of_day',
+                    'is_spicy',
+                ]);
             },
             'children.productCharacteristicValues.characteristic.svgImage',
             'children.productCharacteristicValues.characteristicValue',

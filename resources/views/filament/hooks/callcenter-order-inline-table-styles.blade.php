@@ -294,6 +294,51 @@
             padding: 0 4px;
         }
 
+        .callcenter-items-table .callcenter-unit-with-tooltip {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: help;
+        }
+
+        .callcenter-items-table .callcenter-unit-value {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 18px;
+        }
+
+        .callcenter-items-table .callcenter-unit-tooltip {
+            position: absolute;
+            right: calc(100% + 10px);
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 90;
+            width: 260px;
+            max-width: min(260px, 45vw);
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid #bfdbfe;
+            background: #ffffff;
+            color: #0f172a;
+            font-size: 12px;
+            line-height: 1.35;
+            text-align: left;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+            white-space: normal;
+            word-break: break-word;
+            visibility: hidden;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.12s ease;
+        }
+
+        .callcenter-items-table .callcenter-unit-with-tooltip:hover .callcenter-unit-tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+
         .callcenter-items-table .callcenter-inline-item-total {
             color: #0369a1 !important;
             font-size: 12px !important;

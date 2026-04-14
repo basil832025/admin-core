@@ -94,6 +94,11 @@ class ProductCardPresenter
             'price'       => $p->price,
             'old_price'   => $p->old_price,
             'article'     => $p->code2,
+            'is_hit'      => (bool) ($p->is_hit ?? false),
+            'is_promo'    => (bool) ($p->is_promo ?? false),
+            'is_vegan'    => (bool) ($p->is_vegan ?? false),
+            'is_product_of_day' => (bool) ($p->is_product_of_day ?? false),
+            'is_spicy'    => (bool) ($p->is_spicy ?? false),
             'char_values' => $buildCharMap($p),
         ]];
 
@@ -106,6 +111,11 @@ class ProductCardPresenter
                 'price'       => $child->price,
                 'old_price'   => $childOldPrice,
                 'article'     => $child->code2,
+                'is_hit'      => (bool) ($child->is_hit ?? false),
+                'is_promo'    => (bool) ($child->is_promo ?? false),
+                'is_vegan'    => (bool) ($child->is_vegan ?? false),
+                'is_product_of_day' => (bool) ($child->is_product_of_day ?? false),
+                'is_spicy'    => (bool) ($child->is_spicy ?? false),
                 'char_values' => $buildCharMap($child),
             ];
         }

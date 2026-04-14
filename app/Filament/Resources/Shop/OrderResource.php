@@ -278,12 +278,8 @@ class OrderResource extends Resource
                             }
                         })
                         ->options(function (Get $get) {
-                            $type = $get('time_type') ?? 'order';
-                            $momentStr = $type === 'execution'
-                                ? trim(($get('delivery_date') ?? '') . ' ' . ($get('delivery_time') ?? ''))
-                                : trim(($get('ordered_date')  ?? '') . ' ' . ($get('ordered_time')  ?? ''));
-
-                            $moment = $momentStr ? Carbon::parse($momentStr) : now();
+                            $type = (string) ($get('time_type') ?? 'order');
+                            $moment = static::resolveTimeDiscountMomentFromForm($get, $type);
 
                             return TimeDiscount::query()
                                 ->activeForMoment($moment, 'Europe/Kyiv')
@@ -293,12 +289,8 @@ class OrderResource extends Resource
                         ->afterStateUpdated(function ($state, Set $set, Get $get, ?Order $record) {
                             if (! $record) return;
 
-                            $discountType = TimeDiscount::find($state)?->time_type ?? ($get('time_type') ?? 'order');
-                            $momentStr = $discountType === 'execution'
-                                ? trim(($get('delivery_date') ?? '') . ' ' . ($get('delivery_time') ?? ''))
-                                : trim(($get('ordered_date')  ?? '') . ' ' . ($get('ordered_time')  ?? ''));
-
-                            $moment = $momentStr ? Carbon::parse($momentStr) : now();
+                            $discountType = (string) (TimeDiscount::find($state)?->time_type ?? ($get('time_type') ?? 'order'));
+                            $moment = static::resolveTimeDiscountMomentFromForm($get, $discountType);
 
                             app(\App\Services\OrderPricing::class)->applyTimeExclusive(
                                 $record,
@@ -1007,6 +999,73 @@ class OrderResource extends Resource
                         ->content(fn (?Order $record): ?string => $record?->updated_at?->diffForHumans()),
                 ]),
         ];
+    }
+
+    protected static function resolveTimeDiscountMomentFromForm(Get $get, string $timeType): Carbon
+    {
+        // В callcenter ориентируемся на выбранные дату/время доставки,
+        // как на checkout (fixed delivery date).
+        if (! (bool) ($get('as_soon_possible') ?? false)) {
+            $deliveryMoment = static::composeMomentFromStates(
+                $get('date_order'),
+                $get('time_order')
+            );
+
+            if ($deliveryMoment) {
+                return $deliveryMoment;
+            }
+        }
+
+        // Фолбек: момент создания заказа.
+        $createdMoment = static::composeMomentFromStates(
+            $get('dat'),
+            $get('time_start')
+        );
+
+        return $createdMoment ?? now(config('app.timezone', 'Europe/Kyiv'));
+    }
+
+    protected static function composeMomentFromStates(mixed $dateState, mixed $timeState): ?Carbon
+    {
+        $tz = config('app.timezone', 'Europe/Kyiv');
+        $date = null;
+
+        if ($dateState instanceof \DateTimeInterface) {
+            $date = Carbon::instance($dateState)->setTimezone($tz);
+        } elseif (is_string($dateState) && trim($dateState) !== '') {
+            try {
+                $date = Carbon::parse($dateState, $tz);
+            } catch (\Throwable) {
+                $date = null;
+            }
+        }
+
+        if (! $date) {
+            return null;
+        }
+
+        $timeString = null;
+        if ($timeState instanceof \DateTimeInterface) {
+            $timeString = Carbon::instance($timeState)->setTimezone($tz)->format('H:i:s');
+        } elseif (is_string($timeState) && trim($timeState) !== '') {
+            $raw = trim($timeState);
+
+            if (preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $raw)) {
+                $timeString = strlen($raw) === 5 ? $raw . ':00' : $raw;
+            } else {
+                try {
+                    $timeString = Carbon::parse($raw, $tz)->format('H:i:s');
+                } catch (\Throwable) {
+                    $timeString = null;
+                }
+            }
+        }
+
+        if ($timeString) {
+            $date->setTimeFromTimeString($timeString);
+        }
+
+        return $date;
     }
 
 

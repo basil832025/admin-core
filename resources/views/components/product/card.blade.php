@@ -21,6 +21,7 @@
 
     // Подготовка карты цен для всех вариантов
     $priceMap = [];
+    $badgeMap = [];
     $initialDiscount = null;
     $initialProductId = $pid ? (string)$pid : ($rows[0]['product_id'] ?? '');
 
@@ -41,6 +42,14 @@
             $priceMap[$rowId] = [
                 'price' => $rowPrice,
                 'old'   => $rowOldPrice,
+            ];
+
+            $badgeMap[$rowId] = [
+                'is_spicy' => (bool)($row['is_spicy'] ?? false),
+                'is_promo' => (bool)($row['is_promo'] ?? false),
+                'is_hit' => (bool)($row['is_hit'] ?? false),
+                'is_vegan' => (bool)($row['is_vegan'] ?? false),
+                'is_product_of_day' => (bool)($row['is_product_of_day'] ?? false),
             ];
 
             // Рассчитываем скидку только для начального варианта
@@ -69,12 +78,22 @@
 <article
     x-data="{
         prices: @js($priceMap),
+        badges: @js($badgeMap),
+        badgeLabels: @js([
+            'is_spicy' => st('product.badges.is_spicy', 'Гострий'),
+            'is_promo' => st('product.badges.is_promo', 'Акція'),
+            'is_hit' => st('product.badges.is_hit', 'Хіт'),
+            'is_vegan' => st('product.badges.is_vegan', 'Веган'),
+            'is_product_of_day' => st('product.badges.is_product_of_day', 'Пиріг дня'),
+        ]),
         discountPercent: @js($initialDiscount ?? null),
+        activeBadges: [],
         rootId: @js($pid),
         init() {
             const initialProductId = @js($pid ? (string)$pid : ($rows[0]['product_id'] ?? ''));
             if (initialProductId) {
                 this.updateDiscount(initialProductId);
+                this.updateBadges(initialProductId);
             }
             this.$nextTick(() => {
                 const rowsSelectorContainer = this.$el.querySelector('.rows-selector-container');
@@ -85,9 +104,15 @@
                             const selectorData = window.Alpine.$data(rowsSelector);
                             if (selectorData && typeof selectorData.$watch === 'function') {
                                 selectorData.$watch('selected', (newVal) => {
-                                    if (newVal) { this.updateDiscount(String(newVal)); }
+                                    if (newVal) {
+                                        this.updateDiscount(String(newVal));
+                                        this.updateBadges(String(newVal));
+                                    }
                                 });
-                                if (selectorData.selected) { this.updateDiscount(String(selectorData.selected)); }
+                                if (selectorData.selected) {
+                                    this.updateDiscount(String(selectorData.selected));
+                                    this.updateBadges(String(selectorData.selected));
+                                }
                             }
                         } catch(e) {
                             // Silent error handling
@@ -115,10 +140,42 @@
                 this.discountPercent = null;
             }
         },
+        buildBadges(flags) {
+            if (!flags) {
+                return [];
+            }
+
+            const items = [];
+
+            if (flags.is_spicy) {
+                items.push({ key: 'is_spicy', color: '#FF0013', textColor: '#FFFFFF', label: this.badgeLabels.is_spicy });
+            }
+            if (flags.is_promo) {
+                items.push({ key: 'is_promo', color: '#FF7500', textColor: '#FFFFFF', label: this.badgeLabels.is_promo });
+            }
+            if (flags.is_hit) {
+                items.push({ key: 'is_hit', color: '#FFD700', textColor: '#19191A', label: this.badgeLabels.is_hit });
+            }
+            if (flags.is_vegan) {
+                items.push({ key: 'is_vegan', color: '#27AE60', textColor: '#FFFFFF', label: this.badgeLabels.is_vegan });
+            }
+            if (flags.is_product_of_day) {
+                items.push({ key: 'is_product_of_day', color: '#5D4037', textColor: '#FFFFFF', label: this.badgeLabels.is_product_of_day });
+            }
+
+            return items;
+        },
+        updateBadges(productId) {
+            const flags = this.badges[String(productId)] ?? null;
+            this.activeBadges = this.buildBadges(flags);
+        },
         handleVariantSelected(event) {
             if (event && event.detail && event.detail.productId) {
                 const productId = String(event.detail.productId);
-                if (this.prices[productId]) { this.updateDiscount(productId); }
+                if (this.prices[productId]) {
+                    this.updateDiscount(productId);
+                }
+                this.updateBadges(productId);
             }
         }
     }"
@@ -129,12 +186,21 @@
     <a href="{{ $url }}">
         <div class="relative desk:w-[354px] h-[220px] md:w-[336px] w-[331px] overflow-hidden rounded-[12px]">
             <img src="{{ $image }}" alt="{{ $title }}" class="h-full w-full object-cover">
-            <span
-                x-show="discountPercent !== null && discountPercent > 0"
-                x-text="'Знижка –' + discountPercent + '%'"
-                x-cloak
-                class="absolute right-[10px] top-[10px] rounded-[3px] bg-[#B91C1C] px-[10px] py-[4px] text-white font-intro font-bold text-[14px] leading-[16px] z-10">
-            </span>
+            <div class="absolute right-[10px] top-[10px] z-10 flex flex-col items-end gap-1">
+                <span
+                    x-show="discountPercent !== null && discountPercent > 0"
+                    x-text="'Знижка –' + discountPercent + '%'"
+                    x-cloak
+                    class="rounded-[3px] bg-[#B91C1C] px-[10px] py-[4px] text-white font-intro font-bold text-[14px] leading-[16px]">
+                </span>
+                <template x-for="badge in activeBadges" :key="badge.key">
+                    <span
+                        x-text="badge.label"
+                        :style="`background:${badge.color};color:${badge.textColor};`"
+                        class="rounded-[3px] px-[10px] py-[4px] font-intro font-bold text-[14px] leading-[16px]"
+                    ></span>
+                </template>
+            </div>
         </div>
     </a>
 

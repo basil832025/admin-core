@@ -11,6 +11,7 @@ use App\Services\PrintNode\KitchenDuplicatePrintService;
 use App\Models\Shop\Client;
 use App\Models\Shop\OrderItem;
 use App\Models\Shop\ProductCharacteristicValue;
+use App\Models\Shop\TimeDiscount;
 use App\Models\Callcenter\Order;
 use Awcodes\TableRepeater\Components\TableRepeater;
 use Awcodes\TableRepeater\Header;
@@ -31,6 +32,8 @@ use Filament\Forms\Components\View;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Facades\Log;
 use Livewire\Component as LivewireComponent;
@@ -458,26 +461,30 @@ class OrderResource extends ShopOrderResource
                     ->width('4%'),
                 Header::make('product_id')
                     ->label(__('order.fields.product'))
-                    ->width('50%')
+                    ->width('44%')
                     ->markAsRequired(),
                 Header::make('unit')
                     ->label('Од.')
                     ->align('center')
-                    ->width('10%'),
+                    ->width('8%'),
                 Header::make('qty')
                     ->label('Кол-во')
                     ->align('center')
-                    ->width('10%')
+                    ->width('8%')
                     ->markAsRequired(),
                 Header::make('unit_price')
                     ->label(__('order.fields.price'))
                     ->align('center')
-                    ->width('12%')
+                    ->width('10%')
                     ->markAsRequired(),
                 Header::make('item_total')
                     ->label(__('order.fields.sum'))
                     ->align('center')
-                    ->width('14%'),
+                    ->width('10%'),
+                Header::make('time_discount_marker')
+                    ->label(__('order.columns.discount'))
+                    ->align('center')
+                    ->width('16%'),
                 Header::make('id')
                     ->label('')
                     ->width('0%'),
@@ -632,14 +639,22 @@ class OrderResource extends ShopOrderResource
                     ->extraAttributes([
                         'class' => 'text-center callcenter-unit-text',
                     ])
-                    ->content(function (Get $get) {
+                    ->content(function (Get $get): HtmlString {
                         $productId = (int) ($get('product_id') ?? 0);
 
                         if (! $productId) {
-                            return '-';
+                            return new HtmlString('<span class="callcenter-unit-with-tooltip"><span class="callcenter-unit-value">-</span><span class="callcenter-unit-tooltip" role="tooltip">Описание отсутствует</span></span>');
                         }
 
-                        return static::getProductUnitLabel($productId);
+                        $unit = static::getProductUnitLabel($productId);
+                        $description = static::getProductDescriptionForTooltip($productId);
+
+                        return new HtmlString(
+                            '<span class="callcenter-unit-with-tooltip">'
+                            . '<span class="callcenter-unit-value">' . e($unit) . '</span>'
+                            . '<span class="callcenter-unit-tooltip" role="tooltip">' . e($description) . '</span>'
+                            . '</span>'
+                        );
                     }),
 
                 TextInput::make('qty')
@@ -688,8 +703,279 @@ class OrderResource extends ShopOrderResource
 
                         return number_format($qty * $price, 1, ',', ' ');
                     }),
+
+                Placeholder::make('time_discount_marker')
+                    ->label('')
+                    ->hiddenLabel()
+                    ->extraAttributes([
+                        'class' => 'text-center',
+                    ])
+                    ->content(function (Get $get): HtmlString {
+                        $orderItemId = (int) ($get('id') ?? 0);
+                        if ($orderItemId <= 0) {
+                            return new HtmlString('<span style="color:#9ca3af;">—</span>');
+                        }
+
+                        $orderId = static::resolveOrderIdByItemId($orderItemId);
+                        if (! $orderId) {
+                            return new HtmlString('<span style="color:#9ca3af;">—</span>');
+                        }
+
+                        $timeDiscountId = static::resolveSelectedTimeDiscountId($get, $orderId);
+                        if (! $timeDiscountId) {
+                            return new HtmlString('<span style="color:#9ca3af;">—</span>');
+                        }
+
+                        $map = static::buildTimeDiscountRecipientsMap($orderId, $timeDiscountId);
+                        $entry = $map[$orderItemId] ?? null;
+                        $count = (int) data_get($entry, 'units', 0);
+                        $amount = (float) data_get($entry, 'amount', 0);
+
+                        if ($count <= 0) {
+                            return new HtmlString('<span style="color:#9ca3af;">—</span>');
+                        }
+
+                        $amountText = '- ' . number_format($amount, 2, ',', ' ');
+                        if ($count > 1) {
+                            $amountText .= ' ×' . $count;
+                        }
+
+                        return new HtmlString(
+                            '<span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;background:#FFF7ED;color:#C2410C;font-size:11px;font-weight:700;">'
+                            . e($amountText)
+                            . '</span>'
+                        );
+                    }),
             ])
             ->required();
+    }
+
+    protected static function resolveOrderIdByItemId(int $orderItemId): ?int
+    {
+        static $cache = [];
+
+        if (array_key_exists($orderItemId, $cache)) {
+            return $cache[$orderItemId];
+        }
+
+        $orderId = (int) (OrderItem::query()->whereKey($orderItemId)->value('shop_order_id') ?? 0);
+
+        return $cache[$orderItemId] = ($orderId > 0 ? $orderId : null);
+    }
+
+    protected static function resolveSelectedTimeDiscountId(Get $get, int $orderId): ?int
+    {
+        $paths = [
+            '../../ui_time_discount_id',
+            '../ui_time_discount_id',
+            'ui_time_discount_id',
+            '../../../ui_time_discount_id',
+        ];
+
+        foreach ($paths as $path) {
+            $raw = $get($path);
+            $id = is_numeric($raw) ? (int) $raw : 0;
+            if ($id > 0) {
+                return $id;
+            }
+        }
+
+        static $fallbackCache = [];
+        if (array_key_exists($orderId, $fallbackCache)) {
+            return $fallbackCache[$orderId];
+        }
+
+        $meta = DB::table('bs_shop_order_adjustments')
+            ->where('shop_order_id', $orderId)
+            ->whereNull('shop_order_item_id')
+            ->where('type', 'time')
+            ->orderByDesc('id')
+            ->value('meta');
+
+        $metaArr = is_string($meta) ? json_decode($meta, true) : (is_array($meta) ? $meta : []);
+        $id = (int) (data_get($metaArr, 'id') ?? data_get($metaArr, 'time_discount_id') ?? 0);
+
+        return $fallbackCache[$orderId] = ($id > 0 ? $id : null);
+    }
+
+    /**
+     * @return array<int,array{units:int,amount:float}> [order_item_id => ['units' => int, 'amount' => float]]
+     */
+    protected static function buildTimeDiscountRecipientsMap(int $orderId, int $discountId): array
+    {
+        static $cache = [];
+        $cacheKey = $orderId . ':' . $discountId;
+
+        if (isset($cache[$cacheKey])) {
+            return $cache[$cacheKey];
+        }
+
+        $discount = TimeDiscount::query()->find($discountId);
+        if (! $discount || ! $discount->is_active) {
+            return $cache[$cacheKey] = [];
+        }
+
+        $percent = (float) ($discount->percent ?? 0);
+        $eachN = (int) ($discount->nth_item ?? 0);
+        if ($percent <= 0 || $eachN < 1) {
+            return $cache[$cacheKey] = [];
+        }
+
+        $units = [];
+
+        $items = OrderItem::query()
+            ->where('shop_order_id', $orderId)
+            ->with(['product.categories', 'product.characteristicValues'])
+            ->orderBy('id')
+            ->get();
+
+        foreach ($items as $item) {
+            $product = $item->product;
+            if (! $product) {
+                continue;
+            }
+
+            if (! static::matchesTimeDiscountScope($discount, $item)) {
+                continue;
+            }
+
+            $qty = (int) ($item->qty ?? 0);
+            $price = (float) ($item->unit_price ?? 0);
+            if ($qty <= 0 || $price <= 0) {
+                continue;
+            }
+
+            for ($i = 0; $i < $qty; $i++) {
+                $units[] = [
+                    'item_id' => (int) $item->id,
+                    'price' => $price,
+                ];
+            }
+        }
+
+        if (count($units) === 0) {
+            return $cache[$cacheKey] = [];
+        }
+
+        $result = [];
+
+        if ($eachN === 1) {
+            foreach ($units as $unit) {
+                $itemId = (int) $unit['item_id'];
+                if (! isset($result[$itemId])) {
+                    $result[$itemId] = ['units' => 0, 'amount' => 0.0];
+                }
+
+                $result[$itemId]['units'] += 1;
+                $result[$itemId]['amount'] += ((float) $unit['price']) * ($percent / 100);
+            }
+
+            foreach ($result as &$row) {
+                $row['amount'] = round((float) $row['amount'], 2);
+            }
+            unset($row);
+
+            return $cache[$cacheKey] = $result;
+        }
+
+        if (count($units) < $eachN) {
+            return $cache[$cacheKey] = [];
+        }
+
+        if (intdiv(count($units), $eachN) <= 0) {
+            return $cache[$cacheKey] = [];
+        }
+
+        $grouping = (string) ($discount->grouping_mode ?: TimeDiscount::GROUP_PRICE_SORTED);
+        $target = (string) ($discount->apply_target ?: TimeDiscount::TARGET_CHEAPEST);
+        $index = (int) ($discount->apply_index ?? 0);
+
+        if ($grouping === TimeDiscount::GROUP_PRICE_SORTED) {
+            usort($units, fn (array $a, array $b) => $b['price'] <=> $a['price']);
+        }
+
+        $chunks = array_chunk($units, $eachN);
+        $chunks = array_values(array_filter($chunks, fn (array $chunk) => count($chunk) === $eachN));
+
+        foreach ($chunks as $chunk) {
+            $recipient = null;
+
+            if ($target === TimeDiscount::TARGET_MOST_EXPENSIVE) {
+                $recipient = collect($chunk)->sortByDesc('price')->first();
+            } elseif ($target === TimeDiscount::TARGET_INDEX) {
+                $sorted = collect($chunk)->sortBy('price')->values();
+                $pos = max(1, min($eachN, $index > 0 ? $index : 1));
+                $recipient = $sorted->get($pos - 1);
+            } else {
+                $recipient = collect($chunk)->sortBy('price')->first();
+            }
+
+            if (! is_array($recipient)) {
+                continue;
+            }
+
+            $itemId = (int) ($recipient['item_id'] ?? 0);
+            if ($itemId > 0) {
+                if (! isset($result[$itemId])) {
+                    $result[$itemId] = ['units' => 0, 'amount' => 0.0];
+                }
+
+                $result[$itemId]['units'] += 1;
+                $result[$itemId]['amount'] += ((float) ($recipient['price'] ?? 0)) * ($percent / 100);
+            }
+        }
+
+        foreach ($result as &$row) {
+            $row['amount'] = round((float) $row['amount'], 2);
+        }
+        unset($row);
+
+        return $cache[$cacheKey] = $result;
+    }
+
+    protected static function matchesTimeDiscountScope(TimeDiscount $discount, OrderItem $item): bool
+    {
+        $product = $item->product;
+        if (! $product) {
+            return false;
+        }
+
+        try {
+            static $matchProductMethod;
+            static $matchCategoryMethod;
+            static $matchCharacteristicsMethod;
+
+            if (! $matchProductMethod) {
+                $matchProductMethod = new \ReflectionMethod(TimeDiscount::class, 'matchesProduct');
+                $matchProductMethod->setAccessible(true);
+            }
+
+            if (! $matchCategoryMethod) {
+                $matchCategoryMethod = new \ReflectionMethod(TimeDiscount::class, 'matchesCategory');
+                $matchCategoryMethod->setAccessible(true);
+            }
+
+            if (! $matchCharacteristicsMethod) {
+                $matchCharacteristicsMethod = new \ReflectionMethod(TimeDiscount::class, 'matchesCharacteristics');
+                $matchCharacteristicsMethod->setAccessible(true);
+            }
+
+            if (! (bool) $matchProductMethod->invoke($discount, $product)) {
+                return false;
+            }
+
+            if (! (bool) $matchCategoryMethod->invoke($discount, $product)) {
+                return false;
+            }
+
+            if (! (bool) $matchCharacteristicsMethod->invoke($discount, $item)) {
+                return false;
+            }
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return true;
     }
 
     protected static function getCallcenterTotalsSchema(): array
@@ -1020,6 +1306,105 @@ class OrderResource extends ShopOrderResource
         return $cache[$productId] = '-';
     }
 
+    protected static function getProductDescriptionForTooltip(int $productId): string
+    {
+        static $cache = [];
+
+        if (isset($cache[$productId])) {
+            return $cache[$productId];
+        }
+
+        $product = \App\Models\Shop\Product::query()
+            ->select(['id', 'parent_id', 'description', 'short_desc'])
+            ->find($productId);
+
+        if (! $product) {
+            return $cache[$productId] = 'Описание отсутствует';
+        }
+
+        $description = static::extractProductDescriptionText($product);
+
+        if ($description === '' && (int) ($product->parent_id ?? 0) > 0) {
+            $parent = \App\Models\Shop\Product::query()
+                ->select(['id', 'description', 'short_desc'])
+                ->find((int) $product->parent_id);
+
+            if ($parent) {
+                $description = static::extractProductDescriptionText($parent);
+            }
+        }
+
+        if ($description === '') {
+            $description = 'Описание отсутствует';
+        }
+
+        return $cache[$productId] = $description;
+    }
+
+    protected static function extractProductDescriptionText(\App\Models\Shop\Product $product): string
+    {
+        $locale = app()->getLocale();
+        $defaultLocale = config('app.locale', 'uk');
+
+        $description = static::extractLocalizedText($product->getRawOriginal('description'), $locale, $defaultLocale);
+
+        if ($description === '') {
+            $description = trim((string) ($product->short_desc ?? ''));
+        }
+
+        $description = preg_replace('/\s+/u', ' ', strip_tags($description));
+        $description = trim((string) $description);
+
+        if ($description === '') {
+            return '';
+        }
+
+        if (mb_strlen($description) > 300) {
+            return rtrim(mb_substr($description, 0, 297)) . '...';
+        }
+
+        return $description;
+    }
+
+    protected static function extractLocalizedText(mixed $raw, string $locale, string $defaultLocale): string
+    {
+        if (is_array($raw)) {
+            $value = $raw[$locale]
+                ?? $raw[$defaultLocale]
+                ?? $raw['uk']
+                ?? $raw['ru']
+                ?? $raw['en']
+                ?? (count($raw) ? reset($raw) : '');
+
+            return trim((string) $value);
+        }
+
+        if (! is_string($raw)) {
+            return '';
+        }
+
+        $trimmed = trim($raw);
+
+        if ($trimmed === '') {
+            return '';
+        }
+
+        $decoded = json_decode($trimmed, true);
+
+        if (is_array($decoded)) {
+            $value = $decoded[$locale]
+                ?? $decoded[$defaultLocale]
+                ?? $decoded['uk']
+                ?? $decoded['ru']
+                ?? $decoded['en']
+                ?? (count($decoded) ? reset($decoded) : '');
+
+            return trim((string) $value);
+        }
+
+        return $trimmed;
+    }
+
     protected static function recalculateShippingFromCurrentForm(Get $get, Set $set): void
     {
         $selfPickup = (bool) ($get('self_pickup') ?? false);
@@ -1071,8 +1456,91 @@ class OrderResource extends ShopOrderResource
 
         $item->update($changes);
 
-        app(\App\Services\OrderPricing::class)->recalc($livewire->record);
+        $record = $livewire->record->fresh();
+        if (! $record) {
+            return;
+        }
+
+        $pricing = app(\App\Services\OrderPricing::class);
+
+        $timeAdj = $record->adjustments()
+            ->where('type', 'time')
+            ->whereNull('shop_order_item_id')
+            ->latest('id')
+            ->first();
+
+        if ($timeAdj) {
+            $timeId = (int) (data_get($timeAdj->meta, 'id') ?? data_get($timeAdj->meta, 'time_discount_id') ?? 0);
+
+            if ($timeId > 0) {
+                $pricing->applyTimeExclusive(
+                    $record,
+                    $timeId,
+                    'single',
+                    static::resolveDiscountMomentForOrder($record)
+                );
+            } else {
+                $pricing->recalc($record);
+            }
+        } else {
+            $fixedAdj = $record->adjustments()
+                ->where('type', 'fixed')
+                ->whereNull('shop_order_item_id')
+                ->latest('id')
+                ->first();
+
+            if ($fixedAdj) {
+                $fixedId = (int) (data_get($fixedAdj->meta, 'id') ?? data_get($fixedAdj->meta, 'fixed_discount_id') ?? 0);
+
+                if ($fixedId > 0) {
+                    $pricing->applyFixedExclusive($record, $fixedId, 'single');
+                } else {
+                    $pricing->recalc($record);
+                }
+            } else {
+                $pricing->recalc($record);
+            }
+        }
+
+        $livewire->record = $record->fresh();
         $livewire->record->recalculateTotalPrice();
+    }
+
+    protected static function resolveDiscountMomentForOrder(Order $order): Carbon
+    {
+        $tz = config('app.timezone', 'Europe/Kyiv');
+
+        if (! (bool) $order->as_soon_possible && $order->date_order) {
+            $date = $order->date_order instanceof \DateTimeInterface
+                ? Carbon::instance($order->date_order)->setTimezone($tz)
+                : Carbon::parse((string) $order->date_order, $tz);
+
+            if ($order->time_order) {
+                $time = $order->time_order instanceof \DateTimeInterface
+                    ? Carbon::instance($order->time_order)->setTimezone($tz)->format('H:i:s')
+                    : Carbon::parse((string) $order->time_order, $tz)->format('H:i:s');
+                $date->setTimeFromTimeString($time);
+            }
+
+            return $date;
+        }
+
+        if ($order->dat) {
+            $date = $order->dat instanceof \DateTimeInterface
+                ? Carbon::instance($order->dat)->setTimezone($tz)
+                : Carbon::parse((string) $order->dat, $tz);
+
+            if ($order->time_start) {
+                $time = $order->time_start instanceof \DateTimeInterface
+                    ? Carbon::instance($order->time_start)->setTimezone($tz)->format('H:i:s')
+                    : Carbon::parse((string) $order->time_start, $tz)->format('H:i:s');
+                $date->setTimeFromTimeString($time);
+            }
+
+            return $date;
+        }
+
+        return now($tz);
     }
 
     protected static function resolveUnitValueFromRow(ProductCharacteristicValue $row): string

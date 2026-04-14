@@ -247,6 +247,10 @@ class ProductResource extends Resource
                             Toggle::make('is_new')->label(__('product.fields.is_new'))->default(false),
                             Toggle::make('is_hit')->label(__('product.fields.is_hit'))->default(false),
                             Toggle::make('is_home')->label(__('product.fields.is_home'))->default(false),
+                            Toggle::make('is_promo')->label(__('product.fields.is_promo'))->default(false),
+                            Toggle::make('is_vegan')->label(__('product.fields.is_vegan'))->default(false),
+                            Toggle::make('is_product_of_day')->label(__('product.fields.is_product_of_day'))->default(false),
+                            Toggle::make('is_spicy')->label(__('product.fields.is_spicy'))->default(false),
 
                             ]),
                     Section::make(__('product.sections.associations'))
@@ -1205,6 +1209,10 @@ class ProductResource extends Resource
                 ToggleColumn::make('is_new')->label(__('product.columns.is_new'))->sortable(),
                 ToggleColumn::make('is_hit')->label(__('product.columns.is_hit'))->sortable(),
                 ToggleColumn::make('is_home')->label(__('product.columns.is_home'))->sortable(),
+                ToggleColumn::make('is_promo')->label(__('product.columns.is_promo'))->sortable(),
+                ToggleColumn::make('is_vegan')->label(__('product.columns.is_vegan'))->sortable(),
+                ToggleColumn::make('is_product_of_day')->label(__('product.columns.is_product_of_day'))->sortable(),
+                ToggleColumn::make('is_spicy')->label(__('product.columns.is_spicy'))->sortable(),
                 Tables\Columns\TextColumn::make('quantity')->label(__('product.columns.quantity'))->sortable(),
                 Tables\Columns\TextColumn::make('updated_at')->label(__('product.columns.updated_at'))->dateTime('d.m.Y H:i')->sortable()
             ])
@@ -1263,6 +1271,18 @@ class ProductResource extends Resource
                 TernaryFilter::make('is_home')->label(__('product.filters.is_home'))
                     ->columnSpan(1)
                     ->nullable(),  // Диапазон даты создания
+                TernaryFilter::make('is_promo')->label(__('product.filters.is_promo'))
+                    ->columnSpan(1)
+                    ->nullable(),
+                TernaryFilter::make('is_vegan')->label(__('product.filters.is_vegan'))
+                    ->columnSpan(1)
+                    ->nullable(),
+                TernaryFilter::make('is_product_of_day')->label(__('product.filters.is_product_of_day'))
+                    ->columnSpan(1)
+                    ->nullable(),
+                TernaryFilter::make('is_spicy')->label(__('product.filters.is_spicy'))
+                    ->columnSpan(1)
+                    ->nullable(),
               /*  Filter::make('created_between')
                     ->form([
                         DatePicker::make('from')->label('Створено з'),
