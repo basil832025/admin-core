@@ -61,6 +61,16 @@ class ProductBadgesTranslationsSeeder extends Seeder
                 ],
                 'description' => 'Badge label for spicy products',
             ],
+            [
+                'group' => 'product',
+                'slug' => 'product.badges.discount',
+                'value' => [
+                    'uk' => 'Знижка',
+                    'ru' => 'Скидка',
+                    'en' => 'Discount',
+                ],
+                'description' => 'Badge label for discount percent',
+            ],
         ];
 
         foreach ($translations as $translation) {

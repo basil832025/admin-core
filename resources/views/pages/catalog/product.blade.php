@@ -126,19 +126,20 @@
                         </div>
                         @php
                             $showBadge = $initialDiscount !== null && $initialDiscount > 0;
+                            $discountLabel = st('product.badges.discount', 'Знижка');
                         @endphp
                         @if($showBadge)
                             <span
                                 x-show="$store.sku.discountPercent() !== null && $store.sku.discountPercent() > 0"
-                                x-text="'Знижка –' + $store.sku.discountPercent() + '%'"
+                                x-text="@js($discountLabel) + ' -' + $store.sku.discountPercent() + '%'"
                                 style="display: block;"
                                 class="absolute right-[10px] top-[10px] rounded-[3px] bg-[#B91C1C] px-[10px] py-[4px] text-white font-intro font-bold text-[14px] leading-[16px] z-10">
-                                Знижка –{{ $initialDiscount }}%
+                                {{ $discountLabel }} -{{ $initialDiscount }}%
                             </span>
                         @else
                             <span
                                 x-show="$store.sku.discountPercent() !== null && $store.sku.discountPercent() > 0"
-                                x-text="'Знижка –' + $store.sku.discountPercent() + '%'"
+                                x-text="@js($discountLabel) + ' -' + $store.sku.discountPercent() + '%'"
                                 x-cloak
                                 class="absolute right-[10px] top-[10px] rounded-[3px] bg-[#B91C1C] px-[10px] py-[4px] text-white font-intro font-bold text-[14px] leading-[16px] z-10">
                             </span>

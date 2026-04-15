@@ -1,4 +1,10 @@
 <x-mail::message>
+<x-slot name="header">
+<x-mail::header :url="config('app.url')">
+<img src="{{ asset('images/logo.svg') }}" alt="{{ st('header.logo_alt', 'Три пироги') }}" style="max-height: 56px; width: auto;">
+</x-mail::header>
+</x-slot>
+
 # {{ st('order.email.thank_you', 'Дякуємо за ваше замовлення!') }}
 
 {{ st('order.email.greeting', 'Шановний клієнте!') }}
@@ -8,7 +14,7 @@
 ## {{ st('order.email.order_info', 'Інформація про замовлення') }}
 
 **{{ st('order.email.order_number', 'Номер замовлення') }}:** №{{ $order->number ?? $order->id }}  
-**{{ st('order.email.order_date', 'Дата створення') }}:** {{ ($order->placedAt() ?? $order->created_at)->format('d.m.Y H:i') }}  
+**{{ st('order.email.order_date', 'Дата створення') }}:** {{ ($order->placedAt() ?? $order->created_at)->format('d.m.Y') }}  
 **{{ st('order.email.order_status', 'Статус') }}:** {{ $order->status->getLabel() }}
 
 @if($order->date_order)
@@ -16,7 +22,13 @@
 @endif
 
 @if($order->time_order)
-**{{ st('order.email.delivery_time', 'Час доставки') }}:** {{ $order->time_order }}
+@php
+    $deliveryTime = trim((string) $order->time_order);
+    if (preg_match('/^\d{1,2}:\d{2}:\d{2}$/', $deliveryTime)) {
+        $deliveryTime = substr($deliveryTime, 0, 5);
+    }
+@endphp
+**{{ st('order.email.delivery_time', 'Час доставки') }}:** {{ $deliveryTime }}
 @endif
 
 ## {{ st('order.email.delivery_address', 'Адреса доставки') }}

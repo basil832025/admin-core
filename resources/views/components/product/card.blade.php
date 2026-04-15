@@ -73,12 +73,14 @@
     $rowsCount = count($rows ?? []);
     $isSingleVariant = $rowsCount <= 1;
     $cardHeight = $isSingleVariant ? 'md:h-[540px]' : 'md:h-[660px]';
+    $discountLabel = st('product.badges.discount', 'Знижка');
 @endphp
 
 <article
     x-data="{
         prices: @js($priceMap),
         badges: @js($badgeMap),
+        discountLabel: @js($discountLabel),
         badgeLabels: @js([
             'is_spicy' => st('product.badges.is_spicy', 'Гострий'),
             'is_promo' => st('product.badges.is_promo', 'Акція'),
@@ -189,7 +191,7 @@
             <div class="absolute right-[10px] top-[10px] z-10 flex flex-col items-end gap-1">
                 <span
                     x-show="discountPercent !== null && discountPercent > 0"
-                    x-text="'Знижка –' + discountPercent + '%'"
+                    x-text="discountLabel + ' -' + discountPercent + '%'"
                     x-cloak
                     class="rounded-[3px] bg-[#B91C1C] px-[10px] py-[4px] text-white font-intro font-bold text-[14px] leading-[16px]">
                 </span>

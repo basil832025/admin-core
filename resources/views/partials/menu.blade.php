@@ -14,7 +14,7 @@
         <!-- левая стрелка -->
         <button
             type="button"
-            class="menu-arrow absolute left-0 top-1/2 -translate-y-1/2 z-20
+            class="menu-arrow absolute left-0 top-1/2 -translate-y-1/2 mt-[3px] md:mt-0 z-20
              h-6 w-6 p-0 bg-white/80 backdrop-blur-sm rounded-none ring-0 shadow-none
              flex items-center justify-center"
             x-show="canScrollLeft" @click="scroll('left')" aria-label="Вліво">
@@ -27,7 +27,7 @@
         <!-- правая стрелка -->
         <button
             type="button"
-            class="menu-arrow absolute right-0 top-1/2 -translate-y-1/2 z-20
+            class="menu-arrow absolute right-0 top-1/2 -translate-y-1/2 mt-[3px] md:mt-0 z-20
              h-6 w-6 p-0 bg-white/80 backdrop-blur-sm rounded-none ring-0 shadow-none
              flex items-center justify-center"
             x-show="canScrollRight" @click="scroll('right')" aria-label="Вправо">
@@ -46,7 +46,7 @@
         <!-- скроллер -->
         <div x-ref="scroller"
              class="w-full overflow-x-auto no-scrollbar scroll-smooth">
-            <ul class="flex items-center justify-center           <!-- центрируем по оси X -->
+            <ul class="flex items-center justify-center mt-[2px] md:mt-0           <!-- центрируем по оси X -->
             w-max mx-auto                               <!-- ширина по контенту + авто-отступы -->
                  pl-10 pr-10           {{-- место под стрелки (40px с каждой стороны) --}}
                 gap-4 md:gap-[70px]           {{-- 16px мобайл, ~70px на md+ --}}
@@ -65,7 +65,7 @@
                     <li class="shrink-0 h-10">
                         <a href="{{ $item['url'] }}"
                            @class([
-                        'inline-flex items-center h-10 pb-2 text-[14px] font-bold border-b-2 transition',
+                        'inline-flex items-center h-10 leading-none text-[14px] font-bold border-b-2 transition',
                         'text-[#FF7500] border-[#FF7500]' => $active,
                         'text-[#C04103] border-transparent hover:text-[var(--brand)] hover:border-[var(--brand)]' => ! $active,
                         ])

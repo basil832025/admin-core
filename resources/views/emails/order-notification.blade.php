@@ -74,7 +74,6 @@
 
 **Номер заказа:** №{{ $orderNumber }}  
 **Дата создания:** {{ ($order->placedAt() ?? $order->created_at)->format('d.m.Y H:i') }}  
-**Статус:** {{ $order->status->getLabel() }}
 
 ## Информация о клиенте
 
@@ -99,7 +98,13 @@
 @endif
 
 @if($order->time_order)
-**Время доставки:** {{ $order->time_order }}
+@php
+    $deliveryTime = trim((string) $order->time_order);
+    if (preg_match('/^\d{1,2}:\d{2}:\d{2}$/', $deliveryTime)) {
+        $deliveryTime = substr($deliveryTime, 0, 5);
+    }
+@endphp
+**Время доставки:** {{ $deliveryTime }}
 @endif
 
 ## Способ оплаты
