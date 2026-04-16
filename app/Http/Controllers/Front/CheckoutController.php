@@ -497,6 +497,14 @@ public function saveFormData(Request $request)
             $selection = (string) ($mergedData['selected_promo'] ?? session('checkout.selected_promo', 'none'));
             $pricing = app(OrderPricing::class);
 
+            $commentKitchen = trim((string) ($mergedData['comment_kitchen'] ?? ''));
+            $commentCourier = trim((string) ($mergedData['comment_courier'] ?? ''));
+            $notesFromCourier = $commentCourier !== '' ? 'Курьер: ' . $commentCourier : null;
+
+            $order->kitchen_note = $commentKitchen !== '' ? $commentKitchen : null;
+            $order->courier_comment = null;
+            $order->notes = $notesFromCourier;
+
             $order->adjustments()->whereIn('type', ['fixed', 'time'])->delete();
             if ($selection !== '' && $selection !== 'none') {
                 [$kind, $id] = explode(':', $selection) + [null, null];
@@ -944,14 +952,7 @@ public function submit(Request $request)
     // Комментарии
     $commentKitchen = trim((string)$request->input('comment_kitchen', ''));
     $commentCourier = trim((string)$request->input('comment_courier', ''));
-    $notesParts = [];
-    if ($commentKitchen !== '') {
-        $notesParts[] = 'Кухня: '.$commentKitchen;
-    }
-    if ($commentCourier !== '') {
-        $notesParts[] = 'Курьер: '.$commentCourier;
-    }
-
+    $notesFromCourier = $commentCourier !== '' ? 'Курьер: ' . $commentCourier : null;
     $order->self_pickup = $shippingMethod === 'pickup' ? 1 : 0;
 
     // 7. Заполняем заказ (пока без учёта бонусов, только базовые суммы)
@@ -966,7 +967,9 @@ public function submit(Request $request)
 
         'payment'           => $paymentEnum,
 
-        'notes'             => implode(' | ', $notesParts) ?: null,
+        'notes'             => $notesFromCourier,
+        'kitchen_note'      => $commentKitchen !== '' ? $commentKitchen : null,
+        'courier_comment'   => null,
 
         'total_price'       => $itemsTotal,
         'shipping_price'    => $shippingMethod === 'pickup' ? 0 : ($order->shipping_price ?? 0),
