@@ -4,41 +4,42 @@
 
 @section('content')
     {{-- Оверлей с затемнением, перекрывает всю страницу --}}
-    <div class="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm flex items-start justify-center overflow-y-auto">
+    <div class="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm flex items-center justify-center overflow-y-auto px-3 py-6">
         <div
-            class="w-full max-w-[750px] bg-white rounded-[8px]
+            class="w-full bg-white rounded-[8px]
                shadow-[0_32px_48px_rgba(0,0,0,0.10)]
-               mt-20 mb-10 px-6 sm:px-10 pt-[80px] pb-[80px]"
+               px-5 sm:px-8 pt-8 sm:pt-10 pb-8 sm:pb-10"
+            style="max-width: 600px; max-height: calc(100vh - 48px); max-height: calc(100dvh - 48px); overflow-y: auto;"
         >
 
             {{-- Заголовок --}}
-            <div class="text-center mb-10">
-                <div class="text-[24px] leading-[28px] font-semibold text-[#6B7280] mb-2">
+            <div class="text-center mb-6">
+                <div class="text-[20px] leading-[24px] font-semibold text-[#6B7280] mb-2">
                     {{ st('order.success.thank_you', 'Спасибо!') }} 🎉
                 </div>
-                <div class="text-[28px] leading-[32px] font-semibold text-[#111827]">
+                <div class="text-[22px] leading-[26px] font-semibold text-[#111827]">
                     {{ st('order.success.order_sent', 'Ваш заказ отправлен') }}
                 </div>
             </div>
 
             {{-- Текст благодарности вместо картинок --}}
-            <div class="text-center mb-10 space-y-4">
+            <div class="text-center mb-6 space-y-3">
                 @if($isWorkingHours)
                     {{-- В рабочее время --}}
-                    <p class="text-[16px] leading-[24px] text-[#4B5563]">
+                    <p class="text-[14px] leading-[20px] text-[#4B5563]">
                         {{ st('order.success.working_hours.thank_you', 'Благодарим Вас за заказ.') }}<br>
                         {{ st('order.success.working_hours.order_number', 'Номер заказа') }} {{ $orderNumber }}<br>
                         {{ st('order.success.working_hours.call_center', 'В течении 15 минут с Вами свяжется оператор колл центра для подтверждения заказа.') }}
                     </p>
                 @else
                     {{-- В нерабочее время --}}
-                    <p class="text-[16px] leading-[24px] text-[#4B5563]">
+                    <p class="text-[14px] leading-[20px] text-[#4B5563]">
                         {{ st('order.success.non_working_hours.thank_you', 'Благодарим Вас за заказ.') }}<br>
                         {{ st('order.success.non_working_hours.order_number', 'Номер заказа') }} {{ $orderNumber }}<br>
                         {{ st('order.success.non_working_hours.call_center', 'С Вами свяжется оператор колл-центра в 08:30 для подтверждения заказа.') }}
                     </p>
                 @endif
-                <p class="text-[16px] leading-[24px] text-[#4B5563] mt-6">
+                <p class="text-[14px] leading-[20px] text-[#4B5563] mt-5">
                     {{ st('order.success.signature', 'С уважением, команда «Три Пироги»') }}
                 </p>
             </div>
@@ -55,7 +56,7 @@
 
 
             {{-- Информация о заказе — по центру, как в Figma --}}
-            <div class="grid grid-cols-[auto_auto] gap-x-10 gap-y-3 justify-center text-base leading-[20px] text-[#4B5563] mb-10">
+            <div class="grid grid-cols-[auto_auto] gap-x-8 gap-y-2 justify-center text-[15px] leading-[18px] text-[#4B5563] mb-6">
 
                 <div class="text-right font-medium text-[#929292]">{{ st('order.success.order_code', 'Код заказа') }}:</div>
                 <div class="text-[#111827]">#{{ $order->number }}</div>
@@ -76,23 +77,26 @@
 
 
             {{-- Кнопка "Вернуться на Главную" — как в Figma --}}
+            <div class="mt-4 space-y-3 pb-[40px]">
             <a href="{{ url('/') }}"
-               class="block mx-auto text-center mb-4
-          w-full max-w-[560px] h-[46px]
+               class="flex mx-auto items-center justify-center text-center
+          w-full h-[40px]
           bg-[#FF7500] text-white font-semibold text-[16px]
-          rounded-[6px] leading-[46px] shadow
-          hover:bg-[#e86a00] transition">
+          rounded-[6px] shadow
+          hover:bg-[#e86a00] transition"
+               style="max-width: 448px;">
                 {{ st('order.success.back_to_home', 'Вернуться на Главную') }}
             </a>
 
             @auth
                 @if((int) ($order->clients_id ?? 0) > 0)
                     <a href="{{ route('profile.orders.show', $order->id) }}"
-                       class="block mx-auto text-center mb-4
-          w-full max-w-[560px] h-[46px]
+                       class="flex mx-auto items-center justify-center text-center
+          w-full h-[40px]
           bg-white border border-[#FF7500] text-[#FF7500] font-semibold text-[16px]
-          rounded-[6px] leading-[46px]
-          hover:bg-[#FFF7ED] transition">
+          rounded-[6px]
+          hover:bg-[#FFF7ED] transition"
+                       style="max-width: 448px;">
                         {{ st('order.success.view_order_status', 'Переглянути статус замовлення') }}
                     </a>
                 @endif
@@ -102,19 +106,21 @@
             <button
                 type="button"
                 id="send-order-email-btn"
-                class="block mx-auto text-center
-        w-full max-w-[560px] h-[40px]
+                class="flex mx-auto items-center justify-center text-center
+        w-full h-[36px]
         bg-white border border-[#E5E7EB]
         rounded-[6px]
-        font-bold text-[14px] leading-[16px] text-[#FF7500]
+        font-bold text-[14px] leading-none text-[#FF7500]
         shadow-[0_2px_10px_rgba(0,0,0,0.08)]
         hover:bg-[#FFF7ED] transition
         disabled:opacity-50 disabled:cursor-not-allowed"
+                style="max-width: 448px;"
                 onclick="sendOrderToEmail({{ $order->id }})"
             >
                 <span id="send-order-email-text">{{ st('order.success.send_to_email', 'Продублювати заказ на Email') }}</span>
                 <span id="send-order-email-loading" class="hidden">{{ st('order.success.sending', 'Відправка...') }}</span>
             </button>
+            </div>
 
 
 
@@ -312,6 +318,8 @@ async function sendOrderToEmail(orderId) {
                 data.message || '{{ st('order.email.sent_success', 'Замовлення відправлено на email') }}',
                 true
             );
+            loading.classList.add('hidden');
+            text.classList.remove('hidden');
             btn.disabled = true;
             btn.classList.add('opacity-50');
         } else {

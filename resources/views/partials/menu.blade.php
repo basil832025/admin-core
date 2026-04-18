@@ -8,8 +8,8 @@
 @endphp
 
 <nav class="sticky top-[68px] md:top-[64px] desk:top-[76px] z-40 bg-white shadow-sm mt-6" x-data="scrollTabs()" x-init="init">
-    <!-- 16px паддинг контейнера как в макете -->
-    <div class="relative px-4 py-2">
+    <div class="mx-auto w-full desk:w-[1343px] px-4 md:px-6">
+    <div class="relative py-2 overflow-hidden">
 
         <!-- левая стрелка -->
         <button
@@ -46,11 +46,7 @@
         <!-- скроллер -->
         <div x-ref="scroller"
              class="w-full overflow-x-auto no-scrollbar scroll-smooth">
-            <ul class="flex items-center justify-center mt-[2px] md:mt-0           <!-- центрируем по оси X -->
-            w-max mx-auto                               <!-- ширина по контенту + авто-отступы -->
-                 pl-10 pr-10           {{-- место под стрелки (40px с каждой стороны) --}}
-                gap-4 md:gap-[70px]           {{-- 16px мобайл, ~70px на md+ --}}
-                h-10">
+            <ul class="flex items-center min-w-full w-max justify-center mt-[2px] md:mt-0 pl-10 pr-10 gap-4 md:gap-[70px] h-10">
                 @foreach ($MainMenuItems as $i => $item)
                     @php
                         // Особый случай только для первого пункта («Все пироги»):
@@ -79,5 +75,6 @@
 
             </ul>
         </div>
+    </div>
     </div>
 </nav>

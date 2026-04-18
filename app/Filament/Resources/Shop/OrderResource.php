@@ -534,14 +534,20 @@ class OrderResource extends Resource
                                 return new HtmlString('—');
                             }
 
-                            // берём все транзакции лояльности по этому заказу
-                            $txQuery = $order->loyaltyTransactions();
-
-                            // предполагаем, что поле суммы называется amount
-                            // и списание идёт отрицательным знаком
-                            $spent = (float) abs(
-                                $txQuery->where('amount', '<', 0)->sum('amount')
+                            $spentFromTransactions = (float) abs(
+                                $order->loyaltyTransactions()->where('amount', '<', 0)->sum('amount')
                             );
+
+                            $spentFromAdjustments = (float) abs(
+                                $order->adjustments()
+                                    ->whereNull('shop_order_item_id')
+                                    ->whereIn('type', ['loyalty', 'loyalty_spent', 'bonus_spent'])
+                                    ->sum('amount')
+                            );
+
+                            $spentFromSaleSum = max(0.0, (float) ($order->sale_sum ?? 0));
+
+                            $spent = max($spentFromTransactions, $spentFromAdjustments, $spentFromSaleSum);
 
                             if ($spent <= 0) {
                                 return new HtmlString(
@@ -796,38 +802,29 @@ class OrderResource extends Resource
                                 return new \Illuminate\Support\HtmlString('<div class="text-lg font-semibold">'.$val.'</div>');
                             }
 
-                            // 3) Если заказ есть: при скидках берем сумму товаров БЕЗ доставки,
-                            //    чтобы не дублировать доставку ниже в финальном расчете.
+                            // 3) Если заказ есть: при скидках берём grand_total как источник истины
+                            //    и корректируем только разницей ручной доставки из формы.
                             $hasAdjustments = $record->adjustments()->exists();
                             $record->refresh();
 
-                            if ($hasAdjustments) {
-                                if ((int) ($record->source_id ?? 0) > 0) {
-                                    $recordSubtotal = (float) ($record->subtotal ?? 0);
-                                    $recordDiscountAbs = abs((float) ($record->discount_total ?? 0));
+                            $deliveryPrice = (float) ($get('shipping_price') ?? 0);
+                            $recordDelivery = max(
+                                (float) ($record->shipping_total ?? 0),
+                                (float) ($record->shipping_price ?? 0)
+                            );
 
-                                    if ($recordSubtotal > 0 && $recordDiscountAbs > 0) {
-                                        $discountPercent = min(1, $recordDiscountAbs / $recordSubtotal);
-                                        $amount = max(0, $baseTotal * (1 - $discountPercent));
-                                    } else {
-                                        $amount = (float) $baseTotal;
-                                    }
-                                } else {
-                                    $amount = (float) ($record->grand_total ?? 0);
-                                }
+                            if ($hasAdjustments) {
+                                $finalAmount = (float) ($record->grand_total ?? 0);
+                                $finalAmount += ($deliveryPrice - $recordDelivery);
+                                $amount = max(0, $finalAmount - $deliveryPrice);
                             } else {
                                 $amount = (float) $baseTotal;
+                                $finalAmount = $amount + $deliveryPrice;
                             }
 
-                            // 4) Добавляем сумму доставки
-                            // Получаем адрес из формы (актуальные данные)
+                            // 4) Показываем breakdown
                             $address = $get('address') ?? [];
                             $selfPickup = $get('self_pickup') ?? false;
-
-                            // Используем shipping_price из формы (может быть отредактирован вручную)
-                            $deliveryPrice = (float) ($get('shipping_price') ?? 0);
-
-                            $finalAmount = $amount + $deliveryPrice;
 
                             $html = '<div class="space-y-1">';
                             $html .= '<div class="text-lg font-semibold">' . number_format($finalAmount, 2, ',', ' ') . ' грн</div>';

@@ -26,6 +26,12 @@
         '12' => st('profile.bonuses.dec', 'Дек'),
     ];
     $month = $monthNames[$orderDate->format('m')] ?? $orderDate->format('M');
+    $orderTitleTemplate = st('profile.orders.number_from_date', 'No :number от :day :month.');
+    $orderTitle = strtr($orderTitleTemplate, [
+        ':number' => (string) $order->id,
+        ':day' => (string) $day,
+        ':month' => (string) $month,
+    ]);
     
     $statusColors = $order->status->getFrontendColors();
     $statusLabel = $order->status->getLabel();
@@ -132,9 +138,7 @@
                 {{-- Заголовок: Номер и дата --}}
                 <div class="flex items-start justify-between mb-6">
                     <div>
-                        <h1 class="text-[28px] font-bold text-[#19191A] mb-1">
-                            No {{ $order->id }} от {{ $day }} {{ $month }}.
-                        </h1>
+                        <h1 class="text-[28px] font-bold text-[#19191A] mb-1">{{ $orderTitle }}</h1>
                     </div>
                     {{-- Статус --}}
                     <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-[3px] text-[14px] font-medium shadow-[0_2px_4px_rgba(0,0,0,0.1)]" 
@@ -158,9 +162,9 @@
                                 
                                 if (!$name && $product) {
                                     $parent = $product->parent ?? $product;
-                                    $name = $parent->display_name ?? $parent->displayName ?? $parent->title ?? 'Товар';
+                                    $name = $parent->display_name ?? $parent->displayName ?? $parent->title ?? st('profile.orders.product_fallback', 'Товар');
                                 }
-                                $name = $name ?? 'Товар';
+                                $name = $name ?? st('profile.orders.product_fallback', 'Товар');
                                 
                                 $image = $snapshot['image'] ?? $snapshot['main_image_url'] ?? null;
                                 if (!$image && $product) {

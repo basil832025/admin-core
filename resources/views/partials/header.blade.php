@@ -114,29 +114,37 @@
                 {{-- Поиск (mobile) --}}
                 <button
                     type="button"
-                    class="relative inline-flex items-center justify-center w-5 h-5 shrink-0 lg:hidden"
+                    class="group relative inline-flex items-center justify-center w-5 h-5 shrink-0 lg:hidden text-[#19191A] hover:text-[#FF7500]"
                     aria-label="Пошук"
                     @click.stop="$store.search.open = true"
                 >
-                    <img src="{{ asset('images/search.svg') }}" class="w-5 h-5 shrink-0 flex-none" width="20" height="20" alt="">
+                    <svg class="w-5 h-5 shrink-0 flex-none" width="20" height="20" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path d="M19.5 18.9998L15.4011 14.9009" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M10.0556 17.1109C14.2284 17.1109 17.6111 13.7282 17.6111 9.55537C17.6111 5.38255 14.2284 1.99982 10.0556 1.99982C5.88274 1.99982 2.5 5.38255 2.5 9.55537C2.5 13.7282 5.88274 17.1109 10.0556 17.1109Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
                 </button>
 
                 {{-- Поиск (desktop) --}}
                 <button
                     type="button"
-                    class="relative hidden lg:inline-flex items-center justify-center w-5 h-5 shrink-0"
+                    class="group relative hidden lg:inline-flex items-center justify-center w-5 h-5 shrink-0 text-[#19191A] hover:text-[#FF7500]"
                     aria-label="Пошук"
                     @click.stop="$store.search.open = !$store.search.open"
                 >
-                    <img src="{{ asset('images/search.svg') }}" class="w-5 h-5 shrink-0 flex-none" width="20" height="20" alt="">
+                    <svg class="w-5 h-5 shrink-0 flex-none" width="20" height="20" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path d="M19.5 18.9998L15.4011 14.9009" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M10.0556 17.1109C14.2284 17.1109 17.6111 13.7282 17.6111 9.55537C17.6111 5.38255 14.2284 1.99982 10.0556 1.99982C5.88274 1.99982 2.5 5.38255 2.5 9.55537C2.5 13.7282 5.88274 17.1109 10.0556 17.1109Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
                 </button>
 
                 {{-- Акції --}}
                 <a
                     href="/discounts"
-                    class="inline-flex items-center gap-2 text-sm leading-none font-medium text-[#19191A] hover:text-orange-600 shrink-0"
+                    class="group inline-flex items-center gap-2 text-sm leading-none font-medium text-[#19191A] hover:text-orange-600 shrink-0"
                 >
-                    <img src="{{ asset('images/percent.svg') }}" class="w-5 h-5 shrink-0 flex-none" width="20" height="20" alt="">
+                    <svg class="w-5 h-5 shrink-0 flex-none text-[#19191A] group-hover:text-[#FF7500]" width="20" height="20" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path d="M7 9.76593C8.93437 9.76593 10.5 8.2003 10.5 6.26593C10.5 4.33156 8.93437 2.76593 7 2.76593C5.06562 2.76593 3.5 4.33156 3.5 6.26593C3.5 8.2003 5.06562 9.76593 7 9.76593ZM7 4.76593C7.82812 4.76593 8.5 5.43781 8.5 6.26593C8.5 7.09406 7.82812 7.76593 7 7.76593C6.17188 7.76593 5.5 7.09406 5.5 6.26593C5.5 5.43781 6.17188 4.76593 7 4.76593ZM14 11.7659C12.0656 11.7659 10.5 13.3316 10.5 15.2659C10.5 17.2003 12.0656 18.7659 14 18.7659C15.9344 18.7659 17.5 17.2003 17.5 15.2659C17.5 13.3316 15.9344 11.7659 14 11.7659ZM14 16.7659C13.1719 16.7659 12.5 16.0941 12.5 15.2659C12.5 14.4378 13.1719 13.7659 14 13.7659C14.8281 13.7659 15.5 14.4378 15.5 15.2659C15.5 16.0941 14.8281 16.7659 14 16.7659ZM15.7594 2.77218L16.7469 2.76906C17.3531 2.76593 17.7125 3.45031 17.3625 3.95031L5.91875 18.4409C5.84975 18.5393 5.75807 18.6197 5.65145 18.6752C5.54484 18.7306 5.42644 18.7596 5.30625 18.7597L4.2625 18.7628C3.65312 18.7628 3.29688 18.0784 3.64687 17.5816L15.1469 3.09093C15.2875 2.89093 15.5156 2.77218 15.7594 2.77218Z" fill="currentColor"/>
+                    </svg>
                     <span class="hidden lg:inline whitespace-nowrap">{{ st('header.promotions','Акції') }}</span>
                 </a>
 
@@ -148,10 +156,12 @@
                 {{-- Обране --}}
                 <a
                     href="{{ route('favorites.index') }}"
-                    class="relative inline-flex items-center justify-center w-5 h-5 shrink-0"
+                    class="group relative inline-flex items-center justify-center w-5 h-5 shrink-0 text-[#19191A] hover:text-[#FF7500]"
                     aria-label="Обране"
                 >
-                    <img src="{{ asset('images/heart.svg') }}" class="w-5 h-5 shrink-0 flex-none" width="20" height="20" alt="">
+                    <svg class="w-5 h-5 shrink-0 flex-none" width="20" height="20" viewBox="0 0 21 19" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path d="M10.6 16.1409L10.5 16.2409L10.39 16.1409C5.64 11.8309 2.5 8.98094 2.5 6.09094C2.5 4.09094 4 2.59094 6 2.59094C7.54 2.59094 9.04 3.59094 9.57 4.95094H11.43C11.96 3.59094 13.46 2.59094 15 2.59094C17 2.59094 18.5 4.09094 18.5 6.09094C18.5 8.98094 15.36 11.8309 10.6 16.1409ZM15 0.590942C13.26 0.590942 11.59 1.40094 10.5 2.67094C9.41 1.40094 7.74 0.590942 6 0.590942C2.92 0.590942 0.5 3.00094 0.5 6.09094C0.5 9.86094 3.9 12.9509 9.05 17.6209L10.5 18.9409L11.95 17.6209C17.1 12.9509 20.5 9.86094 20.5 6.09094C20.5 3.00094 18.08 0.590942 15 0.590942Z" fill="currentColor"/>
+                    </svg>
                     <span
                         x-cloak
                         x-show="$store.favorites && ($store.favorites.qty > 0)"

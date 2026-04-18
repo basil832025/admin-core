@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             ClientGroupsSeeder::class,
             GeneratePermissionsFromResourcesSeeder::class,
             GenerateShieldPermissionsSeeder::class, // Генерируем пермишены Shield после загрузки всех данных
+            ProfileOrdersTranslationsSeeder::class,
             // ... другие сидеры
         ]);
 

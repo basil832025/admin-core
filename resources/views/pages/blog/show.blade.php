@@ -23,12 +23,12 @@
 
         {{-- Мета-инфо: дата (бейдж), автор, категория --}}
         <div class="flex flex-wrap items-center gap-4 text-sm mb-6">
+            {{--
             @if($date)
                 <span class="inline-flex items-center gap-2 text-[11px] font-semibold
                      bg-[#FC791A] text-white rounded-[5px] px-2 py-1">
-
-            {{ $date }}
-        </span>
+                    {{ $date }}
+                </span>
             @endif
 
             <div class="inline-flex items-center gap-2 text-[#9E9E9E]">
@@ -37,6 +37,7 @@
                 </svg>
                 <span>{{ $post->author_name ?? 'Admin' }}</span>
             </div>
+            --}}
 
             @if($post->category?->title)
                 <div class="inline-flex items-center gap-2 text-[#9E9E9E]">

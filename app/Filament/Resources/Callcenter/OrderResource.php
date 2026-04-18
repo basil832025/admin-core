@@ -1001,6 +1001,41 @@ class OrderResource extends ShopOrderResource
                 && in_array($component->getName(), $moved, true)
         ));
 
+        foreach ($components as $component) {
+            if (! method_exists($component, 'getName') || $component->getName() !== 'ui_loyalty_spent') {
+                continue;
+            }
+
+            if ($component instanceof Placeholder) {
+                $component->content(function (?Order $record) {
+                    if (! $record) {
+                        return new HtmlString('—');
+                    }
+
+                    $spentFromTransactions = (float) abs(
+                        $record->loyaltyTransactions()->where('amount', '<', 0)->sum('amount')
+                    );
+
+                    $spentFromAdjustments = (float) abs(
+                        $record->adjustments()
+                            ->whereNull('shop_order_item_id')
+                            ->whereIn('type', ['loyalty', 'loyalty_spent', 'bonus_spent'])
+                            ->sum('amount')
+                    );
+
+                    $spentFromSaleSum = max(0.0, (float) ($record->sale_sum ?? 0));
+
+                    $spent = max($spentFromTransactions, $spentFromAdjustments, $spentFromSaleSum);
+
+                    if ($spent <= 0) {
+                        return new HtmlString('<div class="text-sm text-gray-500">Бонуси не використовувались</div>');
+                    }
+
+                    return new HtmlString('<div class="text-lg font-semibold">' . number_format($spent, 2, ',', ' ') . ' грн</div>');
+                });
+            }
+        }
+
         $components[] = TextInput::make('cash_from')
             ->label('Сдача с')
             ->numeric()
@@ -1075,19 +1110,26 @@ class OrderResource extends ShopOrderResource
             })
             ->content(function (?Order $record, Get $get) {
                 $baseTotal = static::calcBaseTotalFromGet($get);
+                $deliveryPrice = (float) ($get('shipping_price') ?? 0);
 
                 if (! $record) {
-                    $amount = (float) $baseTotal;
+                    $finalAmount = (float) $baseTotal + $deliveryPrice;
                 } else {
                     $hasAdjustments = $record->adjustments()->exists();
                     $record->refresh();
-                    $amount = $hasAdjustments
-                        ? (float) ($record->grand_total ?? 0)
-                        : (float) $baseTotal;
-                }
 
-                $deliveryPrice = (float) ($get('shipping_price') ?? 0);
-                $finalAmount = $amount + $deliveryPrice;
+                    if ($hasAdjustments) {
+                        $recordDelivery = max(
+                            (float) ($record->shipping_total ?? 0),
+                            (float) ($record->shipping_price ?? 0)
+                        );
+
+                        $finalAmount = (float) ($record->grand_total ?? 0);
+                        $finalAmount += ($deliveryPrice - $recordDelivery);
+                    } else {
+                        $finalAmount = (float) $baseTotal + $deliveryPrice;
+                    }
+                }
 
                 $cashRaw = (string) ($get('cash_from') ?? '0');
                 $cashFrom = (float) str_replace(',', '.', $cashRaw);
