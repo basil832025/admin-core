@@ -534,20 +534,7 @@ class OrderResource extends Resource
                                 return new HtmlString('—');
                             }
 
-                            $spentFromTransactions = (float) abs(
-                                $order->loyaltyTransactions()->where('amount', '<', 0)->sum('amount')
-                            );
-
-                            $spentFromAdjustments = (float) abs(
-                                $order->adjustments()
-                                    ->whereNull('shop_order_item_id')
-                                    ->whereIn('type', ['loyalty', 'loyalty_spent', 'bonus_spent'])
-                                    ->sum('amount')
-                            );
-
-                            $spentFromSaleSum = max(0.0, (float) ($order->sale_sum ?? 0));
-
-                            $spent = max($spentFromTransactions, $spentFromAdjustments, $spentFromSaleSum);
+                            $spent = static::resolveSpentBonuses($order);
 
                             if ($spent <= 0) {
                                 return new HtmlString(
@@ -581,10 +568,11 @@ class OrderResource extends Resource
                         ->dehydrated(true)
                         ->afterStateHydrated(fn ($component) => $component->state(null))
                         ->dehydrateStateUsing(function (Get $get, ?Order $record) {
-                            $base = static::calcBaseTotalFromGet($get);
-                            $adj  = $record ? (float) $record->adjustments()->sum('amount') : 0.0;
-                            // если скидок нет — просто база
-                            return round($base + $adj, 2);
+                            $baseTotal = static::calcBaseTotalFromGet($get);
+                            $deliveryPrice = (float) ($get('shipping_price') ?? 0);
+                            $resolved = static::resolveFinalAmount($record, $baseTotal, $deliveryPrice);
+
+                            return round((float) ($resolved['final'] ?? 0), 2);
                         }),
                     // Скрытое поле для отслеживания изменений координат (триггер для обновления доставки)
                     Hidden::make('delivery_coords_trigger')
@@ -802,25 +790,11 @@ class OrderResource extends Resource
                                 return new \Illuminate\Support\HtmlString('<div class="text-lg font-semibold">'.$val.'</div>');
                             }
 
-                            // 3) Если заказ есть: при скидках берём grand_total как источник истины
-                            //    и корректируем только разницей ручной доставки из формы.
-                            $hasAdjustments = $record->adjustments()->exists();
-                            $record->refresh();
-
                             $deliveryPrice = (float) ($get('shipping_price') ?? 0);
-                            $recordDelivery = max(
-                                (float) ($record->shipping_total ?? 0),
-                                (float) ($record->shipping_price ?? 0)
-                            );
-
-                            if ($hasAdjustments) {
-                                $finalAmount = (float) ($record->grand_total ?? 0);
-                                $finalAmount += ($deliveryPrice - $recordDelivery);
-                                $amount = max(0, $finalAmount - $deliveryPrice);
-                            } else {
-                                $amount = (float) $baseTotal;
-                                $finalAmount = $amount + $deliveryPrice;
-                            }
+                            $resolved = static::resolveFinalAmount($record, $baseTotal, $deliveryPrice);
+                            $finalAmount = (float) ($resolved['final'] ?? 0);
+                            $bonusesSpent = (float) ($resolved['bonuses'] ?? 0);
+                            $amount = max(0, $finalAmount - $deliveryPrice);
 
                             // 4) Показываем breakdown
                             $address = $get('address') ?? [];
@@ -837,6 +811,11 @@ class OrderResource extends Resource
                                 $html .= '<span>Доставка:</span>';
                                 $html .= '<span>' . number_format($deliveryPrice, 2, ',', ' ') . ' грн</span>';
                                 $html .= '</div>';
+                                if ($bonusesSpent > 0) {
+                                    $html .= '<div class="text-xs text-gray-500">Списанные бонусы: -'
+                                        . number_format($bonusesSpent, 2, ',', ' ')
+                                        . ' грн</div>';
+                                }
                             } elseif (!$selfPickup) {
                                 // Проверяем, есть ли бесплатная доставка
                                 $address = $get('address') ?? [];
@@ -3020,5 +2999,76 @@ class OrderResource extends Resource
             $modsSum = (float) $mods->sum(fn ($m) => (float) ($m['price_modifier'] ?? 0));
             return $qty * ($price + $modsSum);
         });
+    }
+
+    protected static function resolveSpentBonuses(?Order $order): float
+    {
+        if (! $order) {
+            return 0.0;
+        }
+
+        $spentFromTransactions = (float) abs(
+            $order->loyaltyTransactions()->where('amount', '<', 0)->sum('amount')
+        );
+
+        $spentFromAdjustments = (float) abs(
+            $order->adjustments()
+                ->whereNull('shop_order_item_id')
+                ->whereIn('type', ['loyalty', 'loyalty_spent', 'bonus_spent'])
+                ->sum('amount')
+        );
+
+        $spentFromSaleSum = max(0.0, (float) ($order->sale_sum ?? 0));
+
+        return max($spentFromTransactions, $spentFromAdjustments, $spentFromSaleSum);
+    }
+
+    /**
+     * @return array{final: float, bonuses: float}
+     */
+    protected static function resolveFinalAmount(?Order $record, float $baseTotal, float $deliveryPrice): array
+    {
+        $deliveryPrice = max(0, (float) $deliveryPrice);
+
+        if (! $record) {
+            return [
+                'final' => max(0, $baseTotal + $deliveryPrice),
+                'bonuses' => 0.0,
+            ];
+        }
+
+        $record->refresh();
+
+        $bonuses = static::resolveSpentBonuses($record);
+        $recordDelivery = max(
+            (float) ($record->shipping_total ?? 0),
+            (float) ($record->shipping_price ?? 0)
+        );
+
+        $recordSubtotal = (float) ($record->subtotal ?? 0);
+        $recordDiscount = (float) ($record->discount_total ?? 0);
+        $baseNoBonusFromRecord = $recordSubtotal + $recordDiscount + $recordDelivery;
+
+        $grand = (float) ($record->grand_total ?? 0);
+        $grandAdjustedToFormDelivery = $grand + ($deliveryPrice - $recordDelivery);
+
+        $grandIncludesBonuses = $bonuses > 0
+            && abs($grand - ($baseNoBonusFromRecord - $bonuses)) < 0.01;
+        $grandExcludesBonuses = $bonuses > 0
+            && abs($grand - $baseNoBonusFromRecord) < 0.01;
+
+        if ($grandIncludesBonuses) {
+            $final = $grandAdjustedToFormDelivery;
+        } elseif ($grandExcludesBonuses) {
+            $final = $baseNoBonusFromRecord - $bonuses + ($deliveryPrice - $recordDelivery);
+        } else {
+            // fallback для старых/импортных заказов с несогласованным grand_total
+            $final = $baseTotal + $deliveryPrice - $bonuses;
+        }
+
+        return [
+            'final' => max(0, (float) $final),
+            'bonuses' => $bonuses,
+        ];
     }
 }
