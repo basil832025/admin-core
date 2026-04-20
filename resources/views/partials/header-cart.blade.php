@@ -38,7 +38,7 @@ x-init="isOpen = false; url = null; $nextTick(() => { isOpen = false; close(); }
         <span x-cloak
               x-show="$store.cart && ($store.cart.qty > 0)"
               x-text="$store.cart ? $store.cart.qty : 0"
-              class="absolute -top-1 -right-2 bg-red-600 text-white text-[10px] leading-none rounded-full px-1 min-w-[16px] text-center">0</span>
+              class="absolute -top-1 right-0 bg-red-600 text-white text-[10px] leading-none rounded-full px-1 min-w-[16px] text-center">0</span>
     </a>
 
     {{-- backdrop: начинается ниже шапки --}}

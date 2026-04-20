@@ -4,7 +4,7 @@
         x-data="{}"
         @keydown.escape.window="$store.search.open = false"
         x-effect="document.body.classList.toggle('overflow-hidden', $store.search.open && window.matchMedia('(max-width: 1023px)').matches)"
-        class="border-b border-black/10 pb-2 mx-auto desk:w-[1343px] desk:h-[76px] px-6 md:h-16"
+        class="border-b border-black/10 pb-2 w-full desk:h-[76px] md:h-16"
     >
         <div class="flex items-center justify-between min-h-[68px]" @click.outside="$store.search.open = false">
             {{-- ЛЕВЫЙ МИНИ-БЛОК: бургер + логотип + телефон + язык --}}
@@ -166,7 +166,7 @@
                         x-cloak
                         x-show="$store.favorites && ($store.favorites.qty > 0)"
                         x-text="$store.favorites ? $store.favorites.qty : 0"
-                        class="absolute -top-1 -right-2 bg-red-600 text-white text-[10px] leading-none rounded-full px-1 min-w-[16px] text-center"
+                        class="absolute -top-1 right-0 bg-red-600 text-white text-[10px] leading-none rounded-full px-1 min-w-[16px] text-center"
                     >0</span>
                 </a>
 
