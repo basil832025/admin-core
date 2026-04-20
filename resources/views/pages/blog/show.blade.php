@@ -54,14 +54,14 @@
        // dump($post->detail_image_url,$post->preview_image_url);
             $hero = $post->detail_image_url ?? $post->preview_image_url ?? '/images/no-image.svg';
         @endphp
-        <figure class="rounded-[20px] overflow-hidden mb-8 text-center" >
-            <img src="{{ $hero }}" alt="{{ $post->title }}" class="mx-auto w-auto object-cover h-auto md:h-[362px]" >
+        <figure class="rounded-[20px] overflow-hidden mb-8 text-center">
+            <img src="{{ $hero }}" alt="{{ $post->title }}" class="mx-auto w-auto object-cover h-auto md:h-[362px] rounded-[20px]">
         </figure>
 
         {{-- Контент --}}
         <article
             class="
-    prose prose-neutral prose-img:rounded-xl
+    prose prose-neutral prose-img:rounded-[20px] prose-figure:rounded-[20px] prose-figure:overflow-hidden
     text-base md:prose-lg lg:prose-xl      <!-- крупнее на больших -->
     max-w-[760px] md:max-w-[860px] lg:max-w-[980px] xl:max-w-[1100px]
     mx-auto                                  <!-- остаётся по центру, но шире -->
