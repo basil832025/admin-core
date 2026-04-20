@@ -21,6 +21,8 @@ use Filament\Forms\Get;
 use Filament\Forms\Set;
 use SolutionForest\FilamentTranslateField\Forms\Component\Translate;
 use Filament\Resources\Concerns\Translatable;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
 class TimeDiscountResource extends Resource
 {
@@ -208,7 +210,15 @@ class TimeDiscountResource extends Resource
                         ->label(__('time_discount.fields.categories'))
                         ->relationship(
                             name: 'categories',
-                            titleAttribute: 'title' // поправим ниже через getOptionLabelFromRecordUsing
+                            titleAttribute: 'title', // поправим ниже через getOptionLabelFromRecordUsing
+                            modifyQueryUsing: fn (Builder $query): Builder => $query
+                                ->where('slug', 'not like', 'src-%-import')
+                                ->whereHas('products', fn (Builder $products): Builder => $products
+                                    ->where(function (Builder $w): void {
+                                        $w->whereNull('is_imported')
+                                            ->orWhere('is_imported', false);
+                                    })
+                                )
                         )
                         ->getOptionLabelFromRecordUsing(function (ProductCategory $record) {
                             $defaultLocale = Setting::value('default_language_code') ?: app()->getLocale();
@@ -228,6 +238,10 @@ class TimeDiscountResource extends Resource
                             $defaultLocale = Setting::value('default_language_code') ?: app()->getLocale();
                             return Product::query()
                                 ->where('in_stock', 1)
+                                ->where(function (Builder $w): void {
+                                    $w->whereNull('is_imported')
+                                        ->orWhere('is_imported', false);
+                                })
                                 ->get()
                                 ->mapWithKeys(fn(Product $p) => [
                                     $p->id => (
