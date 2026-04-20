@@ -4,9 +4,7 @@
     $url   = url('/' . ($categorySlug ?: 'blog') . '/' . $post->slug);
     $title = $post->title;
     $excerpt = $post->anons;
-    $img = ($categorySlug === 'discounts')
-        ? ($post->detail_image_url ?? $post->preview_image_url ?? '/images/no-image.svg')
-        : ($post->preview_image_url ?? '/images/no-image.svg');
+    $img = $post->detail_image_url ?? $post->preview_image_url ?? '/images/no-image.svg';
     $locale = app()->getLocale(); // 'uk' | 'ru' | 'en'
     $date = $post->published_at?->locale($locale)->isoFormat('D MMM YYYY');
     $cat  = $post->category->title ?? null;
