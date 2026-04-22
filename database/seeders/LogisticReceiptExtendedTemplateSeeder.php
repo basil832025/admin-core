@@ -313,9 +313,9 @@ SQL;
 {% set size = item.size_label|default('') %}
 <tr>
 <td class="name">
-{{ item.product_name|default('Товар') }}
-
-{{ size != '' ? (' ' ~ size) : '' }}
+<div style="font-weight:700;">
+{{ item.product_name|default('Товар') }}{{ size != '' ? (' ' ~ size) : '' }}
+</div>
 
 {% if item.modifiers_text is defined and item.modifiers_text %}
 <div style="font-size:11px;line-height:1.35;padding-top:2px;white-space:pre-line;">
@@ -330,7 +330,7 @@ SQL;
 {% endif %}
 
 {% if item.calc_components is defined and item.calc_components %}
-<div style="font-size:11px;line-height:1.35;padding-top:2px;white-space:pre-line;">
+<div style="font-size:11px;line-height:1.35;padding-top:2px;white-space:pre-line;font-style:italic;font-weight:400;">
 {{ item.calc_components }}
 </div>
 {% endif %}
