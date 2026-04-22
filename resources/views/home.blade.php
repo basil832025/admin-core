@@ -56,27 +56,37 @@
                 @endforeach
         </section>
         {{-- статья на главной --}}
+        @php
+            $homeBlogImage = $homeBlog?->preview_image_url ?? '/images/products/home.png';
+            $homeBlogTitle = $homeBlog?->title ?? 'Осетинські пироги у Києві';
+            $homeBlogAnons = $homeBlog?->anons
+                ? \Illuminate\Support\Str::limit(trim(strip_tags(html_entity_decode((string) $homeBlog->anons, ENT_QUOTES | ENT_HTML5, 'UTF-8'))), 360)
+                : 'Пироги зустрічаються в будь-якій кухні світу і є універсальною та смачною стравою. Ми пропонуємо вашій увазі неймовірно смачні пироги, а ще щось особливе - осетинські пироги - чудова альтернатива новомодному фаст-фуду та піці.';
+            $homeBlogDate = $homeBlog?->published_at?->locale(app()->getLocale())->isoFormat('D MMMM YYYY');
+        @endphp
         <section class="grid grid-cols-1 lg:grid-cols-[minmax(280px,500px),1fr] mt-[120px] gap-8 lg:gap-[32px] bg-white overflow-hidden">
-            <!-- Картинка -->
-            <div >
-                <img src="/images/products/home.png"
-                     alt="Осетинський пиріг"
-                     class=" w-full h-full desk:w-[584px] md:w-[736px]" />
+            <div>
+                <img src="{{ $homeBlogImage }}"
+                     alt="{{ $homeBlogTitle }}"
+                     class="w-full h-full desk:w-[584px] md:w-[736px]" />
             </div>
 
-            <!-- Текстовый блок -->
             <div class="desk:p-[30px] lg:p-[50px] flex flex-col desk:mt-6 lg:mt-12">
-                <h2 class="text-[40px]  leading-tight font-bold">
-                    Осетинські пироги <span class="text-[#FF7500]">у Києві</span>
+                <h2 class="text-[40px] leading-tight font-bold">
+                    {{ $homeBlogTitle }}
                 </h2>
 
                 <p class="text-[15px] md:text-[16px] mt-4 leading-[22px] font-normal text-[#333333]">
-                    Пироги зустрічаються в будь-якій кухні світу і є універсальною та смачною стравою. Ми пропонуємо вашій увазі неймовірно смачні пироги, а ще щось особливе – осетинські пироги – чудова альтернатива новомодному фаст-фуду та піци, які останнім часом посіли своє знакове місце у сучасній культурі їжі Києва....
+                    {{ $homeBlogAnons }}
                 </p>
 
-                <div class="flex mt-6 text-[16px] text-[#666666] justify-between">
-                    <span>20 травня 2024</span>
-                    <a href="#" class="text-[#FF7500] font-medium">Читати далі</a>
+                <div class="flex mt-6 text-[16px] text-[#666666] justify-end">
+                    {{-- <span>{{ $homeBlogDate ?? now()->locale(app()->getLocale())->isoFormat('D MMMM YYYY') }}</span> --}}
+                    @if($homeBlog)
+                        <a href="{{ url('/blog/' . $homeBlog->slug) }}" class="text-[#FF7500] font-medium">{{ st('blog.card.read_more', 'Читати далі') }}</a>
+                    @else
+                        <span class="text-[#FF7500] font-medium">{{ st('blog.card.read_more', 'Читати далі') }}</span>
+                    @endif
                 </div>
             </div>
         </section>

@@ -69,10 +69,9 @@
         }
     }
 
-    // Высота карточки в зависимости от количества вариантов
+    // Признак карточки с одним вариантом (для внутренних отступов)
     $rowsCount = count($rows ?? []);
     $isSingleVariant = $rowsCount <= 1;
-    $cardHeight = $isSingleVariant ? 'md:h-[540px]' : 'md:h-[660px]';
     $discountLabel = st('product.badges.discount', 'Знижка');
 @endphp
 
@@ -182,7 +181,8 @@
         }
     }"
     @variant-selected="handleVariantSelected($event)"
-    class="desk:w-[378px] md:w-[360px] w-[355px] {{ $cardHeight }} flex flex-col rounded-[12px] bg-white desk:gap-8 md:gap-4 p-3 shadow-[0_8px_20px_rgba(0,0,0,0.05)]"
+    class="desk:w-[378px] md:w-[360px] w-[355px] flex flex-col rounded-[12px] bg-white desk:gap-8 md:gap-4 p-3 shadow-[0_8px_20px_rgba(0,0,0,0.05)]"
+    data-product-card
     @if($pid) data-product-id="{{ $pid }}" @endif
 >
     <a href="{{ $url }}">

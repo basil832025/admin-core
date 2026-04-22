@@ -191,8 +191,17 @@ class VariantsRelationManager extends RelationManager
 
         $locales = static::getActiveLocales();
         return $table
+            ->reorderable('sort')
+            ->defaultSort('sort', 'asc')
             ->recordTitleAttribute('title')
             ->columns([
+                TextInputColumn::make('sort')
+                    ->label('Сорт')
+                    ->type('number')
+                    ->step('1')
+                    ->rules(['integer', 'min:0'])
+                    ->alignRight()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('sku')->label('SKU')->searchable(),
                 TextColumn::make('title')->label('Название')->sortable()->searchable()
                     ->getStateUsing(function (\App\Models\Shop\Product $record, TextColumn $column, $livewire) use ($defaultLocale) {
@@ -273,6 +282,13 @@ class VariantsRelationManager extends RelationManager
                         $owner = $this->getOwnerRecord();
                         $data['parent_id']   = $owner->getKey();
                         $data['category_id'] = $owner->category_id;
+
+                        if (! isset($data['sort']) || $data['sort'] === null || $data['sort'] === '') {
+                            $maxSort = Product::query()
+                                ->where('parent_id', $owner->getKey())
+                                ->max('sort');
+                            $data['sort'] = ((int) $maxSort) + 10;
+                        }
 
                         return $data;
                     })

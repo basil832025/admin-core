@@ -102,12 +102,17 @@ class ProductCardPresenter
             'char_values' => $buildCharMap($p),
         ]];
 
-        foreach ($p->children ?? [] as $child) {
+        $sortedChildren = collect($p->children ?? [])
+            ->sortBy(fn ($child) => sprintf('%010d-%010d', (int) ($child->sort ?? 0), (int) ($child->id ?? 0)))
+            ->values();
+
+        foreach ($sortedChildren as $child) {
             $childOldPrice = $child->old_price;
             
             $variantRows[] = [
                 'product_id'  => $child->id,
                 'slug'        => $child->slug,
+                'sort'        => (int) ($child->sort ?? 0),
                 'price'       => $child->price,
                 'old_price'   => $childOldPrice,
                 'article'     => $child->code2,
@@ -118,23 +123,6 @@ class ProductCardPresenter
                 'is_spicy'    => (bool) ($child->is_spicy ?? false),
                 'char_values' => $buildCharMap($child),
             ];
-        }
-
-        // Сортируем варианты по размеру (rozmir-pirogiv) - извлекаем числовое значение размера
-        $sizeChar = collect($main)->firstWhere('slug', 'rozmir-pirogiv');
-        if ($sizeChar && count($variantRows) > 1) {
-            $sizeCharId = $sizeChar['id'];
-            usort($variantRows, function ($a, $b) use ($sizeCharId) {
-                $sizeA = $this->extractSizeNumber($a['char_values'][$sizeCharId] ?? null);
-                $sizeB = $this->extractSizeNumber($b['char_values'][$sizeCharId] ?? null);
-                
-                // Если не удалось извлечь число, оставляем порядок как есть
-                if ($sizeA === null && $sizeB === null) return 0;
-                if ($sizeA === null) return 1;
-                if ($sizeB === null) return -1;
-                
-                return $sizeA <=> $sizeB; // Сортировка по возрастанию
-            });
         }
 
         // ссылки
@@ -210,20 +198,4 @@ class ProductCardPresenter
         return $out;
     }
 
-    /**
-     * Извлекает числовое значение размера из строки (например, "19 см" -> 19)
-     */
-    protected function extractSizeNumber(?string $sizeValue): ?int
-    {
-        if (!$sizeValue) {
-            return null;
-        }
-
-        // Удаляем все нецифровые символы и извлекаем первое число
-        if (preg_match('/\d+/', (string)$sizeValue, $matches)) {
-            return (int)$matches[0];
-        }
-
-        return null;
-    }
 }

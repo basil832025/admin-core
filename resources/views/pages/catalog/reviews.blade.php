@@ -217,7 +217,7 @@
                         <span x-show="sending">{{ st('reviews.sending','Відправка...') }}</span>
                     </button>
 
-                    <p class="text-[10px] text-[#9E9E9E] text-center">{{ st('reviews.hourspublication ','Усі відгуки на Три пироги перевіряються протягом 48 годин перед публікацією, щоб забезпечити їхню достовірність і точність.') }}</p>
+                    <p class="text-[10px] text-[#9E9E9E] text-center">{{ st('reviews.hourspublication','Усі відгуки на Три пироги перевіряються протягом 48 годин перед публікацією, щоб забезпечити їхню достовірність і точність.') }}</p>
                 </form>
 
             </div>

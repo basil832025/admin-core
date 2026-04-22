@@ -23,7 +23,7 @@
         {{-- Сетка карточек: 3 на десктопе, 2 на планшете, 1 на мобилке --}}
         <div class="grid gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-3 mx-auto">
             @forelse ($posts as $post)
-                <x-blog.card :post="$post" :categorySlug="$slug" />
+                <x-blog.card :post="$post" :categorySlug="$slug" :showDate="$slug !== 'discounts'" />
             @empty
                 <p>Немає публікацій у цій категорії.</p>
             @endforelse

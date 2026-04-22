@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Front;
 use App\Support\Traits\HasCatalogFilters;
+use App\Models\Blog;
 use App\Models\Banner;
 use App\Models\Shop\Product;
 use App\Http\Controllers\Controller;
@@ -103,6 +104,11 @@ class HomeController extends Controller
             ];
         }
 
+        $homeBlog = Blog::query()
+            ->published()
+            ->where('slug', 'home_blog')
+            ->first();
+
         return view('home', [
             'banners'          => $banners,
             'hits'             => $hits,
@@ -112,6 +118,7 @@ class HomeController extends Controller
             'priceMax'    => $priceMax,
             'filterCharacteristicGroups' => $filterCharacteristicGroups,
             'categorySections' => $categorySections,
+            'homeBlog' => $homeBlog,
         ]);
     }
 }
