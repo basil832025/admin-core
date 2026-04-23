@@ -11,6 +11,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class PrroResource extends Resource
 {
@@ -59,7 +60,7 @@ class PrroResource extends Resource
                         ->disk('local')
                         ->directory('prro/certificates')
                         ->visibility('private')
-                        ->helperText('Загрузите файл сертификата .CRT, .CER или .PEM')
+                        ->helperText('Загрузите файл сертификата .CRT, .CER или .PEM (PEM и DER определяются автоматически)')
                         ->downloadable()
                         ->openable()
                         ->required(fn (?Prro $record): bool => $record === null),
@@ -172,7 +173,7 @@ class PrroResource extends Resource
         static::validateCertificateFilePath($data['certificate_path'] ?? $record?->certificate_path);
         static::validateKeyFilePath($data['key_path'] ?? $record?->key_path);
 
-        $data['certificate_base64'] = static::resolveBase64ForPath(
+        $data['certificate_base64'] = static::resolveCertificateBase64ForPath(
             $data['certificate_path'] ?? null,
             $record?->certificate_path,
             $record?->certificate_base64,
@@ -233,5 +234,49 @@ class PrroResource extends Resource
         }
 
         return base64_encode(Storage::disk('local')->get($path));
+    }
+
+    protected static function resolveCertificateBase64ForPath(?string $newPath, ?string $oldPath, ?string $oldBase64): ?string
+    {
+        $path = $newPath ?: $oldPath;
+        if (! $path) {
+            return null;
+        }
+
+        if ($oldPath === $path && ! empty($oldBase64)) {
+            return $oldBase64;
+        }
+
+        if (! Storage::disk('local')->exists($path)) {
+            return $oldBase64;
+        }
+
+        $rawContent = Storage::disk('local')->get($path);
+
+        return base64_encode(static::normalizeCertificateContent($rawContent));
+    }
+
+    protected static function normalizeCertificateContent(string $content): string
+    {
+        if (! str_contains($content, '-----BEGIN CERTIFICATE-----')) {
+            return $content;
+        }
+
+        if (! preg_match('/-----BEGIN CERTIFICATE-----\s*(.*?)\s*-----END CERTIFICATE-----/s', $content, $matches)) {
+            throw ValidationException::withMessages([
+                'certificate_path' => 'Не удалось прочитать PEM-сертификат. Проверьте формат файла.',
+            ]);
+        }
+
+        $pemBody = preg_replace('/\s+/', '', $matches[1]);
+        $decoded = base64_decode($pemBody, true);
+
+        if ($decoded === false || $decoded === '') {
+            throw ValidationException::withMessages([
+                'certificate_path' => 'Не удалось декодировать PEM-сертификат. Загрузите корректный .CER/.CRT/.PEM файл.',
+            ]);
+        }
+
+        return $decoded;
     }
 }
