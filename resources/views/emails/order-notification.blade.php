@@ -1,4 +1,10 @@
 <x-mail::message>
+<x-slot name="header">
+<x-mail::header :url="config('app.url')">
+<img src="{{ asset('images/logo.svg') }}" alt="{{ st('header.logo_alt', 'Три пироги') }}" style="max-height: 56px; width: auto;">
+</x-mail::header>
+</x-slot>
+
 @php
     $order->load([
         'items.product.parent.productCharacteristicValues.characteristic.svgImage',
