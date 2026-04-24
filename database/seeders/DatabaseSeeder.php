@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
             ProfileOrdersTranslationsSeeder::class,
             MenuFavoritesTranslationsSeeder::class,
             LogisticReceiptExtendedTemplateSeeder::class,
+            ReceiptTemplatesThreePiesSeeder::class,
             // ... другие сидеры
         ]);
 
