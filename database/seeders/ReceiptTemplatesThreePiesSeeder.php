@@ -76,7 +76,12 @@ class ReceiptTemplatesThreePiesSeeder extends Seeder
             $body = $this->normalizeKitchenDeliveryLine($body);
             $body = str_replace(
                 'style="padding-left:3mm;white-space:pre-line;font-style:italic;font-weight:400;"',
+                'style="padding-left:3mm;white-space:pre-line;font-style:italic;font-weight:400;font-size:9pt;"',
+                $body,
+            );
+            $body = str_replace(
                 'style="padding-left:3mm;white-space:pre-line;font-style:italic;font-weight:400;font-size:8pt;"',
+                'style="padding-left:3mm;white-space:pre-line;font-style:italic;font-weight:400;font-size:9pt;"',
                 $body,
             );
             $body = preg_replace(
@@ -186,7 +191,7 @@ body { font-family: "DejaVu Sans", sans-serif; font-size: 11pt; color: #111; lin
 .lg-total { margin-top: 1.2mm; border-top: 1px dashed #777; padding-top: .8mm; font-size: 15pt; font-weight: 800; letter-spacing: .02em; }
 .lg-addr-extra { margin: 0 0 .8mm; font-size: 10pt; color: #222; }
 
-.k-item-row { font-size: 8pt; }
+.k-item-row { font-size: 9pt; }
 
 .k-delivery-box { display: inline-block; border: 2px solid #111; padding: 0 .8mm; margin-left: .8mm; font-weight: 700; white-space: nowrap; }
 
@@ -250,9 +255,9 @@ figure.image_resized img {
   font-weight:700; padding:.5mm 0;
 }
 .r-items td{ border-bottom:2px solid #111; padding:.6mm 0; }
-.r-items .name{ text-align:left; width:58%; font-size:7pt; }
-.r-items .qty{ text-align:center; width:12%; font-size:7pt; }
-.r-items .price,.r-items .sum{ text-align:right; width:15%; font-size:7pt; }
+.r-items .name{ text-align:left; width:58%; font-size:8pt; }
+.r-items .qty{ text-align:center; width:12%; font-size:8pt; }
+.r-items .price,.r-items .sum{ text-align:right; width:15%; font-size:8pt; }
 .r-total{
   margin-top:1.3mm; padding-top:.8mm; border-top:1px solid #222;
   display:flex; justify-content:space-between; align-items:flex-end;
@@ -275,9 +280,9 @@ body { font-family: "DejaVu Sans", sans-serif; font-size: 11pt; color: #111; lin
 .lg-items { width: 100%; border-collapse: collapse; margin-top: 1mm; font-size: 10pt; }
 .lg-items th { text-align: left; font-weight: 700; border-top: 1px dashed #777; border-bottom: 1px dashed #777; padding: .4mm 0; }
 .lg-items td { padding: .45mm 0; border-bottom: 2px solid #111; }
-.lg-items .name { width: 58%; font-size: 8pt; }
-.lg-items .qty { width: 10%; text-align: center; font-size: 8pt; }
-.lg-items .price, .lg-items .sum { width: 16%; text-align: right; white-space: nowrap; font-size: 8pt; }
+.lg-items .name { width: 58%; font-size: 9pt; }
+.lg-items .qty { width: 10%; text-align: center; font-size: 9pt; }
+.lg-items .price, .lg-items .sum { width: 16%; text-align: right; white-space: nowrap; font-size: 9pt; }
 
 .lg-discount { margin-top: 1mm; font-weight: 700; }
 .lg-total { margin-top: 1.2mm; border-top: 1px dashed #777; padding-top: .8mm; font-size: 15pt; font-weight: 800; letter-spacing: .02em; }
