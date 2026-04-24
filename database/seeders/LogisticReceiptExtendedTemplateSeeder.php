@@ -206,6 +206,12 @@ LEFT JOIN (
 WHERE oi.shop_order_id = :order_id
 ORDER BY oi.id ASC
 SQL;
+
+            if (! str_contains((string) $source['query'], 'product_name_clean')) {
+                $source['query'] = "SELECT q.*, TRIM(SUBSTRING_INDEX(COALESCE(q.product_name, ''), '[', 1)) AS product_name_clean FROM (\n"
+                    . $source['query']
+                    . "\n) q";
+            }
         }
         unset($source);
 
@@ -314,7 +320,7 @@ SQL;
 <tr>
 <td class="name">
 <div style="font-weight:700;">
-{{ item.product_name|default('Товар') }}{{ size != '' ? (' ' ~ size) : '' }}
+{{ item.product_name_clean|default(item.product_name|default('Товар')) }}{{ size != '' ? (' ' ~ size) : '' }}
 </div>
 
 {% if item.modifiers_text is defined and item.modifiers_text %}

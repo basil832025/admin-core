@@ -87,19 +87,47 @@ class ReceiptTemplatesThreePiesSeeder extends Seeder
 
     private function normalizeProductTitleExpr(string $body): string
     {
-        return str_replace(
+        $body = str_replace(
             [
                 "item.product_name|default('Товар')|split('[')[0]",
                 "item.product_name|default(\"Товар\")|split(\"[\")[0]",
                 "{{ item.product_name|default('Товар') }}{{ size != '' ? (' ' ~ size) : '' }}",
+                "{{ item.product_name|default(\"Товар\") }}{{ size != '' ? (' ' ~ size) : '' }}",
             ],
             [
                 "item.product_name_clean|default(item.product_name|default('Товар'))",
                 "item.product_name_clean|default(item.product_name|default(\"Товар\"))",
                 "{{ item.product_name_clean|default(item.product_name|default('Товар')) }}{{ size != '' ? (' ' ~ size) : '' }}",
+                "{{ item.product_name_clean|default(item.product_name|default(\"Товар\")) }}{{ size != '' ? (' ' ~ size) : '' }}",
             ],
             $body,
         );
+
+        $body = preg_replace(
+            "/\{\{\s*item\.product_name\|default\('Товар'\)\s*\}\}/u",
+            "{{ item.product_name_clean|default(item.product_name|default('Товар')) }}",
+            $body,
+        ) ?? $body;
+
+        $body = preg_replace(
+            '/\{\{\s*item\.product_name\|default\("Товар"\)\s*\}\}/u',
+            '{{ item.product_name_clean|default(item.product_name|default("Товар")) }}',
+            $body,
+        ) ?? $body;
+
+        $body = preg_replace(
+            "/\{\%\s*set\s+title\s*=\s*\(?\s*item\.product_name\|default\('Товар'\)\s*\)?\s*\%\}/u",
+            "{% set title = item.product_name_clean|default(item.product_name|default('Товар')) %}",
+            $body,
+        ) ?? $body;
+
+        $body = preg_replace(
+            '/\{\%\s*set\s+title\s*=\s*\(?\s*item\.product_name\|default\("Товар"\)\s*\)?\s*\%\}/u',
+            '{% set title = item.product_name_clean|default(item.product_name|default("Товар")) %}',
+            $body,
+        ) ?? $body;
+
+        return $body;
     }
 
     private function normalizeKitchenDeliveryLine(string $body): string
