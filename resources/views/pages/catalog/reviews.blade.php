@@ -211,9 +211,7 @@
                     <div class="text-xs text-red-500" x-text="errors.content"></div>
 
                     @if(config('services.turnstile.enabled') && filled(config('services.turnstile.site_key')))
-                        <div class="flex justify-center">
-                            <div class="cf-turnstile" data-sitekey="{{ config('services.turnstile.site_key') }}"></div>
-                        </div>
+                        <div class="flex justify-center" x-ref="turnstile"></div>
                         <div class="text-xs text-red-500 text-center" x-text="errors['cf-turnstile-response'] ? errors['cf-turnstile-response'][0] : ''"></div>
                     @endif
 
@@ -279,6 +277,59 @@
             sending: false,
             success: false,
             errors: {},
+            captchaEnabled: @json(config('services.turnstile.enabled') && filled(config('services.turnstile.site_key'))),
+            turnstileSiteKey: @json((string) config('services.turnstile.site_key')),
+            turnstileWidgetId: null,
+            turnstileToken: '',
+            init() {
+                this.$watch('openReview', (value) => {
+                    if (value) {
+                        this.$nextTick(() => this.mountTurnstile());
+                    } else {
+                        this.resetTurnstile();
+                    }
+                });
+            },
+            mountTurnstile(attempt = 0) {
+                if (!this.captchaEnabled) return;
+                if (!this.$refs.turnstile) return;
+
+                if (!window.turnstile) {
+                    if (attempt < 20) {
+                        setTimeout(() => this.mountTurnstile(attempt + 1), 150);
+                    }
+                    return;
+                }
+
+                if (this.turnstileWidgetId !== null) {
+                    window.turnstile.reset(this.turnstileWidgetId);
+                    this.turnstileToken = '';
+                    return;
+                }
+
+                this.$refs.turnstile.innerHTML = '';
+                this.turnstileWidgetId = window.turnstile.render(this.$refs.turnstile, {
+                    sitekey: this.turnstileSiteKey,
+                    callback: (token) => {
+                        this.turnstileToken = token || '';
+                        this.errors['cf-turnstile-response'] = '';
+                    },
+                    'expired-callback': () => {
+                        this.turnstileToken = '';
+                    },
+                    'error-callback': () => {
+                        this.turnstileToken = '';
+                    },
+                });
+            },
+            resetTurnstile() {
+                if (!this.captchaEnabled) return;
+                this.turnstileToken = '';
+
+                if (this.turnstileWidgetId !== null && window.turnstile) {
+                    window.turnstile.reset(this.turnstileWidgetId);
+                }
+            },
             async submit() {
                 this.errors = {};
                 // простая фронт-валидация
@@ -291,12 +342,18 @@
                 if (!email)  this.errors.email  = '{{ st('reviews.enter_your_email','Введіть email') }}';
                 else if (!reEmail.test(email)) this.errors.email = '{{ st('reviews.invalid_email','Некоректний email') }}';
                 if (!content) this.errors.content = '{{ st('reviews.write_a_review','Напишіть відгук') }}';
+                if (this.captchaEnabled && !this.turnstileToken) {
+                    this.errors['cf-turnstile-response'] = ['{{ st('reviews.captcha_required','Підтвердіть, що ви не робот.') }}'];
+                }
                 if (Object.keys(this.errors).length) return;
                 this.sending = true; this.errors = {}; this.success = false;
 
                 const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
                 const fd = new FormData(this.$refs.form); // @csrf уже внутри
                 fd.set('rating', this.rating);
+                if (this.captchaEnabled) {
+                    fd.set('cf-turnstile-response', this.turnstileToken);
+                }
 
                 try {
                     const res = await fetch(postUrl, {
@@ -309,6 +366,7 @@
                         this.success = true;
                         this.$refs.form.reset();
                         this.rating = 5;
+                        this.resetTurnstile();
                         this.openReview = false;   // закрываем форму
                         this.openThanks  = true;   // открываем «спасибо»
                         // по желанию: this.openReview = false;
@@ -316,6 +374,9 @@
                     } else if (res.status === 422) {
                         const data = await res.json();
                         this.errors = data.errors || {};
+                        if (this.captchaEnabled) {
+                            this.resetTurnstile();
+                        }
                     } else {
                         alert('{{ st('reviews.sending_error','Помилка відправлення. Спробуйте пізніше.') }}');
                     }
