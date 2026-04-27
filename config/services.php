@@ -37,6 +37,12 @@ return [
         'kitchen_address' => env('GOOGLE_MAPS_KITCHEN_ADDRESS'),
     ],
 
+    'turnstile' => [
+        'enabled' => (bool) env('TURNSTILE_ENABLED', false),
+        'site_key' => env('TURNSTILE_SITE_KEY'),
+        'secret_key' => env('TURNSTILE_SECRET_KEY'),
+    ],
+
     'binotel' => [
         'webhook_public_url' => env('BINOTEL_WEBHOOK_PUBLIC_URL'),
         'crm_base_url' => env('BINOTEL_CRM_BASE_URL', env('APP_URL')),

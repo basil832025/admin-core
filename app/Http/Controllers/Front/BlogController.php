@@ -9,6 +9,9 @@ use App\Models\BlogComment;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Validation\ValidationException;
+
 class BlogController extends Controller
 {
     public function index(?string $categorySlug = null)
@@ -93,18 +96,41 @@ class BlogController extends Controller
     }
     public function storeComment(Request $request)
     {
+        if (trim((string) $request->input('website', '')) !== '') {
+            throw ValidationException::withMessages([
+                'content' => st('blog.comment_form.spam_detected', 'Виявлено спам. Спробуйте ще раз.'),
+            ]);
+        }
+
+        $captchaEnabled = (bool) config('services.turnstile.enabled')
+            && filled((string) config('services.turnstile.site_key'))
+            && filled((string) config('services.turnstile.secret_key'));
+
         $data = $request->validate([
             'blog_id'      => ['required','integer', Rule::exists('bs_blogs','id')], // таблица постов
             'author_name'  => ['required','string','max:100'],
             'author_email' => ['nullable','email','max:150'],
             'content'      => ['required','string','min:5','max:5000'],
             'parent_id'    => ['nullable','integer', Rule::exists('bs_blog_comments','id')],
+            'cf-turnstile-response' => $captchaEnabled ? ['required', 'string'] : ['nullable', 'string'],
+            'website' => ['nullable', 'string', 'max:0'],
+        ], [
+            'cf-turnstile-response.required' => st('blog.comment_form.captcha_required', 'Підтвердіть, що ви не робот.'),
+            'website.max' => st('blog.comment_form.spam_detected', 'Виявлено спам. Спробуйте ще раз.'),
         ]);
+
+        if ($captchaEnabled && ! $this->verifyTurnstile($request)) {
+            throw ValidationException::withMessages([
+                'cf-turnstile-response' => st('blog.comment_form.captcha_failed', 'Помилка перевірки captcha. Спробуйте ще раз.'),
+            ]);
+        }
+
+        unset($data['cf-turnstile-response'], $data['website']);
 
         $comment = new BlogComment();
         $comment->fill($data);
         if (auth('web')->check()) {
-            $comment->user_id = auth('web')->id();
+            $comment->user_id = null;
             $comment->author_name  = auth('web')->user()->name ?? $comment->author_name;
             $comment->author_email = auth('web')->user()->email ?? $comment->author_email;
         }
@@ -115,10 +141,35 @@ class BlogController extends Controller
         return back()->with(
             'success',
             $comment->is_approved
-                ? __('Коментар додано.')
-                : __('Коментар надіслано на модерацію.')
+                ? st('blog.comment_form.success', 'Коментар додано.')
+                : st('blog.comment_form.sent_for_moderation', 'Коментар надіслано на модерацію.')
         )->withFragment('comments'); // прокрутка к блоку
     }
+
+    private function verifyTurnstile(Request $request): bool
+    {
+        $token = trim((string) $request->input('cf-turnstile-response', ''));
+        $secret = (string) config('services.turnstile.secret_key');
+
+        if ($token === '' || $secret === '') {
+            return false;
+        }
+
+        $response = Http::asForm()
+            ->timeout(8)
+            ->post('https://challenges.cloudflare.com/turnstile/v0/siteverify', [
+                'secret' => $secret,
+                'response' => $token,
+                'remoteip' => $request->ip(),
+            ]);
+
+        if (! $response->ok()) {
+            return false;
+        }
+
+        return (bool) data_get($response->json(), 'success', false);
+    }
+
     private function normalizeSlug(string $slug): array
     {
         $orig = urldecode($slug);

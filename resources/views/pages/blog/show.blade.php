@@ -215,6 +215,13 @@
                         @error('content')<div class="text-red-600 text-sm mt-1">{{ $message }}</div>@enderror
                     </div>
 
+                    @if(config('services.turnstile.enabled') && filled(config('services.turnstile.site_key')))
+                        <div class="flex justify-center">
+                            <div class="cf-turnstile" data-sitekey="{{ config('services.turnstile.site_key') }}"></div>
+                        </div>
+                        @error('cf-turnstile-response')<div class="text-red-600 text-sm text-center -mt-3">{{ $message }}</div>@enderror
+                    @endif
+
                     <div class="flex items-center justify-center md:justify-center">
                         <button type="submit"
                                 class="inline-flex items-center justify-center h-12 px-8 rounded-xl
@@ -226,6 +233,12 @@
                     </div>
                 </form>
             </div>
+
+            @if(config('services.turnstile.enabled') && filled(config('services.turnstile.site_key')))
+                @once
+                    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+                @endonce
+            @endif
         </section>
         {{-- один раз на странице добавь слушатель (можно рядом с формой) --}}
         <script>
