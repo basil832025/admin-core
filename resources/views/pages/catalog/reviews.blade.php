@@ -210,6 +210,13 @@
                               class="w-full h-28 border border-[#E5E7EB] rounded px-3 py-2 text-base md:text-sm resize-none focus:border-[#FF7500]"></textarea>
                     <div class="text-xs text-red-500" x-text="errors.content"></div>
 
+                    @if(config('services.turnstile.enabled') && filled(config('services.turnstile.site_key')))
+                        <div class="flex justify-center">
+                            <div class="cf-turnstile" data-sitekey="{{ config('services.turnstile.site_key') }}"></div>
+                        </div>
+                        <div class="text-xs text-red-500 text-center" x-text="errors['cf-turnstile-response'] ? errors['cf-turnstile-response'][0] : ''"></div>
+                    @endif
+
                     <button type="submit"
                             :disabled="sending"
                             class="w-full mt-2 bg-[#FF7500] hover:bg-orange-600 disabled:opacity-60 text-white font-semibold py-3 rounded">
@@ -255,6 +262,12 @@
     </template>
 </div>
 </div>
+
+@if(config('services.turnstile.enabled') && filled(config('services.turnstile.site_key')))
+    @once
+        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    @endonce
+@endif
 
 
 <script>

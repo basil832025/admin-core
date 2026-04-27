@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
             ProfileOrdersTranslationsSeeder::class,
             ProfileBonusesTranslationsSeeder::class,
             BlogCommentCaptchaTranslationsSeeder::class,
+            ReviewsCaptchaTranslationsSeeder::class,
             MenuFavoritesTranslationsSeeder::class,
             LogisticReceiptExtendedTemplateSeeder::class,
             ReceiptTemplatesThreePiesSeeder::class,
