@@ -382,9 +382,27 @@
 
 
         {{-- Рекомендации --}}
+            <style>
+                .recom-swiper .swiper {
+                    overflow-x: hidden;
+                    overflow-y: visible;
+                    padding-bottom: 8px;
+                }
+
+                .recom-swiper .card-fixed > article {
+                    box-shadow: 1px 4px 8px rgba(0, 0, 0, 0.07);
+                }
+
+                @media (max-width: 767px) {
+                    .recom-swiper .swiper-slide {
+                        width: auto;
+                    }
+                }
+
+            </style>
             <section class="mt-[40px] md:mt-8 xl:mt-[80px] recom-swiper" x-data x-init="
   new Swiper($refs.sw, {
-    slidesPerView: 1.06,
+    slidesPerView: 'auto',
     spaceBetween: 12,
     speed: 360,
     watchOverflow: true,
@@ -430,7 +448,7 @@
                 </div>
 
                 {{-- стрелки снизу --}}
-                <div class="hidden md:flex justify-center items-center gap-3 mt-6 mb-2">
+                <div class="flex justify-center items-center gap-3 mt-4 md:mt-6 mb-2">
                     <button x-ref="prev"
                             class="swiper-prev w-[34px] h-[34px] rounded-xl bg-[#FF7500] hover:bg-orange-600 text-white flex items-center justify-center transition">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18">

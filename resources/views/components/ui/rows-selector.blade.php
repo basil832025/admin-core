@@ -310,7 +310,7 @@
             </div>
 
             {{-- Правая зона (кнопка / qty) фиксированной ширины как в Figma --}}
-            <div class="w-[173px] shrink-0">
+            <div class="w-[153px] md:w-[173px] shrink-0">
                 {{-- Кнопка "Добавить в корзину" --}}
                 <button
                     type="button"
