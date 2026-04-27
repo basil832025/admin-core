@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
             GeneratePermissionsFromResourcesSeeder::class,
             GenerateShieldPermissionsSeeder::class, // Генерируем пермишены Shield после загрузки всех данных
             ProfileOrdersTranslationsSeeder::class,
+            ProfileBonusesTranslationsSeeder::class,
             MenuFavoritesTranslationsSeeder::class,
             LogisticReceiptExtendedTemplateSeeder::class,
             ReceiptTemplatesThreePiesSeeder::class,
