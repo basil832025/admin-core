@@ -170,7 +170,7 @@ class FixLocalePrefixesInSetDescriptionsSeeder extends Seeder
                 $quote = $matches[1];
                 $href = $matches[2];
 
-                $newHref = preg_replace('/^\/(?:ru|uk|en)(\/|$)/iu', '/$1', $href, 1, $pathCount);
+                $newHref = preg_replace('/^\/(?:ru|uk|en)(?=\/|$)/iu', '', $href, 1, $pathCount);
 
                 if (($pathCount ?? 0) === 0) {
                     $newHref = preg_replace('/^(https?:\/\/[^\/]+)\/(?:ru|uk|en)(\/|$)/iu', '$1$2', $href, 1, $absCount);
@@ -178,12 +178,25 @@ class FixLocalePrefixesInSetDescriptionsSeeder extends Seeder
                 }
 
                 if (($pathCount ?? 0) > 0 && is_string($newHref) && $newHref !== '') {
-                    if ($newHref === '//') {
-                        $newHref = '/';
+                    if (str_starts_with($newHref, '//')) {
+                        $newHref = '/' . ltrim($newHref, '/');
+                    }
+
+                    if (! preg_match('/^(?:\/|#|https?:\/\/|mailto:|tel:|javascript:)/iu', $newHref)) {
+                        $newHref = '/' . ltrim($newHref, '/');
                     }
 
                     $count += (int) $pathCount;
                     return 'href=' . $quote . $newHref . $quote;
+                }
+
+                if (
+                    is_string($href)
+                    && str_starts_with($href, '//')
+                    && ! preg_match('/^\/\/[a-z0-9.-]+\.[a-z]{2,}(?:\/|$)/iu', $href)
+                ) {
+                    $count++;
+                    return 'href=' . $quote . '/' . ltrim($href, '/') . $quote;
                 }
 
                 if (
