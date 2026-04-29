@@ -674,6 +674,7 @@ class CartService
             $name  = $parent?->display_name ?? $parent?->displayName ?? $parent?->title ?? 'Товар';
             $sku   = $parent?->sku ?: null;
             $code2 = $parent?->code2 ?: null;
+            $article = ($sku !== null && trim((string) $sku) !== '') ? $sku : $code2;
             $image = $parent?->main_image_url ?? ($parent?->image_url ?? null);
 
             $qty   = (int)($i['qty'] ?? 1);
