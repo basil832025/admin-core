@@ -35,7 +35,12 @@
                     $phones =  $headerPhones ?? config('phones.list', []);
                     $telHref = fn($p) => 'tel:' . preg_replace('/[^\d+]/', '', $p);
                 @endphp
-                <details class="relative hidden md:block group">
+                <details
+                    class="relative hidden md:block group"
+                    x-data
+                    @click.outside="$el.open = false"
+                    @keydown.escape.window="$el.open = false"
+                >
                     <summary
                         class="inline-flex items-center gap-2.5 h-10 px-3 rounded-lg ring-1 ring-black/10 hover:bg-gray-50 cursor-pointer select-none
                         [&::-webkit-details-marker]:hidden">
@@ -70,7 +75,12 @@
                     $langs = ['uk' => 'UA', 'ru' => 'RU', 'en' => 'EN'];
                     $localePrefix = in_array($locale, ['ru', 'en'], true) ? '/' . $locale : '';
                 @endphp
-                <details class="relative hidden md:block group">
+                <details
+                    class="relative hidden md:block group"
+                    x-data
+                    @click.outside="$el.open = false"
+                    @keydown.escape.window="$el.open = false"
+                >
                     <summary
                         class="inline-flex items-center gap-2 h-10 px-3 rounded-lg ring-1 ring-black/10 hover:bg-gray-50 cursor-pointer select-none
                         [&::-webkit-details-marker]:hidden">
