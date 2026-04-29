@@ -117,10 +117,10 @@
                             </div>
 
                             <div class="mt-3 grid grid-cols-2 gap-3 text-sm ">
-                                <div class="rounded-[1px] border border-[#F9FAFB] p-3 shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
-                                    <div class="text-[#9E9E9E] text-xs text-center">{{$delivery['title']}}:</div>
-                                    <div class="font-semibold mt-1 text-sm text-[#19191A] text-center">{{$pickup['time'] }}</div>
-                                </div>
+                                 <div class="rounded-[1px] border border-[#F9FAFB] p-3 shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+                                     <div class="text-[#9E9E9E] text-xs text-center">{{$pickup['title']}}:</div>
+                                     <div class="font-semibold mt-1 text-sm text-[#19191A] text-center">{{$pickup['time'] }}</div>
+                                 </div>
                                 <div class="rounded-[1px] border border-[#F9FAFB] p-3 shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
                                     <div class="text-[#9E9E9E] text-xs text-center">{{$delivery['title']}}:</div>
                                     <div class="font-semibold mt-1 text-sm text-[#19191A] text-center">{{$delivery['time']}}</div>
