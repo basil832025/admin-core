@@ -110,7 +110,16 @@
                 </div>
 
                 {{-- Поиск как компонент --}}
-                <x-search.header :action="route('search')" :suggest="route('search.suggest')" placeholder="Я шукаю..." maxWidth="450px" />
+                @php
+                    $locale = app()->getLocale();
+                    $searchAction = in_array($locale, ['ru', 'en'], true)
+                        ? route('localized.search', ['locale' => $locale])
+                        : route('search');
+                    $searchSuggest = in_array($locale, ['ru', 'en'], true)
+                        ? route('localized.search.suggest', ['locale' => $locale])
+                        : route('search.suggest');
+                @endphp
+                <x-search.header :action="$searchAction" :suggest="$searchSuggest" :placeholder="st('search.placeholder', 'Я шукаю...')" maxWidth="450px" />
             </div>
 
             {{-- ПРАВО: иконки --}}

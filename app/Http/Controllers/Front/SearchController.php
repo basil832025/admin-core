@@ -20,7 +20,17 @@ class SearchController extends Controller
         $q = trim((string) $request->get('q', ''));
         $locales = \App\Models\Setting::getActiveLocales();
         $locale = app()->getLocale();
+        $searchLocales = [$locale];
         $favoriteIds = $this->favoriteIds();
+
+        // If locale is ru/en but the URL has no locale prefix, redirect
+        // so that search results URLs stay consistent for SEO.
+        $routeLocale = (string) ($request->route('locale') ?? '');
+        if (in_array($locale, ['ru', 'en'], true) && $routeLocale === '') {
+            $query = $request->query();
+            $queryString = $query ? ('?' . http_build_query($query)) : '';
+            return redirect('/' . $locale . '/search' . $queryString, 302);
+        }
 
         if ($q === '') {
             return view('pages.search.index', [
@@ -43,12 +53,25 @@ class SearchController extends Controller
             ->where(function (Builder $w) {
                 $this->applyMainSiteProductFilter($w);
             })
-            ->where(function (Builder $w) use ($locales, $needle) {
-                $this->applyTitleSlugLikeCI($w, $locales, $needle);
-                // Поиск по артикулу (code2)
+            ->where(function (Builder $w) use ($searchLocales, $needle) {
+                $this->applyTitleSlugLikeCI($w, $searchLocales, $needle);
+                // Поиск по артикулу/коду: sku/code2 у родителя
+                $w->orWhereRaw('LOWER(`sku`) LIKE ?', [$needle]);
                 $w->orWhereRaw('LOWER(`code2`) LIKE ?', [$needle]);
+
+                // Поиск по артикулу/коду у вариантов (детей)
+                $w->orWhereExists(function ($q) use ($needle) {
+                    $q->select(DB::raw(1))
+                        ->from('bs_products AS child_products')
+                        ->whereColumn('child_products.parent_id', 'bs_products.id')
+                        ->where(function ($ww) use ($needle) {
+                            $ww->whereRaw('LOWER(child_products.sku) LIKE ?', [$needle])
+                                ->orWhereRaw('LOWER(child_products.code2) LIKE ?', [$needle]);
+                        });
+                });
+
                 // Поиск по характеристикам
-                $this->applyCharacteristicSearch($w, $locales, $needle);
+                $this->applyCharacteristicSearch($w, $searchLocales, $needle);
             })
             ->orderByDesc('sort')
             ->limit(50);
@@ -67,8 +90,8 @@ class SearchController extends Controller
                         $this->applyMainSiteProductFilter($w);
                     });
             })
-            ->where(function (Builder $w) use ($locales, $needle) {
-                $this->applyTitleSlugLikeCI($w, $locales, $needle);
+            ->where(function (Builder $w) use ($searchLocales, $needle) {
+                $this->applyTitleSlugLikeCI($w, $searchLocales, $needle);
             })
             ->limit(20)
             ->get();
@@ -80,11 +103,23 @@ class SearchController extends Controller
     public function suggest(Request $request)
     {
         $q = trim((string) $request->get('q', ''));
+
+        // Keep suggest endpoint locale-consistent (ru/en should use prefixed URL)
+        $locale = app()->getLocale();
+        $routeLocale = (string) ($request->route('locale') ?? '');
+        if (in_array($locale, ['ru', 'en'], true) && $routeLocale === '') {
+            $query = $request->query();
+            $queryString = $query ? ('?' . http_build_query($query)) : '';
+            return redirect('/' . $locale . '/search/suggest' . $queryString, 302);
+        }
+
         if ($q === '') {
             return response()->json(['products' => [], 'categories' => []]);
         }
 
         $locales = \App\Models\Setting::getActiveLocales();
+        $locale = app()->getLocale();
+        $searchLocales = [$locale];
         $needle  = '%' . addcslashes(mb_strtolower($q), '%_') . '%';
 
         // товары
@@ -96,17 +131,39 @@ class SearchController extends Controller
             ->where(function (Builder $w) {
                 $this->applyMainSiteProductFilter($w);
             })
-            ->where(function (Builder $w) use ($locales, $needle) {
-                $this->applyTitleSlugLikeCI($w, $locales, $needle);
-                // Поиск по артикулу (code2)
+            ->where(function (Builder $w) use ($searchLocales, $needle) {
+                $this->applyTitleSlugLikeCI($w, $searchLocales, $needle);
+                // Поиск по артикулу/коду: sku/code2 у родителя
+                $w->orWhereRaw('LOWER(`sku`) LIKE ?', [$needle]);
                 $w->orWhereRaw('LOWER(`code2`) LIKE ?', [$needle]);
+
+                // Поиск по артикулу/коду у вариантов (детей)
+                $w->orWhereExists(function ($q) use ($needle) {
+                    $q->select(DB::raw(1))
+                        ->from('bs_products AS child_products')
+                        ->whereColumn('child_products.parent_id', 'bs_products.id')
+                        ->where(function ($ww) use ($needle) {
+                            $ww->whereRaw('LOWER(child_products.sku) LIKE ?', [$needle])
+                                ->orWhereRaw('LOWER(child_products.code2) LIKE ?', [$needle]);
+                        });
+                });
+
                 // Поиск по характеристикам
-                $this->applyCharacteristicSearch($w, $locales, $needle);
+                $this->applyCharacteristicSearch($w, $searchLocales, $needle);
             })
             ->limit(6)
             ->get()
             ->map(function (Product $p) {
                 $locale = app()->getLocale();
+
+                $productRouteName = in_array($locale, ['ru', 'en'], true)
+                    ? 'localized.product.show'
+                    : 'product.show';
+
+                $categoryRouteUrl = in_array($locale, ['ru', 'en'], true)
+                    ? '/' . $locale . '/' . ltrim((string) $p->mainCategory?->slug, '/')
+                    : '/' . ltrim((string) $p->mainCategory?->slug, '/');
+
                 return [
                     'id'            => $p->id,
                     'title'         => (string) $p->getTranslation('title', $locale),
@@ -115,8 +172,13 @@ class SearchController extends Controller
                     'categorySlug'  => $p->mainCategory?->slug,
                     'categoryTitle' => $p->mainCategory?->getTranslation('title', $locale),
                     'url'           => $p->mainCategory
-                        ? route('product.show', ['categorySlug' => $p->mainCategory->slug, 'itemSlug' => $p->slug])
+                        ? route($productRouteName, array_filter([
+                            'locale' => in_array($locale, ['ru', 'en'], true) ? $locale : null,
+                            'categorySlug' => $p->mainCategory->slug,
+                            'itemSlug' => $p->slug,
+                        ], fn ($v) => $v !== null && $v !== ''))
                         : route('product.show.flat', ['itemSlug' => $p->slug]),
+                    'categoryUrl'   => $p->mainCategory ? $categoryRouteUrl : null,
                 ];
             })
             ->values();
@@ -132,16 +194,20 @@ class SearchController extends Controller
                         $this->applyMainSiteProductFilter($w);
                     });
             })
-            ->where(function (Builder $w) use ($locales, $needle) {
-                $this->applyTitleSlugLikeCI($w, $locales, $needle);
+            ->where(function (Builder $w) use ($searchLocales, $needle) {
+                $this->applyTitleSlugLikeCI($w, $searchLocales, $needle);
             })
             ->limit(6)
             ->get()
             ->map(function (ProductCategory $c) {
+                $locale = app()->getLocale();
+                $url = in_array($locale, ['ru', 'en'], true)
+                    ? '/' . $locale . '/' . ltrim((string) $c->slug, '/')
+                    : '/' . ltrim((string) $c->slug, '/');
                 return [
                     'slug'  => $c->slug,
-                    'title' => (string) $c->getTranslation('title', app()->getLocale()),
-                    'url'   => route('category.show', ['slug' => $c->slug]),
+                    'title' => (string) $c->getTranslation('title', $locale),
+                    'url'   => $url,
                 ];
             })
             ->values();

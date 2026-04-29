@@ -25,6 +25,7 @@ class DatabaseSeeder extends Seeder
             BlogCommentCaptchaTranslationsSeeder::class,
             ReviewsCaptchaTranslationsSeeder::class,
             MenuFavoritesTranslationsSeeder::class,
+            SearchTranslationsSeeder::class,
             LogisticReceiptExtendedTemplateSeeder::class,
             ReceiptTemplatesThreePiesSeeder::class,
             // ... другие сидеры

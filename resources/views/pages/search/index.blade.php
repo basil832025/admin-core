@@ -21,11 +21,11 @@
                 <p class="text-[#666666] text-sm">
                     {{ st('search.found', 'Знайдено') }}: 
                     @if($productsCount > 0)
-                        {{ $productsCount }} {{ st('search.products', 'товарів') }}
+                        {{ $productsCount }} {{ st('search.products_count', 'товарів') }}
                     @endif
                     @if($categoriesCount > 0)
                         @if($productsCount > 0), @endif
-                        {{ $categoriesCount }} {{ st('search.categories', 'категорій') }}
+                        {{ $categoriesCount }} {{ st('search.categories_count', 'категорій') }}
                     @endif
                 </p>
             @endif
@@ -53,7 +53,13 @@
                     </h2>
                     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                         @foreach($categories as $category)
-                            <a href="{{ route('category.show', ['slug' => $category->slug]) }}" 
+                            @php
+                                $loc = app()->getLocale();
+                                $catUrl = in_array($loc, ['ru', 'en'], true)
+                                    ? '/' . $loc . '/' . ltrim((string) $category->slug, '/')
+                                    : '/' . ltrim((string) $category->slug, '/');
+                            @endphp
+                            <a href="{{ $catUrl }}" 
                                class="flex items-center gap-3 p-4 rounded-xl border border-[#E5E7EB] hover:border-[#FF7500] hover:bg-orange-50 transition">
                                 <span class="inline-flex w-10 h-10 items-center justify-center rounded-lg bg-[#FF7500]/10 text-[#FF7500] text-xl">▦</span>
                                 <div>
@@ -85,7 +91,7 @@
                             <x-product.card
                                 :product-id="$pid"
                                 :is-favorite="$isFav"
-                                :title="$p['title'] ?? 'Товар'"
+                                :title="$p['title'] ?? st('search.product_default_title', 'Товар')"
                                 :url="$p['url'] ?? ''"
                                 :article="$p['article'] ?? '12345'"
                                 :price="$p['price'] ?? '0.00'"

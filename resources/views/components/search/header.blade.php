@@ -1,7 +1,24 @@
+@php
+    $locale = app()->getLocale();
+
+    $tPlaceholder = st('search.placeholder', 'Я шукаю…', $locale);
+    $tClose = st('all.close', 'Закрити', $locale);
+    $tSuggestNotFoundTpl = st('search.suggest.not_found', 'Нічого не знайдено для ":q"', $locale);
+    $tSuggestGoToCategory = st('search.suggest.go_to_category', 'Перейти у категорію', $locale);
+    $tSuggestLoading = st('search.suggest.loading', 'Шукаю…', $locale);
+
+    $defaultAction = in_array($locale, ['ru', 'en'], true)
+        ? route('localized.search', ['locale' => $locale])
+        : route('search');
+    $defaultSuggest = in_array($locale, ['ru', 'en'], true)
+        ? route('localized.search.suggest', ['locale' => $locale])
+        : route('search.suggest');
+@endphp
+
 @props([
-'action' => route('search'),
-'suggest' => route('search.suggest'),
-'placeholder' => 'Я шукаю…',
+'action' => $defaultAction,
+'suggest' => $defaultSuggest,
+'placeholder' => $tPlaceholder,
 'maxWidth' => '620px',   // ширина десктоп-поля
 ])
 
@@ -16,6 +33,14 @@
                     loading: false,
                     notFound: false,
                     _t: null,
+
+                    notFoundTpl: @json($tSuggestNotFoundTpl),
+
+                    notFoundText(){
+                        const tpl = (this.notFoundTpl || '');
+                        const q = (this.q || '').trim();
+                        return tpl.replace(':q', q);
+                    },
 
                     pLen(){ return (this.results?.products?.length || 0) },
                     cLen(){ return (this.results?.categories?.length || 0) },
@@ -85,7 +110,7 @@
                     <button
                         type="button"
                         class="p-2 -m-1"
-                        aria-label="Закрити"
+                        aria-label="{{ $tClose }}"
                         @click="clearTimeout($store.search._t); $store.search._t = null; $store.search.q = ''; $store.search.results = { products: [], categories: [] }; $store.search.notFound = false; $store.search.loading = false; $store.search.open = false"
                     >
                         <svg class="w-6 h-6" viewBox="0 0 20 20" fill="currentColor"><path d="M6.3 6.3a1 1 0 011.4 0L10 8.6l2.3-2.3a1 1 0 111.4 1.4L11.4 10l2.3 2.3a1 1 0 01-1.4 1.4L10 11.4l-2.3 2.3a1 1 0 01-1.4-1.4L8.6 10 6.3 7.7a1 1 0 010-1.4z"/></svg>
@@ -98,7 +123,7 @@
                  x-transition
                  class="absolute left-0 right-0 top-[calc(100%+8px)] z-50 bg-white rounded-xl ring-1 ring-black/10 shadow-md">
                 <div class="px-5 py-4 text-sm text-center text-gray-600">
-                    Нічого не знайдено для "<span class="font-medium" x-text="$store.search.q"></span>"
+                    <span class="font-medium" x-text="$store.search.notFoundText()"></span>
                 </div>
             </div>
 
@@ -138,7 +163,7 @@
 
                 <template x-if="$store.search.cLen()">
                     <div class="px-4 pb-4">
-                        <div class="text-xs font-semibold text-gray-500 mb-2">Перейти у категорію</div>
+                        <div class="text-xs font-semibold text-gray-500 mb-2">{{ $tSuggestGoToCategory }}</div>
                         <div class="grid sm:grid-cols-2 gap-2">
                             <template x-for="c in ($store.search.results?.categories || [])" :key="c.slug">
                                 <a :href="c.url" class="flex items-center gap-2 px-3 py-2 rounded ring-1 ring-black/10 hover:bg-gray-50">
@@ -170,7 +195,7 @@
                 <button
                     type="button"
                     class="p-2 -m-1"
-                    aria-label="Закрити"
+                    aria-label="{{ $tClose }}"
                     @click="clearTimeout($store.search._t); $store.search._t = null; $store.search.q = ''; $store.search.results = { products: [], categories: [] }; $store.search.notFound = false; $store.search.loading = false; $store.search.open = false"
                 >
                     <svg class="w-6 h-6" viewBox="0 0 20 20" fill="currentColor"><path d="M6.3 6.3a1 1 0 011.4 0L10 8.6l2.3-2.3a1 1 0 111.4 1.4L11.4 10l2.3 2.3a1 1 0 01-1.4 1.4L10 11.4l-2.3 2.3a1 1 0 01-1.4-1.4L8.6 10 6.3 7.7a1 1 0 010-1.4z"/></svg>
@@ -182,7 +207,7 @@
                             w-[calc(100vw-2rem)] sm:w-[520px] md:w-[640px] max-w-[736px]
                             bg-white rounded-xl ring-1 ring-black/10 shadow-md max-h-[70vh] overflow-auto">
                     <template x-if="$store.search.loading">
-                        <div class="px-5 py-6 text-sm text-gray-600">Шукаю…</div>
+                        <div class="px-5 py-6 text-sm text-gray-600">{{ $tSuggestLoading }}</div>
                     </template>
 
                     <template x-if="$store.search.pLen()">
@@ -208,7 +233,7 @@
 
                     <template x-if="$store.search.cLen()">
                         <div class="px-4 pb-4">
-                            <div class="text-xs font-semibold text-gray-500 mb-2">Перейти у категорію</div>
+                            <div class="text-xs font-semibold text-gray-500 mb-2">{{ $tSuggestGoToCategory }}</div>
                             <div class="grid sm:grid-cols-2 gap-2">
                                 <template x-for="c in ($store.search.results?.categories || [])" :key="c.slug">
                                     <a :href="c.url" class="flex items-center gap-2 px-3 py-2 rounded ring-1 ring-black/10 hover:bg-gray-50">
@@ -222,7 +247,7 @@
 
                     <template x-if="$store.search.notFound && !$store.search.loading">
                         <div class="px-5 py-6 text-center text-sm text-gray-600">
-                            Нічого не знайдено для "<span class="font-medium" x-text="$store.search.q"></span>"
+                            <span class="font-medium" x-text="$store.search.notFoundText()"></span>
                         </div>
                     </template>
                 </div>
