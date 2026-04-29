@@ -65,13 +65,13 @@ class Menus
 
             // простая автоподсветка активного: по текущему path
             $path  = trim(parse_url($href, PHP_URL_PATH) ?: '', '/');
-            // Формируем паттерн для подсветки: путь + * для подсветки подпутей
-            // Но для /profile делаем точное совпадение без *, чтобы не подсвечивать /profile/addresses
-            if ($path === 'profile') {
-                // Для /profile делаем точное совпадение, не добавляем *
+            // Формируем паттерн для подсветки: путь + * для подпутей.
+            // Для /profile (включая локализованный /ru/profile, /en/profile)
+            // делаем точное совпадение, чтобы не подсвечивать /profile/orders и т.п.
+            $isProfileRoot = (bool) preg_match('#(^|/)profile$#', $path);
+            if ($isProfileRoot) {
                 $activeWhen = $path;
             } else {
-                // Для других путей добавляем * для подсветки подпутей
                 $activeWhen = $path ? $path . '*' : '';
             }
 
@@ -96,13 +96,33 @@ class Menus
      */
     protected static function resolveHref(MenuItem $i): string
     {
+        $locale = app()->getLocale();
+        $prefix = in_array($locale, ['ru', 'en'], true) ? '/' . $locale : '';
+
+        $withLocalePrefix = static function (string $path) use ($prefix): string {
+            $normalized = '/' . ltrim($path, '/');
+            if ($prefix === '') {
+                return $normalized;
+            }
+
+            if (preg_match('#^/(ru|en)(/|$)#i', $normalized)) {
+                return $normalized;
+            }
+
+            return $prefix . $normalized;
+        };
+
         // 1. Произвольный URL
         if ($i->link_type === 'url') {
             $u = trim((string) $i->url);
             if ($u === '') return '#';
 
-            if (Str::startsWith($u, ['http://','https://','/'])) {
+            if (Str::startsWith($u, ['http://','https://'])) {
                 return $u;
+            }
+
+            if (Str::startsWith($u, ['/'])) {
+                return $withLocalePrefix($u);
             }
 
             // Для относительных путей в profile-menu добавляем префикс /profile/
@@ -112,17 +132,17 @@ class Menus
             if ($menu && $menu->slug === 'profile-menu') {
                 // Если URL уже = 'profile', возвращаем просто '/profile'
                 if ($u === 'profile') {
-                    return '/profile';
+                    return $withLocalePrefix('/profile');
                 }
                 // Исключения: favorites не нужно добавлять префикс /profile/
                 if ($u === 'favorites') {
-                    return '/favorites';
+                    return $withLocalePrefix('/favorites');
                 }
                 // Для других относительных путей добавляем префикс /profile/
-                return '/profile/' . ltrim($u, '/');
+                return $withLocalePrefix('/profile/' . ltrim($u, '/'));
             }
 
-            return '/' . ltrim($u, '/');
+            return $withLocalePrefix('/' . ltrim($u, '/'));
         }
 
         try {
@@ -132,13 +152,13 @@ class Menus
                 // ===== СТАТИЧЕСКИЕ СТРАНИЦЫ =====
                 case 'page':
                     $page = Pages::find($i->target_id);
-                    return $page ? '/' . ltrim($page->slug, '/') : '#';
+                    return $page ? $withLocalePrefix('/' . ltrim($page->slug, '/')) : '#';
 
                 // ===== КАТАЛОГ: КАТЕГОРИЯ =====
                 case 'category':
                     $cat = ProductCategory::find($i->target_id);
                     return $cat
-                        ? '/' . ltrim($cat->slug, '/')
+                        ? $withLocalePrefix('/' . ltrim($cat->slug, '/'))
                         : '#';
 
                 // ===== БЛОГ: КАТЕГОРИЯ =====
@@ -146,7 +166,7 @@ class Menus
                     $category = BlogCategory::find($i->target_id);
                  //   dump($category);
                     return $category
-                        ? '/' . ltrim($category->slug, '/')
+                        ? $withLocalePrefix('/' . ltrim($category->slug, '/'))
                         : '#';
 
                 // ===== БЛОГ: СТАТЬЯ =====
@@ -155,13 +175,13 @@ class Menus
                     if (!$post) return '#';
 
                     if ($post->category) {
-                        return '/blog/'
+                        return $withLocalePrefix('/blog/'
                             . ltrim($post->category->slug, '/')
                             . '/'
-                            . ltrim($post->slug, '/');
+                            . ltrim($post->slug, '/'));
                     }
 
-                    return '/blog/' . ltrim($post->slug, '/');
+                    return $withLocalePrefix('/blog/' . ltrim($post->slug, '/'));
             }
         } catch (\Throwable $e) {
             // не валим фронт

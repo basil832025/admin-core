@@ -24,7 +24,11 @@ class PhoneRegisterController extends Controller
         if ($checkoutUrl && str_contains($checkoutUrl, '/checkout')) {
             return $checkoutUrl;
         }
-        return route('profile.index');
+
+        $locale = app()->getLocale();
+        return in_array($locale, ['ru', 'en'], true)
+            ? route('localized.profile.index', ['locale' => $locale])
+            : route('profile.index');
     }
 
     private function normalize(string $raw): string

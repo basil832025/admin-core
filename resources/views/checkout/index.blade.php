@@ -3,8 +3,16 @@
 @section('title','Мій заказ')
 
 @php
-    $addUrl    = route('cart.add');
-    $removeUrl = route('cart.remove');
+    $locale = app()->getLocale();
+    $isLocalized = in_array($locale, ['ru', 'en'], true);
+    $routePrefix = $isLocalized ? 'localized.' : '';
+    $routeParams = $isLocalized ? ['locale' => $locale] : [];
+
+    $addUrl    = route($routePrefix . 'cart.add', $routeParams);
+    $removeUrl = route($routePrefix . 'cart.remove', $routeParams);
+    $checkoutSubmitUrl = route($routePrefix . 'checkout.submit', $routeParams);
+    $checkPromoUrl = route($routePrefix . 'checkout.check-promo-conditions', $routeParams);
+    $saveFormUrl = route($routePrefix . 'checkout.save-form-data', $routeParams, false);
     $client    = auth()->user();
     // Показываем все сохранённые адреса; если координат нет, они будут дозапрошены и сохранены при выборе
     $addresses = $client ? $client->addresses()->orderByDesc('id')->get() : collect();
@@ -77,9 +85,9 @@ document.addEventListener('alpine:init', () => {
 </script>
 @endpush
 
-        <form action="{{ route('checkout.submit') }}"
+        <form action="{{ $checkoutSubmitUrl }}"
               method="POST" class="space-y-6" data-checkout-form novalidate
-              data-check-promo-url="{{ route('checkout.check-promo-conditions') }}">
+              data-check-promo-url="{{ $checkPromoUrl }}">
             @csrf
 
             <div
@@ -283,7 +291,7 @@ document.addEventListener('alpine:init', () => {
             window.CHECKOUT_CONFIG = {
                 csrf: @json(csrf_token()),
                 // route(..., [], false) — путь без домена, например "/checkout/save-form-data"
-                saveUrl: @json(route('checkout.save-form-data', [], false)),
+                saveUrl: @json($saveFormUrl),
                 googleMapsKey: @json(config('services.google_maps.key')),
             };
         </script>

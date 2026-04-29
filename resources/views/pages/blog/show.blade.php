@@ -5,11 +5,16 @@
 @section('content')
     <div class="container mx-auto px-4 md:px-6 lg:px-8">
 
+        @php
+            $locale = app()->getLocale();
+            $prefix = in_array($locale, ['ru', 'en'], true) ? '/' . $locale : '';
+        @endphp
+
         {{-- Хлебные крошки --}}
         <nav class="text-sm mb-4 text-[#929292]">
-            <a href="{{ url('/') }}" class="hover:underline">{{ __('Головна') }}</a>
+            <a href="{{ url($prefix !== '' ? $prefix : '/') }}" class="hover:underline">{{ __('Головна') }}</a>
             <span class="mx-2">•</span>
-            <a href="{{ url('/' . ($post->category?->slug ?? 'blog')) }}">{{$title}}</a>
+            <a href="{{ url($prefix . '/' . ($post->category?->slug ?? 'blog')) }}">{{$title}}</a>
             <span class="mx-2">•</span>
             <span class="truncate inline-block align-bottom max-w-[60vw] md:max-w-none">
             {{ $post->title }}

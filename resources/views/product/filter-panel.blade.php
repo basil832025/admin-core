@@ -39,7 +39,12 @@
         x-transition:leave-end="opacity-0 scale-95"
     >
         {{-- оборачиваем всё в форму GET --}}
-        <form method="GET" action="{{ route('catalog.filter') }}">
+        @php
+            $filterRoute = in_array($locale, ['ru', 'en'], true)
+                ? route('localized.catalog.filter', ['locale' => $locale])
+                : route('catalog.filter');
+        @endphp
+        <form method="GET" action="{{ $filterRoute }}">
             {{-- шапка --}}
             <div class="flex items-center justify-between mb-6">
                 <div class="flex items-center gap-2">

@@ -1,5 +1,8 @@
 @php
-    $cartUrl = Route::has('cart.page') ? route('cart.page') : url('/cart');
+    $locale = app()->getLocale();
+    $cartUrl = in_array($locale, ['ru', 'en'], true)
+        ? (Route::has('localized.cart.page') ? route('localized.cart.page', ['locale' => $locale]) : url('/' . $locale . '/cart'))
+        : (Route::has('cart.page') ? route('cart.page') : url('/cart'));
 @endphp
 
 @push('scripts')

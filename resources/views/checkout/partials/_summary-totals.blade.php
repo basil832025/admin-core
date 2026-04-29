@@ -36,7 +36,7 @@
         </span>
     </div>
     <div class="flex justify-between text-[#272828]">
-        <span>{{ st('cart.summary.delivery', 'Доставка') }}</span>
+        <span>{{ st('cart.dostavka', 'Доставка') }}</span>
         <span>
         <span data-checkout-shipping>0,00</span>
         <span>{{ st('cart.summary.currency_short', 'грн') }}</span>

@@ -3,6 +3,15 @@
 @section('title', $address->exists ? st('profile.addresses.edit_title', 'Редагувати адресу') : st('profile.addresses.create_title', 'Додати адресу'))
 
 @section('content')
+    @php
+        $locale = app()->getLocale();
+        $isLocalized = in_array($locale, ['ru', 'en'], true);
+        $storeUrl = $isLocalized ? route('localized.profile.addresses.store', ['locale' => $locale]) : route('profile.addresses.store');
+        $updateUrl = $isLocalized
+            ? route('localized.profile.addresses.update', ['locale' => $locale, 'address' => $address])
+            : route('profile.addresses.update', ['address' => $address]);
+        $cancelUrl = $isLocalized ? route('localized.profile.addresses.index', ['locale' => $locale]) : route('profile.addresses.index');
+    @endphp
     <div class="mx-auto desk:w-[1200px] px-4 md:px-6 desk:px-0">
         <h1 class="sr-only md:not-sr-only md:text-[28px] md:leading-8 font-bold text-[#19191A] md:mb-4">
             {{ $address->exists ? st('profile.addresses.edit_title', 'Редагувати адресу') : st('profile.addresses.create_title', 'Додати адресу') }}
@@ -17,13 +26,20 @@
             {{-- Контент --}}
             <main>
                 <div class="bg-white rounded-[6px] ring-1 ring-black/10 p-4 md:p-6">
-                    <form action="{{ $address->exists ? route('profile.addresses.update', $address) : route('profile.addresses.store') }}"
+                    <form action="{{ $address->exists ? $updateUrl : $storeUrl }}"
                           method="POST">
                         @csrf
                         @if($address->exists)
                             @method('PUT')
                         @endif
+                        <input type="hidden"
+                               id="profile-address-id"
+                               name="address_id"
+                               value="{{ $address->exists ? $address->id : '' }}">
 
+                        <input type="hidden"
+                               id="profile-address-google-selected"
+                               value="{{ $address->exists && ($address->latitude || $address->longitude) ? '1' : '0' }}">
                         <div class="space-y-4">
                             {{-- Город --}}
                             <div>
@@ -231,7 +247,7 @@
                                         class="px-6 py-2 bg-[#FF7500] text-white rounded-lg hover:bg-orange-600 transition">
                                     {{ $address->exists ? st('profile.addresses.update', 'Оновити') : st('profile.addresses.save', 'Зберегти') }}
                                 </button>
-                                <a href="{{ route('profile.addresses.index') }}"
+                                <a href="{{ $cancelUrl }}"
                                    class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition">
                                     {{ st('profile.addresses.cancel', 'Скасувати') }}
                                 </a>
@@ -258,16 +274,16 @@
                 setTimeout(initProfileAutocomplete, 200);
                 return;
             }
-            
+
             // Создаем скрытую карту для проверки зон доставки
             const hiddenMapDiv = document.createElement('div');
             hiddenMapDiv.id = 'hidden-map-for-profile';
             hiddenMapDiv.style.cssText = 'display: none; width: 1px; height: 1px; position: absolute; left: -9999px;';
             document.body.appendChild(hiddenMapDiv);
-            
+
             let hiddenMap = null;
             let resolveAreaByLatLng = null;
-            
+
             try {
                 hiddenMap = new google.maps.Map(hiddenMapDiv, {
                     center: { lat: 50.4590851, lng: 30.4182548 },
@@ -278,7 +294,7 @@
                 console.error('Ошибка создания скрытой карты:', e);
                 return;
             }
-            
+
             // Создаем полигоны зон доставки
             const deliveryAreas = window.deliveryAreas;
             if (deliveryAreas) {
@@ -292,14 +308,14 @@
                     }
                 }
             }
-            
+
             // Создаем функцию проверки зон
             if (typeof window.resolveAreaByLatLng !== 'undefined') {
                 resolveAreaByLatLng = window.resolveAreaByLatLng;
             } else if (deliveryAreas) {
                 resolveAreaByLatLng = function(latLng) {
                     for (const key in deliveryAreas) {
-                        if (deliveryAreas[key].polygon && 
+                        if (deliveryAreas[key].polygon &&
                             google.maps.geometry.poly.containsLocation(latLng, deliveryAreas[key].polygon)) {
                             return deliveryAreas[key];
                         }
@@ -307,7 +323,7 @@
                     return null;
                 };
             }
-            
+
             // Используем ту же логику, что и на checkout - с фильтрацией по зонам доставки
             if (resolveAreaByLatLng && hiddenMap) {
                 window.initAddressAutocomplete({
@@ -338,6 +354,10 @@
                         }
                         if (pidInput) {
                             pidInput.value = place.place_id || '';
+                        }
+                        const selectedInput = document.getElementById('profile-address-google-selected');
+                        if (selectedInput) {
+                            selectedInput.value = '1';
                         }
                     },
                 });
@@ -370,11 +390,15 @@
                         if (pidInput) {
                             pidInput.value = place.place_id || '';
                         }
+                        const selectedInput = document.getElementById('profile-address-google-selected');
+                        if (selectedInput) {
+                            selectedInput.value = '1';
+                        }
                     },
                 });
             }
         }
-        
+
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', function() {
                 setTimeout(initProfileAutocomplete, 500);
@@ -383,6 +407,23 @@
             setTimeout(initProfileAutocomplete, 500);
         }
     })();
+    document.addEventListener('submit', function (e) {
+        const form = e.target;
+
+        if (!form.querySelector('#profile-address-street')) {
+            return;
+        }
+
+        const addressId = document.getElementById('profile-address-id')?.value || '';
+        const selected = document.getElementById('profile-address-google-selected')?.value || '0';
+        const lat = document.getElementById('profile-address-lat')?.value || '';
+        const lng = document.getElementById('profile-address-lng')?.value || '';
+
+        if (addressId && selected === '1' && lat && lng) {
+            e.stopImmediatePropagation();
+            return true;
+        }
+    }, true);
     </script>
     @endpush
 @endsection

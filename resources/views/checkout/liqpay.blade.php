@@ -1,9 +1,15 @@
 @extends('layouts.app')
 
-@section('title', 'Оплата замовлення №'.$order->id)
+@section('title', st('checkout.liqpay.order_title', 'Оплата замовлення №').' '.$order->id)
 
 @section('content')
     @php
+        $locale = app()->getLocale();
+        $isLocalized = in_array($locale, ['ru', 'en'], true);
+        $saveEmailAction = $isLocalized
+            ? route('localized.checkout.pay.liqpay.email', ['locale' => $locale, 'order' => $order])
+            : route('checkout.pay.liqpay.email', ['order' => $order]);
+
         $receiptEmailHint = match (app()->getLocale()) {
             'ru' => 'На этот email будет отправлен фискальный чек.',
             'en' => 'Fiscal receipt will be sent to this email.',
@@ -14,12 +20,12 @@
 
     <div class="mx-auto desk:w-[1208px] p-2 max-w-full">
         <h1 class="text-2xl font-semibold mb-4">
-            Оплата замовлення № {{ $order->id }}
+            {{ st('checkout.liqpay.order_title', 'Оплата замовлення №') }} {{ $order->id }}
         </h1>
 
         <div class="mb-4 text-[16px]">
-            До сплати:
-            <strong>{{ number_format($order->grand_total, 2, ',', ' ') }} грн</strong>
+            {{ st('checkout.liqpay.amount_to_pay', 'До сплати') }}:
+            <strong>{{ number_format($order->grand_total, 2, ',', ' ') }} {{ st('cart.summary.currency_short', 'грн') }}</strong>
         </div>
 
         @if (session('success'))
@@ -40,7 +46,7 @@
                     {{ $receiptEmailHint }}
                 </div>
 
-                <form method="POST" action="{{ route('checkout.pay.liqpay.email', $order) }}" class="space-y-3">
+                <form method="POST" action="{{ $saveEmailAction }}" class="space-y-3">
                     @csrf
                     <div>
                         <label for="contact_email" class="mb-1 block text-sm font-medium text-[#272828]">
@@ -89,7 +95,7 @@
         </div>
 
         <p class="mt-4 text-sm text-gray-500">
-            Після успішної оплати ви будете автоматично повернуті на сторінку замовлення.
+            {{ st('checkout.liqpay.return_after_success', 'Після успішної оплати ви будете автоматично повернуті на сторінку замовлення.') }}
         </p>
     </div>
 
@@ -110,7 +116,7 @@
                 </div>
             </div>
 
-            <form method="POST" action="{{ route('checkout.pay.liqpay.email', $order) }}" class="px-6 py-5">
+            <form method="POST" action="{{ $saveEmailAction }}" class="px-6 py-5">
                 @csrf
                 <div class="mb-4">
                     <label for="modal_contact_email" class="mb-1 block text-sm font-medium text-[#272828]">

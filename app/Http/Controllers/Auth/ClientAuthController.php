@@ -32,7 +32,10 @@ class ClientAuthController extends Controller
 
         // Если есть параметр redirect_to_checkout, сохраняем URL checkout в сессию
         if ($request->has('redirect_to_checkout')) {
-            $checkoutUrl = route('checkout');
+            $locale = app()->getLocale();
+            $checkoutUrl = in_array($locale, ['ru', 'en'], true)
+                ? route('localized.checkout', ['locale' => $locale])
+                : route('checkout');
             $request->session()->put('auth.redirect_to_checkout', $checkoutUrl);
         }
 
@@ -57,7 +60,11 @@ class ClientAuthController extends Controller
         if ($checkoutUrl && str_contains($checkoutUrl, '/checkout')) {
             return $checkoutUrl;
         }
-        return route('profile.index');
+
+        $locale = app()->getLocale();
+        return in_array($locale, ['ru', 'en'], true)
+            ? route('localized.profile.index', ['locale' => $locale])
+            : route('profile.index');
     }
 
     // === Socialite ===

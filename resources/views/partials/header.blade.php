@@ -19,7 +19,7 @@
                 </button>
 
                 {{-- logo --}}
-                <a href="{{ url('/') }}" class="block md:gap-2 desk:gap-6" aria-label="Три Пироги — на главную">
+                <a href="{{ in_array($locale ?? app()->getLocale(), ['ru', 'en'], true) ? route('localized.home', ['locale' => ($locale ?? app()->getLocale())]) : route('home') }}" class="block md:gap-2 desk:gap-6" aria-label="Три Пироги — на главную">
                     <picture>
                         <source media="(min-width: 1250px)" srcset="{{ asset('images/logo.svg') }}">
                         <source media="(min-width: 768px)" srcset="{{ asset('images/logo_m.svg') }}">
@@ -65,7 +65,11 @@
                 </details>
 
                 {{-- LANGUAGE DROPDOWN --}}
-                @php $locale = app()->getLocale(); $langs = ['uk'=>'UA','ru'=>'RU','en'=>'EN']; @endphp
+                @php
+                    $locale = app()->getLocale();
+                    $langs = ['uk' => 'UA', 'ru' => 'RU', 'en' => 'EN'];
+                    $localePrefix = in_array($locale, ['ru', 'en'], true) ? '/' . $locale : '';
+                @endphp
                 <details class="relative hidden md:block group">
                     <summary
                         class="inline-flex items-center gap-2 h-10 px-3 rounded-lg ring-1 ring-black/10 hover:bg-gray-50 cursor-pointer select-none
@@ -139,7 +143,7 @@
 
                 {{-- Акції --}}
                 <a
-                    href="/discounts"
+                    href="{{ $localePrefix . '/discounts' }}"
                     class="group inline-flex items-center gap-2 text-sm leading-none font-medium text-[#19191A] hover:text-orange-600 shrink-0"
                 >
                     <svg class="w-5 h-5 shrink-0 flex-none text-[#19191A] group-hover:text-[#FF7500]" width="20" height="20" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -155,7 +159,7 @@
 
                 {{-- Обране --}}
                 <a
-                    href="{{ route('favorites.index') }}"
+                    href="{{ in_array($locale, ['ru', 'en'], true) ? route('localized.favorites.index', ['locale' => $locale]) : route('favorites.index') }}"
                     class="group relative inline-flex items-center justify-center w-5 h-5 shrink-0 text-[#19191A] hover:text-[#FF7500]"
                     aria-label="{{ st('menu.favorites', 'Обране') }}"
                 >

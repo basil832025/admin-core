@@ -1,12 +1,13 @@
 @props(['post', 'categorySlug' => null, 'showDate' => true])
 
 @php
-    $url   = url('/' . ($categorySlug ?: 'blog') . '/' . $post->slug);
+    $locale = app()->getLocale();
+    $prefix = in_array($locale, ['ru', 'en'], true) ? '/' . $locale : '';
+    $url = url($prefix . '/' . ($categorySlug ?: 'blog') . '/' . $post->slug);
     $title = $post->title;
     $rawExcerpt = html_entity_decode((string) ($post->anons ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
     $excerpt = trim(strip_tags($rawExcerpt));
     $img = $post->detail_image_url ?? $post->preview_image_url ?? '/images/no-image.svg';
-    $locale = app()->getLocale(); // 'uk' | 'ru' | 'en'
     $date = $post->published_at?->locale($locale)->isoFormat('D MMM YYYY');
     $cat  = $post->category->title ?? null;
 @endphp

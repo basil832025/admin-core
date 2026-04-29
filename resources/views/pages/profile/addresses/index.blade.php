@@ -3,6 +3,13 @@
 @section('title', st('profile.addresses.title', 'Адреса доставки'))
 
 @section('content')
+    @php
+        $locale = app()->getLocale();
+        $isLocalized = in_array($locale, ['ru', 'en'], true);
+        $editRoute = $isLocalized ? 'localized.profile.addresses.edit' : 'profile.addresses.edit';
+        $destroyRoute = $isLocalized ? 'localized.profile.addresses.destroy' : 'profile.addresses.destroy';
+        $createRoute = $isLocalized ? 'localized.profile.addresses.create' : 'profile.addresses.create';
+    @endphp
     <div class="mx-auto desk:w-[1200px] px-4 md:px-6 desk:px-0">
         <div class="xl:grid xl:grid-cols-[240px,1fr] md:gap-6">
             {{-- Левое меню (desktop) --}}
@@ -86,7 +93,15 @@
 
                                     {{-- Иконки редактирования и удаления --}}
                                     <div class="flex items-center gap-3 ml-4">
-                                        <a href="{{ route('profile.addresses.edit', $address) }}"
+                                        @php
+                                            $editUrl = $isLocalized
+                                                ? route($editRoute, ['locale' => $locale, 'address' => $address])
+                                                : route($editRoute, ['address' => $address]);
+                                            $destroyUrl = $isLocalized
+                                                ? route($destroyRoute, ['locale' => $locale, 'address' => $address])
+                                                : route($destroyRoute, ['address' => $address]);
+                                        @endphp
+                                        <a href="{{ $editUrl }}"
                                            class="p-2 text-gray-400 hover:text-[#19191A] transition"
                                            title="{{ st('profile.addresses.edit', 'Редагувати') }}">
                                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -94,7 +109,7 @@
                                             </svg>
 
                                         </a>
-                                        <form action="{{ route('profile.addresses.destroy', $address) }}" method="POST"
+                                        <form action="{{ $destroyUrl }}" method="POST"
                                               onsubmit="return confirm('{{ st('profile.addresses.delete_confirm', 'Ви впевнені, що хочете видалити цю адресу?') }}');"
                                               class="inline">
                                             @csrf
@@ -120,7 +135,7 @@
                 @endif
 
                 {{-- Кнопка добавления нового адреса --}}
-                <a href="{{ route('profile.addresses.create') }}"
+                <a href="{{ route($createRoute, $isLocalized ? ['locale' => $locale] : []) }}"
                    class="inline-flex items-center gap-2 text-[#FF7500] hover:text-orange-600 transition font-medium">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
@@ -134,4 +149,3 @@
         </div>
     </div>
 @endsection
-

@@ -44,7 +44,15 @@ public function index()
         // Сохраняем URL checkout в сессии для редиректа после авторизации
         session(['checkout.redirect_url' => request()->url()]);
 
-        return redirect()->route('auth.show');
+        $locale = app()->getLocale();
+        $routeName = in_array($locale, ['ru', 'en'], true)
+            ? 'localized.auth.show'
+            : 'auth.show';
+        $routeParams = in_array($locale, ['ru', 'en'], true)
+            ? ['locale' => $locale]
+            : [];
+
+        return redirect()->route($routeName, $routeParams);
     }
 
     // Загружаем сохраненные данные из сессии
@@ -55,7 +63,15 @@ public function index()
 
     if ($this->isCartEmpty($items, $info)) {
         $this->resetCheckoutDynamicState();
-        return redirect()->route('home');
+        $locale = app()->getLocale();
+        $routeName = in_array($locale, ['ru', 'en'], true)
+            ? 'localized.home'
+            : 'home';
+        $routeParams = in_array($locale, ['ru', 'en'], true)
+            ? ['locale' => $locale]
+            : [];
+
+        return redirect()->route($routeName, $routeParams);
     }
 
     $sessionData = $this->syncCheckoutStateWithCart($items, $sessionData);
@@ -751,7 +767,15 @@ public function submit(Request $request)
 
     if ($this->isCartEmpty($items, $info)) {
         $this->resetCheckoutDynamicState();
-        return redirect()->route('home');
+        $locale = app()->getLocale();
+        $routeName = in_array($locale, ['ru', 'en'], true)
+            ? 'localized.home'
+            : 'home';
+        $routeParams = in_array($locale, ['ru', 'en'], true)
+            ? ['locale' => $locale]
+            : [];
+
+        return redirect()->route($routeName, $routeParams);
     }
 
     $client = auth()->user();
@@ -1182,7 +1206,15 @@ public function submit(Request $request)
 
     if ($paymentEnum === PaymentMethodEnum::LIQPAY) {
         // своя страница с кнопкой LiqPay
-        return redirect()->route('checkout.pay.liqpay', $order);
+        $locale = app()->getLocale();
+        $routeName = in_array($locale, ['ru', 'en'], true)
+            ? 'localized.checkout.pay.liqpay'
+            : 'checkout.pay.liqpay';
+        $routeParams = in_array($locale, ['ru', 'en'], true)
+            ? ['locale' => $locale, 'order' => $order]
+            : ['order' => $order];
+
+        return redirect()->route($routeName, $routeParams);
     }
 
 // 11. Для не-LiqPay очищаем корзину и форму после успешного оформления
@@ -1194,11 +1226,19 @@ public function submit(Request $request)
     session()->forget('checkout.cart_signature');
     session()->forget('checkout.form_data');
 
-    return redirect()->route('checkout.success', $order);
+    $locale = app()->getLocale();
+    $routeName = in_array($locale, ['ru', 'en'], true)
+        ? 'localized.checkout.success'
+        : 'checkout.success';
+    $routeParams = in_array($locale, ['ru', 'en'], true)
+        ? ['locale' => $locale, 'order' => $order]
+        : ['order' => $order];
+
+    return redirect()->route($routeName, $routeParams);
 
 }
 
-public function success(Order $order)
+public function success(string $locale, Order $order)
 {
     // защита от чужих заказов
     if ($order->clients_id) {
@@ -1381,7 +1421,7 @@ private function isWorkingHours(): bool
 }
 
 
-public function payLiqPay(Order $order)
+public function payLiqPay(string $locale, Order $order)
 {
     // защита от "чужих" заказов
     // Если заказ привязан к клиенту - проверяем, что текущий пользователь это его владелец
@@ -1414,7 +1454,8 @@ public function payLiqPay(Order $order)
     $clientEmail = trim((string) ($order->clients?->email ?: $sessionEmail));
     $emailRequired = $clientEmail === '';
 
-    $liqpayForm = LiqPayService::make()->formForOrder($order);
+    $liqpayLocale = in_array($locale, ['uk', 'ru', 'en'], true) ? $locale : 'uk';
+    $liqpayForm = LiqPayService::make()->formForOrder($order, $liqpayLocale);
 
     return view('checkout.liqpay', [
         'order'     => $order,
@@ -1424,7 +1465,7 @@ public function payLiqPay(Order $order)
     ]);
 }
 
-public function saveLiqPayEmail(Request $request, Order $order)
+public function saveLiqPayEmail(Request $request, string $locale, Order $order)
 {
     if ($order->clients_id) {
         $orderClientId = (int) $order->clients_id;
@@ -1457,7 +1498,12 @@ public function saveLiqPayEmail(Request $request, Order $order)
     session(['checkout.form_data' => $sessionData]);
 
     return redirect()
-        ->route('checkout.pay.liqpay', $order)
+        ->route(
+            in_array(app()->getLocale(), ['ru', 'en'], true) ? 'localized.checkout.pay.liqpay' : 'checkout.pay.liqpay',
+            in_array(app()->getLocale(), ['ru', 'en'], true)
+                ? ['locale' => app()->getLocale(), 'order' => $order]
+                : ['order' => $order]
+        )
         ->with('success', st('checkout.liqpay.email_saved', 'Email збережено. Тепер можна перейти до оплати.'));
 }
 

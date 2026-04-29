@@ -49,14 +49,21 @@ if (! function_exists('page_field')) {
         // Если это image-узел
         $type = data_get($node, 'type') ?: data_get($node, 'data.type');
         if ($type === 'image') {
-            $path = 'storage/'.data_get($node, 'data.image') ?: data_get($node, 'image');
-           // dd($path);
-            if (! $path) return $default;
+            $imagePath = data_get($node, 'data.image') ?: data_get($node, 'image');
+            if (! $imagePath) return $default;
 
-            // Если надо отдавать публичный URL со стораджа — раскомментируй:
-            // if (! str_starts_with($path, 'http')) $path = Storage::url($path);
+            $imagePath = ltrim((string) $imagePath, '/');
+            if ($imagePath === '') return $default;
 
-            return $path;
+            if (str_starts_with($imagePath, 'http://') || str_starts_with($imagePath, 'https://')) {
+                return $imagePath;
+            }
+
+            if (str_starts_with($imagePath, 'storage/')) {
+                return '/' . $imagePath;
+            }
+
+            return asset('storage/' . ltrim($imagePath, '/'));
         }
 
         // Текстовые узлы — ищем в values / data.values

@@ -1,5 +1,10 @@
 @php
     $selectedPromo = old('selected_promo', session('checkout.selected_promo', 'none'));
+    $locale = app()->getLocale();
+    $isLocalized = in_array($locale, ['ru', 'en'], true);
+    $promoUrl = $isLocalized
+        ? route('localized.checkout.promo', ['locale' => $locale])
+        : route('checkout.promo');
 @endphp
 
 @if($availablePromos->isNotEmpty())
@@ -187,7 +192,7 @@
                 },
 
                 apply() {
-                    fetch('{{ route('checkout.promo') }}', {
+                    fetch('{{ $promoUrl }}', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',

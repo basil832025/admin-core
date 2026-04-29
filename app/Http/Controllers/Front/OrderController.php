@@ -17,8 +17,10 @@ class OrderController extends Controller
     /**
      * Повторить заказ - добавить все товары из заказа в корзину
      */
-    public function repeat($orderId)
+    public function repeat(Request $request, ?string $locale = null, $orderId = null)
     {
+        $orderId = $request->route('order') ?? $orderId;
+
         $user = Auth::user();
         
         if (!$user) {
@@ -73,7 +75,10 @@ class OrderController extends Controller
         }
         
         return redirect()
-            ->route('cart.page')
+            ->route(
+                in_array(app()->getLocale(), ['ru', 'en'], true) ? 'localized.cart.page' : 'cart.page',
+                in_array(app()->getLocale(), ['ru', 'en'], true) ? ['locale' => app()->getLocale()] : []
+            )
             ->with('success', $message);
     }
 }

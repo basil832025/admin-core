@@ -6,26 +6,42 @@ use App\Http\Controllers\Controller;
 use App\Models\Shop\ClientAddress;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
 
 class ClientAddressController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+    private function localizedRoute(string $baseName, array $params = []): string
+    {
+        $locale = app()->getLocale();
+
+        if (in_array($locale, ['ru', 'en'], true)) {
+            return route('localized.' . $baseName, array_merge(['locale' => $locale], $params));
+        }
+
+        return route($baseName, $params);
+    }
+
+    private function checkOwner(ClientAddress $address): void
+    {
+        $user = Auth::user();
+
+        if (! $user || (int) $address->client_id !== (int) $user->id) {
+            abort(403);
+        }
+    }
+
     public function index()
     {
         $client = Auth::user();
-        $addresses = $client->addresses()->orderByDesc('id')->get();
+
+        $addresses = $client->addresses()
+            ->orderByDesc('id')
+            ->get();
 
         return view('pages.profile.addresses.index', [
             'addresses' => $addresses,
         ]);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create()
     {
         return view('pages.profile.addresses.form', [
@@ -33,29 +49,11 @@ class ClientAddressController extends Controller
         ]);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
         $client = Auth::user();
 
-        $validated = $request->validate([
-            'city'              => 'nullable|string|max:255',
-            'street'            => 'required|string|max:255',
-            'house'             => 'required|string|max:50',
-            'apartment'         => 'nullable|string|max:50',
-            'intercom'          => 'nullable|string|max:255',
-            'floor'             => 'nullable|integer',
-            'entrance'          => 'nullable|string|max:255',
-            'note'              => 'nullable|string|max:500',
-            'is_private_house'  => 'boolean',
-            'type'              => 'nullable|string|max:50',
-            'latitude'          => 'nullable|numeric',
-            'longitude'         => 'nullable|numeric',
-            'street_place_id'   => 'nullable|string|max:255',
-            'formatted_address' => 'nullable|string|max:255',
-        ]);
+        $validated = $this->validateAddress($request);
 
         $validated['client_id'] = $client->id;
         $validated['is_private_house'] = $request->boolean('is_private_house', false);
@@ -63,91 +61,57 @@ class ClientAddressController extends Controller
         ClientAddress::create($validated);
 
         return redirect()
-            ->route('profile.addresses.index')
+            ->to($this->localizedRoute('profile.addresses.index'))
             ->with('success', st('profile.addresses.success_added', 'Адреса успішно додана'));
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit($address)
+    private function findUserAddress(Request $request): ClientAddress
     {
         $user = Auth::user();
-        
-        if (!$user) {
-            abort(403);
-        }
-        
-        // Находим адрес с явной проверкой принадлежности
-        $addressModel = ClientAddress::where('id', $address)
-            ->where('client_id', $user->id)
-            ->first();
-        
-        if (!$addressModel) {
+
+        if (! $user) {
             abort(403);
         }
 
+        $addressId = $request->route('address');
+
+        $address = ClientAddress::where('id', $addressId)
+            ->where('client_id', $user->id)
+            ->first();
+
+        if (! $address) {
+            abort(403);
+        }
+
+        return $address;
+    }
+
+    public function edit(Request $request)
+    {
+        $address = $this->findUserAddress($request);
+
         return view('pages.profile.addresses.form', [
-            'address' => $addressModel,
+            'address' => $address,
         ]);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, $address)
+    public function update(Request $request)
     {
-        $user = Auth::user();
-        
-        if (!$user) {
-            abort(403);
-        }
-        
-        // Находим адрес с явной проверкой принадлежности
-        $addressModel = ClientAddress::where('id', $address)
-            ->where('client_id', $user->id)
-            ->first();
-        
-        if (!$addressModel) {
-            abort(403);
-        }
+        $address = $this->findUserAddress($request);
 
-        $validated = $request->validate([
-            'city'              => 'nullable|string|max:255',
-            'street'            => 'required|string|max:255',
-            'house'             => 'required|string|max:50',
-            'apartment'         => 'nullable|string|max:50',
-            'intercom'          => 'nullable|string|max:255',
-            'floor'             => 'nullable|integer',
-            'entrance'          => 'nullable|string|max:255',
-            'note'              => 'nullable|string|max:500',
-            'is_private_house'  => 'boolean',
-            'type'              => 'nullable|string|max:50',
-            'latitude'          => 'nullable|numeric',
-            'longitude'         => 'nullable|numeric',
-            'street_place_id'   => 'nullable|string|max:255',
-            'formatted_address' => 'nullable|string|max:255',
-        ]);
-
+        $validated = $this->validateAddress($request);
         $validated['is_private_house'] = $request->boolean('is_private_house', false);
 
-        $addressModel->update($validated);
+        $address->update($validated);
 
         return redirect()
-            ->route('profile.addresses.index')
+            ->to($this->localizedRoute('profile.addresses.index'))
             ->with('success', st('profile.addresses.success_updated', 'Адреса успішно оновлена'));
     }
 
-    /**
-     * Обновить только координаты адреса (вызывается из checkout через AJAX).
-     */
-    public function updateCoords(Request $request, ClientAddress $address)
+    public function updateCoords(Request $request)
     {
-        $user = Auth::user();
-
-        if (!$user || $address->client_id !== $user->id) {
-            abort(403);
-        }
+        $address = $this->findUserAddress($request);
 
         $validated = $request->validate([
             'latitude'          => 'required|numeric',
@@ -156,37 +120,39 @@ class ClientAddressController extends Controller
             'formatted_address' => 'nullable|string|max:255',
         ]);
 
-        $address->fill($validated);
-        $address->save();
+        $address->update($validated);
 
         return response()->json(['ok' => true]);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy($address)
+    public function destroy(Request $request)
     {
-        $user = Auth::user();
-        
-        if (!$user) {
-            abort(403);
-        }
-        
-        // Находим адрес с явной проверкой принадлежности
-        $addressModel = ClientAddress::where('id', $address)
-            ->where('client_id', $user->id)
-            ->first();
-        
-        if (!$addressModel) {
-            abort(403);
-        }
+        $address = $this->findUserAddress($request);
 
-        $addressModel->delete();
+        $address->delete();
 
         return redirect()
-            ->route('profile.addresses.index')
+            ->to($this->localizedRoute('profile.addresses.index'))
             ->with('success', st('profile.addresses.success_deleted', 'Адреса успішно видалена'));
     }
-}
 
+    private function validateAddress(Request $request): array
+    {
+        return $request->validate([
+            'city'              => 'nullable|string|max:255',
+            'street'            => 'required|string|max:255',
+            'house'             => 'required|string|max:50',
+            'apartment'         => 'nullable|string|max:50',
+            'intercom'          => 'nullable|string|max:255',
+            'floor'             => 'nullable|integer',
+            'entrance'          => 'nullable|string|max:255',
+            'note'              => 'nullable|string|max:500',
+            'is_private_house'  => 'boolean',
+            'type'              => 'nullable|string|max:50',
+            'latitude'          => 'nullable|numeric',
+            'longitude'         => 'nullable|numeric',
+            'street_place_id'   => 'nullable|string|max:255',
+            'formatted_address' => 'nullable|string|max:255',
+        ]);
+    }
+}

@@ -1,6 +1,37 @@
 @extends('layouts.app')
 
-@section('title', $product['seo_title'] ?? $product['seo_title'])
+@php
+    $seoTitle = trim((string) ($product['seo_title'] ?? ''));
+    if ($seoTitle === '') {
+        $seoTitle = trim((string) ($product['title'] ?? ''));
+    }
+    $seoDescription = trim((string) ($product['seo_description'] ?? ''));
+    if ($seoDescription === '') {
+        $seoDescription = trim(strip_tags((string) ($product['description'] ?? '')));
+    }
+    if (mb_strlen($seoDescription) > 250) {
+        $seoDescription = rtrim(mb_substr($seoDescription, 0, 247)) . '...';
+    }
+    $seoKeywords = trim((string) ($product['seo_keywords'] ?? ''));
+    $ogImage = (string) ($product['main_image'] ?? '');
+    $ogImage = $ogImage !== '' ? $ogImage : '';
+@endphp
+
+@section('title', $seoTitle)
+@section('meta_description', $seoDescription)
+@if($seoKeywords !== '')
+    @section('meta_keywords', $seoKeywords)
+@endif
+
+@section('og_type', 'product')
+@section('og_title', $seoTitle)
+@section('og_description', $seoDescription)
+@if($ogImage !== '')
+    @section('og_image', $ogImage)
+    @section('twitter_image', $ogImage)
+@endif
+@section('twitter_title', $seoTitle)
+@section('twitter_description', $seoDescription)
  @php
 
  @endphp

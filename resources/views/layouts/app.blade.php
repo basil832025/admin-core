@@ -78,6 +78,58 @@
         };
     </script>
     <title>@yield('title', 'Доставка осетинських пирогів')</title>
+
+    @php
+        // SEO: canonical + hreflang for uk (no prefix), ru/en (prefixed)
+        $locale = app()->getLocale();
+        $host = request()->getSchemeAndHttpHost();
+
+        $path = (string) request()->getPathInfo();
+        $normalizedPath = preg_replace('#^/(ru|en)(?=/|$)#i', '', $path);
+        $normalizedPath = is_string($normalizedPath) && $normalizedPath !== '' ? $normalizedPath : '/';
+
+        $ukUrl = $host . $normalizedPath;
+        $ruUrl = $host . '/ru' . ($normalizedPath === '/' ? '' : $normalizedPath);
+        $enUrl = $host . '/en' . ($normalizedPath === '/' ? '' : $normalizedPath);
+
+        $canonicalUrl = match ($locale) {
+            'ru' => $ruUrl,
+            'en' => $enUrl,
+            default => $ukUrl,
+        };
+    @endphp
+
+    <link rel="canonical" href="{{ $canonicalUrl }}" />
+    <link rel="alternate" hreflang="uk" href="{{ $ukUrl }}" />
+    <link rel="alternate" hreflang="ru" href="{{ $ruUrl }}" />
+    <link rel="alternate" hreflang="en" href="{{ $enUrl }}" />
+    <link rel="alternate" hreflang="x-default" href="{{ $ukUrl }}" />
+
+    <meta name="description" content="@yield('meta_description', '')">
+    @hasSection('meta_keywords')
+        <meta name="keywords" content="@yield('meta_keywords')">
+    @endif
+    <meta name="robots" content="@yield('meta_robots', 'index, follow')">
+
+    <meta property="og:type" content="@yield('og_type', 'website')">
+    <meta property="og:title" content="@yield('og_title', trim($__env->yieldContent('title', '')))">
+    <meta property="og:description" content="@yield('og_description', trim($__env->yieldContent('meta_description', '')))">
+    <meta property="og:url" content="{{ $canonicalUrl }}">
+    @hasSection('og_image')
+        <meta property="og:image" content="@yield('og_image')">
+    @endif
+
+    <meta name="twitter:card" content="@yield('twitter_card', 'summary_large_image')">
+    <meta name="twitter:title" content="@yield('twitter_title', trim($__env->yieldContent('og_title', '')))">
+    <meta name="twitter:description" content="@yield('twitter_description', trim($__env->yieldContent('og_description', '')))">
+    @hasSection('twitter_image')
+        <meta name="twitter:image" content="@yield('twitter_image')">
+    @else
+        @if($__env->yieldContent('og_image', '') !== '')
+            <meta name="twitter:image" content="@yield('og_image')">
+        @endif
+    @endif
+
     @vite(['resources/css/app.css','resources/js/app.js'])
     <script>
         // Глобальная переменная для Google Maps API ключа

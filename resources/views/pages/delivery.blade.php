@@ -24,6 +24,36 @@
 
        // dd($delivery ,$pickup);
         $telHref = fn($p) => 'tel:' . preg_replace('/[^\d+]/', '', $p);
+
+        // Query delivery zones grouped by prefix (Green, Blue, Red, Brown)
+        $deliveryZoneGroups = \App\Models\DeliveryZone::where('is_active', true)
+            ->orderBy('sort_order')
+            ->get()
+            ->map(function ($zone) {
+                $prefix = explode('_', $zone->name)[0]; // Group prefix (Green, Blue, etc.)
+                return [
+                    'prefix' => $prefix,
+                    'name' => $zone->name,
+                    'color' => $zone->color,
+                    'delivery_price' => (float)$zone->delivery_price,
+                    'delivery_time_min' => (int)$zone->delivery_time_min,
+                    'delivery_time_max' => (int)$zone->delivery_time_max,
+                    'free_delivery_from' => (float)$zone->free_delivery_from,
+                ];
+            })
+            ->groupBy('prefix');
+
+        // Prepare JS data keyed by prefix (matches map-cart.js zoneGroup logic)
+        $deliveryZonesForJs = $deliveryZoneGroups->map(fn ($group) => $group->first())
+            ->keyBy('prefix')
+            ->map(fn ($zone) => [
+                'name' => $zone['name'],
+                'color' => $zone['color'],
+                'delivery_price' => $zone['delivery_price'],
+                'delivery_time_min' => $zone['delivery_time_min'],
+                'delivery_time_max' => $zone['delivery_time_max'],
+                'free_delivery_from' => $zone['free_delivery_from'],
+            ]);
     @endphp
     <div class="mx-auto desk:w-[1198px] p-4  max-w-full">
         {{-- Хлебные крошки --}}
@@ -100,38 +130,18 @@
                     </div>
                 </div>
 
-                {{-- Легенда зон под картой --}}
+                {{-- Легенда зон под картой (динамическая, как в попапе) --}}
                 <div class=" sm:flex flex-wrap items-center gap-x-4 gap-y-2 mt-3 text-xs">
-                    <div class="flex items-center md:w-[157px] w-[355px] items-start gap-1 overflow-visible">
-                        <span class="w-6 h-6 rounded flex-none mt-[2px]" style="background:#6CB089"></span>
-                        <div class="leading-[1.1] text-center">
-                            <span class="text-[13px] text-center mb-1">{{page_field('delivery', 'delivery_green1','') }}</span>
-                            <span class="text-[10px] text-[#929292]">{{page_field('delivery', 'delivery_green2','') }}</span>
+                    @foreach($deliveryZoneGroups as $prefix => $zones)
+                        @php $zone = $zones->first(); @endphp
+                        <div class="flex items-center mt-3 md:mt-0 md:w-[157px] w-[355px] items-start gap-1 overflow-visible">
+                            <span class="w-6 h-6 rounded flex-none mt-[2px]" style="background:{{ $zone['color'] }}"></span>
+                            <div class="leading-[1.1]">
+                                <span class="text-[13px] mb-1">{{ $zone['delivery_price'] }} UAH · {{ $zone['delivery_time_min'] }}-{{ $zone['delivery_time_max'] }} хв</span>
+                                <span class="text-[10px] text-[#929292]">безкоштовно від {{ $zone['free_delivery_from'] }} UAH</span>
+                            </div>
                         </div>
-                    </div>
-                    <div class="flex items-center mt-3 md:mt-0 md:w-[157px] w-[355px] items-start gap-1 overflow-visible">
-                        <span class="w-6 h-6 rounded flex-none mt-[2px]" style="background:#88AFCE"></span>
-                        <div class="leading-[1.15]">
-                            <span class="text-[13px] mb-1">{{page_field('delivery', 'delivery_blue1','') }}</span>
-                            <span class="text-[10px] text-[#929292]">{{page_field('delivery', 'delivery_blue2','') }}</span>
-                        </div>
-                    </div>
-                    <div class="flex items-center mt-3 md:mt-0 md:w-[157px] w-[355px] items-start gap-1 overflow-visible">
-                        <span class="w-6 h-6 rounded flex-none mt-[2px]" style="background:#FBADAD"></span>
-                        <div class="leading-[1.1]">
-                            <span class="text-[13px] mb-1">{{page_field('delivery', 'delivery_red1','') }}</span>
-                            <span class="text-[10px] text-[#929292]">{{page_field('delivery', 'delivery_red2','') }}</span>
-                        </div>
-                    </div>
-                    <div class="flex items-center mt-3 md:mt-0 md:w-[157px] w-[355px] items-start gap-1     overflow-visible">
-                        <span class="w-6 h-6 rounded flex-none mt-[2px]" style="background:#BE9A85"></span>
-                        <div class="leading-[1.1]">
-                            <span class="text-[13px] mb-1">{{page_field('delivery', 'delivery_brown1','') }}</span>
-                            <span class="text-[10px] text-[#929292]">{{page_field('delivery', 'delivery_brown2','') }}</span>
-                        </div>
-                    </div>
-
-
+                    @endforeach
                 </div>
         </section>
                 @if(false)
@@ -262,23 +272,8 @@
         };
         
         // Передаем данные зон доставки из базы данных в JavaScript
-        @php
-            $zones = \App\Models\DeliveryZone::where('is_active', true)
-                ->orderBy('sort_order')
-                ->get()
-                ->keyBy('name')
-                ->map(function($zone) {
-                    return [
-                        'name' => $zone->name,
-                        'color' => $zone->color,
-                        'delivery_price' => (float)$zone->delivery_price,
-                        'delivery_time_min' => (int)$zone->delivery_time_min,
-                        'delivery_time_max' => (int)$zone->delivery_time_max,
-                        'free_delivery_from' => (float)$zone->free_delivery_from,
-                    ];
-                });
-        @endphp
-        window.DELIVERY_ZONES = @json($zones);
+        // Ключи — префиксы зон (Green, Blue, Red, Brown), как ожидает map-cart.js
+        window.DELIVERY_ZONES = @json($deliveryZonesForJs);
         // Отладочная информация (можно удалить после проверки)
         if (typeof console !== 'undefined' && console.log) {
             console.log('Delivery zones loaded from DB:', window.DELIVERY_ZONES);

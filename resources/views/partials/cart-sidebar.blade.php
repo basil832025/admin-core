@@ -1,8 +1,32 @@
 @php
     use Illuminate\Support\Facades\Route;
 
-    $checkoutUrl = Route::has('checkout') ? route('checkout') : (Route::has('cart.page') ? route('cart.page') : url('/cart'));
-    $cartUrl     = Route::has('cart.page') ? route('cart.page') : url('/cart');
+    $locale = app()->getLocale();
+    $isLocalized = in_array($locale, ['ru', 'en'], true);
+
+    $checkoutUrl = $isLocalized
+        ? (Route::has('localized.checkout')
+            ? route('localized.checkout', ['locale' => $locale])
+            : route('localized.cart.page', ['locale' => $locale]))
+        : (Route::has('checkout') ? route('checkout') : (Route::has('cart.page') ? route('cart.page') : url('/cart')));
+
+    $cartUrl = $isLocalized
+        ? (Route::has('localized.cart.page')
+            ? route('localized.cart.page', ['locale' => $locale])
+            : url('/' . $locale . '/cart'))
+        : (Route::has('cart.page') ? route('cart.page') : url('/cart'));
+
+    $authShowUrl = $isLocalized
+        ? (Route::has('localized.auth.show')
+            ? route('localized.auth.show', ['locale' => $locale])
+            : url('/' . $locale . '/auth'))
+        : route('auth.show');
+
+    $saveCheckoutUrl = $isLocalized
+        ? (Route::has('localized.auth.save-checkout-url')
+            ? route('localized.auth.save-checkout-url', ['locale' => $locale])
+            : url('/' . $locale . '/auth/save-checkout-url'))
+        : route('auth.save-checkout-url');
 
     $addUrl    = Route::has('cart.add')    ? route('cart.add')    : url('/cart/add');
     $removeUrl = Route::has('cart.remove') ? route('cart.remove') : url('/cart/remove');
@@ -22,7 +46,8 @@
                     $img   = data_get($it, 'image', asset('images/noimg.png'));
                     $name  = data_get($it, 'name', st('cart.item.default_name', 'Товар'));
                     $sku   = data_get($it, 'sku');
-                    $code2 = data_get($it, 'code2') ?: $sku;
+                    $code2 = data_get($it, 'code2');
+                    $article = $sku ?: $code2;
                     $var   = data_get($it, 'variant');
                     $q     = (int) data_get($it, 'qty', 1);
                     $p     = (float) data_get($it, 'price', 0);
@@ -74,9 +99,9 @@
                                 {{ $name }}
                             </div>
 
-                            @if($code2)
+                            @if($article)
                                 <div class="text-[13px] leading-[16px] text-[#C04103] mt-1">
-                                    {{ st('cart.item.sku_label', 'Артикул:') }} {{ $code2 }}
+                                    {{ st('cart.item.sku_label', 'Артикул:') }} {{ $article }}
                                 </div>
                             @endif
 
@@ -190,7 +215,7 @@
                     x-data
                     @click.prevent="
                         const checkoutUrl = '{{ $checkoutUrl }}';
-                        fetch('/auth/save-checkout-url', {
+                        fetch('{{ $saveCheckoutUrl }}', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
@@ -201,11 +226,11 @@
                             body: JSON.stringify({ url: checkoutUrl }),
                         })
                         .then(() => {
-                            window.location.href = '{{ route('auth.show') }}?redirect_to_checkout=1';
+                            window.location.href = '{{ $authShowUrl }}?redirect_to_checkout=1';
                         })
                         .catch(() => {
                             // Если запрос не удался, все равно редиректим, но с параметром
-                            window.location.href = '{{ route('auth.show') }}?redirect_to_checkout=1';
+                            window.location.href = '{{ $authShowUrl }}?redirect_to_checkout=1';
                         });
                     "
                     class="block w-full text-center bg-orange-500 text-white py-2 rounded-lg hover:bg-orange-600 transition">

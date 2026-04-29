@@ -107,8 +107,14 @@
 
     </div>
 @else
+    @php
+        $locale = app()->getLocale();
+        $authUrl = in_array($locale, ['ru', 'en'], true)
+            ? route('localized.auth.show', ['locale' => $locale])
+            : route('auth.show');
+    @endphp
     <a
-        href="{{ route('auth.show') }}"
+        href="{{ $authUrl }}"
         class="inline-flex items-center gap-2 text-sm leading-none font-medium text-[#19191A] hover:text-orange-600 shrink-0"
     >
 

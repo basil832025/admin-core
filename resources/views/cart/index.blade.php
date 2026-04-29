@@ -4,7 +4,27 @@
 @php
     use Illuminate\Support\Facades\Route;
 
-    $checkoutUrl = Route::has('checkout') ? route('checkout') : url('/checkout');
+    $locale = app()->getLocale();
+    $isLocalized = in_array($locale, ['ru', 'en'], true);
+
+    $checkoutUrl = $isLocalized
+        ? (Route::has('localized.checkout')
+            ? route('localized.checkout', ['locale' => $locale])
+            : url('/' . $locale . '/checkout'))
+        : (Route::has('checkout') ? route('checkout') : url('/checkout'));
+
+    $authShowUrl = $isLocalized
+        ? (Route::has('localized.auth.show')
+            ? route('localized.auth.show', ['locale' => $locale])
+            : url('/' . $locale . '/auth'))
+        : route('auth.show');
+
+    $saveCheckoutUrl = $isLocalized
+        ? (Route::has('localized.auth.save-checkout-url')
+            ? route('localized.auth.save-checkout-url', ['locale' => $locale])
+            : url('/' . $locale . '/auth/save-checkout-url'))
+        : route('auth.save-checkout-url');
+
     $addUrl    = Route::has('cart.add')    ? route('cart.add')    : url('/cart/add');
     $removeUrl = Route::has('cart.remove') ? route('cart.remove') : url('/cart/remove');
 @endphp
@@ -23,8 +43,9 @@
                             $pid   = (int) data_get($it, 'product_id');
                             $img   = data_get($it, 'image', asset('images/noimg.png'));
                             $name  = data_get($it, 'name', 'Товар');
-                            $sku   = data_get($it, 'sku');
-                            $code2 = data_get($it, 'code2') ?: $sku;
+                    $sku   = data_get($it, 'sku');
+                    $code2 = data_get($it, 'code2');
+                    $article = $sku ?: $code2;
                             $var   = data_get($it, 'variant');
                             $q     = (int) data_get($it, 'qty', 1);
                             $p     = (float) data_get($it, 'price', 0);
@@ -76,8 +97,8 @@
                                         {{ $name }}
                                     </div>
 
-                                    @if($code2)
-                                        <div class="text-[13px] leading-[16px] text-[#C04103] mt-1">{{ st('cart.item.sku_label', 'Артикул:') }}: {{ $code2 }}</div>
+                    @if($article)
+                                        <div class="text-[13px] leading-[16px] text-[#C04103] mt-1">{{ st('cart.item.sku_label', 'Артикул:') }}: {{ $article }}</div>
                                     @endif
 
                                     @if(!empty($variantChars))
@@ -184,7 +205,7 @@
                                 x-data
                                 @click.prevent="
                                     const checkoutUrl = '{{ $checkoutUrl }}';
-                                    fetch('/auth/save-checkout-url', {
+                                    fetch('{{ $saveCheckoutUrl }}', {
                                         method: 'POST',
                                         headers: {
                                             'Content-Type': 'application/json',
@@ -195,11 +216,11 @@
                                         body: JSON.stringify({ url: checkoutUrl }),
                                     })
                                     .then(() => {
-                                        window.location.href = '{{ route('auth.show') }}?redirect_to_checkout=1';
+                                        window.location.href = '{{ $authShowUrl }}?redirect_to_checkout=1';
                                     })
                                     .catch(() => {
                                         // Если запрос не удался, все равно редиректим, но с параметром
-                                        window.location.href = '{{ route('auth.show') }}?redirect_to_checkout=1';
+                                        window.location.href = '{{ $authShowUrl }}?redirect_to_checkout=1';
                                     });
                                 "
                                 class="block w-full text-center bg-[#FF7500] text-white py-3 rounded-xl hover:opacity-90 transition">

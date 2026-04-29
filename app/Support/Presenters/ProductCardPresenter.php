@@ -17,8 +17,26 @@ class ProductCardPresenter
 
     public function for(Product $p): array
     {
+        // Артикул: sku если заполнено, иначе code2
+        $pickArticle = function ($prod) {
+            $sku = trim((string) ($prod->sku ?? ''));
+            if ($sku !== '') return $sku;
+            return trim((string) ($prod->code2 ?? ''));
+        };
+
         // META характеристик
         $rows = $p->productCharacteristicValues;
+
+        $pickTr = function (Product $prod, string $field): string {
+            if (method_exists($prod, 'getTranslation')) {
+                $v = (string) ($prod->getTranslation($field, $this->locale) ?? '');
+                if ($v !== '') return $v;
+
+                $v = (string) ($prod->getTranslation($field, 'uk') ?? '');
+                if ($v !== '') return $v;
+            }
+            return trim((string) ($prod->{$field} ?? ''));
+        };
 
         $main = $rows
             ->filter(fn ($r) => $r->characteristic && $r->characteristic->is_active && $r->characteristic->is_main_tab)
@@ -93,7 +111,7 @@ class ProductCardPresenter
             'slug'        => $p->slug,
             'price'       => $p->price,
             'old_price'   => $p->old_price,
-            'article'     => $p->code2,
+            'article'     => $pickArticle($p),
             'is_hit'      => (bool) ($p->is_hit ?? false),
             'is_promo'    => (bool) ($p->is_promo ?? false),
             'is_vegan'    => (bool) ($p->is_vegan ?? false),
@@ -115,7 +133,7 @@ class ProductCardPresenter
                 'sort'        => (int) ($child->sort ?? 0),
                 'price'       => $child->price,
                 'old_price'   => $childOldPrice,
-                'article'     => $child->code2,
+                'article'     => $pickArticle($child),
                 'is_hit'      => (bool) ($child->is_hit ?? false),
                 'is_promo'    => (bool) ($child->is_promo ?? false),
                 'is_vegan'    => (bool) ($child->is_vegan ?? false),
@@ -161,8 +179,21 @@ class ProductCardPresenter
             ? $ingredientsText
             : $description;
 
-        $url          = ($categorySlug && $p->slug)
-            ? route('product.show', ['categorySlug' => $categorySlug, 'itemSlug' => $p->slug])
+        $productRouteName = in_array($this->locale, ['ru', 'en'], true)
+            ? 'localized.product.show'
+            : 'product.show';
+
+        $productRouteParams = [
+            'categorySlug' => $categorySlug,
+            'itemSlug' => $p->slug,
+        ];
+
+        if ($productRouteName === 'localized.product.show') {
+            $productRouteParams['locale'] = $this->locale;
+        }
+
+        $url = ($categorySlug && $p->slug)
+            ? route($productRouteName, $productRouteParams)
             : null;
         $category_url = $categorySlug ? $categorySlug : null;
 
@@ -176,8 +207,10 @@ class ProductCardPresenter
             'price'           => $p->price,
             'main_image'      => $p->main_image_url,
             'slug'            => $p->slug,
-            'article'         => $p->code2,
-            'seo_title'         => $p->seo_title,
+            'article'         => $pickArticle($p),
+            'seo_title'        => $pickTr($p, 'seo_title'),
+            'seo_description'  => $pickTr($p, 'seo_description'),
+            'seo_keywords'     => $pickTr($p, 'seo_keywords'),
             'characteristics' => $main,
             'variant_rows'    => $variantRows,
             'root_id'         => $p->id,

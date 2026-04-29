@@ -77,7 +77,14 @@
         </div>
 
         {{-- ПРАВАЯ ЧАСТЬ: мини-блок авторизации (только для гостя) --}}
-        @guest
+@php
+    $locale = app()->getLocale();
+    $authUrl = in_array($locale, ['ru', 'en'], true)
+        ? route('localized.auth.show', ['locale' => $locale])
+        : route('auth.show');
+@endphp
+
+@guest
             <div class="w-full md:w-1/2">
                 <div class="h-full rounded-[10px] border border-dashed border-[#FBBF77]
                             bg-[#FFF7EB] px-4 py-3 flex flex-col justify-between">
@@ -95,7 +102,7 @@
                             const authName  = document.getElementById('contact_name')?.value || '';
                             const authPhone = document.getElementById('contact_phone')?.value || '';
                             const authEmail = document.getElementById('contact_email')?.value || '';
-                            window.location.href = '{{ route('auth.show') }}';
+                            window.location.href = '{{ $authUrl }}';
                         "
                     >
                         <span>{{ st('auth.login','Увійти') }}</span>

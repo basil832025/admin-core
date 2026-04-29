@@ -32,14 +32,23 @@ class LiqPayService
     {
         $liqpay = $this->client();
 
+        $lang = in_array($lang, ['uk', 'ru', 'en'], true) ? $lang : 'uk';
+        $description = match ($lang) {
+            'ru' => 'Оплата заказа №' . $order->id,
+            'en' => 'Order payment #' . $order->id,
+            default => 'Оплата замовлення №' . $order->id,
+        };
+
         $params = [
             'action'      => 'pay',
             'amount'      => $order->grand_total,
             'currency'    => 'UAH',
-            'description' => 'Оплата замовлення №'.$order->id,
+            'description' => $description,
             'order_id'    => 'order_'.$order->id,
             'version'     => '3',
-            'result_url'  => route('checkout.success', $order, true),
+            'result_url'  => in_array($lang, ['ru', 'en'], true)
+                ? route('localized.checkout.success', ['locale' => $lang, 'order' => $order], true)
+                : route('checkout.success', ['order' => $order], true),
             'server_url'  => route('liqpay.callback', [], true),
            // 'server_url'  => 'https://jaxson-semipreserved-judgmentally.ngrok-free.dev/liqpay/callback',
           //  'server_url'  => 'https://braeden-inkiest-insistingly.ngrok-free.dev/liqpay/callback',

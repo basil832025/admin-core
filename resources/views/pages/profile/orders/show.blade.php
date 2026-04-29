@@ -549,7 +549,13 @@
                         </div>
 
                         {{-- Кнопка "Повторить заказ" --}}
-                        <form action="{{ route('profile.orders.repeat', $order) }}" method="POST">
+                        @php
+                            $locale = app()->getLocale();
+                            $repeatAction = in_array($locale, ['ru', 'en'], true)
+                                ? route('localized.profile.orders.repeat', ['locale' => $locale, 'order' => $order])
+                                : route('profile.orders.repeat', $order);
+                        @endphp
+                        <form action="{{ $repeatAction }}" method="POST">
                             @csrf
                             <button type="submit" 
                                     class="w-full h-[46px] rounded-[6px] text-[14px] font-semibold text-white bg-[#FF7500] hover:bg-orange-600 transition shadow-[0_2px_10px_rgba(0,0,0,0.08)]">

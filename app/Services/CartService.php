@@ -634,6 +634,7 @@ class CartService
                 $name  = $parent?->display_name ?? $parent?->displayName ?? $parent?->title ?? 'Товар';
                 $sku   = $parent?->sku ?: null;
                 $code2 = $parent?->code2 ?: null;
+                $article = ($sku !== null && trim((string)$sku) !== '') ? $sku : $code2;
                 $image = $parent?->main_image_url ?? ($parent?->image_url ?? null);
 
                 return [
@@ -646,7 +647,7 @@ class CartService
                     'price'      => (float) $it->unit_price,
                     'subtotal'   => (float) $it->qty * (float) $it->unit_price,
                     'meta'       => $it->meta ?? [],
-                    'code2'      => $code2,
+                    'article'    => $article,
                 ];
             })->values()->all();
         }
@@ -678,18 +679,18 @@ class CartService
             $qty   = (int)($i['qty'] ?? 1);
             $price = (float)($i['price'] ?? 0);
 
-            return [
-                'product_id' => (int)($i['product_id'] ?? 0),
-                'name'       => (string) $name,
-                'sku'        => $sku,
-                'image'      => $image,
-                'variant'    => $variantAttrs($p),
-                'qty'        => $qty,
-                'price'      => $price,
-                'subtotal'   => $qty * $price,
-                'meta'       => $i['meta'] ?? [],
-                'code2'      => $code2,
-            ];
+                return [
+                    'product_id' => (int)($i['product_id'] ?? 0),
+                    'name'       => (string) $name,
+                    'sku'        => $sku,
+                    'image'      => $image,
+                    'variant'    => $variantAttrs($p),
+                    'qty'        => $qty,
+                    'price'      => $price,
+                    'subtotal'   => $qty * $price,
+                    'meta'       => $i['meta'] ?? [],
+                    'article'    => $article,
+                ];
         })->values()->all();
     }
 

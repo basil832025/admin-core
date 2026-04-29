@@ -1,6 +1,14 @@
 @php
 //dd($cartQty);
     $cartQty = (int)($cartQty ?? (app(\App\Services\CartService::class)->info()['qty'] ?? 0));
+    $locale = app()->getLocale();
+    $isLocalized = in_array($locale, ['ru', 'en'], true);
+    $cartPageUrl = $isLocalized
+        ? route('localized.cart.page', ['locale' => $locale])
+        : route('cart.page');
+    $cartSidebarUrl = $isLocalized
+        ? route('localized.cart.sidebar', ['locale' => $locale])
+        : route('cart.sidebar');
 //dd($cartQty,app(\App\Services\CartService::class)->info()['qty'] );
 @endphp
 <div
@@ -20,10 +28,10 @@ x-init="isOpen = false; url = null; $nextTick(() => { isOpen = false; close(); }
 >
 
     {{-- иконка --}}
-    <a href="{{ route('cart.page') }}"
+    <a href="{{ $cartPageUrl }}"
        class="group relative flex items-center justify-center w-5 h-5 text-[#19191A] hover:text-[#FF7500]"
-       data-url="{{ route('cart.sidebar') }}"
-       data-cart-page="{{ route('cart.page') }}"
+       data-url="{{ $cartSidebarUrl }}"
+       data-cart-page="{{ $cartPageUrl }}"
        @click.prevent="
            const isMobile = window.innerWidth < 1024;
            if (isMobile) {

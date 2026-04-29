@@ -64,6 +64,9 @@ if (! function_exists('clean_html')) {
             $text = Str::limit($text, $limit);
         }
 
+        // Fix relative media URLs like src="storage/..." on localized routes (/ru, /en)
+        $text = preg_replace('/\b(src|href)=(["\'])storage\//i', '$1=$2/storage/', $text) ?? $text;
+
         return trim($text);
     }
 }

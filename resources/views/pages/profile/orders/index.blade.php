@@ -171,7 +171,13 @@
                                            class="h-[46px] px-6 rounded-[6px] text-[14px] font-medium text-[#19191A] bg-white border border-gray-300 hover:bg-gray-50 transition shadow-[0_2px_10px_rgba(0,0,0,0.08)] inline-flex items-center justify-center">
                                             {{ st('profile.orders.details', 'Детали') }}
                                         </a>
-                                        <form action="{{ route('profile.orders.repeat', $order) }}" method="POST" class="inline">
+                                        @php
+                                            $locale = app()->getLocale();
+                                            $repeatAction = in_array($locale, ['ru', 'en'], true)
+                                                ? route('localized.profile.orders.repeat', ['locale' => $locale, 'order' => $order])
+                                                : route('profile.orders.repeat', $order);
+                                        @endphp
+                                        <form action="{{ $repeatAction }}" method="POST" class="inline">
                                             @csrf
                                             <button type="submit"
                                                     class="h-[46px] px-6 rounded-[6px] text-[14px] font-medium text-white bg-[#FF7500] hover:bg-orange-600 transition inline-flex items-center justify-center">

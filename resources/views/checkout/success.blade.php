@@ -3,6 +3,20 @@
 @section('title','Ваш заказ отправлен')
 
 @section('content')
+    @php
+        $locale = app()->getLocale();
+        $isLocalized = in_array($locale, ['ru', 'en'], true);
+        $homeUrl = $isLocalized
+            ? route('localized.home', ['locale' => $locale])
+            : route('home');
+        $profileOrderUrl = $isLocalized
+            ? route('localized.profile.orders.show', ['locale' => $locale, 'order' => $order->id])
+            : route('profile.orders.show', $order->id);
+        $sendEmailUrl = $isLocalized
+            ? route('localized.checkout.success.send-email', ['locale' => $locale, 'order' => $order->id])
+            : route('checkout.success.send-email', ['order' => $order->id]);
+    @endphp
+
     {{-- Оверлей с затемнением, перекрывает всю страницу --}}
     <div class="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm flex items-center justify-center overflow-y-auto px-3 py-6">
         <div
@@ -78,7 +92,7 @@
 
             {{-- Кнопка "Вернуться на Главную" — как в Figma --}}
             <div class="mt-4 space-y-3 pb-[40px]">
-            <a href="{{ url('/') }}"
+            <a href="{{ $homeUrl }}"
                class="flex mx-auto items-center justify-center text-center
           w-full h-[40px]
           bg-[#FF7500] text-white font-semibold text-[16px]
@@ -90,7 +104,7 @@
 
             @auth
                 @if((int) ($order->clients_id ?? 0) > 0)
-                    <a href="{{ route('profile.orders.show', $order->id) }}"
+                    <a href="{{ $profileOrderUrl }}"
                        class="flex mx-auto items-center justify-center text-center
           w-full h-[40px]
           bg-white border border-[#FF7500] text-[#FF7500] font-semibold text-[16px]
@@ -302,7 +316,7 @@ async function sendOrderToEmail(orderId) {
     loading.classList.remove('hidden');
 
     try {
-        const response = await fetch(`/checkout/success/${orderId}/send-email`, {
+        const response = await fetch(@json($sendEmailUrl), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

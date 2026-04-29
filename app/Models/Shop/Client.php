@@ -6,6 +6,7 @@ namespace App\Models\Shop;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -52,8 +53,23 @@ class Client extends Authenticatable
                 return $this->photo;
             }
 
+            $photoPath = str_replace('\\', '/', (string) $this->photo);
+            $photoPath = ltrim($photoPath, '/');
+
+            $diskPath = str_starts_with($photoPath, 'storage/')
+                ? ltrim(substr($photoPath, strlen('storage/')), '/')
+                : $photoPath;
+
+            if (! Storage::disk('public')->exists($diskPath)) {
+                return asset('images/avatar-empty.svg');
+            }
+
+            if (str_starts_with($photoPath, 'storage/')) {
+                return '/' . $photoPath;
+            }
+
             // Если файл есть в public storage
-            return asset('storage/' . ltrim($this->photo, '/'));
+            return asset('storage/' . $photoPath);
         }
 
         // 🔹 Путь к дефолтной иконке (например, “пустой аватар”)

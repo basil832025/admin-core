@@ -163,7 +163,9 @@ class PasswordResetSmsController extends Controller
 
         return $this->jsonOk([
             'message'  => st('auth.login_by_code_success',  'Вхід за кодом виконано'),
-            'redirect' => route('profile.index'),
+            'redirect' => in_array(app()->getLocale(), ['ru', 'en'], true)
+                ? route('localized.profile.index', ['locale' => app()->getLocale()])
+                : route('profile.index'),
         ]);
     }
 // будь-який ваш базовий контролер або прямо в поточному

@@ -20,6 +20,7 @@ class ViewServiceProvider extends ServiceProvider
           ], function ($view) {
             $locale = app()->getLocale();
             $brand  = '#FF7500';
+            $prefix = in_array($locale, ['ru', 'en'], true) ? '/' . $locale : '';
 
             // корневые = parent_id = -1
             $roots = ProductCategory::query()
@@ -39,13 +40,13 @@ class ViewServiceProvider extends ServiceProvider
          //   dd($roots);
             $flat = collect();
 // анонимная функция проходит по всему масвиву и собирает родителей и если есть дети то и деьтей в один уровень
-            $walk = function ($node) use (&$walk, &$flat, $locale) {
+            $walk = function ($node) use (&$walk, &$flat, $locale, $prefix) {
                 // сам узел
                 $flat->push([
                     'id'    => $node->id,
                     'label' => $node->getTranslation('title', $locale),
                     'slug'  => $node->slug,
-                    'url'   => '/'.$node->slug,
+                    'url'   => $prefix . '/' . ltrim((string) $node->slug, '/'),
                     'order' => (int) ($node->order ?? 0),
                     'count' => $this->countProductsForCategory($node->slug),
                 ]);
@@ -56,14 +57,14 @@ class ViewServiceProvider extends ServiceProvider
                         'id'    => 5000,
                         'label' => st('menu.hits','Хіти'),
                         'slug'  => 'pies_hits',
-                        'url'   => '/pies_hits',
+                        'url'   => $prefix . '/pies_hits',
                         'order' => (int) ($node->order ?? 0),
                     ]);
                     $flat->push([
                         'id'    => 5001,
                         'label' => st('menu.news','Новинки'),
                         'slug'  => 'pies_news',
-                        'url'   => '/pies_news',
+                        'url'   => $prefix . '/pies_news',
                         'order' => (int) ($node->order ?? 0),
                     ]);
                 }

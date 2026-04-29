@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
 use Closure;
+use Illuminate\Support\Facades\URL;
 
 class SetLocaleFromSession
 {
@@ -35,14 +36,21 @@ class SetLocaleFromSession
             session(['admin_previous_url' => $request->fullUrl()]);
         }
         
-        // Для админки используем отдельный ключ сессии, для фронтенда - обычный
+        // Для админки используем отдельный ключ сессии, для фронтенда - язык из URL (если есть)
         if ($isAdmin) {
             $locale = session('admin_locale')
                 ?? config('app.locale');
         } else {
-            $locale = session('locale')
-                ?? $request->cookie('locale')
-                ?? config('app.locale');
+            $routeLocale = $request->route('locale');
+            if (is_string($routeLocale) && in_array(strtolower($routeLocale), ['ru', 'en'], true)) {
+                $locale = strtolower($routeLocale);
+                session(['locale' => $locale]);
+                cookie()->queue(cookie('locale', $locale, 60 * 24 * 365));
+            } else {
+                $locale = 'uk';
+                session(['locale' => $locale]);
+                cookie()->queue(cookie('locale', $locale, 60 * 24 * 365));
+            }
         }
 
         if (is_array($locale)) {
@@ -61,6 +69,14 @@ class SetLocaleFromSession
 
         // Устанавливаем локаль для всего приложения
         app()->setLocale($locale);
+
+        if (! $isAdmin) {
+            if (in_array($locale, ['ru', 'en'], true)) {
+                URL::defaults(['locale' => $locale]);
+            } else {
+                URL::defaults(['locale' => null]);
+            }
+        }
         
         // Также устанавливаем локаль для Carbon (даты)
         if (class_exists(\Carbon\Carbon::class)) {

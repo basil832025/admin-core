@@ -435,6 +435,7 @@ class Product extends Model implements HasMedia
     {
         return $q->select([
             'id',
+            'sku',
             'title',
             'price',
             'old_price',
@@ -444,6 +445,8 @@ class Product extends Model implements HasMedia
             'description',
             'category_id',
             'seo_title',
+            'seo_description',
+            'seo_keywords',
             'is_hit',
             'is_promo',
             'is_vegan',
@@ -462,6 +465,7 @@ class Product extends Model implements HasMedia
             'children' => function ($query) {
                 $query->select([
                     'id',
+                    'sku',
                     'title',
                     'price',
                     'old_price',
@@ -471,6 +475,8 @@ class Product extends Model implements HasMedia
                     'description',
                     'category_id',
                     'seo_title',
+                    'seo_description',
+                    'seo_keywords',
                     'parent_id',
                     'sort',
                     'is_hit',
