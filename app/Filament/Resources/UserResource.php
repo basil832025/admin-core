@@ -57,7 +57,8 @@ class UserResource extends Resource
             Forms\Components\TextInput::make('password')
                 ->label(__('user.fields.password'))
                 ->password()
-                ->dehydrateStateUsing(fn ($state) => filled($state) ? bcrypt($state) : null)
+                // Password is hashed by Eloquent cast in App\Models\User
+                ->dehydrateStateUsing(fn ($state) => filled($state) ? $state : null)
                 ->dehydrated(fn ($state) => filled($state)) // 👈 добавляем это
                 ->required(fn (string $context) => $context === 'create')
                 ->maxLength(255),
