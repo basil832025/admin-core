@@ -325,7 +325,7 @@ function deliveryBlock() {
                 // Получаем данные формы
                 const form = document.querySelector('[data-checkout-form]');
                 if (!form) {
-                    console.warn('checkPromoConditions: form not found');
+                    if (CHECKOUT_DEBUG) console.warn('checkPromoConditions: form not found');
                     return;
                 }
 
@@ -1337,7 +1337,7 @@ function initCheckoutAutocomplete() {
     const cityEl = document.querySelector('#checkout-address-city');
 
     if (!latEl || !lngEl) {
-        console.warn('[checkout] lat/lng hidden inputs not found:', { latEl, lngEl });
+        if (CHECKOUT_DEBUG) console.warn('[checkout] lat/lng hidden inputs not found:', { latEl, lngEl });
     }
 
     // На мобильных устройствах используем максимально простой Autocomplete,
@@ -1610,7 +1610,7 @@ function initCheckoutAutocomplete() {
     }
 
     if (typeof window.initAddressAutocomplete === 'undefined') {
-        console.warn('[checkout] initAddressAutocomplete is undefined');
+        if (CHECKOUT_DEBUG) console.warn('[checkout] initAddressAutocomplete is undefined');
         return;
     }
 
@@ -1630,7 +1630,7 @@ function initCheckoutAutocomplete() {
                 const loc = place?.geometry?.location;
 
                 if (!loc) {
-                    console.warn('[checkout] onPlaceSelected: no geometry.location', data);
+                    if (CHECKOUT_DEBUG) console.warn('[checkout] onPlaceSelected: no geometry.location', data);
                     return;
                 }
 

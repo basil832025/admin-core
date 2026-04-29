@@ -117,8 +117,8 @@ class Blog extends Model
     {
         return Attribute::make(
             get: function () {
-            $path = $this->preview_image;
-
+            $path = $this->previewImage();
+ 
             if (!$path) {
                 return null;
             }
@@ -138,8 +138,8 @@ class Blog extends Model
     {
         return Attribute::make(
             get: function () {
-            $path = $this->detail_image;
-
+            $path = $this->detailImage();
+ 
             if (!$path) {
                 return null;
             }

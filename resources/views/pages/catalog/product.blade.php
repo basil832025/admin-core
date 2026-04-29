@@ -49,15 +49,33 @@
         $rootKey = $rootId !== null ? (string)$rootId : '';
         $priceMap = [];
         $articleMap = [];
+        $badgeMap = [];
         foreach ($rows as $row) {
             $priceMap[(string)$row['product_id']] = [
                 'price' => (float)($row['price'] ?? 0),
                 'old'   => isset($row['old_price']) ? (float)$row['old_price'] : null,
             ];
             $articleMap[(string)$row['product_id']] = trim((string)($row['article'] ?? ''));
+
+            $badgeMap[(string)$row['product_id']] = [
+                'is_spicy' => (bool)($row['is_spicy'] ?? false),
+                'is_promo' => (bool)($row['is_promo'] ?? false),
+                'is_hit' => (bool)($row['is_hit'] ?? false),
+                'is_vegan' => (bool)($row['is_vegan'] ?? false),
+                'is_product_of_day' => (bool)($row['is_product_of_day'] ?? false),
+            ];
         }
         $defaultPrice = (float)($product['price'] ?? 0);
         $defaultArticle = trim((string)($product['article'] ?? ''));
+
+        $discountLabel = st('product.badges.discount', 'Знижка');
+        $badgeLabels = [
+            'is_spicy' => st('product.badges.is_spicy', 'Гострий'),
+            'is_promo' => st('product.badges.is_promo', 'Акція'),
+            'is_hit' => st('product.badges.is_hit', 'Хіт'),
+            'is_vegan' => st('product.badges.is_vegan', 'Веган'),
+            'is_product_of_day' => st('product.badges.is_product_of_day', 'Пиріг дня'),
+        ];
 
         // расчет начальной скидки для начального варианта
         $initialDiscount = null;
@@ -79,6 +97,9 @@
                 selected: '{{ $rootKey }}',
                 prices: @js($priceMap),
                 articles: @js($articleMap),
+                badges: @js($badgeMap),
+                discountLabel: @js($discountLabel),
+                badgeLabels: @js($badgeLabels),
                 bonusPercent: {{ $bonusPercent ?? 0 }},
                 minOrderSumForEarn: {{ $minOrderSumForEarn ?? 0 }},
                 defaultArticle: @js($defaultArticle),
@@ -97,6 +118,31 @@
                         return Math.round(((oldPrice - currentPrice) / oldPrice) * 100);
                     }
                     return null;
+                },
+                buildBadges(flags){
+                    if (!flags) return [];
+
+                    const items = [];
+                    if (flags.is_spicy) {
+                        items.push({ key: 'is_spicy', color: '#FF0013', textColor: '#FFFFFF', label: this.badgeLabels.is_spicy });
+                    }
+                    if (flags.is_promo) {
+                        items.push({ key: 'is_promo', color: '#FF7500', textColor: '#FFFFFF', label: this.badgeLabels.is_promo });
+                    }
+                    if (flags.is_hit) {
+                        items.push({ key: 'is_hit', color: '#FFD700', textColor: '#19191A', label: this.badgeLabels.is_hit });
+                    }
+                    if (flags.is_vegan) {
+                        items.push({ key: 'is_vegan', color: '#27AE60', textColor: '#FFFFFF', label: this.badgeLabels.is_vegan });
+                    }
+                    if (flags.is_product_of_day) {
+                        items.push({ key: 'is_product_of_day', color: '#5D4037', textColor: '#FFFFFF', label: this.badgeLabels.is_product_of_day });
+                    }
+                    return items;
+                },
+                activeBadges(){
+                    const flags = this.badges[String(this.selected)] ?? null;
+                    return this.buildBadges(flags);
                 },
                 discountAmount(){
                     const oldPrice = this.old();
@@ -155,26 +201,22 @@
                             <img src="{{ $product['main_image'] }}" alt="{{ $product['title'] }}"
                                  class="h-full w-full object-cover" loading="eager">
                         </div>
-                        @php
-                            $showBadge = $initialDiscount !== null && $initialDiscount > 0;
-                            $discountLabel = st('product.badges.discount', 'Знижка');
-                        @endphp
-                        @if($showBadge)
+                        <div class="absolute right-[10px] top-[10px] z-10 flex flex-col items-end gap-1">
                             <span
                                 x-show="$store.sku.discountPercent() !== null && $store.sku.discountPercent() > 0"
-                                x-text="@js($discountLabel) + ' -' + $store.sku.discountPercent() + '%'"
-                                style="display: block;"
-                                class="absolute right-[10px] top-[10px] rounded-[3px] bg-[#B91C1C] px-[10px] py-[4px] text-white font-intro font-bold text-[14px] leading-[16px] z-10">
-                                {{ $discountLabel }} -{{ $initialDiscount }}%
-                            </span>
-                        @else
-                            <span
-                                x-show="$store.sku.discountPercent() !== null && $store.sku.discountPercent() > 0"
-                                x-text="@js($discountLabel) + ' -' + $store.sku.discountPercent() + '%'"
+                                x-text="$store.sku.discountLabel + ' -' + $store.sku.discountPercent() + '%'"
                                 x-cloak
-                                class="absolute right-[10px] top-[10px] rounded-[3px] bg-[#B91C1C] px-[10px] py-[4px] text-white font-intro font-bold text-[14px] leading-[16px] z-10">
+                                class="rounded-[3px] bg-[#B91C1C] px-[10px] py-[4px] text-white font-intro font-bold text-[14px] leading-[16px]">
                             </span>
-                        @endif
+
+                            <template x-for="badge in $store.sku.activeBadges()" :key="badge.key">
+                                <span
+                                    x-text="badge.label"
+                                    :style="`background:${badge.color};color:${badge.textColor};`"
+                                    class="rounded-[3px] px-[10px] py-[4px] font-intro font-bold text-[14px] leading-[16px]"
+                                ></span>
+                            </template>
+                        </div>
                     </div>
                 </div>
 
@@ -444,19 +486,22 @@
     longSwipesMs: 220,
     touchReleaseOnEdges: true,
     touchStartPreventDefault: false,
-    navigation: { nextEl: $refs.next, prevEl: $refs.prev },
-    breakpoints: {
-      768: { slidesPerView: 2, spaceBetween: 16, speed: 500, resistanceRatio: 0.85 },
-      1024: { slidesPerView: 3, spaceBetween: 16, speed: 500 },
-    },
-  });
+     navigation: { nextEl: $refs.next, prevEl: $refs.prev },
+     breakpoints: {
+       768: { slidesPerView: 2, spaceBetween: 16, speed: 500, resistanceRatio: 0.85 },
+       // 1024px tablets: 2 cards (avoid overlap)
+       1024: { slidesPerView: 2, spaceBetween: 16, speed: 500 },
+       // Desktop: 3 cards
+       1280: { slidesPerView: 3, spaceBetween: 16, speed: 500 },
+     },
+   });
 ">
                 <h2 class="text-[26px] font-bold text-[#FF7500] mb-4">
                     {{ st('product.recommend','Рекомендуємо спробувати') }}
                 </h2>
 
                 <div class="swiper" x-ref="sw">
-                    <div class="swiper-wrapper">
+                    <div class="swiper-wrapper" data-product-grid>
                         @foreach($related as $p)
                             <div class="swiper-slide">
                                 <div class="card-fixed">

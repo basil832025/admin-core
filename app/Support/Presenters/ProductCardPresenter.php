@@ -134,11 +134,13 @@ class ProductCardPresenter
                 'price'       => $child->price,
                 'old_price'   => $childOldPrice,
                 'article'     => $pickArticle($child),
-                'is_hit'      => (bool) ($child->is_hit ?? false),
-                'is_promo'    => (bool) ($child->is_promo ?? false),
-                'is_vegan'    => (bool) ($child->is_vegan ?? false),
-                'is_product_of_day' => (bool) ($child->is_product_of_day ?? false),
-                'is_spicy'    => (bool) ($child->is_spicy ?? false),
+                // Badges are defined on the root product and must stay visible
+                // when switching between variant sizes.
+                'is_hit'      => (bool) ($p->is_hit ?? false),
+                'is_promo'    => (bool) ($p->is_promo ?? false),
+                'is_vegan'    => (bool) ($p->is_vegan ?? false),
+                'is_product_of_day' => (bool) ($p->is_product_of_day ?? false),
+                'is_spicy'    => (bool) ($p->is_spicy ?? false),
                 'char_values' => $buildCharMap($child),
             ];
         }

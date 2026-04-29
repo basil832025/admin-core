@@ -274,10 +274,7 @@
         // Передаем данные зон доставки из базы данных в JavaScript
         // Ключи — префиксы зон (Green, Blue, Red, Brown), как ожидает map-cart.js
         window.DELIVERY_ZONES = @json($deliveryZonesForJs);
-        // Отладочная информация (можно удалить после проверки)
-        if (typeof console !== 'undefined' && console.log) {
-            console.log('Delivery zones loaded from DB:', window.DELIVERY_ZONES);
-        }
+        // Debug logging removed for production
     </script>
     {{-- твой JS с полигонами/логикой --}}
     @vite(['resources/js/map-cart.js'])

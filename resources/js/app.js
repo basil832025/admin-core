@@ -3,6 +3,20 @@ import './bootstrap';
 import Alpine from 'alpinejs';
 import Inputmask from 'inputmask';
 
+// Reduce console noise in production.
+// Keep warn/error for diagnostics, silence log/info/debug.
+if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.PROD) {
+    try {
+        ['log', 'info', 'debug'].forEach((k) => {
+            if (typeof console !== 'undefined' && typeof console[k] === 'function') {
+                console[k] = () => {};
+            }
+        });
+    } catch (e) {
+        // ignore
+    }
+}
+
 import Swiper from 'swiper';
 import { Navigation, Pagination, Autoplay } from 'swiper/modules';
 import 'swiper/css';
@@ -12,6 +26,7 @@ import 'swiper/css/autoplay';
 
 // общие модули
 import './alpine/address-autocomplete';
+import './alpine/product-card-equalizer';
 
 import registerFavoriteButton from './components/favoriteButton.js';
 import authModal from './alpine/auth-modal';
