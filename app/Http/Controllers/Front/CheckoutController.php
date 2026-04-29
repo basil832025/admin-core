@@ -1238,8 +1238,22 @@ public function submit(Request $request)
 
 }
 
-public function success(string $locale, Order $order)
+public function success($localeOrOrder, ?Order $order = null)
 {
+    // Support both routes:
+    // - /checkout/success/{order} => success(Order $order)
+    // - /{locale}/checkout/success/{order} => success(string $locale, Order $order)
+    $locale = null;
+    if ($localeOrOrder instanceof Order) {
+        $order = $localeOrOrder;
+    } else {
+        $locale = is_string($localeOrOrder) ? $localeOrOrder : null;
+    }
+
+    if (! $order instanceof Order) {
+        abort(404);
+    }
+
     // защита от чужих заказов
     if ($order->clients_id) {
         $orderClientId = (int) $order->clients_id;
@@ -1421,8 +1435,22 @@ private function isWorkingHours(): bool
 }
 
 
-public function payLiqPay(string $locale, Order $order)
+public function payLiqPay($localeOrOrder, ?Order $order = null)
 {
+    // Support both routes:
+    // - /checkout/{order}/pay/liqpay => payLiqPay(Order $order)
+    // - /{locale}/checkout/{order}/pay/liqpay => payLiqPay(string $locale, Order $order)
+    $locale = null;
+    if ($localeOrOrder instanceof Order) {
+        $order = $localeOrOrder;
+    } else {
+        $locale = is_string($localeOrOrder) ? $localeOrOrder : null;
+    }
+
+    if (! $order instanceof Order) {
+        abort(404);
+    }
+
     // защита от "чужих" заказов
     // Если заказ привязан к клиенту - проверяем, что текущий пользователь это его владелец
     if ($order->clients_id) {
@@ -1454,7 +1482,8 @@ public function payLiqPay(string $locale, Order $order)
     $clientEmail = trim((string) ($order->clients?->email ?: $sessionEmail));
     $emailRequired = $clientEmail === '';
 
-    $liqpayLocale = in_array($locale, ['uk', 'ru', 'en'], true) ? $locale : 'uk';
+    $effectiveLocale = $locale ?: app()->getLocale();
+    $liqpayLocale = in_array($effectiveLocale, ['uk', 'ru', 'en'], true) ? $effectiveLocale : 'uk';
     $liqpayForm = LiqPayService::make()->formForOrder($order, $liqpayLocale);
 
     return view('checkout.liqpay', [
@@ -1465,8 +1494,22 @@ public function payLiqPay(string $locale, Order $order)
     ]);
 }
 
-public function saveLiqPayEmail(Request $request, string $locale, Order $order)
+public function saveLiqPayEmail(Request $request, $localeOrOrder, ?Order $order = null)
 {
+    // Support both routes:
+    // - /checkout/{order}/pay/liqpay/email => saveLiqPayEmail(Request $request, Order $order)
+    // - /{locale}/checkout/{order}/pay/liqpay/email => saveLiqPayEmail(Request $request, string $locale, Order $order)
+    $locale = null;
+    if ($localeOrOrder instanceof Order) {
+        $order = $localeOrOrder;
+    } else {
+        $locale = is_string($localeOrOrder) ? $localeOrOrder : null;
+    }
+
+    if (! $order instanceof Order) {
+        abort(404);
+    }
+
     if ($order->clients_id) {
         $orderClientId = (int) $order->clients_id;
         $currentUserId = auth()->check() ? (int) auth()->id() : null;

@@ -10,6 +10,11 @@
         showList: true,
         showAll: false,
 
+        parseJson(v) {
+            if (!v) return '';
+            try { return JSON.parse(v); } catch (e) { return v; }
+        },
+
         init() {
             // НИЧЕГО не выбираем по умолчанию.
             // Если нужно когда-нибудь поддержать восстановление из сессии — можно тут включить логику.
@@ -26,8 +31,8 @@
             this.useNew = false;
 
             this.selectedId = el.value || null;
-            this.selectedLine = el.dataset.line || '';
-            this.selectedCity = el.dataset.city || '';
+            this.selectedLine = this.parseJson(el.dataset.line) || '';
+            this.selectedCity = this.parseJson(el.dataset.city) || '';
 
             // после выбора показываем карточку выбранного адреса
             this.showList = false;
@@ -151,12 +156,12 @@ x-cloak
                            class="tp-radio mt-[3px]"
                            data-lat="{{ $addr->latitude ?? '' }}"
                            data-lng="{{ $addr->longitude ?? '' }}"
-                           data-street="{{ e($addr->street ?? '') }}"
-                           data-house="{{ e($addr->house ?? '') }}"
-                           data-line="{{ e($lineForJs) }}"
-                           data-city="{{ e($cityForJs) }}"
-                           {{-- ВАЖНО: НЕ ставим checked по умолчанию --}}
-                           @change="selectAddress($event.target)"
+                            data-street='@json((string) ($addr->street ?? ""))'
+                            data-house='@json((string) ($addr->house ?? ""))'
+                            data-line='@json((string) $lineForJs)'
+                            data-city='@json((string) $cityForJs)'
+                            {{-- ВАЖНО: НЕ ставим checked по умолчанию --}}
+                            @change="selectAddress($event.target)"
                     >
 
 

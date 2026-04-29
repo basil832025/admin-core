@@ -1194,16 +1194,21 @@ function handleSavedAddressChange(radio) {
         return;
     }
 
-    const street = radio.dataset.street || '';
-    const house  = radio.dataset.house  || '';
-    const city   = radio.dataset.city   || 'Київ';
+    const parseJson = (v) => {
+        if (!v) return '';
+        try { return JSON.parse(v); } catch (e) { return v; }
+    };
+
+    const street = parseJson(radio.dataset.street) || '';
+    const house  = parseJson(radio.dataset.house)  || '';
+    const city   = parseJson(radio.dataset.city)   || 'Київ';
 
     // Основной вариант: улица + дом + город
     let addressString = [street, house, city].filter(Boolean).join(', ');
 
     // Фолбэк: если вдруг street/house пустые, используем line + city
     if (!addressString) {
-        const line = radio.dataset.line || '';
+        const line = parseJson(radio.dataset.line) || '';
         addressString = [line, city].filter(Boolean).join(', ');
     }
 
