@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', $title ?? __('Результати фільтру'))
+@section('title', $title ?? st('filter.title', 'Результати фільтру'))
 
 @section('content')
     <div
@@ -19,7 +19,7 @@
                      class="w-[22px] h-[19px]"
                      aria-hidden="true">
                 <span class="hidden md:block font-bold text-[16px] leading-none text-[#19191A]">
-                    @lang('Фільтр')
+                    {{ st('all.filter','Фільтр') }}
                 </span>
             </button>
 
@@ -32,13 +32,13 @@
 
         {{-- Заголовок страницы --}}
         <h1 class="mt-2 text-3xl font-semibold">
-            {{ $title ?? __('Результати фільтру') }}
+            {{ $title ?? st('filter.title', 'Результати фільтру') }}
         </h1>
 
         {{-- Если по фильтру ничего не нашли --}}
         @if($groups->isEmpty())
             <p class="mt-8 text-sm text-gray-500">
-                @lang('За вибраними фільтрами товари не знайдено.')
+                {{ st('filter.empty', 'За вибраними фільтрами товари не знайдено.') }}
             </p>
         @else
             {{-- Секции по категориям, как на странице каталога --}}

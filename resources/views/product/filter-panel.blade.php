@@ -55,7 +55,7 @@
                 <button type="button"
                         @click="filterOpen = false"
                         class="w-9 h-9 rounded-lg bg-[#F3F4F6] flex items-center justify-center text-xl"
-                        aria-label="Закрити">
+                        aria-label="{{ st('all.close','Закрити') }}">
                     ✕
                 </button>
             </div>

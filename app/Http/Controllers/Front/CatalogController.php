@@ -201,7 +201,7 @@ class CatalogController extends Controller
             $filterCharacteristicGroups = $this->getFilterCharacteristics();
 
             return view('pages.filter', [
-                'title'   => __('Результати фільтру'),
+                'title'   => function_exists('st') ? st('filter.title', 'Результати фільтру') : __('Результати фільтру'),
                 'groups'  => collect(),
                 'filters' => $request->all(),
                 'favoriteIds' => $favoriteIds,
@@ -247,7 +247,7 @@ class CatalogController extends Controller
         $filterCharacteristicGroups = $this->getFilterCharacteristics();
 
         return view('pages.filter', [
-            'title'   => __('Результати фільтру'),
+            'title'   => function_exists('st') ? st('filter.title', 'Результати фільтру') : __('Результати фільтру'),
             'groups'  => $groups,
             'filters' => $request->all(),
             'favoriteIds' => $favoriteIds,
