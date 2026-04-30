@@ -32,9 +32,11 @@
 @endif
 @section('twitter_title', $seoTitle)
 @section('twitter_description', $seoDescription)
- @php
 
- @endphp
+@push('head')
+    @include('seo.product-jsonld', ['product' => $product, 'category' => $category ?? null, 'stats' => $stats ?? null, 'reviews' => $reviews ?? null])
+@endpush
+
 @section('content')
     @php
         // данные для селектора

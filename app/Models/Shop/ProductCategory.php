@@ -29,6 +29,10 @@ class ProductCategory extends Model
         'is_visible',
         'order',
         'description',
+        'description_title',
+        'seo_title',
+        'seo_description',
+        'seo_keywords',
     ];
 
     protected $casts = [
@@ -39,7 +43,11 @@ class ProductCategory extends Model
     ];
     public $translatable = [
         'title',
-        'description'
+        'description',
+        'description_title',
+        'seo_title',
+        'seo_description',
+        'seo_keywords',
 
     ];
     protected $appends = ['name'];
@@ -155,11 +163,11 @@ class ProductCategory extends Model
 
         return $chars;
     }
-// Удобный алиас
-    public function getMainTabCharacteristicsWithInheritance(): EloquentCollection
-    {
-        return $this->getAllCharacteristicsWithInheritance(true);
-    }
+    // Удобный алиас
+     public function getMainTabCharacteristicsWithInheritance(): Collection
+     {
+         return $this->getAllCharacteristicsWithInheritance(true);
+     }
     public function getAllParents()
     {
         $parents = collect();

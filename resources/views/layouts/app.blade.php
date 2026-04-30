@@ -130,6 +130,8 @@
         @endif
     @endif
 
+    @stack('head')
+
     @vite(['resources/css/app.css','resources/js/app.js'])
     <script>
         // Глобальная переменная для Google Maps API ключа

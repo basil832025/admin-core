@@ -1,6 +1,91 @@
 @extends('layouts.app')
 
-@section('title', 'Доставка осетинських пирогів у Києві')
+@php
+    /** @var \App\Models\Shop\ProductCategory|null $category */
+    $locale = app()->getLocale();
+
+    $defaultTitle = st('home.delivery_of_ossetian_pies', 'Доставка осетинських пирогів у Києві');
+
+    $seoTitle = '';
+    $seoDescription = '';
+    $seoKeywords = '';
+
+    if (!empty($category)) {
+        if (method_exists($category, 'getTranslation')) {
+            $seoTitle = (string) ($category->getTranslation('seo_title', $locale)
+                ?: $category->getTranslation('seo_title', 'uk')
+                ?: '');
+            $seoDescription = (string) ($category->getTranslation('seo_description', $locale)
+                ?: $category->getTranslation('seo_description', 'uk')
+                ?: '');
+            $seoKeywords = (string) ($category->getTranslation('seo_keywords', $locale)
+                ?: $category->getTranslation('seo_keywords', 'uk')
+                ?: '');
+
+            if (trim($seoTitle) === '') {
+                $seoTitle = (string) ($category->getTranslation('title', $locale)
+                    ?: $category->getTranslation('title', 'uk')
+                    ?: '');
+            }
+
+            if (trim($seoDescription) === '') {
+                $seoDescription = (string) ($category->getTranslation('description', $locale)
+                    ?: $category->getTranslation('description', 'uk')
+                    ?: '');
+            }
+        } else {
+            $seoTitle = (string) (data_get($category, "seo_title.$locale")
+                ?? data_get($category, 'seo_title.uk')
+                ?? '');
+            $seoDescription = (string) (data_get($category, "seo_description.$locale")
+                ?? data_get($category, 'seo_description.uk')
+                ?? '');
+            $seoKeywords = (string) (data_get($category, "seo_keywords.$locale")
+                ?? data_get($category, 'seo_keywords.uk')
+                ?? '');
+
+            if (trim($seoTitle) === '') {
+                $seoTitle = (string) (data_get($category, "title.$locale")
+                    ?? data_get($category, 'title.uk')
+                    ?? '');
+            }
+
+            if (trim($seoDescription) === '') {
+                $seoDescription = (string) (data_get($category, "description.$locale")
+                    ?? data_get($category, 'description.uk')
+                    ?? '');
+            }
+        }
+    }
+
+    $seoTitle = trim(html_entity_decode($seoTitle, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+    if ($seoTitle === '') {
+        $seoTitle = $defaultTitle;
+    }
+
+    $seoKeywords = trim(html_entity_decode($seoKeywords, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+    $seoKeywords = trim(preg_replace('/\s+/u', ' ', strip_tags($seoKeywords)));
+
+    $seoDescription = trim(html_entity_decode($seoDescription, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+    if ($seoDescription !== '') {
+        $seoDescription = (string) str($seoDescription)->markdown()->sanitizeHtml();
+        $seoDescription = trim(preg_replace('/\s+/u', ' ', strip_tags($seoDescription)));
+        if (mb_strlen($seoDescription) > 250) {
+            $seoDescription = rtrim(mb_substr($seoDescription, 0, 247)) . '...';
+        }
+    }
+@endphp
+
+@section('title', $seoTitle)
+@section('meta_description', $seoDescription)
+@if($seoKeywords !== '')
+    @section('meta_keywords', $seoKeywords)
+@endif
+
+@section('og_title', $seoTitle)
+@section('og_description', $seoDescription)
+@section('twitter_title', $seoTitle)
+@section('twitter_description', $seoDescription)
 
 @section('content')
     <div class=" mx-auto desk:w-[1198px] w-[357px] md:w-[736px] max-w-full">
@@ -27,6 +112,71 @@
             </div>
             @endforeach
         </section>
+
+        @php
+            /** @var \App\Models\Shop\ProductCategory|null $category */
+            $locale = app()->getLocale();
+
+            $descriptionTitle = '';
+            $descriptionRaw = '';
+
+            if (!empty($category)) {
+                if (method_exists($category, 'getTranslation')) {
+                    $descriptionTitle = (string) ($category->getTranslation('description_title', $locale)
+                        ?: $category->getTranslation('description_title', 'uk')
+                        ?: '');
+                    $descriptionRaw = (string) ($category->getTranslation('description', $locale)
+                        ?: $category->getTranslation('description', 'uk')
+                        ?: '');
+
+                    if (trim($descriptionTitle) === '') {
+                        $descriptionTitle = (string) ($category->getTranslation('title', $locale)
+                            ?: $category->getTranslation('title', 'uk')
+                            ?: '');
+                    }
+                } else {
+                    $descriptionTitle = (string) (data_get($category, "description_title.$locale")
+                        ?? data_get($category, 'description_title.uk')
+                        ?? '');
+                    $descriptionRaw = (string) (data_get($category, "description.$locale")
+                        ?? data_get($category, 'description.uk')
+                        ?? '');
+
+                    if (trim($descriptionTitle) === '') {
+                        $descriptionTitle = (string) (data_get($category, "title.$locale")
+                            ?? data_get($category, 'title.uk')
+                            ?? '');
+                    }
+                }
+            }
+
+            $descriptionTitle = trim(html_entity_decode((string) $descriptionTitle, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+            $descriptionTitle = trim(preg_replace('/\s+/u', ' ', strip_tags($descriptionTitle)));
+
+            $descriptionRaw = trim(html_entity_decode((string) $descriptionRaw, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+            $descriptionHtml = $descriptionRaw !== ''
+                ? (string) str($descriptionRaw)->markdown()->sanitizeHtml()
+                : '';
+        @endphp
+
+        @if($descriptionTitle !== '' || $descriptionHtml !== '')
+            <section class="mt-[80px] md:mt-[120px] bg-white overflow-hidden">
+                <div class="desk:p-[30px] lg:p-[50px]">
+                    @if($descriptionTitle !== '')
+                        <h2 class="text-[40px] leading-tight font-bold text-center">
+                            {{ $descriptionTitle }}
+                        </h2>
+                    @endif
+
+                    @if($descriptionHtml !== '')
+                        <div class="prose max-w-none mt-4 text-[#333333]">
+                            {!! $descriptionHtml !!}
+                        </div>
+                    @endif
+                </div>
+            </section>
+        @endif
+
             {{-- Окно фильтра --}}
             @include('product.filter-panel')
     </div>

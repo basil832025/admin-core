@@ -64,6 +64,7 @@ class CatalogController extends Controller
                 'priceMin'         => $priceMin,
                 'priceMax'         => $priceMax,
                 'filterCharacteristicGroups'=> $filterCharacteristicGroups,
+                'category'         => null,
             ]);
         }
 
@@ -172,6 +173,7 @@ class CatalogController extends Controller
             'priceMin'         => $priceMin,
             'priceMax'         => $priceMax,
             'filterCharacteristicGroups'=> $filterCharacteristicGroups,
+            'category'         => $parent,
         ]);
     }
 

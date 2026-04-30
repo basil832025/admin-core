@@ -86,6 +86,9 @@ class ProductCategoryResource extends Resource
                                                 fn (string $operation, $state, Forms\Set $set) =>
                                                 $operation === 'create' ? $set('slug', Str::slug($state)) : null
                                             ),
+                                        TextInput::make('description_title')
+                                            ->label('Название описания')
+                                            ->maxLength(255),
                                         MarkdownEditor::make('description')
                                             ->label(__('category.fields.description')),
                                     ]),
@@ -124,6 +127,30 @@ class ProductCategoryResource extends Resource
                         Forms\Components\Toggle::make('is_visible')
                             ->label(__('category.fields.is_visible'))
                             ->default(true),
+                    ]),
+            ]);
+    }
+
+    /** Вкладка «SEO» */
+    protected static function getSeoTab(array $locales, string $defaultLocale): Tab
+    {
+        return Tab::make('SEO')
+            ->schema([
+                Translate::make()
+                    ->locales($locales)
+                    ->prefixLocaleLabel()
+                    ->columns(1)
+                    ->columnSpanFull()
+                    ->schema(fn (string $locale) => [
+                        TextInput::make('seo_title')
+                            ->label('SEO-заголовок')
+                            ->maxLength(255),
+                        TextInput::make('seo_description')
+                            ->label('SEO-описание')
+                            ->maxLength(255),
+                        TextInput::make('seo_keywords')
+                            ->label('SEO-ключевые слова')
+                            ->maxLength(255),
                     ]),
             ]);
     }
@@ -181,6 +208,7 @@ class ProductCategoryResource extends Resource
                 ->columns(1)
                 ->tabs([
                     static::getMainTab($locales, $defaultLocale),
+                    static::getSeoTab($locales, $defaultLocale),
                     static::getCharakTab($locales),
                     static::getVariacTab($locales),
                 ]),
