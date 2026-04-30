@@ -2055,6 +2055,22 @@ class OrderResource extends Resource
         return $table
             ->modifyQueryUsing(fn (Builder $query) => $query
                 ->with(['clients.group', 'clientAddress', 'lastLiqpayLog', 'items.product', 'source']) // ← исправление N+1 проблемы
+                ->when(
+                    static::class === \App\Filament\Resources\Callcenter\OrderResource::class,
+                    fn (Builder $q) => $q
+                        // Important: addSelect() on a query with no explicit columns replaces "*".
+                        // Force selecting all order columns so summarizers and actions keep working.
+                        ->select('bs_shop_orders.*')
+                        ->addSelect(DB::raw(
+                        'GREATEST('
+                        . 'bs_shop_orders.created_at, '
+                        . 'TIMESTAMP('
+                        . 'COALESCE(bs_shop_orders.dat, DATE(bs_shop_orders.created_at)), '
+                        . 'COALESCE(bs_shop_orders.time_start, TIME(bs_shop_orders.created_at))'
+                        . ')'
+                        . ') AS order_dt'
+                    ))
+                )
             )
             ->columns(array_filter([
                 TextColumn::make('number')
@@ -2081,15 +2097,41 @@ class OrderResource extends Resource
                         $isCallcenter = static::class === \App\Filament\Resources\Callcenter\OrderResource::class;
                         $tz = config('app.timezone', 'Europe/Kyiv');
 
-                        $orderMoment = null;
-                        if ($isCallcenter && $record->time_start) {
-                            $orderMoment = $record->time_start instanceof \DateTimeInterface
-                                ? Carbon::instance($record->time_start)->setTimezone($tz)
-                                : Carbon::parse((string) $record->time_start, $tz);
-                        } elseif ($record->created_at) {
-                            $orderMoment = $record->created_at instanceof \DateTimeInterface
+                        $createdMoment = null;
+                        if ($record->created_at) {
+                            $createdMoment = $record->created_at instanceof \DateTimeInterface
                                 ? Carbon::instance($record->created_at)->setTimezone($tz)
                                 : Carbon::parse((string) $record->created_at, $tz);
+                        }
+
+                        $businessMoment = null;
+                        if ($isCallcenter) {
+                            $dateStr = '';
+                            if ($record->dat instanceof \DateTimeInterface) {
+                                $dateStr = Carbon::instance($record->dat)->toDateString();
+                            } elseif (! blank($record->dat)) {
+                                $dateStr = Carbon::parse((string) $record->dat)->toDateString();
+                            } elseif ($record->created_at) {
+                                $dateStr = Carbon::instance($record->created_at)->setTimezone($tz)->toDateString();
+                            }
+
+                            $timeStr = (string) $record->getRawOriginal('time_start');
+                            $timeStr = trim($timeStr);
+                            if ($timeStr === '' && $record->created_at) {
+                                $timeStr = Carbon::instance($record->created_at)->setTimezone($tz)->format('H:i:s');
+                            }
+
+                            if ($dateStr !== '') {
+                                $businessMoment = Carbon::parse($dateStr, $tz);
+                                if ($timeStr !== '') {
+                                    $businessMoment->setTimeFromTimeString($timeStr);
+                                }
+                            }
+                        }
+
+                        $orderMoment = $createdMoment;
+                        if ($businessMoment && (! $orderMoment || $businessMoment->greaterThan($orderMoment))) {
+                            $orderMoment = $businessMoment;
                         }
 
                         $orderDateText = $orderMoment ? $orderMoment->format('d.m H:i') : '—';
@@ -2488,7 +2530,7 @@ class OrderResource extends Resource
                     ->toggleable(),
             ]))
             ->defaultSort(
-                static::class === \App\Filament\Resources\Callcenter\OrderResource::class ? 'time_start' : 'created_at',
+                static::class === \App\Filament\Resources\Callcenter\OrderResource::class ? 'order_dt' : 'created_at',
                 'desc'
             ) // 👈 сортировка по умолчанию
             ->filtersLayout(\Filament\Tables\Enums\FiltersLayout::AboveContentCollapsible)
