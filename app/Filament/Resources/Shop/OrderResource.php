@@ -2078,10 +2078,24 @@ class OrderResource extends Resource
                     ->verticalAlignment(VerticalAlignment::Center)
                     ->sortable()
                     ->description(function (Order $record) {
-                        $date = $record->created_at?->format('d.m H:i') ?? '—';
+                        $isCallcenter = static::class === \App\Filament\Resources\Callcenter\OrderResource::class;
+                        $tz = config('app.timezone', 'Europe/Kyiv');
 
-                        if (static::class !== \App\Filament\Resources\Callcenter\OrderResource::class) {
-                            return $date;
+                        $orderMoment = null;
+                        if ($isCallcenter && $record->time_start) {
+                            $orderMoment = $record->time_start instanceof \DateTimeInterface
+                                ? Carbon::instance($record->time_start)->setTimezone($tz)
+                                : Carbon::parse((string) $record->time_start, $tz);
+                        } elseif ($record->created_at) {
+                            $orderMoment = $record->created_at instanceof \DateTimeInterface
+                                ? Carbon::instance($record->created_at)->setTimezone($tz)
+                                : Carbon::parse((string) $record->created_at, $tz);
+                        }
+
+                        $orderDateText = $orderMoment ? $orderMoment->format('d.m H:i') : '—';
+
+                        if (! $isCallcenter) {
+                            return $orderDateText;
                         }
 
                         $siteName = trim((string) ($record->source?->name ?? ''));
@@ -2104,7 +2118,7 @@ class OrderResource extends Resource
 
                         return new HtmlString(
                             '<div class="leading-snug">'
-                            . '<div>' . e($date) . '</div>'
+                            . '<div>' . e($orderDateText) . '</div>'
                             . ($deliveryBadge !== '' ? '<div class="mt-1">' . $deliveryBadge . '</div>' : '')
                             . ($siteBadge !== '' ? '<div class="mt-1">' . $siteBadge . '</div>' : '')
                             . '</div>'
@@ -2472,7 +2486,11 @@ class OrderResource extends Resource
                     })
                     ->sortable(false)
                     ->toggleable(),
-            ]))  ->defaultSort('created_at', 'desc') // 👈 сортировка по умолчанию
+            ]))
+            ->defaultSort(
+                static::class === \App\Filament\Resources\Callcenter\OrderResource::class ? 'time_start' : 'created_at',
+                'desc'
+            ) // 👈 сортировка по умолчанию
             ->filtersLayout(\Filament\Tables\Enums\FiltersLayout::AboveContentCollapsible)
             ->filtersFormColumns(12)
             ->filters([
