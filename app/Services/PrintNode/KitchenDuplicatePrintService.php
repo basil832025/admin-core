@@ -424,7 +424,7 @@ class KitchenDuplicatePrintService
      */
     private function buildKitchenTemplateVars(Order $order, ?string $operatorName = null, bool $isDuplicate = false, int $printCount = 1): array
     {
-        $order->loadMissing(['items.product', 'clients', 'clientAddress']);
+        $order->loadMissing(['items.product', 'clients', 'clientAddress', 'source']);
 
         $operator = trim((string) ($operatorName ?: auth('admin')->user()?->name ?: 'System'));
         $phone = trim((string) ($order->clients?->phone ?? ''));
@@ -433,6 +433,14 @@ class KitchenDuplicatePrintService
         $issuedAt = $this->formatOrderDateTime($order->dat, $order->time_start);
         $address = $this->resolveAddressLine($order);
         $kitchenNote = trim((string) ($order->kitchen_note ?? ''));
+
+        $siteName = trim((string) ($order->source?->name ?? ''));
+        if ($siteName === '') {
+            $siteName = trim((string) Setting::value('site_name'));
+        }
+        if ($siteName === '') {
+            $siteName = 'Три пирога';
+        }
 
         $itemLines = [];
         $itemRows = [];
@@ -471,6 +479,7 @@ class KitchenDuplicatePrintService
             'order_id' => (int) $order->id,
             'kitchen_header' => $isDuplicate ? 'Дубликат заказа на кухню' : 'Заказ на кухню',
             'order_number' => (string) ($order->number ?: $order->id),
+            'site_name' => $siteName,
             'operator' => $operator,
             'printed_at' => $printAt,
             'phone' => $phone !== '' ? $phone : '-',
@@ -525,6 +534,7 @@ class KitchenDuplicatePrintService
             ],
             'kitchen_header' => (string) ($vars['kitchen_header'] ?? ''),
             'order_number' => (string) ($vars['order_number'] ?? ''),
+            'site_name' => (string) ($vars['site_name'] ?? ''),
             'operator' => (string) ($vars['operator'] ?? ''),
             'printed_at' => (string) ($vars['printed_at'] ?? ''),
             'phone' => (string) ($vars['phone'] ?? ''),

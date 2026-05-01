@@ -74,6 +74,7 @@ class ReceiptTemplatesThreePiesSeeder extends Seeder
 
         if ($code === 'receipt_kitchen_default') {
             $body = $this->normalizeKitchenDeliveryLine($body);
+            $body = $this->ensureKitchenSiteNameLine($body);
             $body = str_replace(
                 'style="padding-left:3mm;white-space:pre-line;font-style:italic;font-weight:400;"',
                 'style="padding-left:3mm;white-space:pre-line;font-style:italic;font-weight:400;font-size:9pt;"',
@@ -93,6 +94,32 @@ class ReceiptTemplatesThreePiesSeeder extends Seeder
         }
 
         return $body;
+    }
+
+    private function ensureKitchenSiteNameLine(string $body): string
+    {
+        if (str_contains($body, 'site_name')) {
+            return $body;
+        }
+
+        $siteLine = "\n<div>\n<strong>Сайт:</strong>\n<span style=\"font-weight:800;font-size:16pt;letter-spacing:.03em;\">{{ site_name|default(\"Три пирога\")|upper }}</span>\n</div>\n";
+
+        $needle = '<strong>Замовлення №:</strong>';
+        $pos = strpos($body, $needle);
+        if ($pos === false) {
+            return $siteLine . $body;
+        }
+
+        $afterDiv = strpos($body, '</div>', $pos);
+        if ($afterDiv === false) {
+            return $siteLine . $body;
+        }
+
+        $afterDivEnd = $afterDiv + strlen('</div>');
+
+        return substr($body, 0, $afterDivEnd)
+            . $siteLine
+            . substr($body, $afterDivEnd);
     }
 
     private function normalizeProductTitleExpr(string $body): string
