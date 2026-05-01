@@ -66,6 +66,59 @@ class CashalotApiClient
         ]);
     }
 
+    public function closeShift(bool $zRepAuto = true, bool $visualization = true, array $options = []): array
+    {
+        $prro = $this->prroConfig();
+
+        return $this->send([
+            'Command' => 'CloseShift',
+            'UID' => (string) ($options['uid'] ?? Str::uuid()),
+            'NumFiscal' => (string) ($prro['numfiscal'] ?? ''),
+            'ZRepAuto' => $zRepAuto,
+            'Visualization' => $visualization,
+        ]);
+    }
+
+    /**
+     * Register a Z-report. If ZRep is omitted (null), Cashalot will generate it automatically.
+     */
+    public function registerZRep(?array $zRep = null, bool $visualization = true, array $options = []): array
+    {
+        $prro = $this->prroConfig();
+
+        $payload = [
+            'Command' => 'RegisterZRep',
+            'UID' => (string) ($options['uid'] ?? Str::uuid()),
+            'NumFiscal' => (string) ($prro['numfiscal'] ?? ''),
+            'Visualization' => $visualization,
+        ];
+
+        if (is_array($zRep)) {
+            $payload['ZRep'] = $zRep;
+        } else {
+            $payload['ZRep'] = null;
+        }
+
+        return $this->send($payload);
+    }
+
+    /**
+     * Cleanup local registrar state in Cashalot module.
+     * When $remove is false, Cashalot may auto-close shift if open.
+     */
+    public function cleanup(bool $remove = false, bool $visualization = true, array $options = []): array
+    {
+        $prro = $this->prroConfig();
+
+        return $this->send([
+            'Command' => 'Cleanup',
+            'UID' => (string) ($options['uid'] ?? Str::uuid()),
+            'NumFiscal' => (string) ($prro['numfiscal'] ?? ''),
+            'Remove' => $remove,
+            'Visualization' => $visualization,
+        ]);
+    }
+
     public function sendCheckToConsumer(array $payload): array
     {
         $prro = $this->prroConfig();
@@ -107,6 +160,15 @@ class CashalotApiClient
             'ErrorCode' => 'INVALID_JSON',
             'ErrorMessage' => 'Unexpected response format from Cashalot API',
         ];
+    }
+
+    /**
+     * Build final request payload (auth + command payload).
+     * Useful for logging/auditing.
+     */
+    public function buildRequestPayload(array $payload): array
+    {
+        return array_merge($this->authPayload(), $payload);
     }
 
     protected function authPayload(): array
