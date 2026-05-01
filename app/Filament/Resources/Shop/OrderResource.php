@@ -3107,6 +3107,29 @@ class OrderResource extends Resource
 
         $recordSubtotal = (float) ($record->subtotal ?? 0);
         $recordDiscount = (float) ($record->discount_total ?? 0);
+        if (abs($recordDiscount) < 0.0001) {
+            // discount_total may be stale for some imported orders; adjustments are the source of truth.
+            $recordDiscount = (float) $record->adjustments()->sum('amount');
+        }
+
+        // If no bonuses are used, prefer keeping existing grand_total if it's consistent with record totals.
+        // Otherwise, apply record discount to current form base.
+        if ($bonuses <= 0.0001) {
+            $baseNoBonusFromRecord = $recordSubtotal + $recordDiscount + $recordDelivery;
+            $grand = (float) ($record->grand_total ?? 0);
+
+            if (abs($grand - $baseNoBonusFromRecord) < 0.01) {
+                $final = $grand + ($deliveryPrice - $recordDelivery);
+            } else {
+                $final = $baseTotal + $deliveryPrice + $recordDiscount;
+            }
+
+            return [
+                'final' => max(0, (float) $final),
+                'bonuses' => 0.0,
+            ];
+        }
+
         $baseNoBonusFromRecord = $recordSubtotal + $recordDiscount + $recordDelivery;
 
         $grand = (float) ($record->grand_total ?? 0);
