@@ -152,25 +152,60 @@
 
                     <a href="mailto:{{ $email }}" class="hover:text-black block">{{ $email }}</a>
 
-                     <div class="mt-2 text-xs text-[#929292]">
-                         @if($address)
-                                <a
-                                    href="{{ $mapsHref }}"
-                                    class="hover:text-[#272828] underline underline-offset-2"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    data-maps-link="1"
-                                    data-maps-destination="{{ $hasCoords ? ($lat . ',' . $lng) : '' }}"
-                                    data-maps-destination-address="{{ e((string) $address) }}"
-                                >
-                                    {{ $address }}
-                                </a>
-                         @endif
-                     </div>
-                 </div>
+                      <div class="mt-2 text-xs text-[#929292]">
+                          @if($address)
+                                 <a
+                                     href="{{ $mapsHref }}"
+                                     class="hover:text-[#272828] underline underline-offset-2"
+                                     target="_blank"
+                                     rel="noopener noreferrer"
+                                     data-maps-link="1"
+                                     data-maps-destination="{{ $hasCoords ? ($lat . ',' . $lng) : '' }}"
+                                     data-maps-destination-address="{{ e((string) $address) }}"
+                                 >
+                                     {{ $address }}
+                                 </a>
+                          @endif
+                      </div>
 
-                <!-- соцсети -->
-                <div class="mt-4">
+                      @php
+                          // Same schedule rendering as on /nashi-restorany
+                          $pickup = ['time' => 'з 09:00 до 20:00', 'title' => 'Приймаємо замовлення на самовивіз'];
+                          $delivery = ['time' => 'з 09:00 до 21:00', 'title' => 'Доставляємо замовлення'];
+
+                          if (!empty($headerSchedule)) {
+                              foreach ($headerSchedule as $schedule) {
+                                  $slug = trim((string) ($schedule['slug'] ?? ''));
+                                  if ($slug === 'delivery') {
+                                      $delivery['time'] = (string) ($schedule['time'] ?? $delivery['time']);
+                                      $delivery['title'] = (string) ($schedule['title'] ?? $delivery['title']);
+                                  }
+
+                                  if ($slug === 'pickup') {
+                                      $pickup['time'] = (string) ($schedule['time'] ?? $pickup['time']);
+                                      $pickup['title'] = (string) ($schedule['title'] ?? $pickup['title']);
+                                  }
+                              }
+                          }
+                      @endphp
+
+                      <div class="mt-4">
+                          <h4 class="font-semibold mb-2 text-[16px] text-[#272828]">{{ st('all.schedule', 'Розклад') }}</h4>
+                          <div class="space-y-2">
+                              <div>
+                                  <div class="text-[#9E9E9E] text-[13px]">{{ $pickup['title'] }}:</div>
+                                  <div class="font-semibold text-[14px] text-[#272828]">{{ $pickup['time'] }}</div>
+                              </div>
+                              <div>
+                                  <div class="text-[#9E9E9E] text-[13px]">{{ $delivery['title'] }}:</div>
+                                  <div class="font-semibold text-[14px] text-[#272828]">{{ $delivery['time'] }}</div>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+
+                 <!-- соцсети -->
+                 <div class="mt-4">
                     <span class="text-[#929292] text-[13px]">{{ st('all.my-v-sotsialnykh-merezhakh','Ми в соціальних мережах') }}</span>
                 <ul class="flex items-center mt-2 gap-8 md:gap-8 md:justify-left">
                     <li><a href="https://www.facebook.com/3piroga.ua" target="_blank" aria-label="Facebook" class="text-black hover:text-[#FF7500]">
