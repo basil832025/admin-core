@@ -141,6 +141,7 @@ class GenerateSitemap extends Command
     {
         $categories = ProductCategory::query()
             ->where('is_visible', 1)
+            ->where('slug', 'not like', 'src-%')
             ->whereNotNull('slug')
             ->get(['slug', 'updated_at']);
 
@@ -152,7 +153,17 @@ class GenerateSitemap extends Command
 
         $products = Product::query()
             ->where('in_stock', 1)
+            ->where(function ($q) {
+                // Imported items use src-* slugs and/or the is_imported flag.
+                $q->where('is_imported', 0)
+                    ->orWhereNull('is_imported');
+            })
+            ->where('slug', 'not like', 'src-%')
             ->whereNotNull('slug')
+            ->whereHas('mainCategory', function ($q) {
+                $q->whereNotNull('slug')
+                    ->where('slug', 'not like', 'src-%');
+            })
             ->with(['mainCategory:id,slug'])
             ->get(['id', 'slug', 'category_id', 'updated_at']);
 
