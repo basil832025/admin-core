@@ -9,6 +9,7 @@ use Filament\Forms\Form;
 use Filament\Pages\Page;
 use Filament\Pages\Actions\Action;
 use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Str;
 use Illuminate\Support\HtmlString;
 
@@ -78,6 +79,36 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
                 ->color('primary')
                 ->icon('heroicon-s-check')
                 ->action('save'),
+
+            Action::make('generate_sitemap')
+                ->label('Сгенерировать sitemap.xml')
+                ->button()
+                ->color('gray')
+                ->icon('heroicon-o-globe-alt')
+                ->requiresConfirmation()
+                ->modalHeading('Сгенерировать sitemap.xml')
+                ->modalDescription('Файл будет записан в public/sitemap.xml. Это может занять немного времени.')
+                ->action(function (): void {
+                    try {
+                        Artisan::call('seo:sitemap');
+
+                        $path = public_path('sitemap.xml');
+                        $mtime = is_file($path) ? date('Y-m-d H:i:s', (int) filemtime($path)) : null;
+
+                        Notification::make()
+                            ->title('Sitemap сгенерирован')
+                            ->success()
+                            ->body('URL: ' . url('/sitemap.xml') . ($mtime ? (" | " . $mtime) : ''))
+                            ->send();
+                    } catch (\Throwable $exception) {
+                        Notification::make()
+                            ->title('Ошибка генерации sitemap')
+                            ->danger()
+                            ->body($exception->getMessage())
+                            ->send();
+                    }
+                }),
+
             Action::make('printnode_test')
                 ->label('Тест друку чека')
                 ->button()
