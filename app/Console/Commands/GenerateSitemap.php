@@ -153,6 +153,7 @@ class GenerateSitemap extends Command
 
         $products = Product::query()
             ->where('in_stock', 1)
+            ->whereNull('parent_id')
             ->where(function ($q) {
                 // Imported items use src-* slugs and/or the is_imported flag.
                 $q->where('is_imported', 0)
