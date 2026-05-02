@@ -33,6 +33,7 @@
         "spatie/laravel-activitylog": "^4.10",
         "spatie/laravel-permission": "^6.21",
         "spatie/laravel-sitemap": "^7.3",
+        "symfony/dom-crawler": "^7.0",
         "twig/twig": "^3.10",
         "wiebenieuwenhuis/filament-code-editor": "^1.2"
     },
@@ -97,6 +98,9 @@
     },
     "config": {
         "optimize-autoloader": true,
+        "platform": {
+            "php": "8.3.30"
+        },
         "preferred-install": "dist",
         "sort-packages": true,
         "allow-plugins": {
