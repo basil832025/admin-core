@@ -185,6 +185,24 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
                 ->label('Название сайта')
                 ->required(),
 
+            Section::make('Баннери')
+                ->description('Налаштування ротації банерів на головній сторінці.')
+                ->schema([
+                    Grid::make(12)
+                        ->statePath('admin_settings')
+                        ->schema([
+                            TextInput::make('site.banner_rotation_delay_seconds')
+                                ->label('Інтервал зміни банерів (сек)')
+                                ->numeric()
+                                ->minValue(1)
+                                ->maxValue(120)
+                                ->default(10)
+                                ->helperText('Використовується для автоперемикання слайдера банерів (Swiper autoplay delay).')
+                                ->columnSpan(6),
+                        ]),
+                ])
+                ->compact(),
+
             Section::make('Контакты')
                 ->description('Заполните ваши контактные данные:')
                 ->schema([

@@ -12,6 +12,10 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\Grid;
+use Filament\Forms\Components\TimePicker;
+use Filament\Forms\Get;
 use Filament\Forms\Form;
 use Filament\Resources\Concerns\Translatable;
 use SolutionForest\FilamentTranslateField\Forms\Component\Translate;
@@ -94,6 +98,178 @@ class BannerResource extends Resource
 
                         Forms\Components\DateTimePicker::make('ends_at')
                             ->label('Показувати до'),
+
+                        Section::make('Пріоритет по днях/часу')
+                            ->description('Якщо поточний час попадає в інтервал — баннер стає першим (по найбільшому пріоритету).')
+                            ->columnSpanFull()
+                            ->schema([
+                                Repeater::make('schedule')
+                                    ->label('Розклад')
+                                    ->default([])
+                                    ->columns(12)
+                                    ->schema([
+                                        Grid::make(12)
+                                            ->schema([
+                                                Select::make('type')
+                                                    ->label('Тип')
+                                                    ->options([
+                                                        'range' => 'Інтервал (день+час -> день+час)',
+                                                        'daily' => 'По днях тижня (часи)',
+                                                    ])
+                                                    ->default('range')
+                                                    ->columnSpan([
+                                                        'default' => 12,
+                                                        'md' => 6,
+                                                    ]),
+
+                                                TextInput::make('priority')
+                                                    ->label('Пріоритет')
+                                                    ->numeric()
+                                                    ->default(100)
+                                                    ->placeholder('100')
+                                                    ->columnSpan([
+                                                        'default' => 8,
+                                                        'md' => 4,
+                                                    ]),
+
+                                                Forms\Components\Toggle::make('is_active')
+                                                    ->hiddenLabel()
+                                                    ->helperText('Активно')
+                                                    ->default(true)
+                                                    ->columnSpan([
+                                                        'default' => 4,
+                                                        'md' => 2,
+                                                    ]),
+                                            ])
+                                            ->columnSpanFull(),
+
+                                        Grid::make(12)
+                                            ->schema([
+                                                CheckboxList::make('days')
+                                                    ->label('Дні')
+                                                    ->options([
+                                                        1 => 'Пн',
+                                                        2 => 'Вт',
+                                                        3 => 'Ср',
+                                                        4 => 'Чт',
+                                                        5 => 'Пт',
+                                                        6 => 'Сб',
+                                                        7 => 'Нд',
+                                                    ])
+                                                    ->columns(7)
+                                                    ->visible(fn (Get $get) => ($get('type') ?? 'range') === 'daily')
+                                                    ->columnSpan([
+                                                        'default' => 12,
+                                                        'md' => 12,
+                                                    ]),
+
+                                                // Range: 4 поля в один ряд (md)
+                                                Select::make('dow_from')
+                                                    ->label('З дня')
+                                                    ->options([
+                                                        1 => 'Пн',
+                                                        2 => 'Вт',
+                                                        3 => 'Ср',
+                                                        4 => 'Чт',
+                                                        5 => 'Пт',
+                                                        6 => 'Сб',
+                                                        7 => 'Нд',
+                                                    ])
+                                                    ->required(fn (Get $get) => ($get('type') ?? 'range') === 'range')
+                                                    ->visible(fn (Get $get) => ($get('type') ?? 'range') === 'range')
+                                                    ->columnSpan([
+                                                        'default' => 12,
+                                                        'md' => 3,
+                                                    ]),
+
+                                                TimePicker::make('time_from')
+                                                    ->label('З часу')
+                                                    ->seconds(false)
+                                                    ->required()
+                                                    ->visible(fn (Get $get) => ($get('type') ?? 'range') === 'range')
+                                                    ->columnSpan([
+                                                        'default' => 12,
+                                                        'md' => 3,
+                                                    ]),
+
+                                                Select::make('dow_to')
+                                                    ->label('По день')
+                                                    ->options([
+                                                        1 => 'Пн',
+                                                        2 => 'Вт',
+                                                        3 => 'Ср',
+                                                        4 => 'Чт',
+                                                        5 => 'Пт',
+                                                        6 => 'Сб',
+                                                        7 => 'Нд',
+                                                    ])
+                                                    ->required(fn (Get $get) => ($get('type') ?? 'range') === 'range')
+                                                    ->visible(fn (Get $get) => ($get('type') ?? 'range') === 'range')
+                                                    ->columnSpan([
+                                                        'default' => 12,
+                                                        'md' => 3,
+                                                    ]),
+
+                                                TimePicker::make('time_to')
+                                                    ->label('По час')
+                                                    ->seconds(false)
+                                                    ->required()
+                                                    ->visible(fn (Get $get) => ($get('type') ?? 'range') === 'range')
+                                                    ->columnSpan([
+                                                        'default' => 12,
+                                                        'md' => 3,
+                                                    ]),
+
+                                                // Daily: тільки часи (в один ряд на md)
+                                                TimePicker::make('time_from_daily')
+                                                    ->label('З часу')
+                                                    ->seconds(false)
+                                                    ->required(fn (Get $get) => ($get('type') ?? 'range') === 'daily')
+                                                    ->visible(fn (Get $get) => ($get('type') ?? 'range') === 'daily')
+                                                    ->dehydrated(false)
+                                                    ->afterStateHydrated(fn (TimePicker $component, $state, Get $get) => $component->state($get('time_from')))
+                                                    ->afterStateUpdated(fn ($state, callable $set) => $set('time_from', $state))
+                                                    ->columnSpan([
+                                                        'default' => 12,
+                                                        'md' => 6,
+                                                    ]),
+
+                                                TimePicker::make('time_to_daily')
+                                                    ->label('По час')
+                                                    ->seconds(false)
+                                                    ->required(fn (Get $get) => ($get('type') ?? 'range') === 'daily')
+                                                    ->visible(fn (Get $get) => ($get('type') ?? 'range') === 'daily')
+                                                    ->dehydrated(false)
+                                                    ->afterStateHydrated(fn (TimePicker $component, $state, Get $get) => $component->state($get('time_to')))
+                                                    ->afterStateUpdated(fn ($state, callable $set) => $set('time_to', $state))
+                                                    ->columnSpan([
+                                                        'default' => 12,
+                                                        'md' => 6,
+                                                    ]),
+                                            ])
+                                            ->columnSpanFull(),
+                                    ])
+                                    ->addActionLabel('Додати інтервал')
+                                    ->reorderable(false)
+                                    ->collapsed()
+                                    ->itemLabel(function (array $state): ?string {
+                                        $type = (string)($state['type'] ?? 'range');
+                                        $p = (int)($state['priority'] ?? 0);
+                                        if ($type === 'daily') {
+                                            $tf = (string)($state['time_from'] ?? '');
+                                            $tt = (string)($state['time_to'] ?? '');
+                                            return trim("Щодня {$tf}-{$tt} (p={$p})");
+                                        }
+                                        $df = (int)($state['dow_from'] ?? 0);
+                                        $dt = (int)($state['dow_to'] ?? 0);
+                                        $tf = (string)($state['time_from'] ?? '');
+                                        $tt = (string)($state['time_to'] ?? '');
+                                        if ($df && $dt && $tf && $tt) {
+                                            return trim("{$df} {$tf} -> {$dt} {$tt} (p={$p})");
+                                        }
+                                        return "Інтервал (p={$p})";
+                                    }),
+                            ]),
                     ]),
 
                 Section::make('Зображення')
@@ -171,6 +347,15 @@ class BannerResource extends Resource
                     ->label('До')
                     ->dateTime('d.m.Y H:i')
                     ->sortable(),
+
+                Tables\Columns\TextColumn::make('schedule')
+                    ->label('Розклад')
+                    ->formatStateUsing(function ($state, Banner $record) {
+                        $lines = $record->scheduleHumanLines('uk');
+                        return $lines ? implode("\n", $lines) : '';
+                    })
+                    ->wrap()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->defaultSort('sort', 'asc')
             ->filters([

@@ -102,6 +102,89 @@ window.applyUaPhoneMask = function (el) {
     el.__uaPhoneMasked = true;
 };
 
+// Google Maps directions helper (used in mobile menu address link)
+window.openGoogleMapsRoute = function openGoogleMapsRoute({ destination = '', destinationAddress = '' } = {}) {
+    const dest = String(destination || '').trim();
+    const destAddr = String(destinationAddress || '').trim();
+    const destinationValue = dest || destAddr;
+    if (!destinationValue) return;
+
+    const fallbackUrl = (() => {
+        if (dest) {
+            const u = new URL('https://www.google.com/maps/dir/');
+            u.searchParams.set('api', '1');
+            u.searchParams.set('destination', dest);
+            u.searchParams.set('travelmode', 'driving');
+            return u.toString();
+        }
+        const u = new URL('https://www.google.com/maps/search/');
+        u.searchParams.set('api', '1');
+        u.searchParams.set('query', destAddr);
+        return u.toString();
+    })();
+
+    const openFallback = () => {
+        window.open(fallbackUrl, '_blank', 'noopener,noreferrer');
+    };
+
+    if (!navigator.geolocation || !window.isSecureContext) {
+        openFallback();
+        return;
+    }
+
+    let settled = false;
+    const timer = window.setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        openFallback();
+    }, 6000);
+
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            if (settled) return;
+            settled = true;
+            window.clearTimeout(timer);
+
+            const lat = pos?.coords?.latitude;
+            const lng = pos?.coords?.longitude;
+            if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+                openFallback();
+                return;
+            }
+
+            const u = new URL('https://www.google.com/maps/dir/');
+            u.searchParams.set('api', '1');
+            u.searchParams.set('origin', `${lat},${lng}`);
+            u.searchParams.set('destination', destinationValue);
+            u.searchParams.set('travelmode', 'driving');
+            window.open(u.toString(), '_blank', 'noopener,noreferrer');
+        },
+        () => {
+            if (settled) return;
+            settled = true;
+            window.clearTimeout(timer);
+            openFallback();
+        },
+        {
+            enableHighAccuracy: true,
+            timeout: 5000,
+            maximumAge: 120000,
+        }
+    );
+};
+
+document.addEventListener('click', (e) => {
+    const a = e.target?.closest?.('a[data-maps-link="1"]');
+    if (!a) return;
+
+    const destination = a.getAttribute('data-maps-destination') || '';
+    const destinationAddress = a.getAttribute('data-maps-destination-address') || '';
+    if (!destination && !destinationAddress) return;
+
+    e.preventDefault();
+    window.openGoogleMapsRoute({ destination, destinationAddress });
+});
+
 // На случай раннего x-init
 window.dispatchEvent(new Event('ua-phone-mask-ready'));
 
@@ -214,10 +297,15 @@ function initBannerSwiper() {
     if (!bannerEl) return;
     if (bannerEl.swiper) return;
 
+    const rawDelay = bannerEl.dataset?.autoplayDelayMs;
+    let delayMs = Number.parseInt(rawDelay || '', 10);
+    if (!Number.isFinite(delayMs) || delayMs <= 0) delayMs = 10000;
+    delayMs = Math.max(1000, Math.min(120000, delayMs));
+ 
     new Swiper('.banner-swiper', {
         modules: [Navigation, Pagination, Autoplay],
         loop: true,
-        autoplay: { delay: 4000, disableOnInteraction: false, pauseOnMouseEnter: false },
+        autoplay: { delay: delayMs, disableOnInteraction: false, pauseOnMouseEnter: false },
         slidesPerView: 'auto',
         centeredSlides: true,
         spaceBetween: 24,

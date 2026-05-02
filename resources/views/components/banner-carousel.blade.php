@@ -1,8 +1,13 @@
 @php
     use App\Models\Banner;
+    use App\Models\Setting;
 
     $locale = app()->getLocale();
     $now = now();
+    $delaySeconds = (int) Setting::admin('site.banner_rotation_delay_seconds', 10);
+    if ($delaySeconds < 1) $delaySeconds = 10;
+    if ($delaySeconds > 120) $delaySeconds = 120;
+    $delayMs = $delaySeconds * 1000;
 
     // Загружаем активные баннеры
     $banners = Banner::query()
@@ -17,10 +22,32 @@
         })
         ->orderBy('sort')
         ->get();
+
+    // Dynamic priority by weekday/time schedule
+    $banners = $banners
+        ->map(function (Banner $b) use ($now) {
+            $b->__activeSchedulePriority = $b->schedulePriorityAt($now);
+            return $b;
+        })
+        ->sort(function (Banner $a, Banner $b) {
+            $pa = $a->__activeSchedulePriority;
+            $pb = $b->__activeSchedulePriority;
+
+            $aActive = $pa !== null;
+            $bActive = $pb !== null;
+            if ($aActive !== $bActive) return $aActive ? -1 : 1;
+
+            if ($aActive && $bActive && $pa !== $pb) return ($pa > $pb) ? -1 : 1;
+
+            // fallback to existing sort, then id
+            if ((int)$a->sort !== (int)$b->sort) return ((int)$a->sort < (int)$b->sort) ? -1 : 1;
+            return ((int)$a->id < (int)$b->id) ? -1 : 1;
+        })
+        ->values();
 @endphp
 
 @if($banners->isNotEmpty())
-    <div class="banner-swiper relative desk:h-[320px] md:h-[197px] rounded-2xl">
+    <div class="banner-swiper relative desk:h-[320px] md:h-[197px] rounded-2xl" data-autoplay-delay-ms="{{ $delayMs }}">
         <div class="swiper-wrapper">
             @foreach($banners as $banner)
                 @php

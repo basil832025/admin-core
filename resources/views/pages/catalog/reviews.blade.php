@@ -176,6 +176,12 @@
             <div class="absolute inset-0 bg-black/40" @click="openReview=false"></div>
 
             <div class="relative bg-white rounded-[20px] w-[355px] md:w-[540px] p-[30px] shadow">
+                <button
+                    type="button"
+                    class="absolute right-4 top-4 text-3xl leading-none text-[#7A7A7A] hover:text-[#272828]"
+                    @click="openReview=false"
+                    aria-label="Закрити"
+                >&times;</button>
                 <h3 class="text-center text-[22px] font-bold">{{ st('reviews.leave_review','Залишити відгук') }}</h3>
                 <p class="mt-2 text-xs text-center text-[#7A7A7A]">{{ st('reviews.share_your','Поділіться своїми враженнями про наші осетинські пироги!') }}
                     </p>

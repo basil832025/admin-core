@@ -15,9 +15,25 @@
                              ?? data_get($headerLocation, 'contact_email')
                              ?? config('site.email', 'info@3piroga.ua');
 
-                     $address = data_get($headerLocation, 'address')
-                             ?? data_get($headerLocation, 'address_text')
-                             ?? '';
+                      $address = data_get($headerLocation, 'address')
+                              ?? data_get($headerLocation, 'address_text')
+                              ?? '';
+
+                      $lat = data_get($headerLocation, 'lat');
+                      $lng = data_get($headerLocation, 'lng');
+                      $googleMapLink = (string) (data_get($headerLocation, 'google_map_link') ?? '');
+
+                      $hasCoords = is_numeric($lat) && is_numeric($lng);
+
+                      // Fallback link: destination only
+                      if ($hasCoords) {
+                          $destination = $lat . ',' . $lng;
+                          $mapsHref = 'https://www.google.com/maps/dir/?api=1&destination=' . urlencode($destination);
+                      } elseif ($googleMapLink !== '') {
+                          $mapsHref = $googleMapLink;
+                      } else {
+                          $mapsHref = 'https://www.google.com/maps/search/?api=1&query=' . urlencode((string) $address);
+                      }
 
 
 
@@ -113,9 +129,7 @@
                    @guest('web')
             <!-- Кнопка входа -->
             <div class="px-3 py-5">
-                <a href="#"
-                   onclick="window.location.href='{{ route('auth.show') }}'; return false;"
-
+                <a href="{{ route('auth.show') }}"
                    class="block text-center rounded-[4px] bg-[#FF7500] text-white font-semibold py-3">
                     {{ st('auth.login','Увійти') }}
                 </a>
@@ -138,12 +152,22 @@
 
                     <a href="mailto:{{ $email }}" class="hover:text-black block">{{ $email }}</a>
 
-                    <div class="mt-2 text-xs text-[#929292]">
-                        @if($address)
-                                {{ $address }}
-                        @endif
-                    </div>
-                </div>
+                     <div class="mt-2 text-xs text-[#929292]">
+                         @if($address)
+                                <a
+                                    href="{{ $mapsHref }}"
+                                    class="hover:text-[#272828] underline underline-offset-2"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    data-maps-link="1"
+                                    data-maps-destination="{{ $hasCoords ? ($lat . ',' . $lng) : '' }}"
+                                    data-maps-destination-address="{{ e((string) $address) }}"
+                                >
+                                    {{ $address }}
+                                </a>
+                         @endif
+                     </div>
+                 </div>
 
                 <!-- соцсети -->
                 <div class="mt-4">
@@ -171,4 +195,3 @@
         </div>
     </aside>
 </div>
-

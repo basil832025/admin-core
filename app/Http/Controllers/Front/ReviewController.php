@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Front;
 
 use App\Http\Controllers\Controller;
+use App\Mail\ReviewNotificationMail;
 use App\Models\EstablishmentReview;
 use App\Models\Pages;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 
 class ReviewController extends Controller
@@ -64,7 +67,7 @@ class ReviewController extends Controller
 
         $locationId = (int)($request->input('location_id') ?: 1);
 
-        EstablishmentReview::create([
+        $review = EstablishmentReview::create([
             'author_name' => $request->string('name'),
             'text'        => $request->string('content'),
             'rating'      => (int) $request->input('rating', 5),
@@ -72,6 +75,31 @@ class ReviewController extends Controller
             'is_active'   => false,   // на модерацию
             'posted_at'   => now(),
         ]);
+
+        // Notify admins (same recipients as order notifications)
+        try {
+            $notificationEmails = config('notifications.order_notification_email', []);
+            if (is_string($notificationEmails)) {
+                $notificationEmails = array_filter(array_map('trim', explode(',', $notificationEmails)));
+            }
+
+            if (! empty($notificationEmails)) {
+                $moderationUrl = \App\Filament\Resources\EstablishmentReviewResource::getUrl('edit', [
+                    'record' => $review,
+                ]);
+
+                Mail::to($notificationEmails)->send(new ReviewNotificationMail(
+                    type: 'establishment',
+                    review: $review,
+                    moderationUrl: $moderationUrl,
+                ));
+            }
+        } catch (\Throwable $e) {
+            Log::error('Failed to send review notification email: '.$e->getMessage(), [
+                'type' => 'establishment',
+                'review_id' => $review->id ?? null,
+            ]);
+        }
 
         return response()->json(['ok' => true]);
     }

@@ -337,7 +337,7 @@
                                 }
                             },
                             async decrementQty() {
-                                if (this.adding || this.cartQty <= 1) return;
+                                if (this.adding || this.cartQty <= 0) return;
                                 this.adding = true;
 
                                 try {
@@ -382,16 +382,24 @@
                             </button>
 
                             {{-- Контролы количества --}}
-                            <div x-show="cartQty > 0" x-cloak class="inline-flex items-center bg-[#FDDDA7] text-[#FF7500] h-10 rounded-[4px] px-1 shrink-0">
+                            <div
+                                x-show="cartQty > 0"
+                                x-cloak
+                                class="w-full md:w-[218px] inline-flex items-center justify-between bg-[#FDDDA7] text-[#FF7500] h-10 rounded-[4px] px-1"
+                            >
                                 <button
                                     type="button"
                                     class="w-6 h-6 grid place-items-center text-xl leading-none"
                                     @click="decrementQty"
-                                    :disabled="adding || cartQty <= 1"
-                                    aria-label="Зменшити кількість"
+                                    :disabled="adding || cartQty <= 0"
+                                    :aria-label="cartQty === 1 ? 'Видалити з кошика' : 'Зменшити кількість'"
                                 >
-                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                    <svg x-show="cartQty > 1" class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                                         <path d="M5 12H19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                                    </svg>
+
+                                    <svg x-show="cartQty === 1" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                        <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14zM14 11v6M10 11v6M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" stroke="currentColor" stroke-width="2" stroke-linecap="square"/>
                                     </svg>
                                 </button>
                                 <div class="w-8 text-center font-semibold" x-text="cartQty">1</div>
