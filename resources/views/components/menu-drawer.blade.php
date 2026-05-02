@@ -190,7 +190,7 @@
                       @endphp
 
                       <div class="mt-4">
-                          <h4 class="font-semibold mb-2 text-[16px] text-[#272828]">{{ st('all.schedule', 'Розклад') }}</h4>
+                          <h4 class="font-semibold mb-2 text-[16px] text-[#272828]">{{ __('location.sections.schedule') }}</h4>
                           <div class="space-y-2">
                               <div>
                                   <div class="text-[#9E9E9E] text-[13px]">{{ $pickup['title'] }}:</div>
