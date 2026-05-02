@@ -3078,9 +3078,9 @@ class OrderResource extends Resource
                 ->sum('amount')
         );
 
-        $spentFromSaleSum = max(0.0, (float) ($order->sale_sum ?? 0));
-
-        return max($spentFromTransactions, $spentFromAdjustments, $spentFromSaleSum);
+        // Note: sale_sum is used in some integrations to store imported discounts (not loyalty bonuses).
+        // Only explicit loyalty sources should affect "spent bonuses".
+        return max($spentFromTransactions, $spentFromAdjustments);
     }
 
     /**
