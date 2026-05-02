@@ -108,7 +108,15 @@ $q->whereNull('ends_at')->orWhere('ends_at', '>=', $now);
     /** Сколько списать с ВЕСЬГО заказа (отрицательное число) */
     public function calculateAmountForOrder(Order $order): float
     {
-        $sum = $order->items->sum(fn($i) => $i->unit_price * $i->qty);
+        $order->loadMissing(['items.product.parent']);
+
+        $sum = $order->items
+            ->filter(function ($row) {
+                $p = $row->product;
+                if (! $p) return false;
+                return ! $p->excludedFromPromotions();
+            })
+            ->sum(fn ($i) => $i->unit_price * $i->qty);
 
         // сначала процент, если задан; иначе фикс. сумма; иначе 0
         if ($this->percent && (float)$this->percent > 0) {

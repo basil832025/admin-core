@@ -44,7 +44,9 @@ class Product extends Model implements HasMedia
         'title','sku', 'slug', 'description', 'price', 'old_price',
         'quantity', 'in_stock','main_image','parent_id','short_name',
         'seo_title', 'seo_description', 'seo_keywords','category_id','dop_info',
-          'is_new',  'is_hit',  'is_home', 'is_promo', 'is_vegan', 'is_product_of_day', 'is_spicy', 'code2', 'is_imported', 'import_source_id', 'sort','short_desc', 'main_image_small',
+          'is_new',  'is_hit',  'is_home', 'is_promo', 'is_vegan', 'is_product_of_day', 'is_spicy',
+        'exclude_from_promotions',
+        'code2', 'is_imported', 'import_source_id', 'sort','short_desc', 'main_image_small',
     ];
     protected $casts = [
         'title' => 'array',
@@ -58,10 +60,22 @@ class Product extends Model implements HasMedia
         'is_vegan' => 'boolean',
         'is_product_of_day' => 'boolean',
         'is_spicy' => 'boolean',
+        'exclude_from_promotions' => 'boolean',
         'is_imported' => 'boolean',
         'import_source_id' => 'int',
         'sort'    => 'integer',
     ];
+
+    public function excludedFromPromotions(): bool
+    {
+        $selfExcluded = (bool) ($this->exclude_from_promotions ?? false);
+        if ($selfExcluded) {
+            return true;
+        }
+
+        // Variants inherit the flag from the parent product.
+        return (bool) ($this->parent?->exclude_from_promotions ?? false);
+    }
     public $translatable = [
         'title',
         'description',

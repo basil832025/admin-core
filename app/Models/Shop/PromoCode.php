@@ -66,7 +66,7 @@ class PromoCode extends Model
         $filtersOn = (bool) ($productIds || $categoryIds || $valueIdsReq || $charIdsReq);
 
         // подгружаем, что есть (attributeValues может отсутствовать)
-        $order->loadMissing(['items.product.categories']);
+        $order->loadMissing(['items.product.parent', 'items.product.categories']);
         if (method_exists(Product::class, 'attributeValues')) {
             $order->loadMissing(['items.product.attributeValues']);
         }
@@ -77,6 +77,10 @@ class PromoCode extends Model
             $product = $row->product;
 
             if (! $product) continue;
+
+            if ($product->excludedFromPromotions()) {
+                continue;
+            }
 
             $matches = ! $filtersOn; // без фильтров — подходит всё
 

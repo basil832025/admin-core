@@ -70,6 +70,7 @@ return [
         'is_vegan'          => 'Vegan',
         'is_product_of_day' => 'Product of the day',
         'is_spicy'          => 'Spicy',
+        'exclude_from_promotions' => 'Exclude from promotions',
         'category_id'       => 'Category',
         'categories'        => 'Additional categories',
         'categories_helper' => 'Optional. You may select one or more.',
@@ -114,6 +115,7 @@ return [
         'is_vegan'  => 'Vegan',
         'is_product_of_day' => 'Product of the day',
         'is_spicy'  => 'Spicy',
+        'exclude_from_promotions' => 'No promos',
         'quantity'  => 'Quantity',
         'sku'       => 'SKU',
         'updated_at'=> 'Updated',
@@ -130,6 +132,7 @@ return [
         'is_vegan'      => 'Vegan',
         'is_product_of_day' => 'Product of the day',
         'is_spicy'      => 'Spicy',
+        'exclude_from_promotions' => 'Exclude from promotions',
         'code2'         => 'External code',
     ],
 

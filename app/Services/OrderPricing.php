@@ -471,6 +471,8 @@ class OrderPricing
 
     public function recalc(Order $order): void
     {
+        $order->loadMissing(['items.product.parent']);
+
         foreach ($order->items as $item) {
             $item->subtotal = $item->unit_price * $item->qty;
 
@@ -491,6 +493,14 @@ class OrderPricing
 
         $subtotal = (float) $order->items->sum('subtotal');
 
+        $subtotalEligible = (float) $order->items
+            ->filter(function ($item) {
+                $p = $item->product;
+                if (! $p) return false;
+                return ! $p->excludedFromPromotions();
+            })
+            ->sum('subtotal');
+
         $otherOrderAdj = (float) $order->adjustments()
             ->whereNull('shop_order_item_id')
             ->whereNotIn('type', ['manual_percent', 'manual_fixed'])
@@ -502,20 +512,34 @@ class OrderPricing
         $manualPercentAmount = 0.0;
         if ($manualPercent) {
             $p = (float) ($manualPercent->meta['percent'] ?? 0);
-            if ($p > 0) $manualPercentAmount = round(-1 * $subtotal * ($p / 100), 2);
+            if ($p > 0) {
+                $manualPercentAmount = round(-1 * $subtotalEligible * ($p / 100), 2);
+            }
             if ((float) $manualPercent->amount !== (float) $manualPercentAmount) {
                 $manualPercent->amount = $manualPercentAmount;
                 $manualPercent->save();
             }
         }
 
-        $interim = $subtotal + $itemsAdj + $otherOrderAdj + $manualPercentAmount;
+        $itemsAdjEligible = (float) $order->items
+            ->filter(function ($item) {
+                $p = $item->product;
+                if (! $p) return false;
+                return ! $p->excludedFromPromotions();
+            })
+            ->sum('discount_total');
+
+        // Note: otherOrderAdj is expected to already be calculated against eligible items
+        // (fixed/time/coupon calculation logic filters excluded products).
+        $interimEligible = $subtotalEligible + $itemsAdjEligible + $otherOrderAdj + $manualPercentAmount;
 
         $manualFixed = $order->adjustments()->where('type', 'manual_fixed')->first();
         $manualFixedAmount = 0.0;
         if ($manualFixed) {
             $want = (float) ($manualFixed->meta['amount'] ?? 0);
-            if ($want > 0) $manualFixedAmount = -1 * min($want, max(0, $interim));
+            if ($want > 0) {
+                $manualFixedAmount = -1 * min($want, max(0, $interimEligible));
+            }
             if ((float) $manualFixed->amount !== (float) $manualFixedAmount) {
                 $manualFixed->amount = $manualFixedAmount;
                 $manualFixed->save();

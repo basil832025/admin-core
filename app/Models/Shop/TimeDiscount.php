@@ -106,6 +106,25 @@ class TimeDiscount extends Model
             return false;
         }
 
+        // Exclude products that should not participate in order-level promotions.
+        try {
+            $eligibleIds = \App\Models\Shop\Product::query()
+                ->whereIn('id', $ids)
+                ->with('parent:id,exclude_from_promotions')
+                ->get(['id', 'exclude_from_promotions', 'parent_id'])
+                ->filter(fn ($p) => ! $p->excludedFromPromotions())
+                ->pluck('id')
+                ->values();
+
+            if ($eligibleIds->isEmpty()) {
+                return false;
+            }
+
+            $ids = $eligibleIds;
+        } catch (\Throwable) {
+            // If something goes wrong, keep original behavior.
+        }
+
         $hasCats  = $this->categories()->exists();
         $hasProds = $this->products()->exists();
 
@@ -241,7 +260,7 @@ class TimeDiscount extends Model
         // 2) Собираем цены поштучно только из eligible товаров (у тебя уже есть фильтр по scope)
         // ВАЖНО: тут оставляю unit_price как сейчас. Если нужно учитывать modifiers — скажешь, дополним.
         $items = $order->items()
-            ->with(['product.characteristicValues']) // важно для размера/характеристик
+            ->with(['product.parent', 'product.characteristicValues']) // важно для размера/характеристик
             ->get();
 
         $unitPrices = [];
@@ -250,6 +269,11 @@ class TimeDiscount extends Model
 
             $product = $row->product;
             if (!$product) continue;
+
+            // Skip products excluded from order-level promotions.
+            if ($product->excludedFromPromotions()) {
+                continue;
+            }
 
             // ✅ 0) если вообще нет scope — значит акция на всё
             // ✅ 1) если scope есть — товар должен проходить ВСЕ включенные фильтры

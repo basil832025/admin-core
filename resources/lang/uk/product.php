@@ -68,6 +68,7 @@ return [
         'is_vegan'          => 'Веган',
         'is_product_of_day' => 'Товар дня',
         'is_spicy'          => 'Гострий',
+        'exclude_from_promotions' => 'Не бере участі в акціях',
         'category_id'       => 'Категорія',
         'categories'        => 'Додаткові категорії',
         'categories_helper' => 'Необов’язково. Можна обрати одну або декілька.',
@@ -112,6 +113,7 @@ return [
         'is_vegan'  => 'Веган',
         'is_product_of_day' => 'Товар дня',
         'is_spicy'  => 'Гострий',
+        'exclude_from_promotions' => 'Без акцій',
         'quantity'  => 'Залишок',
         'sku'  => 'sku',
 
@@ -129,6 +131,7 @@ return [
         'is_vegan'      => 'Веган',
         'is_product_of_day' => 'Товар дня',
         'is_spicy'      => 'Гострий',
+        'exclude_from_promotions' => 'Не бере участі в акціях',
         'code2'         => 'Зовнішній код',
     ],
 

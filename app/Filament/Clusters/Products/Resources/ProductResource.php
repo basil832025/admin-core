@@ -251,6 +251,9 @@ class ProductResource extends Resource
                             Toggle::make('is_vegan')->label(__('product.fields.is_vegan'))->default(false),
                             Toggle::make('is_product_of_day')->label(__('product.fields.is_product_of_day'))->default(false),
                             Toggle::make('is_spicy')->label(__('product.fields.is_spicy'))->default(false),
+                            Toggle::make('exclude_from_promotions')
+                                ->label(__('product.fields.exclude_from_promotions'))
+                                ->default(false),
 
                             ]),
                     Section::make(__('product.sections.associations'))
@@ -1213,6 +1216,7 @@ class ProductResource extends Resource
                 ToggleColumn::make('is_vegan')->label(__('product.columns.is_vegan'))->sortable(),
                 ToggleColumn::make('is_product_of_day')->label(__('product.columns.is_product_of_day'))->sortable(),
                 ToggleColumn::make('is_spicy')->label(__('product.columns.is_spicy'))->sortable(),
+                ToggleColumn::make('exclude_from_promotions')->label(__('product.columns.exclude_from_promotions'))->sortable(),
                 Tables\Columns\TextColumn::make('quantity')->label(__('product.columns.quantity'))->sortable(),
                 Tables\Columns\TextColumn::make('updated_at')->label(__('product.columns.updated_at'))->dateTime('d.m.Y H:i')->sortable()
             ])
@@ -1282,6 +1286,11 @@ class ProductResource extends Resource
                     ->nullable(),
                 TernaryFilter::make('is_spicy')->label(__('product.filters.is_spicy'))
                     ->columnSpan(1)
+                    ->nullable(),
+
+                TernaryFilter::make('exclude_from_promotions')
+                    ->label(__('product.filters.exclude_from_promotions'))
+                    ->columnSpan(2)
                     ->nullable(),
               /*  Filter::make('created_between')
                     ->form([

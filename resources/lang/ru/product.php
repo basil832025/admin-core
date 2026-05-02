@@ -69,6 +69,7 @@ return [
         'is_vegan'          => 'Веган',
         'is_product_of_day' => 'Товар дня',
         'is_spicy'          => 'Острый',
+        'exclude_from_promotions' => 'Не участвует в акциях',
         'category_id'       => 'Категория',
         'categories'        => 'Доп. категории',
         'categories_helper' => 'Необязательно. Можно выбрать одну или несколько.',
@@ -113,6 +114,7 @@ return [
         'is_vegan'  => 'Веган',
         'is_product_of_day' => 'Товар дня',
         'is_spicy'  => 'Острый',
+        'exclude_from_promotions' => 'Без акций',
         'quantity'  => 'Остаток',
         'sku'       => 'SKU',
         'updated_at'=> 'Обновлено',
@@ -129,6 +131,7 @@ return [
         'is_vegan'      => 'Веган',
         'is_product_of_day' => 'Товар дня',
         'is_spicy'      => 'Острый',
+        'exclude_from_promotions' => 'Не участвует в акциях',
         'code2'         => 'Внешний код',
     ],
 
