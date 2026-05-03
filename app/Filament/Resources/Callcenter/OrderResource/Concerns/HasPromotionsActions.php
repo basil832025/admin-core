@@ -17,7 +17,7 @@ trait HasPromotionsActions
     public function openPromotionsAction(): Action
     {
         return Action::make('promotions')
-            ->label('Акции (Alt+A)')
+            ->label('Акции')
             ->color('gray')
             ->icon('heroicon-m-tag')
             ->extraAttributes([

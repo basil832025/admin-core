@@ -47,7 +47,7 @@ class ListOrders extends ListRecords
                         ->send();
                 }),
             CreateAction::make()
-                ->label(__('order.actions.create') . ' (Alt+N)')
+                ->label(__('order.actions.create'))
                 ->extraAttributes([
                     'data-hotkey' => 'cc-new-order',
                     'data-hotkey-label' => 'Alt+N',

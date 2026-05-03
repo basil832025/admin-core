@@ -121,14 +121,14 @@ class EditOrder extends EditRecord
                     $base = 'Печать на кухню';
 
                     if ($count > 1) {
-                        return $base.' ('.$count.') Дубликат (Alt+R)';
+                        return $base.' ('.$count.') Дубликат';
                     }
 
                     if ($count > 0) {
-                        return $base.' ('.$count.') (Alt+R)';
+                        return $base.' ('.$count.')';
                     }
 
-                    return $base.' (Alt+R)';
+                    return $base;
                 })
                 ->icon('heroicon-o-printer')
                 ->color(fn (): string => ((int) ($this->record?->kitchen_print_count ?? 0)) > 0 ? 'warning' : 'gray')
@@ -442,7 +442,7 @@ class EditOrder extends EditRecord
                 ]),
 
             $this->getSaveFormAction()
-                ->label(__('order.actions.save') . ' (Alt+S)')
+                ->label(__('order.actions.save'))
                 ->extraAttributes([
                     'data-hotkey' => 'cc-save',
                     'data-hotkey-label' => 'Alt+S',

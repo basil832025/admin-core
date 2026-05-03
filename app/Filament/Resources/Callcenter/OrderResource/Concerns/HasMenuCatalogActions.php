@@ -16,7 +16,7 @@ trait HasMenuCatalogActions
     public function openMenuCatalogAction(): Action
     {
         return Action::make('menuCatalog')
-            ->label('Меню (Alt+M)')
+            ->label('Меню')
             ->color('gray')
             ->icon('heroicon-m-squares-2x2')
             ->extraAttributes([

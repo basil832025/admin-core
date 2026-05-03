@@ -40,7 +40,7 @@ class CreateOrder extends CreateRecord
             $this->openPromotionsAction(),
 
             Action::make('createTop')
-                ->label(__('order.actions.create') . ' (Alt+S)')
+                ->label(__('order.actions.create'))
                 ->color('primary')
                 ->extraAttributes([
                     'data-hotkey' => 'cc-save',
