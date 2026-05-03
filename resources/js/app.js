@@ -311,13 +311,19 @@ function initBannerSwiper() {
     if (!Number.isFinite(delayMs) || delayMs <= 0) delayMs = 10000;
     delayMs = Math.max(1000, Math.min(120000, delayMs));
  
-    new Swiper('.banner-swiper', {
+    const swiper = new Swiper('.banner-swiper', {
         modules: [Navigation, Pagination, Autoplay],
         loop: true,
         autoplay: { delay: delayMs, disableOnInteraction: false, pauseOnMouseEnter: false },
-        slidesPerView: 'auto',
+        slidesPerView: 1.15,
         centeredSlides: true,
-        spaceBetween: 24,
+        centeredSlidesBounds: true,
+        centerInsufficientSlides: true,
+        roundLengths: true,
+        observer: true,
+        observeParents: true,
+        updateOnWindowResize: true,
+        spaceBetween: 8,
         speed: 600,
         pagination: {
             el: '#banner-pagination',
@@ -329,7 +335,30 @@ function initBannerSwiper() {
             nextEl: '.banner-swiper .swiper-button-next',
             prevEl: '.banner-swiper .swiper-button-prev',
         },
+        breakpoints: {
+            768: { slidesPerView: 1.15, spaceBetween: 8 },
+            1344: { slidesPerView: 1.9, spaceBetween: 24 },
+        },
+        on: {
+            init() {
+                setTimeout(() => {
+                    try { this.update(); } catch (_) {}
+                }, 0);
+            },
+            imagesReady() {
+                try { this.update(); } catch (_) {}
+            },
+        },
     });
+
+    // If images load after init, force an update to avoid the "jump".
+    try {
+        bannerEl.querySelectorAll('img').forEach((img) => {
+            if (img.complete) return;
+            img.addEventListener('load', () => { try { swiper.update(); } catch (_) {} }, { once: true });
+            img.addEventListener('error', () => { try { swiper.update(); } catch (_) {} }, { once: true });
+        });
+    } catch (_) {}
 }
 
 document.addEventListener('DOMContentLoaded', initBannerSwiper);

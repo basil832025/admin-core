@@ -44,53 +44,58 @@
             return ((int)$a->id < (int)$b->id) ? -1 : 1;
         })
         ->values();
+
+    $slides = $banners
+        ->map(function (Banner $banner) use ($locale) {
+            $imagePath = $banner->getImageForLocale($locale);
+            if (! $imagePath) {
+                return null;
+            }
+
+            $mobilePath = $banner->image_mobile ?: $imagePath;
+            $title = $banner->getTranslation('title', $locale)
+                ?? $banner->title
+                ?? 'Банер';
+
+            return [
+                'image' => $imagePath,
+                'mobile' => $mobilePath,
+                'title' => $title,
+                'url' => $banner->url,
+                'target' => $banner->target,
+            ];
+        })
+        ->filter()
+        ->values();
 @endphp
 
-@if($banners->isNotEmpty())
-    <div class="banner-swiper relative desk:h-[320px] md:h-[197px] rounded-2xl" data-autoplay-delay-ms="{{ $delayMs }}">
+@if($slides->isNotEmpty())
+    <div class="banner-swiper relative rounded-2xl" data-autoplay-delay-ms="{{ $delayMs }}">
         <div class="swiper-wrapper">
-            @foreach($banners as $banner)
-                @php
-                    // основная локализованная картинка
-                    $imagePath = $banner->getImageForLocale($locale);
-
-                    // mobile: если не задана → использовать основную
-                    $mobilePath = $banner->image_mobile ?: $imagePath;
-
-                    // alt
-                    $title = $banner->getTranslation('title', $locale)
-                        ?? $banner->title
-                        ?? 'Банер';
-                @endphp
-
-                @if(!$imagePath)
-                    @continue
-                @endif
-
+            @foreach($slides as $slide)
                 <div class="swiper-slide">
-                    @if($banner->url)
-                        <a href="{{ $banner->url }}"
-                           @if($banner->target === '_blank') target="_blank" rel="noopener" @endif>
+                    @if(!empty($slide['url']))
+                        <a href="{{ $slide['url'] }}" @if(($slide['target'] ?? null) === '_blank') target="_blank" rel="noopener" @endif>
                     @endif
 
-                            <picture>
-                                @if($mobilePath && $mobilePath !== $imagePath)
-                                    <source srcset="{{ asset('storage/' . $mobilePath) }}" media="(max-width: 768px)">
-                                @endif
+                            <div class="banner-slide-inner">
+                                <picture>
+                                    @if(!empty($slide['mobile']) && $slide['mobile'] !== $slide['image'])
+                                        <source srcset="{{ asset('storage/' . $slide['mobile']) }}" media="(max-width: 768px)">
+                                    @endif
+                                    <img src="{{ asset('storage/' . $slide['image']) }}"
+                                         alt="{{ $slide['title'] }}"
+                                         class="banner-img w-full h-full object-contain">
+                                </picture>
+                            </div>
 
-                                <img src="{{ asset('storage/' . $imagePath) }}"
-                                     alt="{{ $title }}"
-                                     class="w-full md:h-[197px] md:w-[674px] desk:w-[1098px] desk:h-[320px] object-cover rounded-2xl">
-                            </picture>
-
-                    @if($banner->url)
+                    @if(!empty($slide['url']))
                         </a>
                     @endif
                 </div>
             @endforeach
         </div>
 
-        {{-- Стрелки --}}
         <div class="swiper-button-prev banner-arrow">
             <svg width="24" height="25" viewBox="0 0 24 25" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M15.0901 4.61184L8.57009 11.1318C7.80009 11.9018 7.80009 13.1618 8.57009 13.9318L15.0901 20.4518" fill="#272828"/>

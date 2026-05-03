@@ -3,9 +3,9 @@
 @section('title', 'Доставка осетинських пирогів у Києві')
 
 @section('content')
-    <section class="flex items-center justify-center overflow-x-hidden w-full">
-             <!-- баннер -->
-        <div class="w-full md:w-[674px]">
+    <section class="flex items-center justify-center w-screen relative left-1/2 -translate-x-1/2 overflow-x-hidden">
+        <!-- баннер -->
+        <div class="banner-wrap w-full">
             <x-banner-carousel />
         </div>
 

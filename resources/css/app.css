@@ -15,55 +15,100 @@
     /* Цвет активной точки уже решили: */
     #banner-pagination { --swiper-theme-color:#f97316; --swiper-pagination-color:#f97316; }
 
-    @screen md {
-        .banner-wrap .banner-swiper {
-            @apply w-[674px] rounded-[12px];
-        }
-        /* Сдвиг стрелок на 66px — используем переменную Swiper */
-        .banner-swiper { --swiper-navigation-sides-offset: 46px; }
+    /* Sushi-master-like hero slider */
+    .banner-swiper {
+        width: 100%;
+        overflow: hidden;
+    }
+
+    @media (min-width: 768px) {
         .banner-swiper {
-            --swiper-navigation-sides-offset: 5px; /* было 66px внутрь, теперь -66px наружу */
-            /* overflow: visible;  чтобы их не обрезало */
+            max-height: 20vw;
+            min-height: 20vw;
+        }
+    }
+
+    @media (max-width: 800px) {
+        .banner-swiper {
+            height: 33vw;
+        }
+    }
+
+    .banner-swiper .swiper-slide {
+        border-radius: 16px;
+        height: 20vw;
+        overflow: hidden;
+        position: relative;
+        background: transparent;
+    }
+
+    .banner-swiper .swiper-slide .banner-slide-inner {
+        height: 100%;
+        width: 100%;
+        border-radius: 16px;
+        overflow: hidden;
+        background: #fff;
+        border: 1px solid rgba(0, 0, 0, 0.04);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+    }
+
+    /* Default: keep full banner visible */
+    .banner-swiper .banner-img { object-fit: contain; }
+
+    @media (max-width: 767px) {
+        .banner-swiper .swiper-slide {
+            height: 33vw;
         }
 
-    }
-    /* Десктоп: ≥1344 */
-    @screen lg {
-        .banner-swiper {
-            --swiper-navigation-sides-offset: 46px;
-            overflow: visible !important; /* чтобы их не обрезало */
-            width: 100%;
-        }
-        .banner-swiper .swiper-wrapper {
-            display: flex;
-            align-items: center;
-        }
-        .banner-swiper .swiper-slide {
-            width: 1098px !important;
-            min-width: 1098px !important;
-            max-width: 1098px !important;
-            flex-shrink: 0 !important;
-            flex-grow: 0 !important;
+        /* Mobile: no letterboxing, show only banner */
+        .banner-swiper .banner-img { object-fit: cover; }
+        .banner-swiper .swiper-slide .banner-slide-inner {
+            background: transparent;
+            border: 0;
+            box-shadow: none;
         }
     }
+
+    /* Desktop: fixed 320px height, no letterboxing */
     @screen desktop {
-        .banner-swiper {
-            --swiper-navigation-sides-offset: 66px;
-            overflow: visible !important; /* чтобы их не обрезало */
-            width: 100%;
-        }
-        .banner-swiper .swiper-wrapper {
-            display: flex;
-            align-items: center;
-        }
-        .banner-swiper .swiper-slide {
-            width: 1098px !important;
-            min-width: 1098px !important;
-            max-width: 1098px !important;
-            flex-shrink: 0 !important;
-            flex-grow: 0 !important;
+        .banner-swiper { height: 320px; max-height: none; min-height: 0; }
+        .banner-swiper .swiper-slide { height: 320px; }
+        .banner-swiper .banner-img { object-fit: cover; }
+        .banner-swiper .swiper-slide .banner-slide-inner {
+            background: transparent;
+            border: 0;
+            box-shadow: none;
         }
     }
+
+    /* Side slides look like separate banners */
+    .banner-swiper .swiper-slide.swiper-slide-duplicate,
+    .banner-swiper .swiper-slide.swiper-slide-next,
+    .banner-swiper .swiper-slide.swiper-slide-prev {
+        filter: brightness(.95);
+        transform: scale(.95, .9);
+    }
+
+    .banner-swiper .swiper-slide.swiper-slide-active {
+        filter: brightness(1) !important;
+        transform: scale(1) !important;
+        z-index: 3;
+    }
+
+    .banner-swiper .swiper-slide.swiper-slide-next,
+    .banner-swiper .swiper-slide.swiper-slide-prev,
+    .banner-swiper .swiper-slide.swiper-slide-duplicate {
+        z-index: 2;
+    }
+
+    /* Prevent layout jump before Swiper initializes */
+    .banner-swiper:not(.swiper-initialized) .swiper-wrapper {
+        display: flex;
+        justify-content: center;
+    }
+    /* Navigation offset */
+    .banner-swiper { --swiper-navigation-sides-offset: 12px; }
+    @screen desktop { .banner-swiper { --swiper-navigation-sides-offset: 24px; } }
     /* выключаем дефолтные стрелки Swiper */
     .banner-swiper .swiper-button-prev::after,
     .banner-swiper .swiper-button-next::after { content: none !important; }
@@ -89,7 +134,7 @@
         margin-top: 0 !important;
     }
 
-    @screen lg {
+    @screen desk {
         .banner-swiper .swiper-button-prev {
             left: 46px !important;
             right: auto !important;
@@ -116,16 +161,7 @@
         transition: transform .3s ease, filter .3s ease;
     }
 
-    /* неактивные ~262px (0.82 от 320) */
-    .banner-swiper .swiper-slide:not(.swiper-slide-active) {
-        transform: scale(0.82);
-    }
-
-    /* слегка приглушим соседей (необязательно) */
-    .banner-swiper .swiper-slide-prev,
-    .banner-swiper .swiper-slide-next {
-        filter: brightness(.98) saturate(.95);
-    }
+    /* Remove old scaling rules (replaced above) */
 
 
     /* пример ховера с изменением цвета иконки */
@@ -134,10 +170,7 @@
 
 
 
-    /* на мобилках (375px и т.п.) оставляем резиновый */
-    .banner-wrap .banner-swiper {
-        @apply w-full;
-    }
+    .banner-wrap .banner-swiper { @apply w-full; }
     /* центр + фиксированная ширина по макету; на узких экранах — резиновая */
  /*   .catalog-wrap {
         @apply mx-auto w-[1198px] max-w-full px-0 sm:px-4;
