@@ -226,14 +226,7 @@ body.no-scroll { overflow: hidden !important; height: 100%; }
 @theme {
     --font-sans: "Intro", ui-sans-serif, system-ui, sans-serif;
 }
-@media (min-width: 768px) {
-    .clamp-6{
-        display:-webkit-box;
-        -webkit-box-orient: vertical;
-        -webkit-line-clamp: 6; /* кол-во строк */
-        overflow: hidden;
-    }
-}
+/* clamp-6 kept for other places; product cards no longer use it */
 /* 13/16 */
 @layer utilities {
     .text-body { font-size: 13px; line-height: 16px; }

@@ -223,12 +223,13 @@
             }
         },
     }"
-        class="{{ $isSingleVariant ? 'mt-1' : 'mt-3' }} text-[13px]"
+        class="{{ $isSingleVariant ? 'mt-1' : 'mt-1' }} text-[13px] flex flex-col"
     >
 
-    @foreach ($rows as $r)
-            <x-ui.choice-row :value="(string) $r['product_id']">
-                <x-slot:left>
+        <div class="flex flex-col gap-2">
+        @foreach ($rows as $r)
+                <x-ui.choice-row :value="(string) $r['product_id']">
+                    <x-slot:left>
                     @foreach($leftChars as $i => $char)
                         @php
                             $val = $r['char_values'][$char['id']] ?? null;
@@ -289,8 +290,9 @@
                     </span>
                     @endif
                 </x-slot:right>
-            </x-ui.choice-row>
-        @endforeach
+                </x-ui.choice-row>
+            @endforeach
+        </div>
 
         {{-- подвал цен + кнопка (для карточек-списка можно оставить; для детальной страницы — убрать) --}}
         <div class="{{ $isSingleVariant ? 'mt-2' : 'mt-3' }} flex items-center justify-between">

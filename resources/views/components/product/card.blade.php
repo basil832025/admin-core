@@ -181,7 +181,7 @@
         }
     }"
     @variant-selected="handleVariantSelected($event)"
-    class="w-full max-w-[355px] md:max-w-none flex flex-col rounded-[12px] bg-white desk:gap-8 md:gap-4 p-3 shadow-[0_8px_20px_rgba(0,0,0,0.05)]"
+    class="w-full h-full max-w-[355px] md:max-w-none flex flex-col rounded-[12px] bg-white desk:gap-8 md:gap-4 p-3 shadow-[0_8px_20px_rgba(0,0,0,0.05)]"
     data-product-card
     @if($pid) data-product-id="{{ $pid }}" @endif
 >
@@ -207,31 +207,33 @@
     </a>
 
     <div class="pt-4 {{ $isSingleVariant ? 'pb-2' : 'pb-3' }} flex-1 flex flex-col">
-        <div class="flex items-start justify-between gap-2">
-            <h5 class="flex-1 min-w-0 font-intro font-bold text-[16px] leading-[22px] text-neutral-700 break-words">
-                {{ $title }}
-            </h5>
+        <div data-card-meta>
+            <div class="flex items-start justify-between gap-2">
+                <h5 class="flex-1 min-w-0 font-intro font-bold text-[16px] leading-[22px] text-neutral-700 break-words">
+                    {{ $title }}
+                </h5>
 
-            @if($pid)
-                    <x-ui.favorite-button
-                    :product-id="$pid"
-                    :post-url="route('favorite.toggle', $pid)"
-                    :active="$isFavorite"
-                    color="#FF7500"
-                />
-            @endif
-        </div>
+                @if($pid)
+                        <x-ui.favorite-button
+                        :product-id="$pid"
+                        :post-url="route('favorite.toggle', $pid)"
+                        :active="$isFavorite"
+                        color="#FF7500"
+                    />
+                @endif
+            </div>
 
-        <p class="w-full font-intro text-[13px] leading-[16px] text-[#C04103] break-words">
-            {{ st('product.sku_label', 'Артикул') }}: {{ $article ?? '123456' }}
-        </p>
+            <p class="w-full font-intro text-[13px] leading-[16px] text-[#C04103] break-words">
+                {{ st('product.sku_label', 'Артикул') }}: {{ $article ?? '123456' }}
+            </p>
 
-        <div class="w-full font-intro text-[13px] leading-[16px] text-[#A9A9A9] clamp-6 md:min-h-[96px] md:max-h-[96px] md:overflow-hidden break-words mb-2">
-            {!! $description !!}
+            <div class="w-full font-intro text-[13px] leading-[16px] text-[#A9A9A9] break-words mb-1">
+                {!! $description !!}
+            </div>
         </div>
 
         @if(!empty($rows))
-            <div class="rows-selector-container">
+            <div class="rows-selector-container mt-auto">
                 <x-ui.rows-selector
                     :rows="$rows"
                     :characteristics="$characteristics"
