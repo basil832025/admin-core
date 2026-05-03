@@ -105,9 +105,23 @@
 
 @if($order->time_order)
 @php
-    $deliveryTime = trim((string) $order->time_order);
-    if (preg_match('/^\d{1,2}:\d{2}:\d{2}$/', $deliveryTime)) {
-        $deliveryTime = substr($deliveryTime, 0, 5);
+    $deliveryTimeRaw = $order->time_order;
+    if ($deliveryTimeRaw instanceof \DateTimeInterface) {
+        $deliveryTime = $deliveryTimeRaw->format('H:i');
+    } else {
+        $deliveryTime = trim((string) $deliveryTimeRaw);
+
+        // "13:00:00" -> "13:00"
+        if (preg_match('/^\d{1,2}:\d{2}:\d{2}$/', $deliveryTime)) {
+            $deliveryTime = substr($deliveryTime, 0, 5);
+        } else {
+            // "2026-05-03 13:00:00" -> "13:00"
+            try {
+                $deliveryTime = \Carbon\Carbon::parse($deliveryTime)->format('H:i');
+            } catch (\Throwable) {
+                // keep as-is
+            }
+        }
     }
 @endphp
 **Время доставки:** {{ $deliveryTime }}
