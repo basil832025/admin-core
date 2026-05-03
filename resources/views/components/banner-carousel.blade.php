@@ -70,7 +70,7 @@
 @endphp
 
 @if($slides->isNotEmpty())
-    <div class="banner-swiper relative rounded-2xl" data-autoplay-delay-ms="{{ $delayMs }}">
+    <div class="swiper banner-swiper relative rounded-2xl" data-autoplay-delay-ms="{{ $delayMs }}">
         <div class="swiper-wrapper">
             @foreach($slides as $slide)
                 <div class="swiper-slide">

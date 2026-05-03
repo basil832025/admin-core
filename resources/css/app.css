@@ -19,6 +19,14 @@
     .banner-swiper {
         width: 100%;
         overflow: hidden;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .12s ease;
+    }
+
+    .banner-swiper.swiper-initialized {
+        opacity: 1;
+        pointer-events: auto;
     }
 
     @media (min-width: 768px) {
@@ -101,11 +109,7 @@
         z-index: 2;
     }
 
-    /* Prevent layout jump before Swiper initializes */
-    .banner-swiper:not(.swiper-initialized) .swiper-wrapper {
-        display: flex;
-        justify-content: center;
-    }
+    /* No pre-init layout hacks: keep hidden until Swiper initialized */
     /* Navigation offset */
     .banner-swiper { --swiper-navigation-sides-offset: 12px; }
     @screen desktop { .banner-swiper { --swiper-navigation-sides-offset: 24px; } }

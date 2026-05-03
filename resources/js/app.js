@@ -311,7 +311,7 @@ function initBannerSwiper() {
     if (!Number.isFinite(delayMs) || delayMs <= 0) delayMs = 10000;
     delayMs = Math.max(1000, Math.min(120000, delayMs));
  
-    const swiper = new Swiper('.banner-swiper', {
+    const swiper = new Swiper(bannerEl, {
         modules: [Navigation, Pagination, Autoplay],
         loop: true,
         autoplay: { delay: delayMs, disableOnInteraction: false, pauseOnMouseEnter: false },
