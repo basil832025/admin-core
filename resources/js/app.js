@@ -177,6 +177,15 @@ document.addEventListener('click', (e) => {
     const a = e.target?.closest?.('a[data-maps-link="1"]');
     if (!a) return;
 
+    // iOS Safari may block window.open() when called asynchronously
+    // (e.g. after geolocation callback). Let the browser handle the link.
+    const ua = navigator.userAgent || '';
+    const isIOS = /iPad|iPhone|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isSafari = /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS/i.test(ua);
+    if (isIOS && isSafari) {
+        return;
+    }
+
     const destination = a.getAttribute('data-maps-destination') || '';
     const destinationAddress = a.getAttribute('data-maps-destination-address') || '';
     if (!destination && !destinationAddress) return;
