@@ -27,7 +27,9 @@ final class AddressForm
                     TextInput::make('street')
                         ->label(__('order.fields.address_street_place'))
                         ->required()
-                        ->live(onBlur: false) // Отключаем live на blur, чтобы значение не сбрасывалось
+                        // В Filament/Livewire быстрый ввод в live-поле может терять символы из-за
+                        // частых сетевых обновлений и перерисовок. Обновляем состояние только при blur.
+                        ->live(onBlur: true)
                         ->dehydrated()
                         ->extraAttributes([
                             'id' => 'filament-address-street-input',
