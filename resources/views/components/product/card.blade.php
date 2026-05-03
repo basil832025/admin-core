@@ -181,12 +181,12 @@
         }
     }"
     @variant-selected="handleVariantSelected($event)"
-    class="desk:w-[378px] md:w-[360px] w-[355px] flex flex-col rounded-[12px] bg-white desk:gap-8 md:gap-4 p-3 shadow-[0_8px_20px_rgba(0,0,0,0.05)]"
+    class="w-full max-w-[355px] md:max-w-none flex flex-col rounded-[12px] bg-white desk:gap-8 md:gap-4 p-3 shadow-[0_8px_20px_rgba(0,0,0,0.05)]"
     data-product-card
     @if($pid) data-product-id="{{ $pid }}" @endif
 >
     <a href="{{ $url }}">
-        <div class="relative desk:w-[354px] h-[220px] md:w-[336px] w-[331px] overflow-hidden rounded-[12px]">
+        <div class="relative w-full h-[220px] overflow-hidden rounded-[12px]">
             <img src="{{ $image }}" alt="{{ $title }}" class="h-full w-full object-cover">
             <div class="absolute right-[10px] top-[10px] z-10 flex flex-col items-end gap-1">
                 <span

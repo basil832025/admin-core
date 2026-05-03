@@ -82,7 +82,7 @@
                             {{ st('search.products', 'Товари') }}
                         </h2>
                     @endif
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 desk:gap-12 md:gap-8">
+                    <div class="grid grid-cols-1 md:grid-cols-2 desk:grid-cols-3 gap-4 desk:gap-12 md:gap-8">
                         @foreach($products as $p)
                             @php
                                 $pid = $p['root_id'] ?? null;

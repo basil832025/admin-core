@@ -17,7 +17,7 @@
     </div>
 
     <!-- отступ 32px до сетки  -->
-    <div class="md:mt-8 mt-6 grid grid-cols-1 gap-4 desk:gap-12 md:gap-8 md:grid-cols-2 lg:grid-cols-3 " data-product-grid>
+    <div class="md:mt-8 mt-6 grid grid-cols-1 gap-4 desk:gap-12 md:gap-8 md:grid-cols-2 desk:grid-cols-3 " data-product-grid>
         @forelse ($items as $p)
             @php
                 $pid    = $p['root_id'] ?? null;                    // из презентера
@@ -45,4 +45,3 @@
         @endforelse
     </div>
 </section>
-
