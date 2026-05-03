@@ -475,6 +475,11 @@ class EditOrder extends EditRecord
         if ($addr && $clientId) {
             $addr = $this->normalizeAddressCoordinates($addr);
 
+            // Persist full address in street (UX expects full string).
+            if (! empty($addr['formatted_address'])) {
+                $addr['street'] = $addr['formatted_address'];
+            }
+
             if ((string) $select === '-1' || empty($select)) {
                 // создать новый адрес
                 $new = ClientAddress::create($addr + ['client_id' => $clientId]);

@@ -974,7 +974,7 @@
                 }
                 
                 if (streetInput) {
-                    console.log('Filament Autocomplete: Updating street field', street);
+                    console.log('Filament Autocomplete: Updating street field', fullStreet);
                     console.log('Filament Autocomplete: streetInput details', {
                         name: streetInput.name,
                         id: streetInput.id,
@@ -985,7 +985,7 @@
                     // "полный адрес" коротким названием улицы.
                     const streetValueToSet = (streetInput === autocompleteStreetInput)
                         ? fullStreet
-                        : street;
+                        : fullStreet;
                     
                     // Обновляем значение
                     streetInput.value = streetValueToSet;
@@ -1005,16 +1005,16 @@
                     // Проверяем, что значение обновилось
                     setTimeout(function() {
                         console.log('Filament Autocomplete: street field value after update', streetInput.value);
-                        if (streetInput.value !== street) {
+                        if (streetInput.value !== streetValueToSet) {
                             console.warn('Filament Autocomplete: street field value was not updated correctly, retrying...');
                             // Пробуем еще раз
-                            streetInput.value = street;
+                            streetInput.value = streetValueToSet;
                             streetInput.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
                             streetInput.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
                             streetInput.dispatchEvent(new CustomEvent('livewire:update', { bubbles: true }));
                             
                             // Если все еще не обновилось, пробуем через Livewire API
-                            if (streetInput.value !== street && typeof Livewire !== 'undefined') {
+                            if (streetInput.value !== streetValueToSet && typeof Livewire !== 'undefined') {
                                 console.log('Filament Autocomplete: Trying to update street via Livewire API');
                                 // Найдем компонент через поиск всех компонентов
                                 try {
@@ -1025,7 +1025,7 @@
                                             // Проверяем, что компонент имеет свойство address перед попыткой установки
                                             const hasAddress = component.$wire.get('address') !== undefined;
                                             if (hasAddress) {
-                                                component.$wire.set('address.street', street);
+                                                component.$wire.set('address.street', streetValueToSet);
                                                 console.log('Filament Autocomplete: Updated street via Livewire API (fallback)');
                                                 break;
                                             }
@@ -1063,7 +1063,7 @@
                     }
                     
                     if (streetField) {
-                        streetField.value = street;
+                        streetField.value = fullStreet;
                         streetField.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
                         streetField.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
                         streetField.dispatchEvent(new CustomEvent('livewire:update', { bubbles: true }));
@@ -1276,6 +1276,19 @@
                             console.log('Filament Autocomplete: Livewire component found', !!livewireComponent);
                             
                             if (livewireComponent) {
+                                const hasDataRoot = (() => {
+                                    try {
+                                        return livewireComponent.get('data') !== undefined;
+                                    } catch (e) {
+                                        return false;
+                                    }
+                                })();
+
+                                const addrRoot = hasDataRoot ? 'data.address' : 'address';
+                                const addrPrefix = addrRoot + '.';
+                                const triggerPath = hasDataRoot ? 'data.delivery_coords_trigger' : 'delivery_coords_trigger';
+                                const streetToPersist = (place.formatted_address || (street + (streetNumber ? ', ' + streetNumber : '')) || '').trim();
+
                                 console.log('Filament Autocomplete: Updating coordinates via Livewire', {
                                     lat: lat,
                                     lng: lng,
@@ -1283,14 +1296,14 @@
                                 });
                                 
                                 // Получаем текущий адрес
-                                const currentAddress = livewireComponent.get('address') || {};
+                                const currentAddress = livewireComponent.get(addrRoot) || {};
                                 console.log('Filament Autocomplete: Current address before update', currentAddress);
                                 
                                 // ВАЖНО: Обновляем координаты одновременно, чтобы afterStateUpdated сработал с обеими координатами
                                 // Используем setTimeout с минимальной задержкой, чтобы оба set() выполнились в одном цикле
                                 setTimeout(function() {
-                                    livewireComponent.set('address.latitude', lat.toString());
-                                    livewireComponent.set('address.longitude', lng.toString());
+                                    livewireComponent.set(addrPrefix + 'latitude', lat.toString());
+                                    livewireComponent.set(addrPrefix + 'longitude', lng.toString());
                                     console.log('Filament Autocomplete: Set coordinates simultaneously', {
                                         lat: lat.toString(),
                                         lng: lng.toString()
@@ -1298,32 +1311,37 @@
                                 }, 0);
                                 
                                 // Обновляем остальные поля
-                                if (place.formatted_address) {
-                                    livewireComponent.set('address.formatted_address', place.formatted_address);
-                                }
-                                if (street) {
-                                    livewireComponent.set('address.street', street);
-                                    console.log('Filament Autocomplete: Set address.street to', street);
+                                if (streetToPersist) {
+                                    livewireComponent.set(addrPrefix + 'street', streetToPersist);
+                                    console.log('Filament Autocomplete: Set address.street to', streetToPersist);
                                     
                                     // Проверяем, что значение обновилось
                                     setTimeout(function() {
-                                        const updatedStreet = livewireComponent.get('address.street');
+                                        const updatedStreet = livewireComponent.get(addrPrefix + 'street');
                                         console.log('Filament Autocomplete: address.street after Livewire update', updatedStreet);
-                                        if (updatedStreet !== street) {
+                                        if (updatedStreet !== streetToPersist) {
                                             console.warn('Filament Autocomplete: address.street was not updated correctly via Livewire');
                                         }
                                     }, 200);
                                 }
+
+                                if (place.place_id) {
+                                    livewireComponent.set(addrPrefix + 'street_place_id', place.place_id);
+                                }
+
+                                if (place.formatted_address) {
+                                    livewireComponent.set(addrPrefix + 'formatted_address', place.formatted_address);
+                                }
                                 if (streetNumber) {
-                                    livewireComponent.set('address.house', streetNumber);
+                                    livewireComponent.set(addrPrefix + 'house', streetNumber);
                                 }
                                 if (city) {
-                                    livewireComponent.set('address.city', city);
+                                    livewireComponent.set(addrPrefix + 'city', city);
                                 }
                                 
                                 // Проверяем, что координаты установились
                                 setTimeout(function() {
-                                    const updatedAddress = livewireComponent.get('address') || {};
+                                    const updatedAddress = livewireComponent.get(addrRoot) || {};
                                     console.log('Filament Autocomplete: Address after update', {
                                         latitude: updatedAddress.latitude,
                                         longitude: updatedAddress.longitude,
@@ -1333,11 +1351,11 @@
                                     // Триггерим обновление поля доставки
                                     const updateKey = 'coords_' + lat + '_' + lng + '_' + Date.now();
                                     console.log('Filament Autocomplete: Setting delivery_coords_trigger to', updateKey);
-                                    livewireComponent.set('delivery_coords_trigger', updateKey);
+                                    livewireComponent.set(triggerPath, updateKey);
                                     
                                     // Проверяем, что триггер установился
                                     setTimeout(function() {
-                                        const trigger = livewireComponent.get('delivery_coords_trigger');
+                                        const trigger = livewireComponent.get(triggerPath);
                                         console.log('Filament Autocomplete: delivery_coords_trigger after set', trigger);
                                     }, 100);
                                 }, 300);
@@ -1512,65 +1530,50 @@
                         console.log('Filament Autocomplete: Updating via Livewire API as fallback');
                         setTimeout(function() {
                             try {
+                                const hasDataRoot = (() => {
+                                    try {
+                                        return livewireComponent.get('data') !== undefined;
+                                    } catch (e) {
+                                        return false;
+                                    }
+                                })();
+
+                                const addrRoot = hasDataRoot ? 'data.address' : 'address';
+                                const addrPrefix = addrRoot + '.';
+                                const triggerPath = hasDataRoot ? 'data.delivery_coords_trigger' : 'delivery_coords_trigger';
+                                const streetToPersist = (place.formatted_address || (street + (streetNumber ? ', ' + streetNumber : '')) || '').trim();
+
                                 // Обновляем координаты
-                                livewireComponent.set('address.latitude', lat.toString());
-                                livewireComponent.set('address.longitude', lng.toString());
+                                livewireComponent.set(addrPrefix + 'latitude', lat.toString());
+                                livewireComponent.set(addrPrefix + 'longitude', lng.toString());
                                 
-                                // Обновляем поле street через Livewire API - пробуем разные пути
-                                if (street) {
-                                    console.log('Filament Autocomplete: Setting address.street via Livewire API', street);
-                                    const streetPaths = [
-                                        'address.street',
-                                        'data.address.street',
-                                        'data.street',
-                                        'street'
-                                    ];
-                                    
-                                    let streetUpdated = false;
-                                    for (let path of streetPaths) {
-                                        try {
-                                            livewireComponent.set(path, street);
-                                            const updatedValue = livewireComponent.get(path);
-                                            if (updatedValue === street) {
-                                                console.log('Filament Autocomplete: Successfully updated street via Livewire using path', path, street);
-                                                streetUpdated = true;
-                                                break;
-                                            }
-                                        } catch (e) {
-                                            // Пробуем следующий путь
-                                        }
-                                    }
-                                    
-                                    if (!streetUpdated) {
-                                        // Пробуем напрямую через address.street
-                                        try {
-                                            livewireComponent.set('address.street', street);
-                                            console.log('Filament Autocomplete: Set address.street via Livewire API (direct)', street);
-                                        } catch (e) {
-                                            console.warn('Filament Autocomplete: Failed to update street via Livewire API', e);
-                                        }
-                                    }
+                                if (streetToPersist) {
+                                    console.log('Filament Autocomplete: Setting address.street via Livewire API', streetToPersist);
+                                    livewireComponent.set(addrPrefix + 'street', streetToPersist);
                                 }
                                 
                                 // Обновляем остальные поля
                                 if (streetNumber) {
-                                    livewireComponent.set('address.house', streetNumber);
+                                    livewireComponent.set(addrPrefix + 'house', streetNumber);
                                 }
                                 if (city) {
-                                    livewireComponent.set('address.city', city);
+                                    livewireComponent.set(addrPrefix + 'city', city);
                                 }
                                 if (place.formatted_address) {
-                                    livewireComponent.set('address.formatted_address', place.formatted_address);
+                                    livewireComponent.set(addrPrefix + 'formatted_address', place.formatted_address);
+                                }
+                                if (place.place_id) {
+                                    livewireComponent.set(addrPrefix + 'street_place_id', place.place_id);
                                 }
                                 
                                 // Обновляем триггер с небольшой задержкой
                                 const updateKey = 'coords_' + lat + '_' + lng + '_' + Date.now();
-                                livewireComponent.set('delivery_coords_trigger', updateKey);
+                                livewireComponent.set(triggerPath, updateKey);
                                 console.log('Filament Autocomplete: Updated delivery_coords_trigger via Livewire', updateKey);
                                 
                                 // Проверяем, что поле street обновилось
                                 setTimeout(function() {
-                                    const updatedAddress = livewireComponent.get('address') || {};
+                                    const updatedAddress = livewireComponent.get(addrRoot) || {};
                                     console.log('Filament Autocomplete: address.street after Livewire update', updatedAddress.street);
                                 }, 200);
                                 
@@ -1618,7 +1621,16 @@
                                 const livewireComponent = Livewire.find(fallbackWireId);
                                 if (livewireComponent) {
                                     // Проверяем, что координаты установились
-                                    const checkAddress = livewireComponent.get('address') || {};
+                                    const hasDataRoot = (() => {
+                                        try {
+                                            return livewireComponent.get('data') !== undefined;
+                                        } catch (e) {
+                                            return false;
+                                        }
+                                    })();
+
+                                    const addrRoot = hasDataRoot ? 'data.address' : 'address';
+                                    const checkAddress = livewireComponent.get(addrRoot) || {};
                                     console.log('Filament Autocomplete: Checking address after DOM update', {
                                         latitude: checkAddress.latitude,
                                         longitude: checkAddress.longitude
@@ -1627,12 +1639,24 @@
                                     // Если координаты все еще не установлены, пробуем еще раз
                                     if (!checkAddress.latitude || !checkAddress.longitude) {
                                         console.log('Filament Autocomplete: Coordinates not set, retrying via Livewire');
-                                        livewireComponent.set('address.latitude', lat.toString());
-                                        livewireComponent.set('address.longitude', lng.toString());
+                                        const hasDataRoot = (() => {
+                                            try {
+                                                return livewireComponent.get('data') !== undefined;
+                                            } catch (e) {
+                                                return false;
+                                            }
+                                        })();
+
+                                        const addrRoot = hasDataRoot ? 'data.address' : 'address';
+                                        const addrPrefix = addrRoot + '.';
+                                        const triggerPath = hasDataRoot ? 'data.delivery_coords_trigger' : 'delivery_coords_trigger';
+
+                                        livewireComponent.set(addrPrefix + 'latitude', lat.toString());
+                                        livewireComponent.set(addrPrefix + 'longitude', lng.toString());
                                         
                                         setTimeout(function() {
                                             const updateKey = 'coords_' + lat + '_' + lng + '_' + Date.now();
-                                            livewireComponent.set('delivery_coords_trigger', updateKey);
+                                            livewireComponent.set(triggerPath, updateKey);
                                         }, 200);
                                     }
                                 }

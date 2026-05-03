@@ -35,11 +35,6 @@ final class AddressForm
                             'id' => 'filament-address-street-input',
                             'data-address-autocomplete' => 'true',
                         ])
-                        ->afterStateUpdated(function ($state, callable $set) {
-                            // Это поле будет заполняться через JavaScript, но оставляем колбэк для совместимости
-                            // Не сбрасываем значение, если оно было установлено через автокомплит
-                            $set('street_place_id', $state);
-                        })
                         ->columnSpan(6),
                     Hidden::make('street_place_id')->dehydrated(),
                     
@@ -365,7 +360,15 @@ final class AddressForm
                             }
                         }),
                     // TextInput::make('formatted_address')->label(__('order.fields.address_formatted'))->dehydrated()->columnSpan(2),
-                    Hidden::make('formatted_address')->dehydrated(),
+                    Hidden::make('formatted_address')
+                        ->dehydrated()
+                        ->live()
+                        ->afterStateUpdated(function ($state, callable $set) {
+                            $value = trim((string) $state);
+                            if ($value !== '') {
+                                $set('street', $value);
+                            }
+                        }),
                     Textarea::make('note')->label(__('order.fields.address_note'))->columnSpanFull(),
                 ]),
             ]);

@@ -103,6 +103,11 @@ class CreateOrder extends CreateRecord
         if ($addr && $clientId) {
             $addr = $this->normalizeAddressCoordinates($addr);
 
+            // Persist full address in street (UX expects full string).
+            if (! empty($addr['formatted_address'])) {
+                $addr['street'] = $addr['formatted_address'];
+            }
+
             if ((string) $select === '-1' || empty($select)) {
                 $new = ClientAddress::create($addr + ['client_id' => $clientId]);
                 $data['client_address_id'] = $new->id;
