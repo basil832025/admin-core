@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Callcenter\OrderResource\Pages;
 use App\Filament\Resources\Callcenter\OrderResource;
 use App\Filament\Resources\Callcenter\OrderResource\Concerns\HasHistoryOrderActions;
 use App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions;
+use App\Filament\Resources\Callcenter\OrderResource\Concerns\HasPromotionsActions;
 use App\Enums\PrintOperationCode;
 use App\Models\Kitchen\KitchenTicket;
 use App\Models\Shop\ClientAddress;
@@ -31,6 +32,7 @@ class EditOrder extends EditRecord
 {
     use HasHistoryOrderActions;
     use HasMenuCatalogActions;
+    use HasPromotionsActions;
 
     public ?string $pendingStatus = null;
 
@@ -111,23 +113,29 @@ class EditOrder extends EditRecord
 
             $this->openMenuCatalogAction(),
 
+            $this->openPromotionsAction(),
+
             Action::make('print_kitchen')
                 ->label(function (): string {
                     $count = (int) ($this->record?->kitchen_print_count ?? 0);
                     $base = 'Печать на кухню';
 
                     if ($count > 1) {
-                        return $base.' ('.$count.') Дубликат';
+                        return $base.' ('.$count.') Дубликат (Alt+R)';
                     }
 
                     if ($count > 0) {
-                        return $base.' ('.$count.')';
+                        return $base.' ('.$count.') (Alt+R)';
                     }
 
-                    return $base;
+                    return $base.' (Alt+R)';
                 })
                 ->icon('heroicon-o-printer')
                 ->color(fn (): string => ((int) ($this->record?->kitchen_print_count ?? 0)) > 0 ? 'warning' : 'gray')
+                ->extraAttributes([
+                    'data-hotkey' => 'cc-print-kitchen',
+                    'data-hotkey-label' => 'Alt+R',
+                ])
                 ->modalHeading('Предпросмотр чека кухни')
                 ->modalDescription('Проверьте содержимое чека и укажите количество дубликатов перед печатью.')
                 ->modalSubmitAction(false)
@@ -353,7 +361,11 @@ class EditOrder extends EditRecord
                 ->label('Клиентский + логиста чек')
                 ->icon('heroicon-o-printer')
                 ->color('gray')
-                ->extraAttributes(['class' => 'hidden'])
+                ->extraAttributes([
+                    'class' => 'hidden',
+                    'data-hotkey' => 'cc-print-client-logistic',
+                    'data-hotkey-label' => 'Alt+P',
+                ])
                 ->modalWidth('7xl')
                 ->modalHeading('Предпросмотр клиентского и логистического чека')
                 ->modalDescription('Будут напечатаны два отдельных чека на одном принтере. Проверьте содержимое и укажите количество копий.')
@@ -430,7 +442,11 @@ class EditOrder extends EditRecord
                 ]),
 
             $this->getSaveFormAction()
-                ->label(__('order.actions.save'))
+                ->label(__('order.actions.save') . ' (Alt+S)')
+                ->extraAttributes([
+                    'data-hotkey' => 'cc-save',
+                    'data-hotkey-label' => 'Alt+S',
+                ])
                 ->formId('form'),
             DeleteAction::make()
                 ->label(__('order.actions.delete')),

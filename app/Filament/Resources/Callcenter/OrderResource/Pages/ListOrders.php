@@ -46,7 +46,12 @@ class ListOrders extends ListRecords
                         ->color(($stats['failed'] ?? 0) > 0 ? 'warning' : 'success')
                         ->send();
                 }),
-            CreateAction::make(),
+            CreateAction::make()
+                ->label(__('order.actions.create') . ' (Alt+N)')
+                ->extraAttributes([
+                    'data-hotkey' => 'cc-new-order',
+                    'data-hotkey-label' => 'Alt+N',
+                ]),
         ];
     }
 

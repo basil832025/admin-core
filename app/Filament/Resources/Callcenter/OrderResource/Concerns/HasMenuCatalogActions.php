@@ -16,9 +16,13 @@ trait HasMenuCatalogActions
     public function openMenuCatalogAction(): Action
     {
         return Action::make('menuCatalog')
-            ->label('Меню')
+            ->label('Меню (Alt+M)')
             ->color('gray')
             ->icon('heroicon-m-squares-2x2')
+            ->extraAttributes([
+                'data-hotkey' => 'cc-menu',
+                'data-hotkey-label' => 'Alt+M',
+            ])
             ->slideOver()
             ->modalWidth('7xl')
             ->modalSubmitAction(false)

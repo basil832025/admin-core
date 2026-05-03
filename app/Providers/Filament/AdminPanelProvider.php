@@ -251,6 +251,11 @@ class AdminPanelProvider extends PanelProvider
             PanelsRenderHook::BODY_END,
             fn () => view('filament.hooks.courier-comment-popup')
         );
+
+        $panel->renderHook(
+            PanelsRenderHook::BODY_END,
+            fn () => view('filament.hooks.keyboard-shortcuts')
+        );
         
     return $panel;
     }

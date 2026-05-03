@@ -107,6 +107,7 @@ return [
         'date_to'    => 'Дата по',
         'discount'   => 'Знижка',
         'today'      => 'Сьогодні',
+        'tomorrow'   => 'Завтра',
         'yesterday'  => 'Вчора',
         'day_before' => 'Позавчора',
         'this_week'  => 'Цей тиждень',

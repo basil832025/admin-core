@@ -11,32 +11,7 @@
             {{-- Обертка: мобилка колонка, десктоп РАЗВОРОТ ряда --}}
             <div class="w-full flex flex-col md:flex-row-reverse md:min-h-[760px]">
 
-                {{-- Картинка: мобилка сверху, десктоп справа --}}
-                <div class="md:flex md:flex-none md:w-[520px] md:items-center md:justify-center">
-                    {{-- Mobile: отступы 24px и высота 180px --}}
-                    <div class="md:hidden px-6 pt-4">
-                        {{--    <div class="h-[180px] w-full overflow-hidden rounded-[20px] bg-[#F6E6C6]">
-                               <img
-                                   src="{{ asset('images/svg/auth_right.png') }}"
-                                   alt=""
-                                   class="h-full w-full object-cover"
-                                   draggable="false"
-                               >
-                           </div>--}}
-                    </div>
-
-                    {{-- Desktop --}}
-                    <div class="hidden md:flex w-[495px] h-[675px]">
-                        <div class="w-full h-full overflow-hidden rounded-[32px] bg-[#F6E6C6]">
-                            <img
-                                src="{{ asset('images/svg/auth_right.png') }}"
-                                alt=""
-                                class="h-full w-full object-cover"
-                                draggable="false"
-                            >
-                        </div>
-                    </div>
-                </div>
+                {{-- Картинка справа (desktop) отключена по запросу --}}
 
                 {{-- Форма: мобилка снизу, десктоп слева --}}
                 <div

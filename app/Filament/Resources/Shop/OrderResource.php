@@ -2560,22 +2560,6 @@ class OrderResource extends Resource
                     })
                     ->columnSpan(1),
 
-                SelectFilter::make('has_unmatched_items')
-                    ->label('Сопоставл.')
-                    ->options([
-                        '1' => 'Есть несопоставленные',
-                        '0' => 'Все сопоставлены',
-                    ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        $value = $data['value'] ?? null;
-                        if ($value === null || $value === '') {
-                            return $query;
-                        }
-
-                        return $query->where('has_unmatched_items', (bool) $value);
-                    })
-                    ->columnSpan(1),
-
                 SelectFilter::make('payment')     // то же имя поля
                 ->label(__('Оплата'))
                     ->options(static::paymentOptionsAdmin())
@@ -2593,6 +2577,7 @@ class OrderResource extends Resource
                             ->inline()
                             ->options([
                                 'today' => __('order.filters.today'),
+                                'tomorrow' => __('order.filters.tomorrow'),
                                 'yesterday' => __('order.filters.yesterday'),
                                 'day_before' => __('order.filters.day_before'),
                                 'this_week' => __('order.filters.this_week'),
@@ -2619,6 +2604,7 @@ class OrderResource extends Resource
                             $today = now()->startOfDay();
                             $range = match ($data['quick_range']) {
                                 'today' => [$today, now()->endOfDay()],
+                                'tomorrow' => [now()->addDay()->startOfDay(), now()->addDay()->endOfDay()],
                                 'yesterday' => [now()->subDay()->startOfDay(), now()->subDay()->endOfDay()],
                                 'day_before' => [now()->subDays(2)->startOfDay(), now()->subDays(2)->endOfDay()],
                                 'this_week' => [now()->startOfWeek(), now()->endOfWeek()],

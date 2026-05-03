@@ -107,6 +107,7 @@ return [
         'date_to'    => 'Date to',
         'discount'   => 'Discount',
         'today'      => 'Today',
+        'tomorrow'   => 'Tomorrow',
         'yesterday'  => 'Yesterday',
         'day_before' => 'Day before',
         'this_week'  => 'This week',

@@ -1023,6 +1023,56 @@ class OrderResource extends ShopOrderResource
             }
         }
 
+        // Promo preview state (used in create mode and slide-over selection)
+        $components[] = Hidden::make('ui_selected_promo')->dehydrated(false)->reactive();
+        $components[] = Hidden::make('ui_promo_preview_discount')->dehydrated(false)->reactive();
+        $components[] = Hidden::make('ui_promo_preview_final')->dehydrated(false)->reactive();
+        $components[] = Hidden::make('ui_promo_preview_label')->dehydrated(false)->reactive();
+
+        // In create mode, show promo preview in the "total_after_discount" placeholder.
+        foreach ($components as $component) {
+            if (! method_exists($component, 'getName') || $component->getName() !== 'total_after_discount') {
+                continue;
+            }
+
+            if (! $component instanceof Placeholder) {
+                continue;
+            }
+
+            $component->content(function (?Order $record, Get $get) {
+                $baseTotal = static::calcBaseTotalFromGet($get);
+                $deliveryPrice = (float) ($get('shipping_price') ?? 0);
+
+                if (! $record) {
+                    $previewFinal = (float) ($get('ui_promo_preview_final') ?? 0);
+                    $previewDiscount = (float) ($get('ui_promo_preview_discount') ?? 0);
+                    $label = trim((string) ($get('ui_promo_preview_label') ?? ''));
+
+                    if ($previewFinal > 0 && $previewDiscount >= 0) {
+                        $html = '<div class="space-y-1">';
+                        $html .= '<div class="text-lg font-semibold">' . number_format($previewFinal, 2, ',', ' ') . ' грн</div>';
+                        if ($label !== '' && $label !== 'Без акции') {
+                            $html .= '<div class="text-xs text-gray-500">Акція: ' . e($label) . '</div>';
+                        }
+                        if ($previewDiscount > 0) {
+                            $html .= '<div class="text-xs text-gray-500">Знижка: -' . number_format($previewDiscount, 2, ',', ' ') . ' грн</div>';
+                        }
+                        $html .= '</div>';
+                        return new HtmlString($html);
+                    }
+
+                    $val = number_format($baseTotal + $deliveryPrice, 2, ',', ' ') . ' грн';
+                    return new HtmlString('<div class="text-lg font-semibold">'.$val.'</div>');
+                }
+
+                $resolved = static::resolveFinalAmount($record, $baseTotal, $deliveryPrice);
+                $finalAmount = (float) ($resolved['final'] ?? 0);
+                $val = number_format($finalAmount, 2, ',', ' ') . ' грн';
+
+                return new HtmlString('<div class="text-lg font-semibold">'.$val.'</div>');
+            });
+        }
+
         $components[] = TextInput::make('cash_from')
             ->label('Сдача с')
             ->numeric()
@@ -1125,7 +1175,7 @@ class OrderResource extends ShopOrderResource
                 '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
                 .'<button type="button" wire:click="mountAction(\'print_client_receipt_sidebar\')" style="display:block;flex:1;padding:10px 12px;border:1px solid #2563eb;border-radius:8px;background:#eff6ff;color:#1d4ed8;font-weight:700;cursor:pointer;text-align:center;">Клиентский чек</button>'
                 .'<button type="button" wire:click="mountAction(\'print_logistic_receipt_sidebar\')" style="display:block;flex:1;padding:10px 12px;border:1px solid #b45309;border-radius:8px;background:#fffbeb;color:#b45309;font-weight:700;cursor:pointer;text-align:center;">Чек для логиста</button>'
-                .'<button type="button" wire:click="mountAction(\'print_client_and_logistic_receipts_sidebar\')" style="display:block;flex:1;min-width:220px;padding:10px 12px;border:1px solid #166534;border-radius:8px;background:#ecfdf5;color:#166534;font-weight:700;cursor:pointer;text-align:center;">Клиентский + логиста чек</button>'
+                .'<button type="button" wire:click="mountAction(\'print_client_and_logistic_receipts_sidebar\')" data-hotkey="cc-print-client-logistic" data-hotkey-label="Alt+P" style="display:block;flex:1;min-width:220px;padding:10px 12px;border:1px solid #166534;border-radius:8px;background:#ecfdf5;color:#166534;font-weight:700;cursor:pointer;text-align:center;">Клиентский + логиста чек <span style="margin-left:6px;font-size:11px;font-weight:700;opacity:.75;">Alt+P</span></button>'
                 .'</div>'
             ))
             ->columnSpanFull()

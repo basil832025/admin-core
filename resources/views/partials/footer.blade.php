@@ -128,6 +128,9 @@
                     <li><a href="https://t.me/OsetianBakery" target="_blank" aria-label="Telegram" class="text-black hover:text-[#FF7500]">
                             <x-icons.telegram class="w-6 h-6"/>
                         </a></li>
+                    <li><a href="viber://chat?number=%2B380660784333" aria-label="Viber" class="text-black hover:text-[#FF7500]">
+                            <x-icons.viber class="w-6 h-6" style="transform: scale(1.15); transform-origin: center;"/>
+                        </a></li>
                     <li><a href="https://www.youtube.com/channel/UC37VV_ZFmkTacWeHKFsYWLQ" target="_blank" aria-label="YouTube" class="text-black hover:text-[#FF7500]">
                             <x-icons.youtube class="w-6 h-6"/>
                         </a></li>

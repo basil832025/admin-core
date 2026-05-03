@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Callcenter\OrderResource\Pages;
 
 use App\Filament\Resources\Callcenter\OrderResource\Concerns\HasHistoryOrderActions;
 use App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions;
+use App\Filament\Resources\Callcenter\OrderResource\Concerns\HasPromotionsActions;
 use App\Filament\Resources\Callcenter\OrderResource;
 use App\Models\Shop\ClientAddress;
 use App\Services\OrderPricing;
@@ -16,6 +17,7 @@ class CreateOrder extends CreateRecord
 {
     use HasHistoryOrderActions;
     use HasMenuCatalogActions;
+    use HasPromotionsActions;
 
     protected static string $resource = OrderResource::class;
 
@@ -35,9 +37,15 @@ class CreateOrder extends CreateRecord
 
             $this->openMenuCatalogAction(),
 
+            $this->openPromotionsAction(),
+
             Action::make('createTop')
-                ->label(__('order.actions.create'))
+                ->label(__('order.actions.create') . ' (Alt+S)')
                 ->color('primary')
+                ->extraAttributes([
+                    'data-hotkey' => 'cc-save',
+                    'data-hotkey-label' => 'Alt+S',
+                ])
                 ->action('create'),
         ];
     }
@@ -50,8 +58,31 @@ class CreateOrder extends CreateRecord
     protected function afterCreate(): void
     {
         $this->syncClientAddressCoordinatesFromOrder();
-        app(OrderPricing::class)->recalc($this->record);
-        $this->record->recalculateTotalPrice();
+
+        // Apply promo selected in create form (UI-only preview before create).
+        $selected = (string) data_get($this->data ?? [], 'ui_selected_promo', 'none');
+        $selected = $selected !== '' ? $selected : 'none';
+        if ($this->record?->exists) {
+            try {
+                if ($selected === 'none') {
+                    app(OrderPricing::class)->recalc($this->record);
+                } else {
+                    [$kind, $id] = explode(':', $selected, 2) + [null, null];
+                    $id = (int) $id;
+                    if ($kind === 'time') {
+                        app(OrderPricing::class)->applyTimeExclusive($this->record, $id > 0 ? $id : null, 'single');
+                    } elseif ($kind === 'fixed') {
+                        app(OrderPricing::class)->applyFixedExclusive($this->record, $id > 0 ? $id : null, 'single');
+                    } else {
+                        app(OrderPricing::class)->recalc($this->record);
+                    }
+                }
+            } catch (\Throwable) {
+                app(OrderPricing::class)->recalc($this->record);
+            }
+
+            $this->record->recalculateTotalPrice();
+        }
     }
 
     protected function mutateFormDataBeforeCreate(array $data): array
