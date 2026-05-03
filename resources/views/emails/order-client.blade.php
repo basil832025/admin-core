@@ -17,6 +17,14 @@
 **{{ st('order.email.order_date', 'Дата створення') }}:** {{ ($order->placedAt() ?? $order->created_at)->format('d.m.Y') }}  
 **{{ st('order.email.order_status', 'Статус') }}:** {{ $order->status->getLabel() }}
 
+@php
+    $clientPhone = \App\Support\Phone::formatUa($order->clients?->phone ?? $order->phone ?? null);
+@endphp
+
+@if($clientPhone)
+**{{ st('order.email.client_phone', 'Телефон') }}:** {{ $clientPhone }}
+@endif
+
 @if($order->date_order)
 **{{ st('order.email.delivery_date', 'Дата доставки') }}:** {{ \Carbon\Carbon::parse($order->date_order)->format('d.m.Y') }}
 @endif

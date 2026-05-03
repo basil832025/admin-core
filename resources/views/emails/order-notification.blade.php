@@ -70,6 +70,8 @@
     }
 
     $total = (float) ($order->grand_total ?? ($itemsTotal - $bonusesSpent + $shipping));
+
+    $clientPhone = \App\Support\Phone::formatUa($order->clients?->phone ?? $order->phone ?? null);
 @endphp
 
 # Новый заказ №{{ $orderNumber }}
@@ -85,7 +87,7 @@
 
 @if($order->clients)
 **Имя:** {{ $order->clients->name ?? '—' }}  
-**Телефон:** {{ $order->clients->phone ?? '—' }}  
+**Телефон:** {{ $clientPhone ?? '—' }}  
 **Email:** {{ $order->clients->email ?? '—' }}
 @else
 **Имя:** {{ $order->short_name ?? '—' }}
