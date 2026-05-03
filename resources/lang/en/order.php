@@ -133,6 +133,8 @@ return [
     'modals' => [
         'clear_heading'     => 'Are you sure?',
         'clear_description' => 'All existing items will be removed from the order.',
+        'delete_item_heading' => 'Delete item?',
+        'delete_item_description' => 'This item will be removed from the order.',
     ],
 
     'notifications' => [

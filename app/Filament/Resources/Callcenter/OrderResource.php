@@ -495,7 +495,14 @@ class OrderResource extends ShopOrderResource
             ->streamlined()
             ->showLabels(false)
             ->reorderable(false)
-            ->deleteAction(fn ($action) => $action->action(function (array $arguments, Repeater $component, $livewire): void {
+            ->deleteAction(fn ($action) => $action
+                ->requiresConfirmation()
+                ->modalHeading(__('order.modals.delete_item_heading'))
+                ->modalDescription(__('order.modals.delete_item_description'))
+                ->modalSubmitActionLabel(__('order.actions.delete'))
+                ->modalCancelActionLabel(__('order.actions.cancel'))
+                ->color('danger')
+                ->action(function (array $arguments, Repeater $component, $livewire): void {
                 $items = $component->getState();
                 $itemKey = $arguments['item'] ?? null;
 

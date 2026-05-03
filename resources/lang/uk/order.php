@@ -133,6 +133,8 @@ return [
     'modals' => [
         'clear_heading'     => 'Ви впевнені?',
         'clear_description' => 'Всі існуючі позиції будуть видалені з замовлення.',
+        'delete_item_heading' => 'Видалити товар?',
+        'delete_item_description' => 'Позицію буде видалено із замовлення.',
     ],
 
     'notifications' => [
