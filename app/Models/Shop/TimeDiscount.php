@@ -428,15 +428,24 @@ class TimeDiscount extends Model
 // Вариант A: уже есть pivot-связь categories() (shop_time_discount_categories) — используем её
     protected function selectedCategoryIds(): array
     {
-        static $cache;
-        if ($cache !== null) return $cache;
+        static $cacheById = [];
+        $key = (int) ($this->id ?? 0);
+        if ($key > 0 && array_key_exists($key, $cacheById)) {
+            return $cacheById[$key];
+        }
 
         try {
             $ids = $this->categories()->pluck('bs_product_categories.id')->all(); // или ->pluck('id')
         } catch (\Throwable $e) {
             $ids = [];
         }
-        return $cache = array_map('intval', $ids);
+
+        $out = array_map('intval', $ids);
+        if ($key > 0) {
+            $cacheById[$key] = $out;
+        }
+
+        return $out;
     }
 
     protected function matchesCategory($product): bool
@@ -479,8 +488,11 @@ class TimeDiscount extends Model
 
     protected function selectedProductIds(): array
     {
-        static $cache;
-        if ($cache !== null) return $cache;
+        static $cacheById = [];
+        $key = (int) ($this->id ?? 0);
+        if ($key > 0 && array_key_exists($key, $cacheById)) {
+            return $cacheById[$key];
+        }
 
         // Вариант A: через pivot
         try {
@@ -492,7 +504,12 @@ class TimeDiscount extends Model
         // Вариант B (если используешь JSON колонку product_ids): раскомментируй
         // $ids = array_map('intval', (array) ($this->product_ids ?? []));
 
-        return $cache = array_map('intval', $ids);
+        $out = array_map('intval', $ids);
+        if ($key > 0) {
+            $cacheById[$key] = $out;
+        }
+
+        return $out;
     }
 
     protected function matchesProduct($product): bool
@@ -520,22 +537,29 @@ class TimeDiscount extends Model
 
     protected function selectedCharacteristicValueIds(): array
     {
-        static $cache;
-        if ($cache !== null) return $cache;
+        static $cacheById = [];
+        $key = (int) ($this->id ?? 0);
+        if ($key > 0 && array_key_exists($key, $cacheById)) {
+            return $cacheById[$key];
+        }
 
         try {
             // ✅ правильное имя pivot-таблицы с префиксом bs_
-            $cache = $this->characteristicValues()
+            $out = $this->characteristicValues()
                 ->pluck('bs_shop_time_discount_characteristic_values.characteristic_value_id')
                 ->map(fn ($v) => (int) $v)
                 ->unique()
                 ->values()
                 ->all();
         } catch (\Throwable $e) {
-            $cache = [];
+            $out = [];
         }
 
-        return $cache;
+        if ($key > 0) {
+            $cacheById[$key] = $out;
+        }
+
+        return $out;
     }
 
 
