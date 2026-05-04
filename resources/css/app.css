@@ -41,6 +41,21 @@
         }
     }
 
+    /* Tablet: fixed stage + side/active heights */
+    @media (min-width: 768px) and (max-width: 1279px) {
+        .banner-swiper {
+            height: 197px !important;
+            max-height: none !important;
+            min-height: 0 !important;
+        }
+        .banner-swiper .swiper-wrapper { align-items: center; }
+        .banner-swiper .swiper-slide { height: 173px !important; }
+        .banner-swiper .swiper-slide.swiper-slide-active,
+        .banner-swiper .swiper-slide.swiper-slide-duplicate-active {
+            height: 197px !important;
+        }
+    }
+
     @media (max-width: 800px) {
         .banner-swiper {
             height: 33vw;
@@ -53,6 +68,22 @@
         overflow: hidden;
         position: relative;
         background: transparent;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 357px;
+    }
+
+    @media (min-width: 768px) {
+        .banner-swiper .swiper-slide {
+            width: 675px;
+        }
+    }
+
+    @media (min-width: 1280px) {
+        .banner-swiper .swiper-slide {
+            width: 1098px;
+        }
     }
 
     .banner-swiper .swiper-slide .banner-slide-inner {
@@ -63,6 +94,19 @@
         background: #fff;
         border: 1px solid rgba(0, 0, 0, 0.04);
         box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+    }
+
+    /* Rounded corners must be on the banner image itself */
+    .banner-swiper .swiper-slide .banner-slide-inner picture,
+    .banner-swiper .swiper-slide .banner-slide-inner img {
+        border-radius: 16px;
+    }
+    .banner-swiper .swiper-slide .banner-slide-inner img { display: block; }
+
+    /* Slide inner fills the slide box */
+    .banner-swiper .swiper-slide .banner-slide-inner {
+        width: 100%;
+        height: 100%;
     }
 
     /* Default: keep full banner visible */
@@ -86,11 +130,24 @@
     @screen desktop {
         .banner-swiper { height: 320px; max-height: none; min-height: 0; }
         .banner-swiper .swiper-slide { height: 320px; }
-        .banner-swiper .banner-img { object-fit: cover; }
+        /* Desktop: do not crop banner text */
+        .banner-swiper .banner-img { object-fit: contain; }
         .banner-swiper .swiper-slide .banner-slide-inner {
             background: transparent;
             border: 0;
             box-shadow: none;
+        }
+    }
+
+    @media (min-width: 1280px) {
+        /* Vertically center shorter side slides in 320px stage */
+        .banner-swiper .swiper-wrapper { align-items: center; }
+
+        /* Side banners shorter on large screens */
+        .banner-swiper .swiper-slide { height: 262px; }
+        .banner-swiper .swiper-slide.swiper-slide-active,
+        .banner-swiper .swiper-slide.swiper-slide-duplicate-active {
+            height: 320px;
         }
     }
 
@@ -99,7 +156,8 @@
     .banner-swiper .swiper-slide.swiper-slide-next,
     .banner-swiper .swiper-slide.swiper-slide-prev {
         filter: brightness(.95);
-        transform: scale(.95, .9);
+        /* Avoid top/bottom gaps around side slides */
+        transform: scale(.95);
     }
 
     .banner-swiper .swiper-slide.swiper-slide-active {

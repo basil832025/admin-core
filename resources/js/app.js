@@ -315,7 +315,7 @@ function initBannerSwiper() {
         modules: [Navigation, Pagination, Autoplay],
         loop: true,
         autoplay: { delay: delayMs, disableOnInteraction: false, pauseOnMouseEnter: false },
-        slidesPerView: 1.15,
+        slidesPerView: 'auto',
         centeredSlides: true,
         centeredSlidesBounds: true,
         centerInsufficientSlides: true,
@@ -336,8 +336,8 @@ function initBannerSwiper() {
             prevEl: '.banner-swiper .swiper-button-prev',
         },
         breakpoints: {
-            768: { slidesPerView: 1.15, spaceBetween: 8 },
-            1344: { slidesPerView: 1.9, spaceBetween: 24 },
+            768: { slidesPerView: 'auto', spaceBetween: 8 },
+            1344: { slidesPerView: 'auto', spaceBetween: 24 },
         },
         on: {
             init() {
