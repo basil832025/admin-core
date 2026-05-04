@@ -139,9 +139,11 @@ class HomeController extends Controller
         }
 
         // 4) Остальные группы по группам (только is_home)
-        $otherRoots = Cache::remember("home:other:roots:$locale", 3600, function () use ($parentSlug) {
+        $otherRoots = Cache::remember("home:other:roots:v2:$locale", 3600, function () use ($parentSlug) {
             return ProductCategory::query()
-                ->whereNull('parent_id')
+                ->where(function ($q) {
+                    $q->whereNull('parent_id')->orWhere('parent_id', -1);
+                })
                 ->where('is_visible', 1)
                 ->where('slug', '!=', $parentSlug)
                 ->orderBy('order')
