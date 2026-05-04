@@ -18,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function ($middleware) {
         $middleware->appendToGroup('web', [
             \App\Http\Middleware\SetLocaleFromSession::class,
+            \App\Http\Middleware\ValidatePaginationPage::class,
         ]);
     })
     ->withExceptions(function ($exceptions) {

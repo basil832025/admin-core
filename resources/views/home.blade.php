@@ -34,6 +34,9 @@
     </div>
             <section class="max-w-screen-xl mx-auto ">
                 <div class="space-y-14">
+                    @if(!empty($promo))
+                        <x-product.section title="{{ st('menu.promo','Акції') }}" :items="$promo" />
+                    @endif
                     <x-product.section title="{{ st('menu.hits','Хіти') }}" :items="$hits" />
                 </div>
                 <div class="space-y-14 mt-12">
