@@ -13,7 +13,12 @@
     /* чтобы уменьшенные слайды не обрезались */
     .banner-swiper { overflow: hidden; }
     /* Цвет активной точки уже решили: */
-    #banner-pagination { --swiper-theme-color:#f97316; --swiper-pagination-color:#f97316; }
+    #banner-pagination {
+        --swiper-theme-color:#f97316;
+        --swiper-pagination-color:#f97316;
+        /* Reserve space so bullets don't shift layout (CLS). */
+        min-height: 16px;
+    }
 
     /* Sushi-master-like hero slider */
     .banner-swiper {
