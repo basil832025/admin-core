@@ -25,6 +25,11 @@ class ReviewController extends Controller
             ->active()->forLocation($locationId)->newest()
             ->paginate(10);
 
+        // Invalid/out-of-range page should show our 404 page.
+        if ($reviews->currentPage() > $reviews->lastPage() && $reviews->currentPage() > 1) {
+            return response()->view('404', [], 404);
+        }
+
         // агрегаты для шапки (средняя, проценты по звёздам)
         $stats = EstablishmentReview::query()
             ->active()->forLocation($locationId)

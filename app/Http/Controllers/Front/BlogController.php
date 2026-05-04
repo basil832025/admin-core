@@ -30,6 +30,11 @@ class BlogController extends Controller
             ->latest('published_at')
             ->paginate(9)
             ->withQueryString();
+
+        // Protect from huge/invalid ?page=... values that can break pagination rendering.
+        if ($posts->currentPage() > $posts->lastPage() && $posts->currentPage() > 1) {
+            return response()->view('404', [], 404);
+        }
       //  dd($posts);
         // SEO (при необходимости)
         $title = $category->name ?? 'Блог';
@@ -81,7 +86,11 @@ class BlogController extends Controller
             ->latest()
             ->paginate(10)
             ->withQueryString();
-     //   dd($comments);
+
+        if ($comments->currentPage() > $comments->lastPage() && $comments->currentPage() > 1) {
+            return response()->view('404', [], 404);
+        }
+      //   dd($comments);
         return view('pages.blog.show', [
             'post'   => $post,
             'title'  => $title,

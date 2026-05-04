@@ -85,7 +85,12 @@
             @if($posts->hasPages())
                 <div class="mt-6 flex items-center justify-center gap-2">
                     <a href="{{ $posts->previousPageUrl() ?? '#' }}" class="w-10 h-10 rounded border flex items-center justify-center {{ $posts->onFirstPage() ? 'pointer-events-none opacity-40' : 'hover:border-[#FF7500]' }}">‹</a>
-                    @foreach($posts->getUrlRange(max(1,$posts->currentPage()-2), min($posts->lastPage(),$posts->currentPage()+2)) as $page => $url)
+                    @php
+                        $current = min($posts->currentPage(), $posts->lastPage());
+                        $start = max(1, $current - 2);
+                        $end = min($posts->lastPage(), $current + 2);
+                    @endphp
+                    @foreach($posts->getUrlRange($start, $end) as $page => $url)
                         <a href="{{ $url }}" class="w-10 h-10 rounded border flex items-center justify-center text-sm {{ $page === $posts->currentPage() ? 'bg-[#FF7500] text-white border-[#FF7500]' : 'hover:border-[#FF7500]' }}">
                             {{ $page }}
                         </a>

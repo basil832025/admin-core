@@ -27,6 +27,11 @@ class ProductController extends Controller
             ->latest('created_at')
             ->paginate(10);
 
+        // Invalid/out-of-range page should show our 404 page.
+        if ($reviews->currentPage() > $reviews->lastPage() && $reviews->currentPage() > 1) {
+            return response()->view('404', [], 404);
+        }
+
         // Агрегаты за 1 запрос
         $stats = ProductReview::query()
             ->published()
@@ -56,5 +61,4 @@ class ProductController extends Controller
         return view('pages.catalog.product', compact('product', 'category', 'related','reviews','stats', 'bonusPercent', 'minOrderSumForEarn'));
     }
 }
-
 

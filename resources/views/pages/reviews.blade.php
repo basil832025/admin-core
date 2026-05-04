@@ -142,17 +142,22 @@
             @endforeach
         </div>
         {{-- Пагинация как на макете --}}
-        @if($reviews->hasPages())
-            <div class="mt-6 flex items-center justify-center gap-2">
-                <a href="{{ $reviews->previousPageUrl() ?? '#' }}" class="w-10 h-10 rounded border flex items-center justify-center {{ $reviews->onFirstPage() ? 'pointer-events-none opacity-40' : 'hover:border-[#FF7500]' }}">‹</a>
-                @foreach($reviews->getUrlRange(max(1,$reviews->currentPage()-2), min($reviews->lastPage(),$reviews->currentPage()+2)) as $page => $url)
-                    <a href="{{ $url }}" class="w-10 h-10 rounded border flex items-center justify-center text-sm {{ $page === $reviews->currentPage() ? 'bg-[#FF7500] text-white border-[#FF7500]' : 'hover:border-[#FF7500]' }}">
-                        {{ $page }}
-                    </a>
-                @endforeach
-                <a href="{{ $reviews->nextPageUrl() ?? '#' }}" class="w-10 h-10 rounded border flex items-center justify-center {{ $reviews->currentPage()===$reviews->lastPage() ? 'pointer-events-none opacity-40' : 'hover:border-[#FF7500]' }}">›</a>
-            </div>
-        @endif
+                @if($reviews->hasPages())
+                    <div class="mt-6 flex items-center justify-center gap-2">
+                        <a href="{{ $reviews->previousPageUrl() ?? '#' }}" class="w-10 h-10 rounded border flex items-center justify-center {{ $reviews->onFirstPage() ? 'pointer-events-none opacity-40' : 'hover:border-[#FF7500]' }}">‹</a>
+                        @php
+                            $current = min($reviews->currentPage(), $reviews->lastPage());
+                            $start = max(1, $current - 2);
+                            $end = min($reviews->lastPage(), $current + 2);
+                        @endphp
+                        @foreach($reviews->getUrlRange($start, $end) as $page => $url)
+                            <a href="{{ $url }}" class="w-10 h-10 rounded border flex items-center justify-center text-sm {{ $page === $reviews->currentPage() ? 'bg-[#FF7500] text-white border-[#FF7500]' : 'hover:border-[#FF7500]' }}">
+                                {{ $page }}
+                            </a>
+                        @endforeach
+                        <a href="{{ $reviews->nextPageUrl() ?? '#' }}" class="w-10 h-10 rounded border flex items-center justify-center {{ $reviews->currentPage()===$reviews->lastPage() ? 'pointer-events-none opacity-40' : 'hover:border-[#FF7500]' }}">›</a>
+                    </div>
+                @endif
         {{-- кнопка оставить отзыв --}}
         <div class="mt-8 flex justify-center">
             <button @click="openReview = true"
