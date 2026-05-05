@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Доставка осетинських пирогів у Києві')
+@include('partials.seo.page', ['page' => $page ?? null, 'defaultTitle' => 'Доставка осетинських пирогів у Києві'])
 
 @section('content')
     <section class="flex items-center justify-center w-screen relative left-1/2 -translate-x-1/2 overflow-x-hidden">

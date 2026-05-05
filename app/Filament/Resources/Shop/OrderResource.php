@@ -67,6 +67,11 @@ use App\Enums\PaymentMethodEnum;
 use Filament\Tables\Columns\BadgeColumn;
 class OrderResource extends Resource
 {
+    protected static function isCallcenterContext(): bool
+    {
+        // Works for both initial page load and Livewire requests.
+        return (string) static::getSlug() === 'callcenter/orders';
+    }
     protected static ?string $model = Order::class;
     protected static ?string $slug = 'shop/orders';
     protected static ?string $recordTitleAttribute = 'number';
@@ -1179,31 +1184,42 @@ class OrderResource extends Resource
                             })
                             ->columnSpan(3),
 
-                        TimePicker::make('time_start')
-                            ->label(__('order.fields.created_time'))
-                            ->seconds(false)
-                            ->default(fn (?Order $record) => $record?->exists ? null : Carbon::now()->format('H:i'))
-                            ->live()
-                            ->reactive()
-                            /*->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                if (! $state) return;
-                                $add = $get('self_pickup') ? 15 : 60;
-                                $set('time_order', Carbon::parse($state)->addMinutes($add)->format('H:i'));
-                            })*/
+                        Group::make()
+                            ->schema([
+                                TimePicker::make('time_start')
+                                    ->label(__('order.fields.created_time'))
+                                    ->seconds(false)
+                                    ->default(fn (?Order $record) => $record?->exists ? null : Carbon::now()->format('H:i'))
+                                    ->live()
+                                    ->reactive(),
+
+                                View::make('filament.components.time-minute-buttons')
+                                    ->viewData([
+                                        'statePath' => 'data.time_start',
+                                    ]),
+                            ])
                             ->columnSpan(3),
 
-                        TimePicker::make('time_order')
-                            ->label(__('order.fields.order_time'))
-                            ->seconds(false)
-                            ->default(fn () => Carbon::now(config('app.timezone'))->addMinutes(60)->format('H:i'))
-                            ->afterStateHydrated(function ($component, $state) {
-                                if (blank($state)) {
-                                    $component->state(
-                                        Carbon::now(config('app.timezone'))->addMinutes(60)->format('H:i')
-                                    );
-                                }
-                            })
-                            ->live()
+                        Group::make()
+                            ->schema([
+                                TimePicker::make('time_order')
+                                    ->label(__('order.fields.order_time'))
+                                    ->seconds(false)
+                                    ->default(fn () => Carbon::now(config('app.timezone'))->addMinutes(60)->format('H:i'))
+                                    ->afterStateHydrated(function ($component, $state) {
+                                        if (blank($state)) {
+                                            $component->state(
+                                                Carbon::now(config('app.timezone'))->addMinutes(60)->format('H:i')
+                                            );
+                                        }
+                                    })
+                                    ->live(),
+
+                                View::make('filament.components.time-minute-buttons')
+                                    ->viewData([
+                                        'statePath' => 'data.time_order',
+                                    ]),
+                            ])
                             ->columnSpan(3),
 
                         DatePicker::make('date_order')
@@ -1217,7 +1233,7 @@ class OrderResource extends Resource
                             ->label(__('order.fields.asap'))
                             ->inline(false)
                             ->live()
-                            ->columnSpan(3),
+                            ->columnSpan(fn () => static::isCallcenterContext() ? 2 : 3),
 
                         Toggle::make('self_pickup')
                             ->label(__('order.fields.pickup'))
@@ -1241,7 +1257,7 @@ class OrderResource extends Resource
                              $set('date_order', $dt->toDateString());    // DatePicker ожидает Y-m-d
                             })
 
-                            ->columnSpan(3),
+                            ->columnSpan(fn () => static::isCallcenterContext() ? 2 : 3),
 
                     /*    Select::make('payment')
                             ->label('Способ оплаты')
@@ -1264,15 +1280,37 @@ class OrderResource extends Resource
                             ->default(1)
                             ->live()
                             ->reactive()
-                            ->columnSpan(4),
+                            ->columnSpan(fn () => static::isCallcenterContext() ? 5 : 4),
 
-                            Select::make('currency')
+                        Select::make('currency')
                                 ->searchable()
                                 ->label(__('order.fields.currency'))
                                 ->options(Currency::pluck('name', 'code'))
                                 ->default('UAH')
                                 ->required()
+                                ->hidden(fn () => static::isCallcenterContext())
                                 ->columnSpan(2),
+
+                        Group::make()
+                            ->visible(fn () => static::isCallcenterContext())
+                            ->schema([
+                                TimePicker::make('time_issue')
+                                    ->label('Час видачі')
+                                    ->seconds(false)
+                                    ->afterStateHydrated(function ($component, $state, Get $get) {
+                                        if (blank($state)) {
+                                            $component->state($get('time_order'));
+                                        }
+                                    })
+                                    ->default(fn (Get $get) => $get('time_order'))
+                                    ->live(),
+
+                                View::make('filament.components.time-minute-buttons')
+                                    ->viewData([
+                                        'statePath' => 'data.time_issue',
+                                    ]),
+                            ])
+                            ->columnSpan(3),
 
                         TextInput::make('reason_non_payment')
                             ->label(__('order.fields.non_payment_reason'))
@@ -3140,4 +3178,5 @@ class OrderResource extends Resource
             'bonuses' => $bonuses,
         ];
     }
+
 }

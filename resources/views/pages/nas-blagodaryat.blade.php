@@ -5,7 +5,7 @@
     $pageTitle = $page->getTitleForLocale() ?? $page->title;
     $pageContent = $page->getContentForLocale() ?? $page->content;
 @endphp
-@section('title', $pageTitle)
+@include('partials.seo.page', ['page' => $page, 'defaultTitle' => $pageTitle])
 
 @section('content')
     <div class="mx-auto desk:w-[1198px] p-4  max-w-full">

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Front;
 use App\Support\Traits\HasCatalogFilters;
 use App\Models\Blog;
 use App\Models\Banner;
+use App\Models\Pages;
 use App\Models\Shop\Product;
 use App\Http\Controllers\Controller;
 use App\Models\Shop\ProductCategory;
@@ -15,6 +16,7 @@ class HomeController extends Controller
     use HasCatalogFilters;
     public function index()
     {
+        $page = Pages::query()->where('slug', 'home')->first();
 
         $favoriteIds = $this->favoriteIds();
         [$priceMin, $priceMax] = $this->getPriceBounds('all');
@@ -190,6 +192,7 @@ class HomeController extends Controller
             'filterCharacteristicGroups' => $filterCharacteristicGroups,
             'categorySections' => $categorySections,
             'homeBlog' => $homeBlog,
+            'page' => $page,
         ]);
     }
 }

@@ -1,7 +1,7 @@
 {{-- resources/views/pages/about.blade.php --}}
 @extends('layouts.app')
 
-@section('title', $page->title)
+@include('partials.seo.page', ['page' => $page])
 @php
     $text = page_field('about', 'about_zagl','Ми печемо з душею, як для своїх') ?? ''; // строка из базы, например: "Мы печём с душой, как для своих"
     $parts = explode(' ', $text, 2);

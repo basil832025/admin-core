@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Наші ресторани')
+@include('partials.seo.page', ['page' => $page, 'defaultTitle' => 'Наші ресторани'])
 
 @section('content')
     @php

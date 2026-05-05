@@ -1,28 +1,7 @@
 {{-- resources/views/delivery.blade.php --}}
 @extends('layouts.app')
 
-@php
-    /** @var \App\Models\Pages|null $page */
-    $locale = app()->getLocale();
-    $fallback = config('translatable.fallback_locale', 'uk');
-
-    $seoTitle = $page?->meta_title[$locale]
-        ?? $page?->meta_title[$fallback]
-        ?? $page?->getTitleForLocale($locale)
-        ?? 'Доставка і самовивіз';
-
-    $seoDescription = $page?->meta_description[$locale]
-        ?? $page?->meta_description[$fallback]
-        ?? '';
-
-    $seoKeywords = $page?->meta_keywords[$locale]
-        ?? $page?->meta_keywords[$fallback]
-        ?? '';
-@endphp
-
-@section('title', $seoTitle)
-@section('meta_description', $seoDescription)
-@section('meta_keywords', $seoKeywords)
+@include('partials.seo.page', ['page' => $page, 'defaultTitle' => 'Доставка і самовивіз'])
 
 @section('content')
     @php

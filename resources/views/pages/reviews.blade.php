@@ -25,7 +25,7 @@
     $empty = 5 - $full - $half;
     $uid = uniqid('star'); // для clipPath
 @endphp
-@section('title', $page->title)
+@include('partials.seo.page', ['page' => $page])
 @section('content')
     <div class="mx-auto desk:w-[1198px] p-4  max-w-full">
         {{-- Хлебные крошки --}}
