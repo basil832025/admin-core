@@ -113,8 +113,41 @@
     .banner-swiper .banner-img { object-fit: contain; }
 
     @media (max-width: 767px) {
+        /* Mobile: central banner taller */
+        .banner-swiper {
+            height: 137px;
+            max-height: none;
+            min-height: 0;
+        }
+        /* If slide is wrapped with a link, it must fill the slide on mobile */
+        .banner-swiper .swiper-slide > a {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        .banner-swiper .swiper-wrapper {
+            align-items: center;
+        }
         .banner-swiper .swiper-slide {
-            height: 33vw;
+            height: 123px;
+        }
+        .banner-swiper .swiper-slide.swiper-slide-active,
+        .banner-swiper .swiper-slide.swiper-slide-duplicate-active {
+            height: 137px;
+        }
+
+        .banner-swiper .swiper-slide .banner-slide-inner,
+        .banner-swiper .swiper-slide .banner-slide-inner picture,
+        .banner-swiper .swiper-slide .banner-slide-inner img {
+            height: 100%;
+        }
+        .banner-swiper .swiper-slide .banner-slide-inner picture {
+            display: block;
+            width: 100%;
+        }
+        .banner-swiper .swiper-slide .banner-slide-inner img {
+            display: block;
+            width: 100%;
         }
 
         /* Mobile: no letterboxing, show only banner */
