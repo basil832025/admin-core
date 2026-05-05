@@ -24,6 +24,12 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function ($exceptions) {
         // Обработка 419 ошибки (CSRF token expired) - автоматическая перезагрузка
         $exceptions->render(function (\Illuminate\Session\TokenMismatchException $e, $request) {
+            // Logout should never show the "Page Expired" screen in production.
+            // If CSRF token is stale (cached page / long-lived tab), redirect to login.
+            if ($request->is('auth/logout')) {
+                return redirect('/auth', 303);
+            }
+
             // Для AJAX запросов возвращаем JSON с флагом для перезагрузки
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json([
