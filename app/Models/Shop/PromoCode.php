@@ -66,7 +66,13 @@ class PromoCode extends Model
         $filtersOn = (bool) ($productIds || $categoryIds || $valueIdsReq || $charIdsReq);
 
         // подгружаем, что есть (attributeValues может отсутствовать)
-        $order->loadMissing(['items.product.parent', 'items.product.categories']);
+        $order->loadMissing([
+            'items.product.parent',
+            'items.product.categories',
+            'items.product.mainCategory',
+            'items.product.parent.categories',
+            'items.product.parent.mainCategory',
+        ]);
         if (method_exists(Product::class, 'attributeValues')) {
             $order->loadMissing(['items.product.attributeValues']);
         }
@@ -91,7 +97,7 @@ class PromoCode extends Model
 
             // КАТЕГОРИИ
             if (!$matches && $categoryIds) {
-                $prodCatIds = $product->categories?->pluck('id')->map(fn($v)=>(int)$v)->all() ?? [];
+                $prodCatIds = $this->resolveProductCategoryIds($product);
                 if (array_intersect($categoryIds, $prodCatIds)) $matches = true;
             }
 
@@ -239,6 +245,30 @@ class PromoCode extends Model
         $flat = Arr::flatten(Arr::wrap($raw));
         return array_values(array_filter(array_map('intval', $flat), fn($v)=>$v>0));
     }
+    protected function resolveProductCategoryIds(?Product $product): array
+    {
+        if (! $product) return [];
+
+        $ids = [];
+
+        foreach ([$product, $product->parent] as $candidate) {
+            if (! $candidate) continue;
+
+            if ($candidate->category_id) {
+                $ids[] = (int) $candidate->category_id;
+            }
+
+            $relationIds = $candidate->categories?->pluck('id')->map(fn($v)=>(int)$v)->all() ?? [];
+            $ids = array_merge($ids, $relationIds);
+
+            $mainCategoryId = (int) ($candidate->mainCategory?->id ?? 0);
+            if ($mainCategoryId > 0) {
+                $ids[] = $mainCategoryId;
+            }
+        }
+
+        return array_values(array_unique(array_filter($ids)));
+    }
     protected function promoMatchesItem($item): bool
     {
         $product   = $item->product ?? null;
@@ -258,7 +288,7 @@ class PromoCode extends Model
         $categoryIds = array_filter(array_map('intval', (array) ($this->category_ids ?? [])));
         if ($categoryIds) {
             $filtersOn = true;
-            $prodCatIds = $product?->categories?->pluck('id')->map(fn($v)=>(int)$v)->all() ?? [];
+            $prodCatIds = $product ? $this->resolveProductCategoryIds($product) : [];
             if (array_intersect($categoryIds, $prodCatIds)) {
                 $matched = true;
             }
