@@ -87,6 +87,8 @@ class CreateOrder extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
+        $data['currency'] = (string) ($data['currency'] ?? 'UAH');
+
         if (isset($data['items']) && is_array($data['items'])) {
             $data['items'] = array_values(array_filter($data['items'], function ($item): bool {
                 $row = is_array($item) ? $item : (array) $item;

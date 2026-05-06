@@ -226,6 +226,9 @@ class Order extends Model
             if ($order->getKey()) {
                 $order->setAttribute($order->getKeyName(), null);
             }
+            if (blank($order->currency)) {
+                $order->currency = 'UAH';
+            }
             // если статус ещё не выставлен — берём дефолт
             $status = $order->status ?? OrderStatus::New;        // enum-объект
             $order->status_times = [$status->value => now()->toDateTimeString()];
