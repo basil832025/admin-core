@@ -112,6 +112,7 @@ class ProductCardPresenter
             'price'       => $p->price,
             'old_price'   => $p->old_price,
             'article'     => $pickArticle($p),
+            'is_new'      => (bool) ($p->is_new ?? false),
             'is_hit'      => (bool) ($p->is_hit ?? false),
             'is_promo'    => (bool) ($p->is_promo ?? false),
             'is_vegan'    => (bool) ($p->is_vegan ?? false),
@@ -136,6 +137,7 @@ class ProductCardPresenter
                 'article'     => $pickArticle($child),
                 // Badges are defined on the root product and must stay visible
                 // when switching between variant sizes.
+                'is_new'      => (bool) ($p->is_new ?? false),
                 'is_hit'      => (bool) ($p->is_hit ?? false),
                 'is_promo'    => (bool) ($p->is_promo ?? false),
                 'is_vegan'    => (bool) ($p->is_vegan ?? false),

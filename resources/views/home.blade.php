@@ -37,11 +37,15 @@
                     @if(!empty($promo))
                         <x-product.section title="{{ st('menu.promo','Акції') }}" :items="$promo" />
                     @endif
-                    <x-product.section title="{{ st('menu.hits','Хіти') }}" :items="$hits" />
+                    @if(!empty($hits) && count($hits))
+                        <x-product.section title="{{ st('menu.hits','Хіти') }}" :items="$hits" />
+                    @endif
                 </div>
-                <div class="space-y-14 mt-12">
-                    <x-product.section title="{{ st('menu.news','Новинки') }}" :items="$news" />
-                </div>
+                @if(!empty($news) && count($news))
+                    <div class="space-y-14 mt-12">
+                        <x-product.section title="{{ st('menu.news','Новинки') }}" :items="$news" />
+                    </div>
+                @endif
                 @foreach($categorySections as $section)
 
                     <div class="space-y-14 mt-12">

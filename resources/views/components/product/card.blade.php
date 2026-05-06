@@ -46,6 +46,7 @@
 
             $badgeMap[$rowId] = [
                 'is_spicy' => (bool)($row['is_spicy'] ?? false),
+                'is_new' => (bool)($row['is_new'] ?? false),
                 'is_promo' => (bool)($row['is_promo'] ?? false),
                 'is_hit' => (bool)($row['is_hit'] ?? false),
                 'is_vegan' => (bool)($row['is_vegan'] ?? false),
@@ -82,6 +83,7 @@
         discountLabel: @js($discountLabel),
         badgeLabels: @js([
             'is_spicy' => st('product.badges.is_spicy', 'Гострий'),
+            'is_new' => st('product.badges.is_new', 'Новинка'),
             'is_promo' => st('product.badges.is_promo', 'Акція'),
             'is_hit' => st('product.badges.is_hit', 'Хіт'),
             'is_vegan' => st('product.badges.is_vegan', 'Веган'),
@@ -150,6 +152,9 @@
 
             if (flags.is_spicy) {
                 items.push({ key: 'is_spicy', color: '#FF0013', textColor: '#FFFFFF', label: this.badgeLabels.is_spicy });
+            }
+            if (flags.is_new) {
+                items.push({ key: 'is_new', color: '#B91C1C', textColor: '#FFFFFF', label: this.badgeLabels.is_new });
             }
             if (flags.is_promo) {
                 items.push({ key: 'is_promo', color: '#FF7500', textColor: '#FFFFFF', label: this.badgeLabels.is_promo });
