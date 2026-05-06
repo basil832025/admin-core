@@ -4,6 +4,7 @@ namespace App\Services\PrintNode;
 
 use App\Enums\PrintOperationCode;
 use App\Enums\OrderStatus;
+use App\Models\PrintOperationProfile;
 use App\Models\Setting;
 use App\Models\Shop\ProductCharacteristicValue;
 use App\Models\Shop\Order;
@@ -177,13 +178,14 @@ class KitchenDuplicatePrintService
         $textPayload = $this->applyTemplate($vars);
 
         if ($this->printOperationService->hasActiveProfile(PrintOperationCode::KitchenWorkReceipt->value)) {
-            $context = $this->buildKitchenOperationContext($vars);
-
-            $result = $this->printOperationService->print(
-                PrintOperationCode::KitchenWorkReceipt->value,
-                params: [],
-                context: $context,
-                copiesOverride: $copiesOverride !== null ? $copies : null,
+            $result = $this->sendKitchenProfileRawTextPrint(
+                $order,
+                $title,
+                $textPayload,
+                $isDuplicate,
+                $nextCount,
+                $context,
+                $copies,
             );
 
             $order->kitchen_print_count = $nextCount;
@@ -203,6 +205,7 @@ class KitchenDuplicatePrintService
             return [
                 'printed' => true,
                 'printjob_id' => $result['printjob_id'] ?? null,
+                'printjob_ids' => $result['printjob_ids'] ?? [],
                 'duplicate' => $isDuplicate,
                 'count' => $nextCount,
             ];
@@ -277,6 +280,73 @@ class KitchenDuplicatePrintService
             'printjob_ids' => $jobIds,
             'duplicate' => $isDuplicate,
             'count' => $nextCount,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function sendKitchenProfileRawTextPrint(
+        Order $order,
+        string $title,
+        string $textPayload,
+        bool $isDuplicate,
+        int $nextCount,
+        string $context,
+        int $copies
+    ): array {
+        $profile = PrintOperationProfile::query()
+            ->where('operation_code', PrintOperationCode::KitchenWorkReceipt->value)
+            ->where('is_active', true)
+            ->first();
+
+        if (! $profile) {
+            throw new \RuntimeException('Немає активного профілю друку для операції: '.PrintOperationCode::KitchenWorkReceipt->value);
+        }
+
+        $printerSelector = $this->printNode->resolvePrinterSelector(
+            $profile->printer_id ? (int) $profile->printer_id : null,
+            $profile->printer_name ?: null,
+        );
+
+        if (! $printerSelector) {
+            throw new \RuntimeException('Не вдалося знайти принтер для профілю друку кухні.');
+        }
+
+        $encoding = mb_strtolower(trim((string) Setting::admin('printservice.raw_encoding', Setting::admin('printnode.raw_encoding', 'utf-8'))));
+        $textPayload = $this->applyEncoding($textPayload, $encoding);
+        $jobIds = [];
+
+        for ($copyIndex = 1; $copyIndex <= $copies; $copyIndex++) {
+            $result = $this->printNode->createRawPrintJob(
+                printerSelector: $printerSelector,
+                title: $title,
+                rawContent: $textPayload,
+                qty: 1,
+            );
+
+            $jobId = (string) ($result['printjob_id'] ?? '');
+            if ($jobId !== '') {
+                $jobIds[] = $jobId;
+            }
+        }
+
+        Log::info('Kitchen duplicate print sent via operation profile raw mode', [
+            'order_id' => $order->id,
+            'printer_selector' => $printerSelector,
+            'copies' => $copies,
+            'printjob_id' => $jobIds !== [] ? end($jobIds) : null,
+            'printjob_ids' => $jobIds,
+            'duplicate' => $isDuplicate,
+            'count' => $nextCount,
+            'context' => $context,
+        ]);
+
+        return [
+            'printjob_id' => $jobIds !== [] ? end($jobIds) : null,
+            'printjob_ids' => $jobIds,
+            'printer_selector' => $printerSelector,
+            'copies' => $copies,
         ];
     }
 
