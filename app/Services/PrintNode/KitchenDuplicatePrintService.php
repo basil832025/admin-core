@@ -64,6 +64,7 @@ class KitchenDuplicatePrintService
             'operation_code' => $operationCode,
             'order_id' => $order->id,
             'printjob_id' => $result['printjob_id'] ?? null,
+            'printjob_ids' => $result['printjob_ids'] ?? [],
             'copies' => $result['copies'] ?? $copies,
         ]);
 
@@ -120,13 +121,17 @@ class KitchenDuplicatePrintService
             'secondary_operation_code' => $secondaryOperationCode,
             'printer_selector' => $secondaryResult['printer_selector'] ?? $primaryResult['printer_selector'] ?? null,
             'primary_printjob_id' => $primaryResult['printjob_id'] ?? null,
+            'primary_printjob_ids' => $primaryResult['printjob_ids'] ?? [],
             'secondary_printjob_id' => $secondaryResult['printjob_id'] ?? null,
+            'secondary_printjob_ids' => $secondaryResult['printjob_ids'] ?? [],
             'copies' => $normalizedCopies,
         ]);
 
         return [
             'client_printjob_id' => $primaryResult['printjob_id'] ?? null,
+            'client_printjob_ids' => $primaryResult['printjob_ids'] ?? [],
             'logistic_printjob_id' => $secondaryResult['printjob_id'] ?? null,
+            'logistic_printjob_ids' => $secondaryResult['printjob_ids'] ?? [],
             'printer_selector' => $secondaryResult['printer_selector'] ?? $primaryResult['printer_selector'] ?? null,
             'copies' => $normalizedCopies,
         ];
@@ -215,22 +220,40 @@ class KitchenDuplicatePrintService
 
         if ($usePdf) {
             $pdfBinary = $this->buildSimplePdfFromText($textPayload);
-            $result = $this->printNode->createPdfBase64PrintJob(
-                printerSelector: $printerSelector,
-                title: $title,
-                pdfBinary: $pdfBinary,
-                qty: $copies,
-            );
+            $jobIds = [];
+
+            for ($copyIndex = 1; $copyIndex <= $copies; $copyIndex++) {
+                $result = $this->printNode->createPdfBase64PrintJob(
+                    printerSelector: $printerSelector,
+                    title: $title,
+                    pdfBinary: $pdfBinary,
+                    qty: 1,
+                );
+
+                $jobId = (string) ($result['printjob_id'] ?? '');
+                if ($jobId !== '') {
+                    $jobIds[] = $jobId;
+                }
+            }
         } else {
             $encoding = mb_strtolower(trim((string) Setting::admin('printservice.raw_encoding', Setting::admin('printnode.raw_encoding', 'utf-8'))));
             $textPayload = $this->applyEncoding($textPayload, $encoding);
 
-            $result = $this->printNode->createRawPrintJob(
-                printerSelector: $printerSelector,
-                title: $title,
-                rawContent: $textPayload,
-                qty: $copies,
-            );
+            $jobIds = [];
+
+            for ($copyIndex = 1; $copyIndex <= $copies; $copyIndex++) {
+                $result = $this->printNode->createRawPrintJob(
+                    printerSelector: $printerSelector,
+                    title: $title,
+                    rawContent: $textPayload,
+                    qty: 1,
+                );
+
+                $jobId = (string) ($result['printjob_id'] ?? '');
+                if ($jobId !== '') {
+                    $jobIds[] = $jobId;
+                }
+            }
         }
 
         $order->kitchen_print_count = $nextCount;
@@ -241,7 +264,8 @@ class KitchenDuplicatePrintService
             'order_id' => $order->id,
             'printer_selector' => $printerSelector,
             'copies' => $copies,
-            'printjob_id' => $result['printjob_id'] ?? null,
+            'printjob_id' => $jobIds !== [] ? end($jobIds) : null,
+            'printjob_ids' => $jobIds,
             'duplicate' => $isDuplicate,
             'count' => $nextCount,
             'context' => $context,
@@ -249,7 +273,8 @@ class KitchenDuplicatePrintService
 
         return [
             'printed' => true,
-            'printjob_id' => $result['printjob_id'] ?? null,
+            'printjob_id' => $jobIds !== [] ? end($jobIds) : null,
+            'printjob_ids' => $jobIds,
             'duplicate' => $isDuplicate,
             'count' => $nextCount,
         ];
@@ -393,16 +418,27 @@ class KitchenDuplicatePrintService
             default => 'Kitchen duplicate TEST',
         };
 
-        $result = $this->printNode->createPdfBase64PrintJob(
-            printerSelector: $printerSelector,
-            title: $title,
-            pdfBinary: $this->buildSimplePdfFromBodyHtml($payload['body_html']),
-            qty: $copies,
-        );
+        $pdfBinary = $this->buildSimplePdfFromBodyHtml($payload['body_html']);
+        $jobIds = [];
+
+        for ($copyIndex = 1; $copyIndex <= $copies; $copyIndex++) {
+            $result = $this->printNode->createPdfBase64PrintJob(
+                printerSelector: $printerSelector,
+                title: $title,
+                pdfBinary: $pdfBinary,
+                qty: 1,
+            );
+
+            $jobId = (string) ($result['printjob_id'] ?? '');
+            if ($jobId !== '') {
+                $jobIds[] = $jobId;
+            }
+        }
 
         return [
             'printed' => true,
-            'printjob_id' => $result['printjob_id'] ?? null,
+            'printjob_id' => $jobIds !== [] ? end($jobIds) : null,
+            'printjob_ids' => $jobIds,
             'template_type' => $templateType,
             'copies' => $copies,
             'use_pdf' => true,
