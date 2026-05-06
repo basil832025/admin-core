@@ -434,11 +434,11 @@ class Product extends Model implements HasMedia
     }
 
     /* Базовые скоупы */
-    public function scopeActive($q)   { return $q->where('in_stock', 1); }
-    public function scopeMainProduct($q)   { return $q->whereNull('parent_id'); }
-    public function scopeHit($q)      { return $q->where('is_hit', 1); }
-    public function scopeNew($q)      { return $q->where('is_new', 1); }
-    public function scopeHome($q)     { return $q->where('is_home', 1); }
+    public function scopeActive($q)   { return $q->where('bs_products.in_stock', 1); }
+    public function scopeMainProduct($q)   { return $q->whereNull('bs_products.parent_id'); }
+    public function scopeHit($q)      { return $q->where('bs_products.is_hit', 1); }
+    public function scopeNew($q)      { return $q->where('bs_products.is_new', 1); }
+    public function scopeHome($q)     { return $q->where('bs_products.is_home', 1); }
     public function scopePie($q)
     {
         return $q->whereHas('mainCategory.parent', function ($q) {
@@ -448,25 +448,25 @@ class Product extends Model implements HasMedia
     public function scopeCardSelect($q)
     {
         return $q->select([
-            'id',
-            'sku',
-            'title',
-            'price',
-            'old_price',
-            'main_image',
-            'slug',
-            'code2',
-            'description',
-            'category_id',
-            'seo_title',
-            'seo_description',
-            'seo_keywords',
-            'is_new',
-            'is_hit',
-            'is_promo',
-            'is_vegan',
-            'is_product_of_day',
-            'is_spicy',
+            'bs_products.id',
+            'bs_products.sku',
+            'bs_products.title',
+            'bs_products.price',
+            'bs_products.old_price',
+            'bs_products.main_image',
+            'bs_products.slug',
+            'bs_products.code2',
+            'bs_products.description',
+            'bs_products.category_id',
+            'bs_products.seo_title',
+            'bs_products.seo_description',
+            'bs_products.seo_keywords',
+            'bs_products.is_new',
+            'bs_products.is_hit',
+            'bs_products.is_promo',
+            'bs_products.is_vegan',
+            'bs_products.is_product_of_day',
+            'bs_products.is_spicy',
         ])
             ->with('categories:id,slug,title');
     }

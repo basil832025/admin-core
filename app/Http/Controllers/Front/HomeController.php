@@ -43,8 +43,8 @@ class HomeController extends Controller
         // Helper: apply common main-page filters.
         $applyMainPageBase = function ($q): void {
             $q->where(function ($w) {
-                $w->whereNull('is_imported')
-                    ->orWhere('is_imported', false);
+                $w->whereNull('bs_products.is_imported')
+                    ->orWhere('bs_products.is_imported', false);
             });
         };
 
@@ -52,7 +52,7 @@ class HomeController extends Controller
 
         // 0) АКЦИИ (is_promo + is_home) — должны быть первыми
         $promoQuery = Product::withCardRelations()
-            ->active()->home()->where('is_promo', 1)->cardSelect()->MainProduct()->Pie();
+            ->active()->home()->where('bs_products.is_promo', 1)->cardSelect()->MainProduct()->Pie();
         $applyMainPageBase($promoQuery);
         $this->applySort($promoQuery, request());
         $promo_products = $promoQuery->get();
@@ -61,20 +61,40 @@ class HomeController extends Controller
 
         // 1) ХІТИ (is_hit + is_home)
         $hitsQuery = Product::withCardRelations()
-            ->active()->home()->hit()->cardSelect()->MainProduct()->Pie()
-            ->when(!empty($excludeRootIds), fn ($q) => $q->whereNotIn('id', $excludeRootIds));
+            ->active()->home()->hit()->cardSelect()->MainProduct()
+            ->when(!empty($excludeRootIds), fn ($q) => $q->whereNotIn('bs_products.id', $excludeRootIds));
         $applyMainPageBase($hitsQuery);
-        $this->applySort($hitsQuery, request());
+        if (in_array(request()->query('sort', 'popular'), [null, '', 'popular'], true)) {
+            $hitsQuery
+                ->leftJoin('bs_product_categories as main_category', 'main_category.id', '=', 'bs_products.category_id')
+                ->leftJoin('bs_product_categories as root_category', 'root_category.id', '=', 'main_category.parent_id')
+                ->orderByRaw('COALESCE(root_category.`order`, main_category.`order`, 999999) asc')
+                ->orderByRaw('CASE WHEN root_category.id IS NULL THEN 0 ELSE COALESCE(main_category.`order`, 0) END asc')
+                ->orderBy('bs_products.sort', 'asc')
+                ->orderBy('bs_products.id', 'asc');
+        } else {
+            $this->applySort($hitsQuery, request());
+        }
         $hits_products = $hitsQuery->get();
         $hits = (new ProductCardPresenter($locale))->collection($hits_products);
         $excludeRootIds = array_values(array_unique(array_merge($excludeRootIds, $hits_products->pluck('id')->all())));
 
         // 2) НОВИНКИ (is_new + is_home)
         $newsQuery = Product::withCardRelations()
-            ->active()->home()->new()->cardSelect()->MainProduct()->Pie()
-            ->when(!empty($excludeRootIds), fn ($q) => $q->whereNotIn('id', $excludeRootIds));
+            ->active()->home()->new()->cardSelect()->MainProduct()
+            ->when(!empty($excludeRootIds), fn ($q) => $q->whereNotIn('bs_products.id', $excludeRootIds));
         $applyMainPageBase($newsQuery);
-        $this->applySort($newsQuery, request());
+        if (in_array(request()->query('sort', 'popular'), [null, '', 'popular'], true)) {
+            $newsQuery
+                ->leftJoin('bs_product_categories as main_category', 'main_category.id', '=', 'bs_products.category_id')
+                ->leftJoin('bs_product_categories as root_category', 'root_category.id', '=', 'main_category.parent_id')
+                ->orderByRaw('COALESCE(root_category.`order`, main_category.`order`, 999999) asc')
+                ->orderByRaw('CASE WHEN root_category.id IS NULL THEN 0 ELSE COALESCE(main_category.`order`, 0) END asc')
+                ->orderBy('bs_products.sort', 'asc')
+                ->orderBy('bs_products.id', 'asc');
+        } else {
+            $this->applySort($newsQuery, request());
+        }
         $news_products = $newsQuery->get();
         $news = (new ProductCardPresenter($locale))->collection($news_products);
         $excludeRootIds = array_values(array_unique(array_merge($excludeRootIds, $news_products->pluck('id')->all())));
@@ -95,7 +115,7 @@ class HomeController extends Controller
                     $query->whereHas('categories', fn($qq) => $qq->where('slug', $slug))
                         ->orWhereHas('mainCategory', fn($qq) => $qq->where('slug', $slug));
                 })
-                ->when(!empty($excludeRootIds), fn ($qq) => $qq->whereNotIn('id', $excludeRootIds));
+                ->when(!empty($excludeRootIds), fn ($qq) => $qq->whereNotIn('bs_products.id', $excludeRootIds));
 
             $applyMainPageBase($q);
             $this->applySort($q, request());
