@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 use Spatie\Translatable\HasTranslations;
 
 class Banner extends Model
@@ -227,5 +228,31 @@ class Banner extends Model
 
         // иначе универсальная
         return $this->image;
+    }
+
+    public function getLocalizedUrl(?string $locale = null): ?string
+    {
+        $url = trim((string) $this->url);
+        if ($url === '') {
+            return null;
+        }
+
+        if (Str::startsWith($url, ['http://', 'https://', '//', 'mailto:', 'tel:'])) {
+            return $url;
+        }
+
+        $locale ??= app()->getLocale();
+        $prefix = in_array($locale, ['ru', 'en'], true) ? '/' . $locale : '';
+        $normalized = '/' . ltrim($url, '/');
+
+        if ($prefix === '') {
+            return $normalized;
+        }
+
+        if (preg_match('#^/(ru|en)(/|$)#i', $normalized)) {
+            return $normalized;
+        }
+
+        return $prefix . $normalized;
     }
 }

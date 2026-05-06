@@ -61,7 +61,7 @@
                 'image' => $imagePath,
                 'mobile' => $mobilePath,
                 'title' => $title,
-                'url' => $banner->url,
+                'url' => $banner->getLocalizedUrl($locale),
                 'target' => $banner->target,
             ];
         })
