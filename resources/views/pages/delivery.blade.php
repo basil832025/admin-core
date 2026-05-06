@@ -108,8 +108,8 @@
                             <div class="flex items-center gap-3 justify-between">
 
                                 <div class="min-w-0">
-                                    <div class="font-semibold text-lg truncate">{{$headerLocation->title}}</div>
-                                    <div class="text-[10px] text-[#9E9E9E] truncate">{{$headerLocation->address}}</div>
+                                    <div class="font-semibold text-lg truncate">{{ data_get($headerLocation ?? null, 'title', '') }}</div>
+                                    <div class="text-[10px] text-[#9E9E9E] truncate">{{ data_get($headerLocation ?? null, 'address', '') }}</div>
                                 </div>
                                 <div>
                                     <img src="/images/logo_mob.svg" class="w-10 h-10" alt="">

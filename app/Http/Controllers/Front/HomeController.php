@@ -9,6 +9,7 @@ use App\Models\Shop\Product;
 use App\Http\Controllers\Controller;
 use App\Models\Shop\ProductCategory;
 use App\Support\Presenters\ProductCardPresenter;
+use App\Services\SiteTemplates\SiteTemplateRenderer;
 use Illuminate\Support\Facades\Cache;
 
 class HomeController extends Controller
@@ -181,7 +182,7 @@ class HomeController extends Controller
             ->where('slug', 'home_blog')
             ->first();
 
-        return view('home', [
+        return app(SiteTemplateRenderer::class)->render('home', 'home', [
             'banners'          => $banners,
             'promo'            => $promo,
             'hits'             => $hits,

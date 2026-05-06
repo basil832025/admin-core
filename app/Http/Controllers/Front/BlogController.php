@@ -8,6 +8,7 @@ use App\Models\BlogCategory;
 use App\Models\BlogComment;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
+use App\Services\SiteTemplates\SiteTemplateRenderer;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
@@ -40,7 +41,7 @@ class BlogController extends Controller
         $title = $category->name ?? 'Блог';
        // dd($title,$category);
 
-        return view('pages.blog.index', compact('category', 'posts', 'title', 'slug'));
+        return app(SiteTemplateRenderer::class)->render('pages.blog.index', 'pages.blog.index', compact('category', 'posts', 'title', 'slug'));
     }
     public function show(string $slug)
     {
@@ -64,7 +65,7 @@ class BlogController extends Controller
 
         $title = $post->title;
 
-        return view('pages.blog.show', compact('post', 'date',  'title'));
+        return app(SiteTemplateRenderer::class)->render('pages.blog.show', 'pages.blog.show', compact('post', 'date',  'title'));
     }
     public function showInCategory(string $categorySlug, string $postSlug)
     {
@@ -91,7 +92,7 @@ class BlogController extends Controller
             return response()->view('404', [], 404);
         }
       //   dd($comments);
-        return view('pages.blog.show', [
+        return app(SiteTemplateRenderer::class)->render('pages.blog.show', 'pages.blog.show', [
             'post'   => $post,
             'title'  => $title,
             'comments'  => $comments,

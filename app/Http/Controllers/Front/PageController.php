@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Front;
 
 use App\Http\Controllers\Controller;
 use App\Models\Pages;
+use App\Services\SiteTemplates\SiteTemplateRenderer;
 
 class PageController extends Controller
 {
@@ -17,11 +18,11 @@ class PageController extends Controller
         $view = 'pages.' . $page->slug;   // например resources/views/pages/delivery.blade.php
 
         if (view()->exists($view)) {
-            return view($view, compact('page'));
+            return app(SiteTemplateRenderer::class)->render($view, $view, compact('page'));
         }
 
         // Фолбэк – общий шаблон для всех статических страниц
-        return view('pages.show', compact('page')); // resources/views/pages/show.blade.php
+        return app(SiteTemplateRenderer::class)->render('pages.show', 'pages.show', compact('page')); // resources/views/pages/show.blade.php
     }
 
     /**

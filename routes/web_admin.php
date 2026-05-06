@@ -926,3 +926,27 @@ Route::get('/admin/clear-cache', function () {
 Route::post('/api/delivery-zone/resolve', [\App\Http\Controllers\Admin\DeliveryZoneController::class, 'resolveZone'])
     ->name('api.delivery-zone.resolve')
     ->middleware(['web', 'auth:admin']);
+
+Route::get('/admin/site-template-overrides/{record}/preview', function (\App\Models\SiteTemplateOverride $record, \App\Services\SiteTemplates\TemplatePreviewFactory $previewFactory) {
+    $user = auth('admin')->user();
+
+    abort_unless($user && method_exists($user, 'hasRole') && $user->hasRole(config('shield.super_admin.name', 'super_admin')), 403);
+
+    $body = (string) ($record->override_body ?: $record->original_snapshot ?: '');
+
+    try {
+        $html = \Illuminate\Support\Facades\Blade::render($body, $previewFactory->make((string) $record->key), deleteCachedView: true);
+    } catch (\Throwable $e) {
+        $html = '<div style="padding:12px;border-radius:10px;background:#fef2f2;color:#991b1b;border:1px solid #fecaca;">'
+            . '<div style="font-weight:700;margin-bottom:6px;">Не удалось построить предпросмотр</div>'
+            . '<div>' . e($e->getMessage()) . '</div>'
+            . '</div>';
+    }
+
+    return response()->view('filament.site-templates.preview-page-standalone', [
+        'title' => 'Предпросмотр: ' . $record->title,
+        'html' => $html,
+    ]);
+})
+    ->name('admin.site-template-overrides.preview')
+    ->middleware(['web', 'auth:admin']);
