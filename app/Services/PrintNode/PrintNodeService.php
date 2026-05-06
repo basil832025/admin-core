@@ -4,6 +4,7 @@ namespace App\Services\PrintNode;
 
 use App\Models\Setting;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Http;
 
 class PrintNodeService
@@ -110,7 +111,7 @@ class PrintNodeService
             'payload' => $rawContent,
             'copies' => max(1, $qty),
             'priority' => 50,
-            'idempotency_key' => 'myadmin-raw-'.sha1($title.'|'.$printerSelector.'|'.substr($rawContent, 0, 128).'|'.time()),
+            'idempotency_key' => 'myadmin-raw-'.Str::uuid(),
         ];
 
         if ($options !== []) {
@@ -139,7 +140,7 @@ class PrintNodeService
             'payload' => base64_encode($pdfBinary),
             'copies' => max(1, $qty),
             'priority' => 50,
-            'idempotency_key' => 'myadmin-pdf-'.sha1($title.'|'.$printerSelector.'|'.strlen($pdfBinary).'|'.time()),
+            'idempotency_key' => 'myadmin-pdf-'.Str::uuid(),
         ];
 
         if ($options !== []) {
