@@ -115,12 +115,19 @@ class PromoCodeResource extends Resource
                         ->relationship(
                             name: 'categories',
                             titleAttribute: 'id', // метка ниже
+                            modifyQueryUsing: fn (Builder $query): Builder => $query
+                                ->where('is_visible', true)
+                                ->whereNotNull('slug')
+                                ->where('slug', 'not like', 'src-%')
                         )
                         ->getSearchResultsUsing(function (string $search): array {
                             $locale = Setting::value('default_language_code') ?: config('app.locale');
 
                             return ProductCategory::query()
                                 ->select('id', 'title')
+                                ->where('is_visible', true)
+                                ->whereNotNull('slug')
+                                ->where('slug', 'not like', 'src-%')
                                 ->where(function ($q) use ($search, $locale) {
                                     $path = '$."' . $locale . '"';
                                     $q->whereRaw("LOWER(JSON_UNQUOTE(JSON_EXTRACT(title, ?))) LIKE ?", [$path, "%{$search}%"]);
@@ -138,6 +145,9 @@ class PromoCodeResource extends Resource
                             $locale = Setting::value('default_language_code') ?: config('app.locale');
 
                             return ProductCategory::query()
+                                ->where('is_visible', true)
+                                ->whereNotNull('slug')
+                                ->where('slug', 'not like', 'src-%')
                                 ->whereIn('id', $values)
                                 ->get(['id', 'title'])
                                 ->mapWithKeys(function (ProductCategory $c) use ($locale) {

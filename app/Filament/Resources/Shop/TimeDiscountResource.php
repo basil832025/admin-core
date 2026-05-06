@@ -212,13 +212,9 @@ class TimeDiscountResource extends Resource
                             name: 'categories',
                             titleAttribute: 'title', // поправим ниже через getOptionLabelFromRecordUsing
                             modifyQueryUsing: fn (Builder $query): Builder => $query
-                                ->where('slug', 'not like', 'src-%-import')
-                                ->whereHas('products', fn (Builder $products): Builder => $products
-                                    ->where(function (Builder $w): void {
-                                        $w->whereNull('is_imported')
-                                            ->orWhere('is_imported', false);
-                                    })
-                                )
+                                ->where('is_visible', 1)
+                                ->whereNotNull('slug')
+                                ->where('slug', 'not like', 'src-%')
                         )
                         ->getOptionLabelFromRecordUsing(function (ProductCategory $record) {
                             $defaultLocale = Setting::value('default_language_code') ?: app()->getLocale();

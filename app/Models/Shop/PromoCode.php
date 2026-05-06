@@ -91,7 +91,7 @@ class PromoCode extends Model
             $matches = ! $filtersOn; // без фильтров — подходит всё
 
             // ТОВАР
-            if (!$matches && $productIds && in_array((int)$product->id, $productIds, true)) {
+            if (!$matches && $productIds && $this->productMatchesScope($product, $productIds)) {
                 $matches = true;
             }
 
@@ -269,6 +269,20 @@ class PromoCode extends Model
 
         return array_values(array_unique(array_filter($ids)));
     }
+    protected function productMatchesScope(?Product $product, array $productIds): bool
+    {
+        if (! $product) {
+            return false;
+        }
+
+        $candidateIds = array_filter([
+            (int) $product->id,
+            (int) ($product->parent_id ?? 0),
+            (int) ($product->parent?->id ?? 0),
+        ]);
+
+        return (bool) array_intersect($productIds, array_values(array_unique($candidateIds)));
+    }
     protected function promoMatchesItem($item): bool
     {
         $product   = $item->product ?? null;
@@ -279,7 +293,7 @@ class PromoCode extends Model
         $productIds = array_filter(array_map('intval', (array) ($this->product_ids ?? [])));
         if ($productIds) {
             $filtersOn = true;
-            if ($product && in_array((int) $product->id, $productIds, true)) {
+            if ($this->productMatchesScope($product, $productIds)) {
                 $matched = true;
             }
         }

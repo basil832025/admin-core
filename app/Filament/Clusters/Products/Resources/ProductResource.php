@@ -266,9 +266,11 @@ class ProductResource extends Resource
                                 ->live() // 👈 важно: чтобы ниже schema(fn $get) пересчитывалась
                                 ->options(function () use ($defaultLocale) {
                                     // Кэшируем список категорий на 1 час для оптимизации
-                                    return cache()->remember("product_categories_{$defaultLocale}", 3600, function () use ($defaultLocale) {
+                                    return cache()->remember("product_categories_main_site_{$defaultLocale}", 3600, function () use ($defaultLocale) {
                                         return ProductCategory::query()
                                             ->where('is_visible', 1)
+                                            ->whereNotNull('slug')
+                                            ->where('slug', 'not like', 'src-%')
                                             ->get(['id', 'title'])
                                             ->mapWithKeys(function ($cat) use ($defaultLocale) {
                                                 // если title закодирован JSON-ом
@@ -306,9 +308,11 @@ class ProductResource extends Resource
                                     $primary = $get('category_id');
 
                                     // Кэшируем все категории, затем фильтруем
-                                    $allCategories = cache()->remember("product_categories_all_{$defaultLocale}", 3600, function () use ($defaultLocale) {
+                                    $allCategories = cache()->remember("product_categories_all_main_site_{$defaultLocale}", 3600, function () use ($defaultLocale) {
                                         return ProductCategory::query()
                                             ->where('is_visible', 1)
+                                            ->whereNotNull('slug')
+                                            ->where('slug', 'not like', 'src-%')
                                             ->get(['id', 'title'])
                                             ->mapWithKeys(function ($cat) use ($defaultLocale) {
                                                 $t = json_decode($cat->getRawOriginal('title'), true);
