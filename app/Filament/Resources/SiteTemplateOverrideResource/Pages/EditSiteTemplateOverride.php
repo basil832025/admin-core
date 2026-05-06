@@ -11,6 +11,7 @@ use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\File;
 use Throwable;
 
 class EditSiteTemplateOverride extends EditRecord
@@ -80,14 +81,32 @@ class EditSiteTemplateOverride extends EditRecord
                 ->icon('heroicon-o-arrow-uturn-left')
                 ->requiresConfirmation()
                 ->action(function (): void {
+                    $sourcePath = trim((string) ($this->record->source_path ?? ''));
+                    $absolutePath = $sourcePath !== '' ? base_path($sourcePath) : '';
+
+                    if ($absolutePath === '' || ! File::exists($absolutePath)) {
+                        Notification::make()
+                            ->title('Файл оригинального шаблона не найден')
+                            ->body($sourcePath !== '' ? $sourcePath : 'Для шаблона не задан source_path.')
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
+                    $body = File::get($absolutePath);
+
                     $this->record->update([
-                        'override_body' => $this->record->original_snapshot,
+                        'override_body' => $body,
+                        'original_snapshot' => $body,
+                        'original_hash' => sha1($body),
+                        'last_synced_at' => now(),
                         'is_active' => true,
                         'updated_by' => auth()->id(),
                     ]);
 
-                    Notification::make()->title('Оригинал восстановлен')->success()->send();
-                    $this->refreshFormData(['override_body', 'is_active']);
+                    Notification::make()->title('Оригинал из файла восстановлен')->success()->send();
+                    $this->refreshFormData(['override_body', 'original_snapshot', 'original_hash', 'last_synced_at', 'is_active']);
                 }),
             Actions\Action::make('restoreVersion')
                 ->label('Восстановить версию')
