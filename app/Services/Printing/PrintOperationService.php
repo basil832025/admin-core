@@ -93,20 +93,17 @@ class PrintOperationService
         $pdfBinary = $this->buildPdfFromHtml($rendered['html'], $layout, $profile->template);
         $copies = $copiesOverride !== null ? max(1, (int) $copiesOverride) : max(1, (int) $profile->copies);
 
+        $result = $this->printNode->createPdfBase64PrintJob(
+            printerSelector: $printerSelector,
+            title: $this->resolvePrintTitle($operationCode),
+            pdfBinary: $pdfBinary,
+            qty: $copies,
+        );
+
         $jobIds = [];
-
-        for ($copyIndex = 1; $copyIndex <= $copies; $copyIndex++) {
-            $result = $this->printNode->createPdfBase64PrintJob(
-                printerSelector: $printerSelector,
-                title: $this->resolvePrintTitle($operationCode),
-                pdfBinary: $pdfBinary,
-                qty: 1,
-            );
-
-            $jobId = (string) ($result['printjob_id'] ?? '');
-            if ($jobId !== '') {
-                $jobIds[] = $jobId;
-            }
+        $jobId = (string) ($result['printjob_id'] ?? '');
+        if ($jobId !== '') {
+            $jobIds[] = $jobId;
         }
 
         return [
