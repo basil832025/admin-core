@@ -16,6 +16,7 @@ class Kernel extends ConsoleKernel
      */
     protected $commands = [
         \App\Console\Commands\DumpSeedData::class,
+        \App\Console\Commands\ExpireLoyaltyBonuses::class,
     ];
 
     /**
@@ -27,6 +28,10 @@ class Kernel extends ConsoleKernel
 
         $schedule->command('seo:sitemap')
             ->dailyAt('03:30')
+            ->withoutOverlapping();
+
+        $schedule->command('loyalty:expire-bonuses')
+            ->dailyAt('01:00')
             ->withoutOverlapping();
     }
 

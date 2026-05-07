@@ -2,9 +2,9 @@
 
     $activeIndex = 0; // временно
     $brand = '#FF7500';
-    // Подсветку активного пункта (например «Все пироги») показываем
-    // только на главной странице и на страницах /pies...
-    $isCatalogPage = request()->is('/') || request()->is('pies') || request()->is('pies/*');
+    // Подсветку активного пункта «Все пироги» показываем
+    // только на страницах каталога /pies...
+    $isCatalogPage = request()->is('pies') || request()->is('pies/*') || request()->is('ru/pies') || request()->is('ru/pies/*') || request()->is('en/pies') || request()->is('en/pies/*');
 @endphp
 
 <nav class="sticky top-[68px] md:top-[64px] desk:top-[76px] z-40 bg-white shadow-sm mt-6" x-data="scrollTabs()" x-init="init">

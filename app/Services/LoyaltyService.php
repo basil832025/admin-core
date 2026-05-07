@@ -366,18 +366,20 @@ class LoyaltyService
     /**
      * Cron: сгорание просроченных бонусов.
      */
-    public function expireBonuses(): void
+    public function expireBonuses(): array
     {
         $now = Carbon::now();
+        $expiredCount = 0;
+        $expiredAmount = 0.0;
 
         LoyaltyTransaction::query()
             ->where('type', LoyaltyTransaction::TYPE_ACCRUAL)
             ->whereNotNull('expires_at')
             ->where('expires_at', '<=', $now)
             ->where('remaining_amount', '>', 0)
-            ->chunkById(100, function ($accruals) {
+            ->chunkById(100, function ($accruals) use (&$expiredCount, &$expiredAmount) {
                 foreach ($accruals as $accrual) {
-                    DB::transaction(function () use ($accrual) {
+                    DB::transaction(function () use ($accrual, &$expiredCount, &$expiredAmount) {
                         $account = $accrual->account()->lockForUpdate()->first();
                         if (!$account) {
                             return;
@@ -405,8 +407,16 @@ class LoyaltyService
 
                         $account->balance = $tx->balance_after;
                         $account->save();
+
+                        $expiredCount++;
+                        $expiredAmount += $expireAmount;
                     });
                 }
             });
+
+        return [
+            'expired_count' => $expiredCount,
+            'expired_amount' => round($expiredAmount, 2),
+        ];
     }
 }

@@ -264,22 +264,13 @@ class ProductResource extends Resource
                                 ->required()
                                 ->dehydrated(true)
                                 ->live() // 👈 важно: чтобы ниже schema(fn $get) пересчитывалась
-                                ->options(function () use ($defaultLocale) {
-                                    // Кэшируем список категорий на 1 час для оптимизации
-                                    return cache()->remember("product_categories_main_site_{$defaultLocale}", 3600, function () use ($defaultLocale) {
-                                        return ProductCategory::query()
-                                            ->where('is_visible', 1)
-                                            ->whereNotNull('slug')
-                                            ->where('slug', 'not like', 'src-%')
-                                            ->get(['id', 'title'])
-                                            ->mapWithKeys(function ($cat) use ($defaultLocale) {
-                                                // если title закодирован JSON-ом
-                                                $t = json_decode($cat->getRawOriginal('title'), true);
-                                                $label = $t[$defaultLocale] ?? $t[config('app.locale')] ?? ($t['uk'] ?? $t['ru'] ?? $t['en'] ?? $cat->id);
-                                                return [$cat->id => $label];
-                                            })
-                                            ->toArray();
-                                    });
+                                ->options(function (Get $get) use ($defaultLocale) {
+                                    $selectedCategoryId = (int) ($get('category_id') ?? 0);
+
+                                    return static::getCategoryOptions(
+                                        defaultLocale: $defaultLocale,
+                                        selectedIds: $selectedCategoryId > 0 ? [$selectedCategoryId] : [],
+                                    );
                                 })
                                 ->searchable()
                                 ->preload()
@@ -305,29 +296,17 @@ class ProductResource extends Resource
                                 ->multiple()
                                 ->relationship('categories', 'id') // пусть Filament синкает pivot
                                 ->options(function (Get $get) use ($defaultLocale) {
-                                    $primary = $get('category_id');
+                                    $primary = (int) ($get('category_id') ?? 0);
+                                    $selectedAdditional = collect(Arr::wrap($get('categories')))
+                                        ->map(fn ($id) => (int) $id)
+                                        ->filter(fn (int $id) => $id > 0)
+                                        ->all();
 
-                                    // Кэшируем все категории, затем фильтруем
-                                    $allCategories = cache()->remember("product_categories_all_main_site_{$defaultLocale}", 3600, function () use ($defaultLocale) {
-                                        return ProductCategory::query()
-                                            ->where('is_visible', 1)
-                                            ->whereNotNull('slug')
-                                            ->where('slug', 'not like', 'src-%')
-                                            ->get(['id', 'title'])
-                                            ->mapWithKeys(function ($cat) use ($defaultLocale) {
-                                                $t = json_decode($cat->getRawOriginal('title'), true);
-                                                $label = $t[$defaultLocale] ?? $t[config('app.locale')] ?? ($t['uk'] ?? $t['ru'] ?? $t['en'] ?? $cat->id);
-                                                return [$cat->id => $label];
-                                            })
-                                            ->toArray();
-                                    });
-
-                                    // Исключаем главную категорию, если она выбрана
-                                    if ($primary && isset($allCategories[$primary])) {
-                                        unset($allCategories[$primary]);
-                                    }
-
-                                    return $allCategories;
+                                    return static::getCategoryOptions(
+                                        defaultLocale: $defaultLocale,
+                                        selectedIds: $selectedAdditional,
+                                        excludeId: $primary > 0 ? $primary : null,
+                                    );
                                 })
                                 ->searchable()
                                 ->preload()
@@ -384,6 +363,56 @@ class ProductResource extends Resource
                         ->helperText('Порядок у списку зберігається при збереженні. На фронті використовується цей склад.'),
                 ]),
         ];
+    }
+
+    protected static function getCategoryOptions(string $defaultLocale, array $selectedIds = [], ?int $excludeId = null): array
+    {
+        $activeCategories = cache()->remember("product_categories_admin_site_{$defaultLocale}", 3600, function () use ($defaultLocale) {
+            return ProductCategory::query()
+                ->whereNotNull('slug')
+                ->where('slug', 'not like', 'src-%')
+                ->get(['id', 'title', 'is_visible'])
+                ->mapWithKeys(fn (ProductCategory $category) => [
+                    $category->id => static::formatCategoryOptionLabel($category, $defaultLocale),
+                ])
+                ->toArray();
+        });
+
+        $selectedIds = collect($selectedIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->unique()
+            ->values();
+
+        $selectedCategories = $selectedIds->isEmpty()
+            ? []
+            : ProductCategory::query()
+                ->whereIn('id', $selectedIds->all())
+                ->get(['id', 'title', 'is_visible'])
+                ->mapWithKeys(fn (ProductCategory $category) => [
+                    $category->id => static::formatCategoryOptionLabel($category, $defaultLocale),
+                ])
+                ->toArray();
+
+        $options = $activeCategories + $selectedCategories;
+
+        if ($excludeId && isset($options[$excludeId])) {
+            unset($options[$excludeId]);
+        }
+
+        return $options;
+    }
+
+    protected static function formatCategoryOptionLabel(ProductCategory $category, string $defaultLocale): string
+    {
+        $t = json_decode($category->getRawOriginal('title'), true);
+        $label = $t[$defaultLocale] ?? $t[config('app.locale')] ?? ($t['uk'] ?? $t['ru'] ?? $t['en'] ?? $category->id);
+
+        if (! $category->is_visible) {
+            $label .= ' (неактивна)';
+        }
+
+        return (string) $label;
     }
 
     public static function legacyConsistOptions(?string $locale = null): array

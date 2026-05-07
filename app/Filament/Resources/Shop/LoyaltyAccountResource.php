@@ -4,6 +4,8 @@ namespace App\Filament\Resources\Shop;
 
 use App\Filament\Resources\Shop\LoyaltyAccountResource\Pages;
 use App\Filament\Resources\Shop\LoyaltyAccountResource\RelationManagers\TransactionsRelationManager;
+use App\Filament\Resources\Shop\LoyaltyAccountResource\Widgets\LoyaltyExpirationHistoryWidget;
+use App\Filament\Resources\Shop\LoyaltyAccountResource\Widgets\LoyaltyExpirationStats;
 use App\Models\Shop\LoyaltyAccount;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -124,6 +126,14 @@ class LoyaltyAccountResource extends Resource
     {
         return [
             TransactionsRelationManager::class,
+        ];
+    }
+
+    public static function getWidgets(): array
+    {
+        return [
+            LoyaltyExpirationStats::class,
+            LoyaltyExpirationHistoryWidget::class,
         ];
     }
 
