@@ -18,9 +18,8 @@ class SearchController extends Controller
     public function index(Request $request)
     {
         $q = trim((string) $request->get('q', ''));
-        $locales = \App\Models\Setting::getActiveLocales();
         $locale = app()->getLocale();
-        $searchLocales = [$locale];
+        $searchLocales = $this->getSearchLocales($locale);
         $favoriteIds = $this->favoriteIds();
 
         // If locale is ru/en but the URL has no locale prefix, redirect
@@ -117,9 +116,8 @@ class SearchController extends Controller
             return response()->json(['products' => [], 'categories' => []]);
         }
 
-        $locales = \App\Models\Setting::getActiveLocales();
         $locale = app()->getLocale();
-        $searchLocales = [$locale];
+        $searchLocales = $this->getSearchLocales($locale);
         $needle  = '%' . addcslashes(mb_strtolower($q), '%_') . '%';
 
         // товары
@@ -247,6 +245,18 @@ class SearchController extends Controller
             $w->whereNull('is_imported')
                 ->orWhere('is_imported', false);
         });
+    }
+
+    private function getSearchLocales(string $currentLocale): array
+    {
+        $activeLocales = \App\Models\Setting::getActiveLocales();
+
+        return collect([$currentLocale, ...$activeLocales])
+            ->filter(fn ($locale) => is_string($locale) && $locale !== '')
+            ->map(fn (string $locale) => strtolower($locale))
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /**
