@@ -17,6 +17,21 @@ class ProductRelationManager extends RelationManager
 {
     protected static string $relationship = 'products'; // метод связи в модели Category
 
+    protected function getTableQuery(): Builder
+    {
+        $categoryId = (int) $this->getOwnerRecord()->getKey();
+
+        return Product::query()
+            ->where(function (Builder $query) use ($categoryId): void {
+                $query->where('category_id', $categoryId)
+                    ->orWhereHas('categories', fn (Builder $categories) => $categories->whereKey($categoryId))
+                    ->orWhereHas('parent', function (Builder $parent) use ($categoryId): void {
+                        $parent->where('category_id', $categoryId)
+                            ->orWhereHas('categories', fn (Builder $categories) => $categories->whereKey($categoryId));
+                    });
+            });
+    }
+
     public function form(Form $form): Form
     {
         return ProductResource::form($form);

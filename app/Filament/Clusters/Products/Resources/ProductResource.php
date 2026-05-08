@@ -1156,6 +1156,7 @@ class ProductResource extends Resource
                         // Ищем по short_name И по переводу в JSON (MySQL 8)
                         return $query->where(function (Builder $q) use ($search, $defaultLocale) {
                             $q->where('short_name', 'like', "%{$search}%")
+                                ->orWhere('sku', 'like', "%{$search}%")
                                 ->orWhereRaw(
                                     "CONVERT(JSON_UNQUOTE(JSON_EXTRACT(`title`, '$.\"{$defaultLocale}\"')) USING utf8mb4) COLLATE utf8mb4_unicode_ci LIKE ?",
                                     ["%{$search}%"]
