@@ -82,7 +82,7 @@ class ViewServiceProvider extends ServiceProvider
 
             $currentSlug = request()->routeIs('catalog.index', 'localized.catalog.index')
                 ? 'pies'
-                : request()->route('slug');
+                : (request()->route('slug') ?? request()->route('categorySlug'));
 
             $activeIndex = 0;
             foreach ($items as $i => $it) {
