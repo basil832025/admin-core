@@ -3,6 +3,36 @@ export default function scrollTabs() {
         canScrollLeft: false,
         canScrollRight: false,
 
+        ensureActiveTabVisible() {
+            const scroller = this.$refs.scroller;
+            const activeTab = this.$refs.activeTab;
+
+            if (!scroller || !activeTab) {
+                return;
+            }
+
+            const scrollerRect = scroller.getBoundingClientRect();
+            const tabRect = activeTab.getBoundingClientRect();
+            const leftPadding = 24;
+            const rightPadding = 24;
+
+            const isHiddenLeft = tabRect.left < (scrollerRect.left + leftPadding);
+            const isHiddenRight = tabRect.right > (scrollerRect.right - rightPadding);
+
+            if (!isHiddenLeft && !isHiddenRight) {
+                return;
+            }
+
+            const deltaLeft = tabRect.left - scrollerRect.left - leftPadding;
+            const deltaRight = tabRect.right - scrollerRect.right + rightPadding;
+            const nextScrollLeft = scroller.scrollLeft + (isHiddenLeft ? deltaLeft : deltaRight);
+
+            scroller.scrollTo({
+                left: Math.max(0, nextScrollLeft),
+                behavior: 'smooth',
+            });
+        },
+
         init() {
             const el = this.$refs.scroller;
             const check = () => {
@@ -13,6 +43,7 @@ export default function scrollTabs() {
             this.check = check;
 
             check();
+            requestAnimationFrame(() => this.ensureActiveTabVisible());
             el.addEventListener('scroll', check, { passive: true });
             window.addEventListener('resize', check);
             new ResizeObserver(check).observe(el);
@@ -24,7 +55,12 @@ export default function scrollTabs() {
                 }
             }, { passive: false });
 
-            if (document.fonts) document.fonts.ready.then(check);
+            if (document.fonts) {
+                document.fonts.ready.then(() => {
+                    check();
+                    this.ensureActiveTabVisible();
+                });
+            }
         },
 
         scroll(dir) {
