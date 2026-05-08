@@ -27,6 +27,18 @@ class LogisticReceiptExtendedTemplateSeeder extends Seeder
                 continue;
             }
 
+            if (($source['key'] ?? null) === 'order') {
+                $query = (string) ($source['query'] ?? '');
+
+                $source['query'] = str_replace(
+                    "COALESCE(NULLIF(so.external_id, ''), COALESCE(o.number, o.id)) AS order_number",
+                    'COALESCE(o.number, o.id) AS order_number',
+                    $query,
+                );
+
+                continue;
+            }
+
             if (($source['key'] ?? null) !== 'items') {
                 continue;
             }
@@ -258,7 +270,7 @@ SQL;
 <tr><td>Оплата:</td><td><strong>ГРН.</strong></td></tr>
 </table>
 <div class="lg-addr">
-{{ order.address_line|default('-') }}
+{{ order.self_pickup ? 'Самовивіз' : order.address_line|default('-') }}
 </div>
 {% if order.entrance|default('') != '' or order.floor|default('') != '' or order.intercom|default('') != '' %}
 <div class="lg-addr-extra">

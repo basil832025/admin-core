@@ -279,14 +279,15 @@ class CatalogController extends Controller
                 break;
 
             case 'discount_asc':
-                // по размеру скидки ↑
-                // ЗАМЕНИ поля old_price / price на свои, если называются иначе
-                $query->orderByRaw('(IFNULL(old_price, price) - price) ASC');
+                // сначала товары со скидкой, затем по проценту скидки ↑
+                $query->orderByRaw("CASE WHEN old_price IS NOT NULL AND old_price > 0 AND old_price > price THEN 0 ELSE 1 END ASC")
+                    ->orderByRaw("CASE WHEN old_price IS NOT NULL AND old_price > 0 AND old_price > price THEN ((old_price - price) / old_price) * 100 ELSE 0 END ASC");
                 break;
 
             case 'discount_desc':
-                // по размеру скидки ↓
-                $query->orderByRaw('(IFNULL(old_price, price) - price) DESC');
+                // сначала товары со скидкой, затем по проценту скидки ↓
+                $query->orderByRaw("CASE WHEN old_price IS NOT NULL AND old_price > 0 AND old_price > price THEN 0 ELSE 1 END ASC")
+                    ->orderByRaw("CASE WHEN old_price IS NOT NULL AND old_price > 0 AND old_price > price THEN ((old_price - price) / old_price) * 100 ELSE 0 END DESC");
                 break;
 
             case 'new':
@@ -330,18 +331,16 @@ class CatalogController extends Controller
             }),
 
             // Знижка ↑
-            'discount_asc' => $items->sortBy(function ($p) {
-                $price    = $p['price'] ?? 0;
-                $oldPrice = $p['old_price'] ?? $p['price_old'] ?? $price;
-                return max($oldPrice - $price, 0);
-            }),
+            'discount_asc' => $items->sortBy(fn ($p) => [
+                $this->resolveDiscountPercentForCard($p) > 0 ? 0 : 1,
+                $this->resolveDiscountPercentForCard($p),
+            ]),
 
             // Знижка ↓
-            'discount_desc' => $items->sortByDesc(function ($p) {
-                $price    = $p['price'] ?? 0;
-                $oldPrice = $p['old_price'] ?? $p['price_old'] ?? $price;
-                return max($oldPrice - $price, 0);
-            }),
+            'discount_desc' => $items->sortBy(fn ($p) => [
+                $this->resolveDiscountPercentForCard($p) > 0 ? 0 : 1,
+                -1 * $this->resolveDiscountPercentForCard($p),
+            ]),
 
             // Новинки/Популярні: сохраняем SQL-порядок
             'new' => $items,
@@ -351,5 +350,17 @@ class CatalogController extends Controller
         };
 
         return $items->values(); // нормализуем ключи 0..N
+    }
+
+    protected function resolveDiscountPercentForCard(array $product): float
+    {
+        $price = (float) ($product['price'] ?? $product['final_price'] ?? $product['min_price'] ?? 0);
+        $oldPrice = (float) ($product['old_price'] ?? $product['price_old'] ?? $price);
+
+        if ($oldPrice <= 0 || $oldPrice <= $price || $price <= 0) {
+            return 0.0;
+        }
+
+        return (($oldPrice - $price) / $oldPrice) * 100;
     }
 }

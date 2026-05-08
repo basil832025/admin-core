@@ -2,9 +2,6 @@
 
     $activeIndex = 0; // временно
     $brand = '#FF7500';
-    // Подсветку активного пункта «Все пироги» показываем
-    // только на страницах каталога /pies...
-    $isCatalogPage = request()->is('pies') || request()->is('pies/*') || request()->is('ru/pies') || request()->is('ru/pies/*') || request()->is('en/pies') || request()->is('en/pies/*');
 @endphp
 
 <nav class="sticky top-[68px] md:top-[64px] desk:top-[76px] z-40 bg-white shadow-sm mt-6" x-data="scrollTabs()" x-init="init">
@@ -49,14 +46,7 @@
             <ul class="flex items-center min-w-full w-max justify-center mt-[2px] md:mt-0 pl-10 pr-10 gap-4 md:gap-[70px] h-10">
                 @foreach ($MainMenuItems as $i => $item)
                     @php
-                        // Особый случай только для первого пункта («Все пироги»):
-                        // он считается активным только на главной и /pies.
-                        if ($i === 0) {
-                            $active = $isCatalogPage && ($i === $MenuactiveIndex);
-                        } else {
-                            // Для остальных пунктов оставляем старую логику:
-                            $active = ($i === $MenuactiveIndex);
-                        }
+                        $active = ($i === $MenuactiveIndex);
                     @endphp
                     <li class="shrink-0 h-10">
                         <a href="{{ $item['url'] }}"

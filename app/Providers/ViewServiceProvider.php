@@ -80,21 +80,10 @@ class ViewServiceProvider extends ServiceProvider
             }
             $items = $flat->values()->all();
 
-// активный индекс (по slug из роута)
-            $currentSlug = request()->route('slug');
-            $activeIndex = 0;
-            foreach ($items as $i => $it) {
-                if (($it['slug'] ?? null) === $currentSlug) { $activeIndex = $i; break; }
-            }
-            // Добавляем "Все пироги" в начало
-        /*    array_unshift($items, [
-                'label' => __('menu.all_pies'),
-                'url'   => route('catalog.index'),
-                'slug'  => null,
-            ]);*/
+            $currentSlug = request()->routeIs('catalog.index', 'localized.catalog.index')
+                ? 'pies'
+                : request()->route('slug');
 
-            // Определяем активный пункт
-            $currentSlug = request()->route('slug');
             $activeIndex = 0;
             foreach ($items as $i => $it) {
                 if ($currentSlug === null && $it['slug'] === null) { $activeIndex = $i; break; }
