@@ -84,7 +84,7 @@ class ViewServiceProvider extends ServiceProvider
                 ? 'pies'
                 : (request()->route('slug') ?? request()->route('categorySlug'));
 
-            $activeIndex = 0;
+            $activeIndex = null;
             foreach ($items as $i => $it) {
                 if ($currentSlug === null && $it['slug'] === null) { $activeIndex = $i; break; }
                 if ($currentSlug !== null && $it['slug'] === $currentSlug) { $activeIndex = $i; break; }
