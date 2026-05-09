@@ -13,6 +13,9 @@ use App\Models\Language;
 use SolutionForest\FilamentTree\Concern\ModelTree;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Eloquent\Builder;
 
 class ProductCategory extends Model
 {
@@ -51,6 +54,16 @@ class ProductCategory extends Model
 
     ];
     protected $appends = ['name'];
+
+    protected static function booted(): void
+    {
+        static::deleting(function (ProductCategory $category): void {
+            if ($category->hasDeleteDependencies()) {
+                throw new \RuntimeException($category->getDeleteDependencyMessage());
+            }
+        });
+    }
+
     public function products()
     {
         return $this->hasMany(\App\Models\Shop\Product::class, 'category_id');
@@ -204,6 +217,100 @@ class ProductCategory extends Model
     public function children(): HasMany
     {
         return $this->hasMany(self::class, 'parent_id');
+    }
+
+    public function getDescendantIds(): array
+    {
+        $allIds = [];
+        $levelIds = [$this->getKey()];
+
+        while ($levelIds !== []) {
+            $childIds = self::query()
+                ->whereIn('parent_id', $levelIds)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+
+            if ($childIds === []) {
+                break;
+            }
+
+            $allIds = array_merge($allIds, $childIds);
+            $levelIds = $childIds;
+        }
+
+        return array_values(array_unique($allIds));
+    }
+
+    public function getDeleteDependencies(): array
+    {
+        $dependencies = [];
+        $descendantIds = $this->getDescendantIds();
+
+        $directProductsCount = Product::query()->where('category_id', $this->getKey())->count();
+        if ($directProductsCount > 0) {
+            $dependencies[] = "є {$directProductsCount} товарів у цій категорії";
+        }
+
+        $additionalProductsCount = Product::query()
+            ->whereHas('categories', fn (Builder $query) => $query->whereKey($this->getKey()))
+            ->count();
+        if ($additionalProductsCount > 0) {
+            $dependencies[] = "є {$additionalProductsCount} товарів у додаткових категоріях";
+        }
+
+        if ($descendantIds !== []) {
+            $dependencies[] = 'є ' . count($descendantIds) . ' дочірніх категорій';
+
+            $descendantProductsCount = Product::query()
+                ->where(function (Builder $query) use ($descendantIds): void {
+                    $query->whereIn('category_id', $descendantIds)
+                        ->orWhereHas('categories', fn (Builder $categories) => $categories->whereIn('bs_product_categories.id', $descendantIds));
+                })
+                ->distinct('bs_products.id')
+                ->count('bs_products.id');
+
+            if ($descendantProductsCount > 0) {
+                $dependencies[] = "є товари у дочірніх категоріях ({$descendantProductsCount})";
+            }
+        }
+
+        $tableChecks = [
+            ['table' => 'bs_category_characteristic', 'column' => 'category_id', 'label' => 'є характеристики категорії'],
+            ['table' => 'bs_category_variation', 'column' => 'category_id', 'label' => 'є зв\'язки з варіаціями'],
+            ['table' => 'bs_shop_time_discount_categories', 'column' => 'category_id', 'label' => 'категорія використовується у часових знижках'],
+            ['table' => 'bs_shop_promo_code_categories', 'column' => 'category_id', 'label' => 'категорія використовується у промокодах'],
+            ['table' => 'bs_cc_source_categories', 'column' => 'local_category_id', 'label' => 'категорія використовується у зовнішній синхронізації'],
+            ['table' => 'bs_characteristics', 'column' => 'category_id', 'label' => 'є характеристики, прив\'язані напряму'],
+        ];
+
+        foreach ($tableChecks as $check) {
+            if (! Schema::hasTable($check['table']) || ! Schema::hasColumn($check['table'], $check['column'])) {
+                continue;
+            }
+
+            if (DB::table($check['table'])->where($check['column'], $this->getKey())->exists()) {
+                $dependencies[] = $check['label'];
+            }
+        }
+
+        return array_values(array_unique($dependencies));
+    }
+
+    public function hasDeleteDependencies(): bool
+    {
+        return $this->getDeleteDependencies() !== [];
+    }
+
+    public function getDeleteDependencyMessage(): string
+    {
+        $dependencies = $this->getDeleteDependencies();
+
+        if ($dependencies === []) {
+            return 'Категорію можна видалити.';
+        }
+
+        return "Не можна видалити категорію:\n- " . implode("\n- ", $dependencies);
     }
 
     public static function flatMenu(?int $limit = null): Collection
