@@ -1375,11 +1375,6 @@ class ProductResource extends Resource
 
             ->Actions([
                 EditAction::make(),
-            ])
-            ->bulkActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
             ]);
     }
     public static function getActiveLocales(): array

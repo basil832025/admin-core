@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use Spatie\Translatable\HasTranslations;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -166,6 +167,12 @@ class Product extends Model implements HasMedia
                     $i++;
                 }
                 $m->slug = $slug;
+            }
+        });
+
+        static::deleting(function (Product $product): void {
+            if ($product->hasDeleteDependencies()) {
+                throw new \RuntimeException($product->getDeleteDependencyMessage());
             }
         });
     }
@@ -613,6 +620,58 @@ class Product extends Model implements HasMedia
         $suffix = $size ? " [{$size}]" : '';
 
         return trim($prefix . $base . $suffix);
+    }
+
+    public function getDeleteDependencies(): array
+    {
+        $dependencies = [];
+
+        $checks = [
+            ['table' => 'bs_products', 'column' => 'parent_id', 'label' => 'варіанти товару'],
+            ['table' => 'bs_shop_order_items', 'column' => 'product_id', 'label' => 'позиції замовлень'],
+            ['table' => 'bs_product_calculation_items', 'column' => 'component_product_id', 'label' => 'калькуляції'],
+            ['table' => 'bs_product_calculations', 'column' => 'product_id', 'label' => 'картки калькуляцій'],
+            ['table' => 'bs_product_reviews', 'column' => 'product_id', 'label' => 'відгуки'],
+            ['table' => 'bs_product_images', 'column' => 'product_id', 'label' => 'зображення'],
+            ['table' => 'bs_product_product_category', 'column' => 'product_id', 'label' => 'додаткові категорії'],
+            ['table' => 'bs_product_variation', 'column' => 'product_id', 'label' => 'зв\'язки з варіаціями'],
+            ['table' => 'bs_product_characteristic_value', 'column' => 'product_id', 'label' => 'значення характеристик'],
+            ['table' => 'bs_characteristic_product', 'column' => 'product_id', 'label' => 'характеристики'],
+            ['table' => 'bs_product_ingredient', 'column' => 'product_id', 'label' => 'інгредієнти'],
+            ['table' => 'bs_favorites', 'column' => 'product_id', 'label' => 'обране клієнтів'],
+            ['table' => 'bs_shop_time_discount_products', 'column' => 'product_id', 'label' => 'часові знижки'],
+            ['table' => 'bs_shop_promo_code_products', 'column' => 'product_id', 'label' => 'промокоди'],
+            ['table' => 'bs_cc_source_products', 'column' => 'local_product_id', 'label' => 'зовнішня синхронізація товарів'],
+            ['table' => 'bs_cc_source_order_items', 'column' => 'local_product_id', 'label' => 'зовнішня синхронізація замовлень'],
+        ];
+
+        foreach ($checks as $check) {
+            if (! schema()->hasTable($check['table']) || ! schema()->hasColumn($check['table'], $check['column'])) {
+                continue;
+            }
+
+            if (DB::table($check['table'])->where($check['column'], $this->getKey())->exists()) {
+                $dependencies[] = $check['label'];
+            }
+        }
+
+        return array_values(array_unique($dependencies));
+    }
+
+    public function hasDeleteDependencies(): bool
+    {
+        return $this->getDeleteDependencies() !== [];
+    }
+
+    public function getDeleteDependencyMessage(): string
+    {
+        $dependencies = $this->getDeleteDependencies();
+
+        if ($dependencies === []) {
+            return 'Товар можна видалити.';
+        }
+
+        return 'Товар не можна видалити, бо він використовується у: ' . implode(', ', $dependencies) . '.';
     }
 
 }

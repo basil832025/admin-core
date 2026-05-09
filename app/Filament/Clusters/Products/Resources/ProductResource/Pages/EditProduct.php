@@ -25,7 +25,11 @@ class EditProduct extends EditRecord
                 ->label(__('product.actions.save'))
                 //   ->icon(Heroicons::class, 'outline-save') // указываем класс Filament\Icons\Heroicons
                 ->formId('form'),
-            DeleteAction::make(),
+            DeleteAction::make()
+                ->disabled(fn (Product $record): bool => $record->hasDeleteDependencies())
+                ->tooltip(fn (Product $record): ?string => $record->hasDeleteDependencies()
+                    ? $record->getDeleteDependencyMessage()
+                    : null),
         ];
     }
     public static function getNavigationLabel(): string

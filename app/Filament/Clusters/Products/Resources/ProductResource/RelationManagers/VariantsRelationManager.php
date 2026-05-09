@@ -327,10 +327,11 @@ class VariantsRelationManager extends RelationManager
                         // и пр.
                     }),
 
-                DeleteAction::make(),
-            ])
-            ->bulkActions([
-                DeleteBulkAction::make(),
+                DeleteAction::make()
+                    ->disabled(fn (Product $record): bool => $record->hasDeleteDependencies())
+                    ->tooltip(fn (Product $record): ?string => $record->hasDeleteDependencies()
+                        ? $record->getDeleteDependencyMessage()
+                        : null),
             ]);
     }
     // чтобы гидраторы в полях видели текущие значения

@@ -23,8 +23,13 @@ class ProductRelationManager extends RelationManager
 
         return Product::query()
             ->where(function (Builder $query) use ($categoryId): void {
-                $query->where('category_id', $categoryId)
-                    ->orWhereHas('categories', fn (Builder $categories) => $categories->whereKey($categoryId))
+                $query->where(function (Builder $products) use ($categoryId): void {
+                    $products->whereNull('parent_id')
+                        ->where(function (Builder $matchedProducts) use ($categoryId): void {
+                            $matchedProducts->where('category_id', $categoryId)
+                                ->orWhereHas('categories', fn (Builder $categories) => $categories->whereKey($categoryId));
+                        });
+                })
                     ->orWhereHas('parent', function (Builder $parent) use ($categoryId): void {
                         $parent->where('category_id', $categoryId)
                             ->orWhereHas('categories', fn (Builder $categories) => $categories->whereKey($categoryId));
@@ -154,10 +159,12 @@ class ProductRelationManager extends RelationManager
                     ->after(function ($record, $data) {
                         $record->syncFromFormState($data);
                     }),
-                Tables\Actions\DeleteAction::make(),
-            ])
-            ->groupedBulkActions([
-                Tables\Actions\DeleteBulkAction::make(),
+                Tables\Actions\DeleteAction::make()
+                    ->visible(fn (Product $record): bool => $record->parent_id === null)
+                    ->disabled(fn (Product $record): bool => $record->hasDeleteDependencies())
+                    ->tooltip(fn (Product $record): ?string => $record->hasDeleteDependencies()
+                        ? $record->getDeleteDependencyMessage()
+                        : null),
             ]);
     }
 
