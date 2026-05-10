@@ -77,16 +77,18 @@
 
 @if($order->payment)
     @if($order->payment === \App\Enums\PaymentMethodEnum::LIQPAY || $order->payment->value === 11)
-        LiqPay
+        {{ st('cart.payment.liqpay', 'Онлайн-оплата карткою') }}
     @elseif($order->payment === \App\Enums\PaymentMethodEnum::CARD || $order->payment->value === 1)
-        {{ st('cart.payment.card_on_delivery', 'Картою при отриманні') }}
+        {{ st('cart.payment.card_on_delivery', 'Оплата через POS-термінал при отриманні') }}
     @elseif($order->payment === \App\Enums\PaymentMethodEnum::CASH || $order->payment->value === 2)
-        {{ st('cart.payment.cash', 'Готівкою') }}
+        {{ st('cart.payment.cash', 'Готівкою при отриманні') }}
+    @elseif($order->payment === \App\Enums\PaymentMethodEnum::INVOICE || $order->payment->value === 10)
+        {{ st('cart.payment.invoice', 'Безготівковий розрахунок за рахунком для юридичних осіб') }}
     @else
         {{ $order->payment->label('uk') }}
     @endif
 @else
-    {{ st('cart.payment.card_on_delivery', 'Картою при отриманні') }}
+    {{ st('cart.payment.card_on_delivery', 'Оплата через POS-термінал при отриманні') }}
 @endif
 
 ## {{ st('order.email.items', 'Товари') }}

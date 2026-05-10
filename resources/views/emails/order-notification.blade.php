@@ -30,16 +30,18 @@
 
     if ($order->payment) {
         if ($order->payment === \App\Enums\PaymentMethodEnum::LIQPAY || $order->payment->value === 11) {
-            $paymentLabel = 'LiqPay';
+            $paymentLabel = st('cart.payment.liqpay', 'Онлайн-оплата картой');
         } elseif ($order->payment === \App\Enums\PaymentMethodEnum::CARD || $order->payment->value === 1) {
-            $paymentLabel = 'Картой при получении';
+            $paymentLabel = st('cart.payment.card_on_delivery', 'Оплата через POS-терминал при получении');
         } elseif ($order->payment === \App\Enums\PaymentMethodEnum::CASH || $order->payment->value === 2) {
-            $paymentLabel = 'Наличными';
+            $paymentLabel = st('cart.payment.cash', 'Наличными при получении');
+        } elseif ($order->payment === \App\Enums\PaymentMethodEnum::INVOICE || $order->payment->value === 10) {
+            $paymentLabel = st('cart.payment.invoice', 'Безналичный расчет по счету для юридических лиц');
         } else {
             $paymentLabel = (string) $order->payment->label('ru');
         }
     } else {
-        $paymentLabel = 'Картой при получении';
+        $paymentLabel = st('cart.payment.card_on_delivery', 'Оплата через POS-терминал при получении');
     }
 
     $items = $order->items;
