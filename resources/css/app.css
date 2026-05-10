@@ -113,32 +113,42 @@
     .banner-swiper .banner-img { object-fit: contain; }
 
     @media (max-width: 767px) {
-        /* Mobile: let banner keep its natural height */
+        /* Mobile: fixed banner size */
         .banner-swiper {
-            height: auto;
+            width: 100%;
+            height: 137px;
             max-height: none;
             min-height: 0;
+            overflow: hidden;
         }
-        /* Keep mobile slides sized by the image, not a fixed stage */
         .banner-swiper .swiper-slide > a {
             display: block;
             width: 100%;
-            height: auto;
+            height: 100%;
         }
         .banner-swiper .swiper-wrapper {
             align-items: center;
         }
         .banner-swiper .swiper-slide {
-            height: auto;
+            width: 366px !important;
+            height: 122px;
         }
         .banner-swiper .swiper-slide.swiper-slide-active,
         .banner-swiper .swiper-slide.swiper-slide-duplicate-active {
-            height: auto;
+            height: 137px;
+        }
+        .banner-swiper .swiper-slide.swiper-slide-next,
+        .banner-swiper .swiper-slide.swiper-slide-prev,
+        .banner-swiper .swiper-slide.swiper-slide-duplicate {
+            transform: none !important;
+            filter: none !important;
         }
 
         .banner-swiper .swiper-slide .banner-slide-inner,
-        .banner-swiper .swiper-slide .banner-slide-inner picture {
-            height: auto;
+        .banner-swiper .swiper-slide .banner-slide-inner picture,
+        .banner-swiper .swiper-slide .banner-slide-inner img {
+            width: 100%;
+            height: 100%;
         }
         .banner-swiper .swiper-slide .banner-slide-inner picture {
             display: block;
@@ -147,14 +157,16 @@
         .banner-swiper .swiper-slide .banner-slide-inner img {
             display: block;
             width: 100%;
-            height: auto;
+            height: 100%;
         }
 
-        .banner-swiper .banner-img { object-fit: contain; }
+        .banner-swiper .banner-img { object-fit: fill; }
         .banner-swiper .swiper-slide .banner-slide-inner {
             background: transparent;
             border: 0;
             box-shadow: none;
+            border-radius: 16px;
+            overflow: hidden;
         }
     }
 
