@@ -21,6 +21,7 @@ class CatalogController extends Controller
     public function show(string $slug)
     {
         $locale = app()->getLocale();
+        $pageTitle = null;
 
         $ids    = $this->favoriteIds();
         // 0) Виртуальные слаги: без категории, просто подбираем товары по скоупам
@@ -81,6 +82,12 @@ class CatalogController extends Controller
                 ->orderBy('order')   // если поля нет — можно убрать
                 ->orderBy('id')
                 ->get();
+
+            if ($children->isNotEmpty()) {
+                $pageTitle = method_exists($parent, 'getTranslation')
+                    ? ($parent->getTranslation('title', $locale) ?: $parent->getTranslation('title', 'uk'))
+                    : (data_get($parent, "title.$locale") ?? data_get($parent, 'title.uk'));
+            }
         }
 
 // 2) Собираем ассоциативный массив slug => title (локализовано)
@@ -174,6 +181,7 @@ class CatalogController extends Controller
             'priceMax'         => $priceMax,
             'filterCharacteristicGroups'=> $filterCharacteristicGroups,
             'category'         => $parent,
+            'pageTitle'        => $pageTitle,
         ]);
     }
 

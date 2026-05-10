@@ -104,11 +104,26 @@
         </div>
 
         <section class="max-w-screen-xl mx-auto ">
+            @if(!empty($pageTitle))
+                <div class="mb-6 md:mb-8">
+                    <x-product.section-title>{{ $pageTitle }}</x-product.section-title>
+                </div>
+            @endif
+
             @foreach($categorySections as $section)
                <div class="space-y-14 mt-4">
-                    <x-product.section :title="$section['title']"
-                                       :favoriteIds="$favoriteIds ?? []"
-                                       :items="$section['items']" />
+                    @if(!empty($pageTitle))
+                        <x-product.section :title="$section['title']"
+                                           title-as="h3"
+                                           title-size="catalog-subcategory"
+                                           :title-underline="false"
+                                           :favoriteIds="$favoriteIds ?? []"
+                                           :items="$section['items']" />
+                    @else
+                        <x-product.section :title="$section['title']"
+                                           :favoriteIds="$favoriteIds ?? []"
+                                           :items="$section['items']" />
+                    @endif
             </div>
             @endforeach
         </section>

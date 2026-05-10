@@ -5,11 +5,15 @@
 'favoriteIds' => [],
 // опционально «Показати все»
 'moreUrl' => null,
+'titleClass' => '',
+'titleUnderline' => true,
+'titleAs' => 'h2',
+'titleSize' => 'default',
 ])
 
 <section class="max-w-screen-xl mx-auto">
     <div class="flex items-end justify-between ">
-        <x-product.section-title>{{ $title }}</x-product.section-title>
+        <x-product.section-title :as="$titleAs" :class="$titleClass" :underline="$titleUnderline" :size="$titleSize">{{ $title }}</x-product.section-title>
 
         @if ($moreUrl)
             <a href="{{ $moreUrl }}" class="text-[#FF7500] hover:underline">Показати все</a>
