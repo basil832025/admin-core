@@ -403,6 +403,41 @@ class ProductResource extends Resource
         return $options;
     }
 
+    protected static function getCategoryFilterOptions(string $defaultLocale): array
+    {
+        return cache()->remember("product_categories_admin_filter_{$defaultLocale}", 3600, function () use ($defaultLocale) {
+            return ProductCategory::query()
+                ->where('slug', 'not like', 'src-%-import')
+                ->where(function (Builder $query): void {
+                    $query
+                        ->whereHas('products', function (Builder $products): void {
+                            $products
+                                ->whereNull('parent_id')
+                                ->where(function (Builder $w): void {
+                                    $w->whereNull('is_imported')
+                                        ->orWhere('is_imported', false);
+                                });
+                        })
+                        ->orWhereExists(function ($sub): void {
+                            $sub->selectRaw('1')
+                                ->from('bs_product_product_category as ppc')
+                                ->join('bs_products as p', 'p.id', '=', 'ppc.product_id')
+                                ->whereColumn('ppc.product_category_id', 'bs_product_categories.id')
+                                ->whereNull('p.parent_id')
+                                ->where(function ($w): void {
+                                    $w->whereNull('p.is_imported')
+                                        ->orWhere('p.is_imported', false);
+                                });
+                        });
+                })
+                ->get(['id', 'title', 'is_visible'])
+                ->mapWithKeys(fn (ProductCategory $category) => [
+                    $category->id => static::formatCategoryOptionLabel($category, $defaultLocale),
+                ])
+                ->toArray();
+        });
+    }
+
     protected static function formatCategoryOptionLabel(ProductCategory $category, string $defaultLocale): string
     {
         $t = json_decode($category->getRawOriginal('title'), true);
@@ -1254,78 +1289,97 @@ class ProductResource extends Resource
                 Tables\Columns\TextColumn::make('quantity')->label(__('product.columns.quantity'))->sortable(),
                 Tables\Columns\TextColumn::make('updated_at')->label(__('product.columns.updated_at'))->dateTime('d.m.Y H:i')->sortable()
             ])
-            ->filtersFormColumns(6) // сколько колонок занимают фильтры в строке
-            // 👇 сохранять выбор фильтров между перезагрузками
-            ->persistFiltersInSession()
+            ->filtersFormColumns(12)
             ->filters([
                 SelectFilter::make('category')
                     ->label(__('product.filters.category'))
                     ->columnSpan(2)
                     ->placeholder(__('product.filters.category_all'))                         // вместо «Всі»
-                   // ->searchPrompt('Введите текст для поиска…')
-                    ->relationship(
-                        'mainCategory',
-                        'id',
-                        fn (Builder $query): Builder => $query
-                            ->where('slug', 'not like', 'src-%-import')
-                            ->whereHas('products', fn (Builder $products): Builder => $products
-                                ->whereNull('parent_id')
-                                ->where(function (Builder $w): void {
-                                    $w->whereNull('is_imported')
-                                        ->orWhere('is_imported', false);
-                                })
-                            )
-                    ) // фильтруем по belongsTo 'category'
-                    ->getOptionLabelFromRecordUsing(function (ProductCategory $record): string {
+                    ->options(function (): array {
                         $locale = Setting::value('default_language_code') ?: app()->getLocale();
 
-                        // без авто-фолбека, может вернуть null/array
-                        $label = $record->getTranslation('title', $locale, false);
-
-                        if (is_array($label)) {
-                            $label = $label['value'] ?? Arr::first($label, fn($v) => is_string($v) && $v !== '') ?? '';
-                        }
-
-                        if (! is_string($label) || $label === '') {
-                            $all = $record->getTranslations('title'); // ['uk'=>..., 'ru'=>..., ...] либо вложенные
-                            foreach ($all as $v) {
-                                if (is_string($v) && $v !== '') { $label = $v; break; }
-                                if (is_array($v) && is_string($v['value'] ?? null) && $v['value'] !== '') { $label = $v['value']; break; }
-                            }
-                        }
-
-                        return (string) $label;
+                        return static::getCategoryFilterOptions($locale);
                     })
+                    ->query(function (Builder $query, array $data): Builder {
+                        $categoryId = (int) ($data['value'] ?? 0);
 
+                        if ($categoryId <= 0) {
+                            return $query;
+                        }
+
+                        return $query->where(function (Builder $w) use ($categoryId): void {
+                            $w->where('category_id', $categoryId)
+                                ->orWhereHas('categories', fn (Builder $categories): Builder => $categories->whereKey($categoryId));
+                        });
+                    })
                     ->preload()
                     ->searchable(),
-                // Флаги: «Так / Ні / Усі»
-                TernaryFilter::make('is_new')->label(__('product.filters.is_new'))
+                TernaryFilter::make('is_new')->label('Новинки')
                     ->columnSpan(1)
-                    ->nullable(), // покажет «Усі»
-                TernaryFilter::make('is_hit')->label(__('product.filters.is_hit'))
+                    ->native(false)
+                    ->queries(
+                        true: fn (Builder $query): Builder => $query->where('is_new', true),
+                        false: fn (Builder $query): Builder => $query->where('is_new', false),
+                        blank: fn (Builder $query): Builder => $query,
+                    ),
+                TernaryFilter::make('is_hit')->label('Хіти')
                     ->columnSpan(1)
-                    ->nullable(),
-                TernaryFilter::make('is_home')->label(__('product.filters.is_home'))
+                    ->native(false)
+                    ->queries(
+                        true: fn (Builder $query): Builder => $query->where('is_hit', true),
+                        false: fn (Builder $query): Builder => $query->where('is_hit', false),
+                        blank: fn (Builder $query): Builder => $query,
+                    ),
+                TernaryFilter::make('is_promo')->label('Акції')
                     ->columnSpan(1)
-                    ->nullable(),  // Диапазон даты создания
-                TernaryFilter::make('is_promo')->label(__('product.filters.is_promo'))
+                    ->native(false)
+                    ->queries(
+                        true: fn (Builder $query): Builder => $query->where('is_promo', true),
+                        false: fn (Builder $query): Builder => $query->where('is_promo', false),
+                        blank: fn (Builder $query): Builder => $query,
+                    ),
+                TernaryFilter::make('is_home')->label('Головна')
                     ->columnSpan(1)
-                    ->nullable(),
-                TernaryFilter::make('is_vegan')->label(__('product.filters.is_vegan'))
+                    ->native(false)
+                    ->queries(
+                        true: fn (Builder $query): Builder => $query->where('is_home', true),
+                        false: fn (Builder $query): Builder => $query->where('is_home', false),
+                        blank: fn (Builder $query): Builder => $query,
+                    ),  // Диапазон даты создания
+                TernaryFilter::make('is_vegan')->label('Веган')
                     ->columnSpan(1)
-                    ->nullable(),
-                TernaryFilter::make('is_product_of_day')->label(__('product.filters.is_product_of_day'))
+                    ->native(false)
+                    ->queries(
+                        true: fn (Builder $query): Builder => $query->where('is_vegan', true),
+                        false: fn (Builder $query): Builder => $query->where('is_vegan', false),
+                        blank: fn (Builder $query): Builder => $query,
+                    ),
+                TernaryFilter::make('is_product_of_day')->label('Товар дня')
                     ->columnSpan(1)
-                    ->nullable(),
-                TernaryFilter::make('is_spicy')->label(__('product.filters.is_spicy'))
+                    ->native(false)
+                    ->queries(
+                        true: fn (Builder $query): Builder => $query->where('is_product_of_day', true),
+                        false: fn (Builder $query): Builder => $query->where('is_product_of_day', false),
+                        blank: fn (Builder $query): Builder => $query,
+                    ),
+                TernaryFilter::make('is_spicy')->label('Гострий')
                     ->columnSpan(1)
-                    ->nullable(),
+                    ->native(false)
+                    ->queries(
+                        true: fn (Builder $query): Builder => $query->where('is_spicy', true),
+                        false: fn (Builder $query): Builder => $query->where('is_spicy', false),
+                        blank: fn (Builder $query): Builder => $query,
+                    ),
 
                 TernaryFilter::make('exclude_from_promotions')
-                    ->label(__('product.filters.exclude_from_promotions'))
-                    ->columnSpan(2)
-                    ->nullable(),
+                    ->label('Без акцій')
+                    ->columnSpan(1)
+                    ->native(false)
+                    ->queries(
+                        true: fn (Builder $query): Builder => $query->where('exclude_from_promotions', true),
+                        false: fn (Builder $query): Builder => $query->where('exclude_from_promotions', false),
+                        blank: fn (Builder $query): Builder => $query,
+                    ),
               /*  Filter::make('created_between')
                     ->form([
                         DatePicker::make('from')->label('Створено з'),
@@ -1345,8 +1399,9 @@ class ProductResource extends Resource
 
                 // Поиск по внешнему коду
                 Filter::make('code2_like')
+                    ->columnSpan(1)
                     ->form([
-                        TextInput::make('code2')->label(__('product.filters.code2'))->placeholder('Напр., ABC-123'),
+                        TextInput::make('code2')->label('Код')->placeholder('ABC-123'),
                     ])
                     ->query(fn (Builder $q, array $data) =>
                     $q->when($data['code2'] ?? null, fn ($qq, $v) => $qq->where('code2', 'like', "%{$v}%"))

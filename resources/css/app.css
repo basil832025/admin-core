@@ -113,33 +113,32 @@
     .banner-swiper .banner-img { object-fit: contain; }
 
     @media (max-width: 767px) {
-        /* Mobile: central banner taller */
+        /* Mobile: let banner keep its natural height */
         .banner-swiper {
-            height: 137px;
+            height: auto;
             max-height: none;
             min-height: 0;
         }
-        /* If slide is wrapped with a link, it must fill the slide on mobile */
+        /* Keep mobile slides sized by the image, not a fixed stage */
         .banner-swiper .swiper-slide > a {
             display: block;
             width: 100%;
-            height: 100%;
+            height: auto;
         }
         .banner-swiper .swiper-wrapper {
             align-items: center;
         }
         .banner-swiper .swiper-slide {
-            height: 123px;
+            height: auto;
         }
         .banner-swiper .swiper-slide.swiper-slide-active,
         .banner-swiper .swiper-slide.swiper-slide-duplicate-active {
-            height: 137px;
+            height: auto;
         }
 
         .banner-swiper .swiper-slide .banner-slide-inner,
-        .banner-swiper .swiper-slide .banner-slide-inner picture,
-        .banner-swiper .swiper-slide .banner-slide-inner img {
-            height: 100%;
+        .banner-swiper .swiper-slide .banner-slide-inner picture {
+            height: auto;
         }
         .banner-swiper .swiper-slide .banner-slide-inner picture {
             display: block;
@@ -148,10 +147,10 @@
         .banner-swiper .swiper-slide .banner-slide-inner img {
             display: block;
             width: 100%;
+            height: auto;
         }
 
-        /* Mobile: no letterboxing, show only banner */
-        .banner-swiper .banner-img { object-fit: cover; }
+        .banner-swiper .banner-img { object-fit: contain; }
         .banner-swiper .swiper-slide .banner-slide-inner {
             background: transparent;
             border: 0;
