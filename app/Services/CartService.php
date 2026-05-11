@@ -184,9 +184,26 @@ class CartService
             return null;
         }
 
-        $oldUnitPrice = (float) ($product->parent?->old_price ?? $product->old_price ?? 0);
+        return $this->resolveDisplayedOldPrice($product, $currentUnitPrice);
+    }
 
-        return $oldUnitPrice > $currentUnitPrice ? $oldUnitPrice : null;
+    private function resolveDisplayedOldPrice(?\App\Models\Shop\Product $product, float $currentUnitPrice): ?float
+    {
+        if (! $product || $currentUnitPrice <= 0) {
+            return null;
+        }
+
+        $productOldPrice = (float) ($product->old_price ?? 0);
+        if ($productOldPrice > $currentUnitPrice) {
+            return $productOldPrice;
+        }
+
+        $parentOldPrice = (float) ($product->parent?->old_price ?? 0);
+        if ($product->parent_id && $parentOldPrice > $currentUnitPrice) {
+            return $parentOldPrice;
+        }
+
+        return null;
     }
 
     private function getLineArrayByProductId(int $productId): ?array
@@ -660,6 +677,7 @@ class CartService
             return $order->items->map(function (\App\Models\Shop\OrderItem $it) use ($variantAttrs) {
                 $p      = $it->product;                 // это вариант (child) либо сам parent
                 $parent = $p?->parent ?: $p;            // если есть родитель — берём его
+                $oldPrice = $this->resolveDisplayedOldPrice($p, (float) $it->unit_price);
 
                 $name  = $parent?->display_name ?? $parent?->displayName ?? $parent?->title ?? 'Товар';
                 $sku   = $parent?->sku ?: null;
@@ -676,12 +694,8 @@ class CartService
                     'qty'        => (int) $it->qty,
                     'price'      => (float) $it->unit_price,
                     'subtotal'   => (float) $it->qty * (float) $it->unit_price,
-                    'old_price'  => (($parent?->old_price ?? $p?->old_price) > (float) $it->unit_price)
-                        ? (float) ($parent?->old_price ?? $p?->old_price)
-                        : null,
-                    'old_subtotal' => (($parent?->old_price ?? $p?->old_price) > (float) $it->unit_price)
-                        ? (float) ($it->qty * (float) ($parent?->old_price ?? $p?->old_price))
-                        : null,
+                    'old_price'  => $oldPrice,
+                    'old_subtotal' => $oldPrice ? (float) ($it->qty * $oldPrice) : null,
                     'meta'       => $it->meta ?? [],
                     'article'    => $article,
                 ];
@@ -715,7 +729,7 @@ class CartService
 
             $qty   = (int)($i['qty'] ?? 1);
             $price = (float)($i['price'] ?? 0);
-            $oldPrice = (float) ($parent?->old_price ?? $p?->old_price ?? 0);
+            $oldPrice = $this->resolveDisplayedOldPrice($p, $price);
 
                 return [
                     'product_id' => (int)($i['product_id'] ?? 0),
@@ -726,8 +740,8 @@ class CartService
                     'qty'        => $qty,
                     'price'      => $price,
                     'subtotal'   => $qty * $price,
-                    'old_price'  => $oldPrice > $price ? $oldPrice : null,
-                    'old_subtotal' => $oldPrice > $price ? $qty * $oldPrice : null,
+                    'old_price'  => $oldPrice,
+                    'old_subtotal' => $oldPrice ? $qty * $oldPrice : null,
                     'meta'       => $i['meta'] ?? [],
                     'article'    => $article,
                 ];
