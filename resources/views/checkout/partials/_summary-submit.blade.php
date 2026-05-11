@@ -1,4 +1,11 @@
-﻿{{-- Согласие --}}
+﻿@php
+    $locale = app()->getLocale();
+    $privacyUrl = in_array($locale, ['ru', 'en'], true)
+        ? url('/' . $locale . '/polityka-konfidentsiinosti')
+        : url('/polityka-konfidentsiinosti');
+@endphp
+
+{{-- Согласие --}}
 <div data-field-wrap="agree">
     <label class="mt-1 flex items-start gap-3 text-[11px] leading-[16px] text-[#4B5563] cursor-pointer">
         <span class="relative inline-flex items-center pt-[2px] checkbox-wrap">
@@ -26,9 +33,9 @@
             </span>
         </span>
 
-        <span>
+        <a href="{{ $privacyUrl }}" target="_blank" rel="noopener noreferrer" class="underline hover:no-underline">
             {{ st('cart.agree.text', 'Я согласен с политикой конфиденциальности, пользовательским соглашением и даю разрешение на обработку персональных данных.') }}
-        </span>
+        </a>
     </label>
 
     <p class="mt-1 text-[11px] text-red-500 hidden" data-error-for="agree">
