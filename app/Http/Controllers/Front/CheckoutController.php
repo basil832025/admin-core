@@ -170,6 +170,8 @@ public function index()
 
                 // Проверяем условия для акции
                 $isActive = $this->checkPromoConditions($d, $shippingMethod, $deliveryMode, $deliveryDate, $deliveryTime, $products);
+                $previewDiscount = $this->calculateCheckoutTimeDiscountPreview($d, $products, $this->cart->items());
+                $isActive = $isActive && $previewDiscount > 0;
 
                 return [
                     'id'          => $d->id,
@@ -1773,6 +1775,8 @@ public function checkPromoConditionsAjax(Request $request)
             $deliveryTime,
             $products
         );
+        $previewDiscount = $this->calculateCheckoutTimeDiscountPreview($discount, $products, $items);
+        $isActive = $isActive && $previewDiscount > 0;
 
         \Log::info('Promo condition check result', [
             'discount_id' => $discount->id,
@@ -1791,6 +1795,137 @@ public function checkPromoConditionsAjax(Request $request)
     return response()->json([
         'promos' => $promos,
     ]);
+}
+
+private function calculateCheckoutTimeDiscountPreview(TimeDiscount $discount, $products, array $items): float
+{
+    $rows = collect($items)->map(function ($item): array {
+        $row = is_object($item) ? (array) $item : (array) $item;
+
+        return [
+            'product_id' => (int) ($row['product_id'] ?? 0),
+            'qty' => (int) ($row['qty'] ?? 0),
+            'unit_price' => (float) ($row['price'] ?? $row['unit_price'] ?? 0),
+            'modifiers' => $row['modifiers'] ?? [],
+        ];
+    })->values();
+
+    $percent = (float) ($discount->percent ?? 0);
+    $eachN = (int) ($discount->nth_item ?? 0);
+    if ($percent <= 0 || $eachN < 1 || $rows->isEmpty()) {
+        return 0.0;
+    }
+
+    $units = [];
+
+    foreach ($rows as $idx => $row) {
+        $pid = (int) ($row['product_id'] ?? 0);
+        $qty = (int) ($row['qty'] ?? 0);
+        if ($pid <= 0 || $qty <= 0) {
+            continue;
+        }
+
+        $product = $products->firstWhere('id', $pid);
+        if (! $product || $product->excludedFromPromotions()) {
+            continue;
+        }
+
+        if (! $this->matchesCheckoutTimeDiscountScopeInline($discount, $product, $row)) {
+            continue;
+        }
+
+        $mods = collect($row['modifiers'] ?? [])->map(fn ($m) => is_object($m) ? (array) $m : (array) $m);
+        $modsSum = (float) $mods->sum(fn (array $m) => (float) ($m['price_modifier'] ?? 0));
+        $unitPrice = (float) ($row['unit_price'] ?? 0) + $modsSum;
+
+        for ($i = 0; $i < $qty; $i++) {
+            $units[] = [
+                'row_index' => $idx,
+                'price' => $unitPrice,
+            ];
+        }
+    }
+
+    if (count($units) < $eachN) {
+        return 0.0;
+    }
+
+    $grouping = (string) ($discount->grouping_mode ?: TimeDiscount::GROUP_PRICE_SORTED);
+    $target = (string) ($discount->apply_target ?: TimeDiscount::TARGET_CHEAPEST);
+    $index = (int) ($discount->apply_index ?? 0);
+
+    if ($grouping === TimeDiscount::GROUP_PRICE_SORTED) {
+        usort($units, fn (array $a, array $b) => $b['price'] <=> $a['price']);
+    }
+
+    $chunks = array_chunk($units, $eachN);
+    $chunks = array_values(array_filter($chunks, fn (array $chunk) => count($chunk) === $eachN));
+
+    $amount = 0.0;
+    foreach ($chunks as $chunk) {
+        $recipient = null;
+        if ($target === TimeDiscount::TARGET_MOST_EXPENSIVE) {
+            $recipient = collect($chunk)->sortByDesc('price')->first();
+        } elseif ($target === TimeDiscount::TARGET_INDEX) {
+            $sorted = collect($chunk)->sortBy('price')->values();
+            $pos = max(1, min($eachN, $index > 0 ? $index : 1));
+            $recipient = $sorted->get($pos - 1);
+        } else {
+            $recipient = collect($chunk)->sortBy('price')->first();
+        }
+
+        if (! is_array($recipient)) {
+            continue;
+        }
+
+        $amount += ((float) ($recipient['price'] ?? 0)) * ($percent / 100);
+    }
+
+    return round(max(0.0, $amount), 2);
+}
+
+private function matchesCheckoutTimeDiscountScopeInline(TimeDiscount $discount, Product $product, array $row): bool
+{
+    try {
+        static $matchProductMethod;
+        static $matchCategoryMethod;
+        static $matchCharacteristicsMethod;
+
+        if (! $matchProductMethod) {
+            $matchProductMethod = new \ReflectionMethod(TimeDiscount::class, 'matchesProduct');
+            $matchProductMethod->setAccessible(true);
+        }
+        if (! $matchCategoryMethod) {
+            $matchCategoryMethod = new \ReflectionMethod(TimeDiscount::class, 'matchesCategory');
+            $matchCategoryMethod->setAccessible(true);
+        }
+        if (! $matchCharacteristicsMethod) {
+            $matchCharacteristicsMethod = new \ReflectionMethod(TimeDiscount::class, 'matchesCharacteristics');
+            $matchCharacteristicsMethod->setAccessible(true);
+        }
+
+        if (! (bool) $matchProductMethod->invoke($discount, $product)) {
+            return false;
+        }
+        if (! (bool) $matchCategoryMethod->invoke($discount, $product)) {
+            return false;
+        }
+
+        $item = new OrderItem([
+            'product_id' => $product->id,
+            'qty' => (int) ($row['qty'] ?? 0),
+            'unit_price' => (float) ($row['unit_price'] ?? 0),
+        ]);
+        $item->setRelation('product', $product);
+
+        if (! (bool) $matchCharacteristicsMethod->invoke($discount, $item)) {
+            return false;
+        }
+    } catch (\Throwable) {
+        return false;
+    }
+
+    return true;
 }
 
 }

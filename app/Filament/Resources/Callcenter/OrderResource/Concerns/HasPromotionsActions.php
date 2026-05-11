@@ -118,6 +118,7 @@ trait HasPromotionsActions
 
             $isActive = $d->canApply(null) && $d->hasEligibleProducts($productIds);
             $preview = $this->previewTotalsForPromotion($state, $value);
+            $isActive = $isActive && (float) ($preview['discount'] ?? 0) > 0;
 
             $out[] = [
                 'value' => $value,
@@ -157,6 +158,7 @@ trait HasPromotionsActions
             }
 
             $preview = $this->previewTotalsForPromotion($state, $value);
+            $isActive = $isActive && (float) ($preview['discount'] ?? 0) > 0;
 
             $out[] = [
                 'value' => $value,
