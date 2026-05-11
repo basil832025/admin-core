@@ -68,6 +68,16 @@ export default function registerCartActions(Alpine) {
                             if (qtyEl) qtyEl.textContent = String(it.qty ?? '');
                             const lineEl = row.querySelector('[data-cart-line-total]');
                             if (lineEl) lineEl.textContent = Number(it.line_total || 0).toLocaleString('uk-UA');
+                            const oldLineEl = row.querySelector('[data-cart-line-old-total]');
+                            if (oldLineEl) {
+                                if (it.old_line_total && Number(it.old_line_total) > Number(it.line_total || 0)) {
+                                    oldLineEl.textContent = Number(it.old_line_total).toLocaleString('uk-UA') + ' грн';
+                                    oldLineEl.classList.remove('hidden');
+                                } else {
+                                    oldLineEl.textContent = '';
+                                    oldLineEl.classList.add('hidden');
+                                }
+                            }
                         }
                     }
                 }

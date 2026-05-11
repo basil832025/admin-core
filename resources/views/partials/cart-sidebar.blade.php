@@ -52,6 +52,16 @@
                     $q     = (int) data_get($it, 'qty', 1);
                     $p     = (float) data_get($it, 'price', 0);
                     $sum   = (float) (data_get($it, 'subtotal') ?? ($q * $p));
+                    $oldUnitPrice = (float) data_get($it, 'old_price', 0);
+                    $oldSum = (float) data_get($it, 'old_subtotal', 0);
+
+                    if ($oldUnitPrice > 0 && $oldUnitPrice <= $p) {
+                        $oldUnitPrice = 0;
+                    }
+
+                    if ($oldUnitPrice > 0 && $oldSum <= 0) {
+                        $oldSum = $oldUnitPrice * $q;
+                    }
                     
                     // Получаем характеристики с SVG иконками для размера и веса
                     $variantChars = [];
@@ -110,12 +120,7 @@
                                     @foreach($variantChars as $char)
                                         <span class="inline-flex items-center gap-1">
                                             @if($char['svg'])
-                                                <span aria-hidden="true" class="inline-block h-4 w-4 shrink-0"
-                                                      style="background-color: currentColor;
-                                                          mask-image:url('{{ $char['svg'] }}');-webkit-mask-image:url('{{ $char['svg'] }}');
-                                                          mask-repeat:no-repeat;-webkit-mask-repeat:no-repeat;
-                                                          mask-position:center;-webkit-mask-position:center;
-                                                          mask-size:contain;-webkit-mask-size:contain;"></span>
+                                                <img src="{{ $char['svg'] }}" alt="" aria-hidden="true" class="h-4 w-4 shrink-0 object-contain opacity-60">
                                             @endif
                                             <span>{{ $char['value'] }}</span>
                                         </span>
@@ -165,14 +170,22 @@
                         </div>
 
                         {{-- сумма --}}
-                        <div class="order-2 ml-auto sm:ml-0 text-right min-w-[100px] md:min-w-[120px] shrink-0">
-                            <div class="flex items-baseline gap-1 text-[#DC2626] font-bold whitespace-nowrap">
+                        <div class="order-2 ml-auto sm:ml-0 min-w-[100px] md:min-w-[120px] shrink-0 flex flex-col items-end text-right">
+                            <div class="flex items-baseline justify-end gap-1 text-[#DC2626] font-bold whitespace-nowrap">
                                 <span class="text-[18px]" data-cart-line-total>
                                     {{ number_format($sum, 0, ',', ' ') }}
                                 </span>
                                 <span class="text-[14px]">
                                     {{ st('cart.summary.currency_short', 'грн') }}
                                 </span>
+                            </div>
+                            <div
+                                data-cart-line-old-total
+                                @class(['mt-1 w-full text-[14px] text-[#9E9E9E] line-through tabular-nums text-right', 'hidden' => $oldSum <= $sum])
+                            >
+                                @if($oldSum > $sum)
+                                    {{ number_format($oldSum, 0, ',', ' ') }} {{ st('cart.summary.currency_short', 'грн') }}
+                                @endif
                             </div>
                         </div>
 

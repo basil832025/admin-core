@@ -147,6 +147,13 @@ class CartService
         $pid  = (int)($row['product_id'] ?? $row['id'] ?? 0);
         $qty  = (int)($row['qty'] ?? 0);
         $unit = $this->normalizeUnitPrice($row);
+        $oldUnit = isset($row['old_price'])
+            ? (float) $row['old_price']
+            : $this->resolveOldUnitPrice($pid, $unit);
+
+        if ($oldUnit <= $unit) {
+            $oldUnit = null;
+        }
 
         return [
             'item' => [
@@ -154,9 +161,32 @@ class CartService
                 'qty'        => $qty,
                 'unit_price' => $unit,
                 'line_total' => $unit * $qty,
+                'old_unit_price' => $oldUnit,
+                'old_line_total' => $oldUnit ? $oldUnit * $qty : null,
             ],
             'removed' => $qty <= 0,
         ];
+    }
+
+    private function resolveOldUnitPrice(int $productId, float $currentUnitPrice): ?float
+    {
+        if ($productId <= 0 || $currentUnitPrice <= 0) {
+            return null;
+        }
+
+        $product = app(\App\Models\Shop\Product::class)
+            ->newQuery()
+            ->with('parent:id,old_price')
+            ->select(['id', 'parent_id', 'old_price'])
+            ->find($productId);
+
+        if (!$product) {
+            return null;
+        }
+
+        $oldUnitPrice = (float) ($product->parent?->old_price ?? $product->old_price ?? 0);
+
+        return $oldUnitPrice > $currentUnitPrice ? $oldUnitPrice : null;
     }
 
     private function getLineArrayByProductId(int $productId): ?array
@@ -646,6 +676,12 @@ class CartService
                     'qty'        => (int) $it->qty,
                     'price'      => (float) $it->unit_price,
                     'subtotal'   => (float) $it->qty * (float) $it->unit_price,
+                    'old_price'  => (($parent?->old_price ?? $p?->old_price) > (float) $it->unit_price)
+                        ? (float) ($parent?->old_price ?? $p?->old_price)
+                        : null,
+                    'old_subtotal' => (($parent?->old_price ?? $p?->old_price) > (float) $it->unit_price)
+                        ? (float) ($it->qty * (float) ($parent?->old_price ?? $p?->old_price))
+                        : null,
                     'meta'       => $it->meta ?? [],
                     'article'    => $article,
                 ];
@@ -679,6 +715,7 @@ class CartService
 
             $qty   = (int)($i['qty'] ?? 1);
             $price = (float)($i['price'] ?? 0);
+            $oldPrice = (float) ($parent?->old_price ?? $p?->old_price ?? 0);
 
                 return [
                     'product_id' => (int)($i['product_id'] ?? 0),
@@ -689,6 +726,8 @@ class CartService
                     'qty'        => $qty,
                     'price'      => $price,
                     'subtotal'   => $qty * $price,
+                    'old_price'  => $oldPrice > $price ? $oldPrice : null,
+                    'old_subtotal' => $oldPrice > $price ? $qty * $oldPrice : null,
                     'meta'       => $i['meta'] ?? [],
                     'article'    => $article,
                 ];
