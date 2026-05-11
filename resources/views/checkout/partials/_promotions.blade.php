@@ -232,7 +232,10 @@
                             // 3) успешный пересчёт — как уже было
                             const discountEl = document.querySelector('[data-checkout-discount]');
                             if (discountEl) {
-                                discountEl.textContent = data.discount_formatted;
+                                discountEl.textContent = Number(data.discount || 0).toLocaleString('uk-UA', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                });
                             }
 
                             if (window.checkoutTotals && typeof window.checkoutTotals.setPromoDiscount === 'function') {
