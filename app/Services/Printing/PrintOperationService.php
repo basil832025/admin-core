@@ -92,18 +92,34 @@ class PrintOperationService
         $layout = $this->resolveLayout($profile);
         $pdfBinary = $this->buildPdfFromHtml($rendered['html'], $layout, $profile->template);
         $copies = $copiesOverride !== null ? max(1, (int) $copiesOverride) : max(1, (int) $profile->copies);
-
-        $result = $this->printNode->createPdfBase64PrintJob(
-            printerSelector: $printerSelector,
-            title: $this->resolvePrintTitle($operationCode),
-            pdfBinary: $pdfBinary,
-            qty: $copies,
-        );
-
         $jobIds = [];
-        $jobId = (string) ($result['printjob_id'] ?? '');
-        if ($jobId !== '') {
-            $jobIds[] = $jobId;
+
+        if ($this->shouldSplitCopiesIntoSeparateJobs($profile, $layout, $copies)) {
+            for ($copyIndex = 1; $copyIndex <= $copies; $copyIndex++) {
+                $result = $this->printNode->createPdfBase64PrintJob(
+                    printerSelector: $printerSelector,
+                    title: $this->resolvePrintTitle($operationCode),
+                    pdfBinary: $pdfBinary,
+                    qty: 1,
+                );
+
+                $jobId = (string) ($result['printjob_id'] ?? '');
+                if ($jobId !== '') {
+                    $jobIds[] = $jobId;
+                }
+            }
+        } else {
+            $result = $this->printNode->createPdfBase64PrintJob(
+                printerSelector: $printerSelector,
+                title: $this->resolvePrintTitle($operationCode),
+                pdfBinary: $pdfBinary,
+                qty: $copies,
+            );
+
+            $jobId = (string) ($result['printjob_id'] ?? '');
+            if ($jobId !== '') {
+                $jobIds[] = $jobId;
+            }
         }
 
         return [
@@ -496,6 +512,22 @@ class PrintOperationService
         }
 
         return false;
+    }
+
+    /**
+     * Thermal printers usually cut between separate jobs, but not between multiple copies
+     * packed into a single job. Splitting copies avoids premature page breaks inside one PDF
+     * and keeps each receipt complete.
+     *
+     * @param  array<string, float>  $layout
+     */
+    private function shouldSplitCopiesIntoSeparateJobs(PrintOperationProfile $profile, array $layout, int $copies): bool
+    {
+        if ($copies <= 1) {
+            return false;
+        }
+
+        return $this->isThermalLayout($profile, (float) ($layout['width_mm'] ?? 0));
     }
 
     /**
