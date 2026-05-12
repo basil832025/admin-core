@@ -4,13 +4,26 @@
     /** @var \App\Models\Shop\ProductCategory|null $category */
     $locale = app()->getLocale();
 
-    $defaultTitle = st('home.delivery_of_ossetian_pies', 'Доставка осетинських пирогів у Києві');
+    $defaultTitle = '';
 
     $seoTitle = '';
     $seoDescription = '';
     $seoKeywords = '';
 
-    if (!empty($category)) {
+    if (!empty($page)) {
+        $fallback = config('translatable.fallback_locale', 'uk');
+        $seoTitle = (string) (($page->meta_title[$locale] ?? null)
+            ?: ($page->meta_title[$fallback] ?? null)
+            ?: '');
+        $seoDescription = (string) (($page->meta_description[$locale] ?? null)
+            ?: ($page->meta_description[$fallback] ?? null)
+            ?: '');
+        $seoKeywords = (string) (($page->meta_keywords[$locale] ?? null)
+            ?: ($page->meta_keywords[$fallback] ?? null)
+            ?: '');
+    }
+
+    if ($seoTitle === '' && !empty($category)) {
         if (method_exists($category, 'getTranslation')) {
             $seoTitle = (string) ($category->getTranslation('seo_title', $locale)
                 ?: $category->getTranslation('seo_title', 'uk')
@@ -60,7 +73,18 @@
 
     $seoTitle = trim(html_entity_decode($seoTitle, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
     if ($seoTitle === '') {
-        $seoTitle = $defaultTitle;
+        $seoTitle = trim((string) ($pageTitle ?? ''));
+    }
+
+    if ($seoTitle === '' && !empty($categorySections) && is_array($categorySections)) {
+        $firstSection = $categorySections[0] ?? null;
+        if (is_array($firstSection)) {
+            $seoTitle = trim((string) ($firstSection['title'] ?? ''));
+        }
+    }
+
+    if ($seoTitle === '') {
+        $seoTitle = st('home.delivery_of_ossetian_pies', 'Доставка осетинських пирогів у Києві');
     }
 
     $seoKeywords = trim(html_entity_decode($seoKeywords, ENT_QUOTES | ENT_HTML5, 'UTF-8'));

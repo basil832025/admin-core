@@ -8,6 +8,7 @@ use App\Support\Presenters\ProductCardPresenter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\Shop\Client;
+use App\Models\Pages;
 class FavoriteController extends Controller
 {
     /** Список избранных (и для гостя, и для авторизованного) */
@@ -15,6 +16,7 @@ class FavoriteController extends Controller
     {
         $locale = app()->getLocale();
         $ids    = $this->favoriteIds();
+        $page = Pages::query()->where('slug', 'favorites')->first();
       //  dd($ids);
         if (empty($ids)) {
             $categorySections = [[
@@ -23,7 +25,7 @@ class FavoriteController extends Controller
                 'slug'  => 'favorites',
             ]];
 
-            return view('pages.catalog.category', compact('categorySections'));
+            return view('pages.catalog.category', compact('categorySections', 'page'));
         }
 
         $items = (new ProductCardPresenter($locale))->collection(
@@ -40,7 +42,7 @@ class FavoriteController extends Controller
             'slug'  => 'favorites',
         ]];
         $favoriteIds = $ids; // <<< ВАЖНО
-        return view('pages.catalog.category', compact('categorySections','favoriteIds'));
+        return view('pages.catalog.category', compact('categorySections', 'favoriteIds', 'page'));
     }
 
 
