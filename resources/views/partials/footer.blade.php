@@ -122,7 +122,7 @@
                     <li><a href="https://www.instagram.com/3piroga_ua" target="_blank" aria-label="Instagram" class="text-black hover:text-[#FF7500]">
                             <x-icons.instagram class="w-6 h-6"/>
                         </a></li>
-                    <li><a href="#" aria-label="TikTok" target="_blank" class="text-black hover:text-[#FF7500]">
+                    <li><a href="https://www.tiktok.com/@tripiroga?_r=1" aria-label="TikTok" target="_blank" class="text-black hover:text-[#FF7500]">
                             <x-icons.tiktok class="w-6 h-6"/>
                         </a></li>
                     <li><a href="https://t.me/OsetianBakery" target="_blank" aria-label="Telegram" class="text-black hover:text-[#FF7500]">

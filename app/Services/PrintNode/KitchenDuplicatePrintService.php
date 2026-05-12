@@ -464,7 +464,7 @@ class KitchenDuplicatePrintService
 
         $operator = trim((string) ($operatorName ?: auth('admin')->user()?->name ?: 'System'));
         $phone = trim((string) ($order->clients?->phone ?? ''));
-        $printAt = now()->format('d/m/Y H:i');
+        $printAt = now()->format('d.m.Y H:i');
         $deliveryAt = $this->formatOrderDateTime($order->date_order, $order->time_order);
         $issuedAt = $this->formatOrderDateTime($order->dat, $order->time_start);
         $address = $this->resolveAddressLine($order);
@@ -887,9 +887,9 @@ class KitchenDuplicatePrintService
         $timePart = '';
 
         if ($date instanceof \Carbon\CarbonInterface) {
-            $datePart = $date->format('d/m/Y');
+            $datePart = $date->format('d.m.Y');
         } elseif (is_string($date) && trim($date) !== '') {
-            $datePart = date('d/m/Y', strtotime($date));
+            $datePart = date('d.m.Y', strtotime($date));
         }
 
         if ($time instanceof \Carbon\CarbonInterface) {
