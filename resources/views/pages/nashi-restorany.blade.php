@@ -109,6 +109,7 @@
             'lat' => data_get($headerLocation ?? null, 'lat'),
             'lng' => data_get($headerLocation ?? null, 'lng'),
             'googleMapLink' => (string) data_get($headerLocation ?? null, 'google_map_link', ''),
+            'svgIconUrl' => $headerLocation?->svgImage?->public_url,
         ];
 
         $zones = \App\Models\DeliveryZone::where('is_active', true)

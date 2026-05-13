@@ -69,6 +69,22 @@ function getInitialCenter() {
 
     return DEFAULT_CENTER;
 }
+
+function getMarkerIcon() {
+    const mapLocation = (typeof window !== 'undefined' && window.MAP_LOCATION) ? window.MAP_LOCATION : null;
+    const svgIconUrl = String(mapLocation?.svgIconUrl || '').trim();
+
+    if (!svgIconUrl || typeof google === 'undefined' || !google.maps || !google.maps.Size || !google.maps.Point) {
+        return null;
+    }
+
+    return {
+        url: svgIconUrl,
+        scaledSize: new google.maps.Size(44, 44),
+        anchor: new google.maps.Point(22, 44),
+    };
+}
+
 function resolveAreaByLatLng(latLng) {
     // Проверяем, что Google Maps API загружен
     if (typeof google === 'undefined' || !google.maps || !google.maps.geometry || !google.maps.geometry.poly) {
@@ -130,7 +146,12 @@ function initMap() {
     });
 
     // 2) МАРКЕР СРАЗУ ПРИВЯЗЫВАЕМ К КАРТЕ
-    marker = new google.maps.Marker({ position: center, map });
+    const markerIcon = getMarkerIcon();
+    marker = new google.maps.Marker({
+        position: center,
+        map,
+        ...(markerIcon ? { icon: markerIcon } : {}),
+    });
 
     infoWindow = new google.maps.InfoWindow();
 
