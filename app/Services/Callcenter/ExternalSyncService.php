@@ -21,6 +21,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class ExternalSyncService
@@ -444,8 +445,18 @@ class ExternalSyncService
             $localClient = $this->ensureLocalClient($source, $orderPayload);
             $clientAddress = $this->ensureClientAddress($localClient, $orderPayload);
 
-            $status = $this->mapStatus((int) Arr::get($orderPayload, 'status_id', 0));
-            $payment = $this->mapPayment((int) Arr::get($orderPayload, 'pay_id', 0));
+            $status = $this->mapStatus(
+                (int) Arr::get($orderPayload, 'status_id', 0),
+                $source,
+                $externalOrderId,
+                $orderPayload,
+            );
+            $payment = $this->mapPayment(
+                (int) Arr::get($orderPayload, 'pay_id', 0),
+                $source,
+                $externalOrderId,
+                $orderPayload,
+            );
 
             $createdAt = Carbon::createFromTimestamp((int) Arr::get($orderPayload, 'creation_time', time()));
             $deliveryDate = Arr::get($orderPayload, 'deliveryDate');
@@ -1323,21 +1334,58 @@ class ExternalSyncService
         return $variants;
     }
 
-    protected function mapStatus(int $sourceStatus): string
+    protected function mapStatus(int $sourceStatus, ?Source $source = null, ?string $externalOrderId = null, array $orderPayload = []): string
     {
-        return match ($sourceStatus) {
-            6 => OrderStatus::Delivered->value,
+        $mapped = match ($sourceStatus) {
+            3 => OrderStatus::New->value,
+            4 => OrderStatus::Processing->value,
+            5 => OrderStatus::Delivered->value,
+            6 => OrderStatus::Cancelled->value,
             7, 8 => OrderStatus::Cancelled->value,
-            default => OrderStatus::New->value,
+            default => null,
         };
+
+        if ($mapped !== null) {
+            return $mapped;
+        }
+
+        Log::warning('External order imported with unknown status_id, falling back to NEW', [
+            'source_id' => $source?->id,
+            'source_slug' => $source?->slug,
+            'source_name' => $source?->name,
+            'external_order_id' => $externalOrderId,
+            'status_id' => $sourceStatus,
+            'status_name' => Arr::get($orderPayload, 'status_name'),
+            'status' => Arr::get($orderPayload, 'status'),
+        ]);
+
+        return OrderStatus::New->value;
     }
 
-    protected function mapPayment(int $sourcePayment): int
+    protected function mapPayment(int $sourcePayment, ?Source $source = null, ?string $externalOrderId = null, array $orderPayload = []): int
     {
-        $allowed = collect(PaymentMethodEnum::cases())->map(fn (PaymentMethodEnum $case) => $case->value)->all();
-        if (in_array($sourcePayment, $allowed, true)) {
-            return $sourcePayment;
+        $mapped = match ($sourcePayment) {
+            2 => PaymentMethodEnum::CASH,
+            9 => PaymentMethodEnum::POS,
+            10 => PaymentMethodEnum::INVOICE,
+            11 => PaymentMethodEnum::LIQPAY,
+            default => null,
+        };
+
+        if ($mapped instanceof PaymentMethodEnum) {
+            return $mapped->value;
         }
+
+        Log::warning('External order imported with unknown pay_id, falling back to CARD', [
+            'source_id' => $source?->id,
+            'source_slug' => $source?->slug,
+            'source_name' => $source?->name,
+            'external_order_id' => $externalOrderId,
+            'pay_id' => $sourcePayment,
+            'pay_name' => Arr::get($orderPayload, 'pay_name'),
+            'payment' => Arr::get($orderPayload, 'payment'),
+            'oplata' => Arr::get($orderPayload, 'oplata'),
+        ]);
 
         return PaymentMethodEnum::CARD->value;
     }
@@ -1345,11 +1393,25 @@ class ExternalSyncService
     protected function isSelfPickup(array $orderPayload): bool
     {
         $deliveryId = (int) Arr::get($orderPayload, 'delivery_id', 0);
-        if ($deliveryId === 7) {
-            return true;
+
+        $mapped = match ($deliveryId) {
+            1 => false,
+            7 => true,
+            default => null,
+        };
+
+        if ($mapped !== null) {
+            return $mapped;
         }
 
         $street = trim((string) Arr::get($orderPayload, 'address', ''));
+
+        Log::warning('External order imported with unknown delivery_id, falling back to address-based pickup detection', [
+            'delivery_id' => $deliveryId,
+            'delivery_name' => Arr::get($orderPayload, 'delivery_name'),
+            'delivery' => Arr::get($orderPayload, 'delivery'),
+            'address' => $street,
+        ]);
 
         return $street === '';
     }

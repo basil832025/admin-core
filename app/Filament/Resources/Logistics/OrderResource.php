@@ -237,14 +237,19 @@ class OrderResource extends CallcenterOrderResource
                         $discount = $discountValue != 0
                             ? number_format($discountValue, 2, ',', ' ') . ' грн'
                             : '—';
-                        $grand = number_format((float) ($record->grand_total ?? 0), 2, ',', ' ') . ' грн';
+                        $resolved = static::resolveFinalAmount(
+                            $record,
+                            (float) ($record->subtotal ?? $record->total_price ?? 0),
+                            $record->resolveDeliveryAmount()
+                        );
+                        $grand = number_format((float) ($resolved['final'] ?? 0), 2, ',', ' ') . ' грн';
 
                         $isCash = (($record->payment instanceof PaymentMethodEnum ? $record->payment->value : (int) $record->payment) === PaymentMethodEnum::CASH->value);
                         $cashFromValue = (float) ($record->cash_from ?? 0);
 
                         $cashHint = '';
                         if ($isCash && $cashFromValue > 0) {
-                            $changeValue = max(0, $cashFromValue - (float) ($record->grand_total ?? 0));
+                            $changeValue = max(0, $cashFromValue - (float) ($resolved['final'] ?? 0));
 
                             $cashFromText = number_format($cashFromValue, 2, ',', ' ');
                             $changeText = number_format($changeValue, 2, ',', ' ');

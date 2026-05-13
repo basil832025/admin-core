@@ -458,6 +458,7 @@ class OrderResource extends Resource
                             $rows = $orderId > 0
                                 ? \Illuminate\Support\Facades\DB::table('bs_shop_order_adjustments')
                                     ->where('shop_order_id', $orderId)
+                                    ->whereNotIn('type', ['import_total_correction'])
                                     ->orderByDesc('id')
                                     ->get(['id', 'type', 'label', 'amount'])
                                 : collect();
@@ -3065,10 +3066,23 @@ class OrderResource extends Resource
 
     protected static function paymentOptionsAdmin(): array
     {
-        $options = PaymentMethodEnum::options();
-        $options[PaymentMethodEnum::INVOICE->value] = static::invoiceLabel();
+        $labels = PaymentMethodEnum::options();
+        $labels[PaymentMethodEnum::INVOICE->value] = static::invoiceLabel();
 
-        return $options;
+        $order = [
+            PaymentMethodEnum::LIQPAY,
+            PaymentMethodEnum::ORG_TRANSFER,
+            PaymentMethodEnum::CARD,
+            PaymentMethodEnum::POS,
+            PaymentMethodEnum::CASH,
+            PaymentMethodEnum::INVOICE,
+            PaymentMethodEnum::FREE,
+            PaymentMethodEnum::CLUB,
+        ];
+
+        return collect($order)
+            ->mapWithKeys(fn (PaymentMethodEnum $method) => [$method->value => $labels[$method->value] ?? $method->label()])
+            ->toArray();
     }
     protected static function calcBaseTotalFromGet(Get $get): float
     {
@@ -3087,24 +3101,7 @@ class OrderResource extends Resource
 
     protected static function resolveSpentBonuses(?Order $order): float
     {
-        if (! $order) {
-            return 0.0;
-        }
-
-        $spentFromTransactions = (float) abs(
-            $order->loyaltyTransactions()->where('amount', '<', 0)->sum('amount')
-        );
-
-        $spentFromAdjustments = (float) abs(
-            $order->adjustments()
-                ->whereNull('shop_order_item_id')
-                ->whereIn('type', ['loyalty', 'loyalty_spent', 'bonus_spent'])
-                ->sum('amount')
-        );
-
-        // Note: sale_sum is used in some integrations to store imported discounts (not loyalty bonuses).
-        // Only explicit loyalty sources should affect "spent bonuses".
-        return max($spentFromTransactions, $spentFromAdjustments);
+        return $order?->resolveSpentBonuses() ?? 0.0;
     }
 
     /**
@@ -3124,54 +3121,7 @@ class OrderResource extends Resource
         $record->refresh();
 
         $bonuses = static::resolveSpentBonuses($record);
-        $recordDelivery = max(
-            (float) ($record->shipping_total ?? 0),
-            (float) ($record->shipping_price ?? 0)
-        );
-
-        $recordSubtotal = (float) ($record->subtotal ?? 0);
-        $recordDiscount = (float) ($record->discount_total ?? 0);
-        if (abs($recordDiscount) < 0.0001) {
-            // discount_total may be stale for some imported orders; adjustments are the source of truth.
-            $recordDiscount = (float) $record->adjustments()->sum('amount');
-        }
-
-        // If no bonuses are used, prefer keeping existing grand_total if it's consistent with record totals.
-        // Otherwise, apply record discount to current form base.
-        if ($bonuses <= 0.0001) {
-            $baseNoBonusFromRecord = $recordSubtotal + $recordDiscount + $recordDelivery;
-            $grand = (float) ($record->grand_total ?? 0);
-
-            if (abs($grand - $baseNoBonusFromRecord) < 0.01) {
-                $final = $grand + ($deliveryPrice - $recordDelivery);
-            } else {
-                $final = $baseTotal + $deliveryPrice + $recordDiscount;
-            }
-
-            return [
-                'final' => max(0, (float) $final),
-                'bonuses' => 0.0,
-            ];
-        }
-
-        $baseNoBonusFromRecord = $recordSubtotal + $recordDiscount + $recordDelivery;
-
-        $grand = (float) ($record->grand_total ?? 0);
-        $grandAdjustedToFormDelivery = $grand + ($deliveryPrice - $recordDelivery);
-
-        $grandIncludesBonuses = $bonuses > 0
-            && abs($grand - ($baseNoBonusFromRecord - $bonuses)) < 0.01;
-        $grandExcludesBonuses = $bonuses > 0
-            && abs($grand - $baseNoBonusFromRecord) < 0.01;
-
-        if ($grandIncludesBonuses) {
-            $final = $grandAdjustedToFormDelivery;
-        } elseif ($grandExcludesBonuses) {
-            $final = $baseNoBonusFromRecord - $bonuses + ($deliveryPrice - $recordDelivery);
-        } else {
-            // fallback для старых/импортных заказов с несогласованным grand_total
-            $final = $baseTotal + $deliveryPrice - $bonuses;
-        }
+        $final = $record->resolvePayableAmount($baseTotal, $deliveryPrice);
 
         return [
             'final' => max(0, (float) $final),

@@ -1,12 +1,71 @@
 @extends('layouts.app')
 
-@section('title', $title ?? $post->title)
+@php
+    $locale = app()->getLocale();
+
+    $pick = function ($value) use ($locale): string {
+        if (is_array($value)) {
+            $v = $value[$locale] ?? $value['uk'] ?? (count($value) ? reset($value) : null);
+            return is_string($v) ? trim($v) : '';
+        }
+
+        return is_string($value) ? trim($value) : '';
+    };
+
+    $pageTitle = $pick($post->title ?? null);
+    if ($pageTitle === '') {
+        $pageTitle = is_string($title ?? null) ? trim((string) $title) : '';
+    }
+
+    $seoTitle = $pick($post->meta_title ?? null);
+    if ($seoTitle === '') {
+        $seoTitle = $pageTitle;
+    }
+    $seoTitle = trim(html_entity_decode($seoTitle, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+
+    $seoDescription = $pick($post->meta_description ?? null);
+    if ($seoDescription === '') {
+        $seoDescription = $pick($post->anons ?? null);
+    }
+    if ($seoDescription === '') {
+        $seoDescription = $pick($post->content ?? null);
+    }
+    $seoDescription = trim(html_entity_decode($seoDescription, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+    if ($seoDescription !== '') {
+        $seoDescription = trim(preg_replace('/\s+/u', ' ', strip_tags($seoDescription)));
+        if (mb_strlen($seoDescription) > 250) {
+            $seoDescription = rtrim(mb_substr($seoDescription, 0, 247)) . '...';
+        }
+    }
+
+    $seoKeywords = $pick($post->meta_keywords ?? null);
+    if ($seoKeywords === '') {
+        $seoKeywords = $pick($post->category?->meta_keywords ?? null);
+    }
+    $seoKeywords = trim(html_entity_decode($seoKeywords, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+    $seoKeywords = trim(preg_replace('/\s+/u', ' ', strip_tags($seoKeywords)));
+
+    $hero = $post->detail_image_url ?? $post->preview_image_url ?? '/images/no-image.svg';
+@endphp
+
+@section('title', $seoTitle)
+@section('meta_description', $seoDescription)
+@if($seoKeywords !== '')
+    @section('meta_keywords', $seoKeywords)
+@endif
+
+@section('og_type', 'article')
+@section('og_title', $seoTitle)
+@section('og_description', $seoDescription)
+@section('og_image', $hero)
+@section('twitter_title', $seoTitle)
+@section('twitter_description', $seoDescription)
+@section('twitter_image', $hero)
 
 @section('content')
     <div class="container mx-auto px-4 md:px-6 lg:px-8">
 
         @php
-            $locale = app()->getLocale();
             $prefix = in_array($locale, ['ru', 'en'], true) ? '/' . $locale : '';
         @endphp
 
@@ -55,10 +114,6 @@
         </div>
 
         {{-- Большое изображение --}}
-        @php
-       // dump($post->detail_image_url,$post->preview_image_url);
-            $hero = $post->detail_image_url ?? $post->preview_image_url ?? '/images/no-image.svg';
-        @endphp
         <figure class="rounded-[20px] overflow-hidden mb-8 text-center">
             <img src="{{ $hero }}" alt="{{ $post->title }}" class="mx-auto w-auto object-cover h-auto md:h-[362px] rounded-[20px]">
         </figure>
@@ -67,7 +122,7 @@
         <article
             class="
     prose prose-neutral prose-img:rounded-[20px] prose-figure:rounded-[20px] prose-figure:overflow-hidden
-    text-base md:prose-lg lg:prose-xl      <!-- крупнее на больших -->
+    text-base prose-p:text-[16px] prose-li:text-[16px]
     max-w-[760px] md:max-w-[860px] lg:max-w-[980px] xl:max-w-[1100px]
     mx-auto                                  <!-- остаётся по центру, но шире -->
     prose-p:leading-7

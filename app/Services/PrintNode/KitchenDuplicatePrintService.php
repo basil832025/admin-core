@@ -469,6 +469,8 @@ class KitchenDuplicatePrintService
         $issuedAt = $this->formatOrderDateTime($order->dat, $order->time_start);
         $address = $this->resolveAddressLine($order);
         $kitchenNote = trim((string) ($order->kitchen_note ?? ''));
+        $deliveryAmount = $order->resolveDeliveryAmount();
+        $payableTotal = $order->resolvePayableAmount();
 
         $siteName = trim((string) ($order->source?->name ?? ''));
         if ($siteName === '') {
@@ -526,6 +528,8 @@ class KitchenDuplicatePrintService
             'address' => $address !== '' ? $address : '-',
             'items' => implode("\n", $itemLines),
             'items_rows' => $itemRows,
+            'delivery_amount' => $deliveryAmount,
+            'payable_total' => $payableTotal,
             'total' => number_format((float) ($order->total_price_sale ?? $order->total_price ?? 0), 2, '.', ' ') . ' грн',
             'print_count' => (string) $printCount,
         ];
@@ -582,6 +586,8 @@ class KitchenDuplicatePrintService
             'items' => (string) ($vars['items'] ?? ''),
             'items_html' => $itemsHtml,
             'items_rows' => $rows,
+            'delivery_amount' => (float) ($vars['delivery_amount'] ?? 0),
+            'payable_total' => (float) ($vars['payable_total'] ?? 0),
             'total' => (string) ($vars['total'] ?? ''),
             'print_count' => (string) ($vars['print_count'] ?? ''),
         ];

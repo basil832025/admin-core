@@ -176,6 +176,83 @@ class Order extends Model
     {
         return $this->hasOne(CashalotLog::class, 'shop_order_id')->latestOfMany();
     }
+
+    public function resolveSpentBonuses(): float
+    {
+        $spentFromTransactions = (float) abs(
+            $this->loyaltyTransactions()->where('amount', '<', 0)->sum('amount')
+        );
+
+        $spentFromAdjustments = (float) abs(
+            $this->adjustments()
+                ->whereNull('shop_order_item_id')
+                ->whereIn('type', ['loyalty', 'loyalty_spent', 'bonus_spent'])
+                ->sum('amount')
+        );
+
+        return max($spentFromTransactions, $spentFromAdjustments);
+    }
+
+    public function resolveDeliveryAmount(?float $override = null): float
+    {
+        if ($override !== null) {
+            return max(0, (float) $override);
+        }
+
+        return max(
+            (float) ($this->shipping_total ?? 0),
+            (float) ($this->shipping_price ?? 0)
+        );
+    }
+
+    public function resolvePayableAmount(?float $baseTotal = null, ?float $deliveryPrice = null): float
+    {
+        $bonuses = $this->resolveSpentBonuses();
+        $recordDelivery = $this->resolveDeliveryAmount();
+        $deliveryPrice = $this->resolveDeliveryAmount($deliveryPrice);
+
+        $recordSubtotal = (float) ($this->subtotal ?? 0);
+        $recordDiscount = (float) ($this->discount_total ?? 0);
+        if (abs($recordDiscount) < 0.0001) {
+            $recordDiscount = (float) $this->adjustments()->sum('amount');
+        }
+
+        $baseTotal ??= $recordSubtotal > 0
+            ? $recordSubtotal
+            : (float) ($this->total_price ?? 0);
+
+        if ($bonuses <= 0.0001) {
+            $baseNoBonusFromRecord = $recordSubtotal + $recordDiscount + $recordDelivery;
+            $grand = (float) ($this->grand_total ?? 0);
+
+            if (abs($grand - $baseNoBonusFromRecord) < 0.01) {
+                $final = $grand + ($deliveryPrice - $recordDelivery);
+            } else {
+                $final = $baseTotal + $deliveryPrice + $recordDiscount;
+            }
+
+            return max(0, (float) $final);
+        }
+
+        $baseNoBonusFromRecord = $recordSubtotal + $recordDiscount + $recordDelivery;
+        $grand = (float) ($this->grand_total ?? 0);
+        $grandAdjustedToFormDelivery = $grand + ($deliveryPrice - $recordDelivery);
+
+        $grandIncludesBonuses = $bonuses > 0
+            && abs($grand - ($baseNoBonusFromRecord - $bonuses)) < 0.01;
+        $grandExcludesBonuses = $bonuses > 0
+            && abs($grand - $baseNoBonusFromRecord) < 0.01;
+
+        if ($grandIncludesBonuses) {
+            $final = $grandAdjustedToFormDelivery;
+        } elseif ($grandExcludesBonuses) {
+            $final = $baseNoBonusFromRecord - $bonuses + ($deliveryPrice - $recordDelivery);
+        } else {
+            $final = $baseTotal + $deliveryPrice - $bonuses;
+        }
+
+        return max(0, (float) $final);
+    }
     // Что логировать
     public function getActivitylogOptions(): LogOptions
     {
