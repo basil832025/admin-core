@@ -104,6 +104,28 @@
 
 @push('scripts')
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    @php
+        $mapLocationForJs = [
+            'lat' => data_get($headerLocation ?? null, 'lat'),
+            'lng' => data_get($headerLocation ?? null, 'lng'),
+            'googleMapLink' => (string) data_get($headerLocation ?? null, 'google_map_link', ''),
+        ];
+
+        $zones = \App\Models\DeliveryZone::where('is_active', true)
+            ->orderBy('sort_order')
+            ->get()
+            ->keyBy('name')
+            ->map(function($zone) {
+                return [
+                    'name' => $zone->name,
+                    'color' => $zone->color,
+                    'delivery_price' => (float) $zone->delivery_price,
+                    'delivery_time_min' => (int) $zone->delivery_time_min,
+                    'delivery_time_max' => (int) $zone->delivery_time_max,
+                    'free_delivery_from' => (float) $zone->free_delivery_from,
+                ];
+            });
+    @endphp
     <script>
         window.__gmapsLoaded = false;
         window.initMap = function () {
@@ -111,22 +133,7 @@
             if (window.__realInitMap) window.__realInitMap();
         };
 
-        @php
-            $zones = \App\Models\DeliveryZone::where('is_active', true)
-                ->orderBy('sort_order')
-                ->get()
-                ->keyBy('name')
-                ->map(function($zone) {
-                    return [
-                        'name' => $zone->name,
-                        'color' => $zone->color,
-                        'delivery_price' => (float) $zone->delivery_price,
-                        'delivery_time_min' => (int) $zone->delivery_time_min,
-                        'delivery_time_max' => (int) $zone->delivery_time_max,
-                        'free_delivery_from' => (float) $zone->free_delivery_from,
-                    ];
-                });
-        @endphp
+        window.MAP_LOCATION = {!! \Illuminate\Support\Js::from($mapLocationForJs) !!};
 
         window.DELIVERY_ZONES = @json($zones);
     </script>

@@ -280,6 +280,13 @@
 @push('scripts')
     {{-- jQuery, т.к. твой map-cart.js его использует --}}
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    @php
+        $mapLocationForJs = [
+            'lat' => data_get($headerLocation ?? null, 'lat'),
+            'lng' => data_get($headerLocation ?? null, 'lng'),
+            'googleMapLink' => (string) data_get($headerLocation ?? null, 'google_map_link', ''),
+        ];
+    @endphp
     <script>
         // Заглушка: Google зовёт window.initMap — мы просто ставим флаг.
         // Когда «наш» initMap загрузится — он сам запустится.
@@ -288,6 +295,8 @@
             window.__gmapsLoaded = true;
             if (window.__realInitMap) window.__realInitMap();
         };
+
+        window.MAP_LOCATION = {!! \Illuminate\Support\Js::from($mapLocationForJs) !!};
 
         // Передаем данные зон доставки из базы данных в JavaScript
         // Ключи — префиксы зон (Green, Blue, Red, Brown), как ожидает map-cart.js

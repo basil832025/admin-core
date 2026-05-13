@@ -1,6 +1,74 @@
 let allSumm = 0;        // ← добавить
 //var center = new google.maps.LatLng(50.4590851, 30.4182548);
-const CENTER = { lat: 50.4590851, lng: 30.4182548 }; // литерал безопасен до загрузки API
+const DEFAULT_CENTER = { lat: 50.4590851, lng: 30.4182548 }; // литерал безопасен до загрузки API
+
+function toFiniteCoordinate(value) {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+}
+
+function parseCoordinatesFromGoogleMapLink(link) {
+    const raw = String(link || '').trim();
+    if (!raw) return null;
+
+    let url;
+    try {
+        url = new URL(raw);
+    } catch (_) {
+        return null;
+    }
+
+    const patterns = [
+        /@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/,
+        /!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/,
+        /(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/,
+    ];
+
+    const candidates = [
+        url.searchParams.get('q'),
+        url.searchParams.get('query'),
+        url.searchParams.get('destination'),
+        url.pathname,
+        url.href,
+    ];
+
+    for (const candidate of candidates) {
+        const value = String(candidate || '');
+        if (!value) continue;
+
+        for (const pattern of patterns) {
+            const match = value.match(pattern);
+            if (!match) continue;
+
+            const lat = toFiniteCoordinate(match[1]);
+            const lng = toFiniteCoordinate(match[2]);
+            if (lat === null || lng === null) continue;
+
+            return { lat, lng };
+        }
+    }
+
+    return null;
+}
+
+function getInitialCenter() {
+    const mapLocation = (typeof window !== 'undefined' && window.MAP_LOCATION) ? window.MAP_LOCATION : null;
+
+    if (mapLocation) {
+        const linkCenter = parseCoordinatesFromGoogleMapLink(mapLocation.googleMapLink);
+        if (linkCenter) {
+            return linkCenter;
+        }
+
+        const lat = toFiniteCoordinate(mapLocation.lat);
+        const lng = toFiniteCoordinate(mapLocation.lng);
+        if (lat !== null && lng !== null) {
+            return { lat, lng };
+        }
+    }
+
+    return DEFAULT_CENTER;
+}
 function resolveAreaByLatLng(latLng) {
     // Проверяем, что Google Maps API загружен
     if (typeof google === 'undefined' || !google.maps || !google.maps.geometry || !google.maps.geometry.poly) {
@@ -50,7 +118,7 @@ function initMap() {
 
     try {
         let map, marker, bounds, infoWindow;   // ← объявили infoWindow
-        const center = CENTER;
+        const center = getInitialCenter();
         bounds = new google.maps.LatLngBounds();
     // 1) СОЗДАЁМ КАРТУ
     map = new google.maps.Map(mapElement, {
