@@ -258,8 +258,6 @@ class OrderResource extends ShopOrderResource
                         if ($id) {
                             $set('incoming_phone', Client::query()->whereKey($id)->value('phone') ?? '');
                         }
-
-                        $set('history_refresh', (string) microtime(true));
                     })
                         ->createOptionAction(fn (FormAction $action) => $action
                             ->mountUsing(function (Form $form, LivewireComponent $livewire): void {
@@ -328,7 +326,7 @@ class OrderResource extends ShopOrderResource
 
             if (! $historyInjected) {
                 $fields[] = Hidden::make('history_refresh')
-                    ->default((string) microtime(true))
+                    ->default('0')
                     ->dehydrated(false);
 
                 $historyInjected = true;

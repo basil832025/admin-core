@@ -23,6 +23,7 @@ class Banner extends Model
         'image',          // универсальная
         'images',         // JSON с локальными
         'image_mobile',
+        'images_mobile',
         'url',
         'target',
         'sort',
@@ -42,6 +43,7 @@ class Banner extends Model
     protected $casts = [
         'is_active' => 'bool',
         'images'    => 'array',
+        'images_mobile' => 'array',
         'starts_at' => 'datetime',
         'ends_at'   => 'datetime',
         'schedule'  => 'array',
@@ -228,6 +230,23 @@ class Banner extends Model
 
         // иначе универсальная
         return $this->image;
+    }
+
+    public function getMobileImageForLocale(?string $locale = null): ?string
+    {
+        $locale ??= app()->getLocale();
+
+        $imagesMobile = $this->images_mobile ?? [];
+
+        if (!empty($imagesMobile[$locale])) {
+            return $imagesMobile[$locale];
+        }
+
+        if (!empty($this->image_mobile)) {
+            return $this->image_mobile;
+        }
+
+        return $this->getImageForLocale($locale);
     }
 
     public function getLocalizedUrl(?string $locale = null): ?string

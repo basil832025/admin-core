@@ -296,15 +296,27 @@ class BannerResource extends Resource
                             ->columnSpanFull()
                             ->schema(fn (string $locale) => [
                                 FileUpload::make("images")
-                                    ->label('Зображення для мови')
+                                    ->label('Зображення для мови (desktop)')
                                     ->image()
                                     ->directory('banners')
                                     ->disk('public')
                                     ->required(false)
                                     ->helperText(
                                         $locale === $defaultLocale
-                                            ? 'Можна не заповнювати — тоді буде використовуватись універсальне зображення.'
-                                            : 'Якщо не заповнено — буде використовуватись універсальне або українське зображення.'
+                                            ? 'Можна не заповнювати - тоді буде використовуватись універсальне зображення.'
+                                            : 'Якщо не заповнено - буде використовуватись універсальне або українське зображення.'
+                                    ),
+
+                                FileUpload::make("images_mobile")
+                                    ->label('Зображення для мови (mobile)')
+                                    ->image()
+                                    ->directory('banners')
+                                    ->disk('public')
+                                    ->required(false)
+                                    ->helperText(
+                                        $locale === $defaultLocale
+                                            ? 'Можна не заповнювати - тоді буде використовуватись універсальне mobile-зображення або desktop.'
+                                            : 'Якщо не заповнено - буде використовуватись універсальне mobile-зображення, локалізоване desktop або українське зображення.'
                                     ),
                             ]),
                     ]),

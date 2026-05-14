@@ -1,5 +1,11 @@
 <script>
     (function () {
+        if (window.__ccBinotelPollerInit) {
+            return;
+        }
+
+        window.__ccBinotelPollerInit = true;
+
         const endpoint = '/admin/integrations/binotel/incoming-call/next';
         let modal = null;
         let isBusy = false;

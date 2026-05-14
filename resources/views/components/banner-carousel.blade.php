@@ -52,7 +52,7 @@
                 return null;
             }
 
-            $mobilePath = $banner->image_mobile ?: $imagePath;
+            $mobilePath = $banner->getMobileImageForLocale($locale) ?: $imagePath;
             $title = $banner->getTranslation('title', $locale)
                 ?? $banner->title
                 ?? 'Банер';

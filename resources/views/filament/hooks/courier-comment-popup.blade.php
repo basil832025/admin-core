@@ -1,5 +1,11 @@
 <script>
     (function () {
+        if (window.__ccCourierCommentPollerInit) {
+            return;
+        }
+
+        window.__ccCourierCommentPollerInit = true;
+
         const endpoint = '/admin/callcenter/courier-comment/next';
         const markReadEndpoint = '/admin/callcenter/courier-comment/mark-read';
         let container = null;

@@ -86,7 +86,6 @@ trait HasMenuCatalogActions
             }
 
             $this->form->fill($state);
-            $this->dispatch('$refresh');
 
             $this->record->shipping_price = $shippingPrice;
             $this->record->saveQuietly();
@@ -122,7 +121,6 @@ trait HasMenuCatalogActions
         }
 
         $this->form->fill($state);
-        $this->dispatch('$refresh');
 
         Log::info('Callcenter menu: item added to create form', [
             'product_id' => $product->id,

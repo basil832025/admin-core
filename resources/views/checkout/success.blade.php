@@ -357,5 +357,30 @@ async function sendOrderToEmail(orderId) {
     }
 }
 </script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+
+    window.dataLayer.push({
+        event: 'purchase',
+        ecommerce: {
+            transaction_id: '{{ $order->id }}',
+            value: {{ (float)($order->grand_total ?? 0) }},
+            currency: '{{ $order->currency ?? "UAH" }}',
+            shipping: {{ (float)($order->shipping_price ?? 0) }},
+            discount: {{ (float)($order->sale_sum ?? 0) }},
+            items: [
+                    @foreach($order->items ?? [] as $item)
+                {
+                    item_id: '{{ $item["product_id"] ?? $item["id"] ?? "" }}',
+                    item_name: @json($item["product"]["title"] ?? $item["product"]["name"] ?? $item["product"]["slug"] ?? ""),
+                    price: {{ (float)($item["unit_price_effective"] ?? $item["unit_price"] ?? 0) }},
+                    quantity: {{ (int)($item["qty"] ?? 1) }},
+                    discount: {{ (float)($item["discount_total"] ?? 0) }}
+                },
+                @endforeach
+            ]
+        }
+    });
+</script>
 @endpush
 @endsection

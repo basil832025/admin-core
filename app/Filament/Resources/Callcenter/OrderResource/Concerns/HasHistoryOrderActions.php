@@ -182,7 +182,6 @@ trait HasHistoryOrderActions
                 }
 
                 $this->form->fill(array_replace_recursive($current, $payload));
-                $this->dispatch('$refresh');
 
                 $this->dispatch('callcenter-history-address-applied',
                     selectedAddressId: (string) $selectedAddressId,
@@ -240,7 +239,6 @@ trait HasHistoryOrderActions
                 'shipping_price' => $shippingPrice,
                 'delivery_price_auto' => 'history_auto_' . $historyOrderId . '_' . time(),
             ]));
-            $this->dispatch('$refresh');
 
             $this->dispatch('callcenter-history-address-applied',
                 selectedAddressId: '-1',

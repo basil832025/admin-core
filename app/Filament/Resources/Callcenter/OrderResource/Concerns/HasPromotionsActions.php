@@ -88,7 +88,6 @@ trait HasPromotionsActions
         $state['ui_promo_preview_label'] = (string) ($preview['label'] ?? '');
 
         $this->form->fill($state);
-        $this->dispatch('$refresh');
     }
 
     /**
