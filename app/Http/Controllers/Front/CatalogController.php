@@ -112,6 +112,57 @@ class CatalogController extends Controller
             })($parent);
         }
 
+        $hasFilters = request()->has('menu') ||
+            request()->has('chars') ||
+            request()->filled('price_min') ||
+            request()->filled('price_max');
+        $hasSort = request()->filled('sort');
+        $useFlatResults = $hasFilters || $hasSort;
+
+        if ($useFlatResults) {
+            $sectionSlugs = array_keys($homeCategorySlugs);
+
+            $q = Product::withCardRelations()
+                ->active()->cardSelect()->MainProduct()
+                ->where(function (Builder $w) {
+                    $w->whereNull('is_imported')
+                        ->orWhere('is_imported', false);
+                });
+
+            $q->where(function ($qq) use ($sectionSlugs, $slug) {
+                $slugs = !empty($sectionSlugs) ? $sectionSlugs : [$slug];
+
+                foreach ($slugs as $sectionSlug) {
+                    $qq->orWhereHas('categories', fn ($qqq) => $qqq->where('slug', $sectionSlug))
+                        ->orWhereHas('mainCategory', fn ($qqq) => $qqq->where('slug', $sectionSlug));
+                }
+            });
+
+            if ($hasFilters) {
+                $this->applyFilters($q, request());
+            }
+
+            $this->applySort($q, request());
+
+            $items = $q->get();
+            $items = (new ProductCardPresenter($locale))->collection($items);
+            $items = $this->sortCardCollection($items, request());
+
+            [$priceMin, $priceMax] = $this->getPriceBounds($slug);
+            $filterCharacteristicGroups = $this->getFilterCharacteristics();
+
+            return view('pages.catalog.category', [
+                'categorySections' => [],
+                'items' => $items,
+                'favoriteIds' => $ids,
+                'priceMin' => $priceMin,
+                'priceMax' => $priceMax,
+                'filterCharacteristicGroups' => $filterCharacteristicGroups,
+                'category' => $parent,
+                'pageTitle' => $pageTitle,
+            ]);
+        }
+
       /*  $category = ProductCategory::query()
             ->where('slug', $slug)
             ->firstOrFail();*/
@@ -131,11 +182,6 @@ class CatalogController extends Controller
                     $w->whereNull('is_imported')
                         ->orWhere('is_imported', false);
                 });
-
-            $hasFilters = request()->has('menu') ||
-                request()->has('chars') ||
-                request()->filled('price_min') ||
-                request()->filled('price_max');
 
             if ($hasFilters) {
                 // глобальный фильтр
@@ -212,7 +258,7 @@ class CatalogController extends Controller
 
             return view('pages.filter', [
                 'title'   => function_exists('st') ? st('filter.title', 'Результати фільтру') : __('Результати фільтру'),
-                'groups'  => collect(),
+                'items'   => collect(),
                 'filters' => $request->all(),
                 'favoriteIds' => $favoriteIds,
                 'priceMin'    => $priceMin,
@@ -221,44 +267,15 @@ class CatalogController extends Controller
             ]);
         }
 
-        // группируем по категории
-        $grouped = $items->groupBy(function (Product $product) {
-            if ($product->mainCategory) {
-                return $product->mainCategory->id;
-            }
-            if ($product->categories->isNotEmpty()) {
-                return $product->categories->first()->id;
-            }
-            return 'no-category';
-        });
-
-        $groups = $grouped->map(function ($products, $key) use ($locale, $request) {
-            /** @var \App\Models\Shop\Product $first */
-            $first = $products->first();
-
-            $category = $first->mainCategory
-                ?? $first->categories->first();
-
-            $title = $category?->title ?? __('Без категорії');
-
-            // 🔥 ДЕЛАЕМ ТО ЖЕ, ЧТО И В show():
-            // презентер + sortCardCollection
-            $cards = (new ProductCardPresenter($locale))->collection($products);
-            $cards = $this->sortCardCollection($cards, $request);
-
-            return [
-                'title' => $title,
-                'slug'  => $category?->slug,
-                'items' => $cards,
-            ];
-        });
+        $cards = (new ProductCardPresenter($locale))->collection($items);
+        $cards = $this->sortCardCollection($cards, $request);
 
         [$priceMin, $priceMax] = $this->getPriceBounds('all');
         $filterCharacteristicGroups = $this->getFilterCharacteristics();
 
         return view('pages.filter', [
             'title'   => function_exists('st') ? st('filter.title', 'Результати фільтру') : __('Результати фільтру'),
-            'groups'  => $groups,
+            'items'   => $cards,
             'filters' => $request->all(),
             'favoriteIds' => $favoriteIds,
             'priceMin'    => $priceMin,

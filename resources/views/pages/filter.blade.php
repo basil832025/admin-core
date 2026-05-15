@@ -36,22 +36,34 @@
         </h1>
 
         {{-- Если по фильтру ничего не нашли --}}
-        @if($groups->isEmpty())
+        @if($items->isEmpty())
             <p class="mt-8 text-sm text-gray-500">
                 {{ st('filter.empty', 'За вибраними фільтрами товари не знайдено.') }}
             </p>
         @else
-            {{-- Секции по категориям, как на странице каталога --}}
-            <section class="max-w-screen-xl mx-auto">
-                @foreach($groups as $group)
-                    <div class="space-y-14 mt-12">
-                        <x-product.section
-                            :title="$group['title']"
-                            :favoriteIds="$favoriteIds ?? []"
-                            :items="$group['items']"
+            <section class="max-w-screen-xl mx-auto mt-12">
+                <div class="grid grid-cols-1 md:grid-cols-2 desk:grid-cols-3 gap-4 desk:gap-12 md:gap-8">
+                    @foreach($items as $p)
+                        @php
+                            $pid = $p['root_id'] ?? null;
+                            $isFav = $pid ? in_array($pid, $favoriteIds ?? [], true) : false;
+                        @endphp
+                        <x-product.card
+                            :product-id="$pid"
+                            :is-favorite="$isFav"
+                            :title="$p['title'] ?? st('search.product_default_title', 'Товар')"
+                            :url="$p['url'] ?? ''"
+                            :article="$p['article'] ?? '12345'"
+                            :price="$p['price'] ?? '0.00'"
+                            :description="$p['card_description'] ?? ($p['description'] ?? '')"
+                            :price_no_sale="$p['old_price'] ?? $p['price_no_sale'] ?? null"
+                            :image="$p['main_image'] ?? '/images/no-image.svg'"
+                            :characteristics="$p['characteristics'] ?? []"
+                            :rows="$p['variant_rows'] ?? []"
+                            :root_id="$p['root_id'] ?? null"
                         />
-                    </div>
-                @endforeach
+                    @endforeach
+                </div>
             </section>
         @endif
     </div>

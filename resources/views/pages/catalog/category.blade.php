@@ -134,22 +134,47 @@
                 </div>
             @endif
 
-            @foreach($categorySections as $section)
-               <div class="space-y-14 mt-4">
-                    @if(!empty($pageTitle))
-                        <x-product.section :title="$section['title']"
-                                           title-as="h3"
-                                           title-size="catalog-subcategory"
-                                           :title-underline="false"
-                                           :favoriteIds="$favoriteIds ?? []"
-                                           :items="$section['items']" />
-                    @else
-                        <x-product.section :title="$section['title']"
-                                           :favoriteIds="$favoriteIds ?? []"
-                                           :items="$section['items']" />
-                    @endif
-            </div>
-            @endforeach
+            @if(!empty($items))
+                <div class="grid grid-cols-1 md:grid-cols-2 desk:grid-cols-3 gap-4 desk:gap-12 md:gap-8 mt-4">
+                    @foreach($items as $p)
+                        @php
+                            $pid = $p['root_id'] ?? null;
+                            $isFav = $pid ? in_array($pid, $favoriteIds ?? [], true) : false;
+                        @endphp
+                        <x-product.card
+                            :product-id="$pid"
+                            :is-favorite="$isFav"
+                            :title="$p['title'] ?? st('search.product_default_title', 'Товар')"
+                            :url="$p['url'] ?? ''"
+                            :article="$p['article'] ?? '12345'"
+                            :price="$p['price'] ?? '0.00'"
+                            :description="$p['card_description'] ?? ($p['description'] ?? '')"
+                            :price_no_sale="$p['old_price'] ?? $p['price_no_sale'] ?? null"
+                            :image="$p['main_image'] ?? '/images/no-image.svg'"
+                            :characteristics="$p['characteristics'] ?? []"
+                            :rows="$p['variant_rows'] ?? []"
+                            :root_id="$p['root_id'] ?? null"
+                        />
+                    @endforeach
+                </div>
+            @else
+                @foreach($categorySections as $section)
+                   <div class="space-y-14 mt-4">
+                        @if(!empty($pageTitle))
+                            <x-product.section :title="$section['title']"
+                                               title-as="h3"
+                                               title-size="catalog-subcategory"
+                                               :title-underline="false"
+                                               :favoriteIds="$favoriteIds ?? []"
+                                               :items="$section['items']" />
+                        @else
+                            <x-product.section :title="$section['title']"
+                                               :favoriteIds="$favoriteIds ?? []"
+                                               :items="$section['items']" />
+                        @endif
+                </div>
+                @endforeach
+            @endif
         </section>
 
         @php
