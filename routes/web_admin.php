@@ -214,6 +214,7 @@ Route::post('/admin/client-addresses/{address}/coords', function (\Illuminate\Ht
 
 Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request $request) {
     $search = trim((string) $request->query('q', ''));
+    $sort = trim((string) $request->query('sort', 'popular'));
     $categoryIdRaw = trim((string) $request->query('category_id', ''));
     $localCategoryId = (int) $categoryIdRaw;
     $sourceIdRaw = (string) $request->query('source_id', $request->query('order_source_id', '0'));
@@ -275,6 +276,103 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
         }
 
         return \Illuminate\Support\Str::limit($text, 260);
+    };
+
+    $resolveDiscountPercent = static function (float|int|null $price, float|int|null $oldPrice): ?int {
+        $price = (float) ($price ?? 0);
+        $oldPrice = (float) ($oldPrice ?? 0);
+
+        if ($price <= 0 || $oldPrice <= 0 || $oldPrice <= $price) {
+            return null;
+        }
+
+        return (int) round(((($oldPrice - $price) / $oldPrice) * 100));
+    };
+
+    $applyMenuSort = static function (\Illuminate\Database\Eloquent\Builder $query, string $sort): void {
+        switch ($sort) {
+            case 'price_asc':
+                $query->orderBy('price', 'asc')->orderBy('sort', 'asc')->orderBy('id', 'asc');
+                break;
+            case 'price_desc':
+                $query->orderBy('price', 'desc')->orderBy('sort', 'asc')->orderBy('id', 'asc');
+                break;
+            case 'discount_asc':
+                $query->orderByRaw("CASE WHEN old_price IS NOT NULL AND old_price > 0 AND old_price > price THEN 0 ELSE 1 END ASC")
+                    ->orderByRaw("CASE WHEN old_price IS NOT NULL AND old_price > 0 AND old_price > price THEN ((old_price - price) / old_price) * 100 ELSE 0 END ASC")
+                    ->orderBy('sort', 'asc')
+                    ->orderBy('id', 'asc');
+                break;
+            case 'discount_desc':
+                $query->orderByRaw("CASE WHEN old_price IS NOT NULL AND old_price > 0 AND old_price > price THEN 0 ELSE 1 END ASC")
+                    ->orderByRaw("CASE WHEN old_price IS NOT NULL AND old_price > 0 AND old_price > price THEN ((old_price - price) / old_price) * 100 ELSE 0 END DESC")
+                    ->orderBy('sort', 'asc')
+                    ->orderBy('id', 'asc');
+                break;
+            case 'new':
+                $query->orderByDesc('is_new')->orderBy('created_at', 'desc')->orderBy('sort', 'asc')->orderBy('id', 'asc');
+                break;
+            case 'popular':
+            default:
+                $query->orderByDesc('is_hit')->orderBy('sort', 'asc')->orderBy('id', 'asc');
+                break;
+        }
+    };
+
+    $sortPayloadProducts = static function (\Illuminate\Support\Collection $items, string $sort) use ($resolveDiscountPercent) {
+        $resolveBasePrice = static function (array $product): float {
+            if (! empty($product['variants']) && is_array($product['variants'])) {
+                $prices = collect($product['variants'])
+                    ->map(fn (array $variant): float => (float) ($variant['price'] ?? 0))
+                    ->filter(fn (float $price): bool => $price > 0)
+                    ->values();
+
+                if ($prices->isNotEmpty()) {
+                    return (float) $prices->min();
+                }
+            }
+
+            return (float) ($product['price'] ?? 0);
+        };
+
+        $resolveBaseDiscount = static function (array $product) use ($resolveDiscountPercent): int {
+            $discounts = collect($product['variants'] ?? [])
+                ->map(fn (array $variant): int => (int) ($variant['discount_percent'] ?? $resolveDiscountPercent($variant['price'] ?? 0, $variant['old_price'] ?? 0) ?? 0))
+                ->filter(fn (int $discount): bool => $discount > 0)
+                ->values();
+
+            if ($discounts->isNotEmpty()) {
+                return (int) $discounts->max();
+            }
+
+            return (int) (($product['discount_percent'] ?? $resolveDiscountPercent($product['price'] ?? 0, $product['old_price'] ?? 0)) ?? 0);
+        };
+
+        $resolveWeight = static function (array $product, string $key): int {
+            $variantWeight = collect($product['variants'] ?? [])
+                ->contains(fn (array $variant): bool => ! empty($variant[$key]));
+
+            return (! empty($product[$key]) || $variantWeight) ? 1 : 0;
+        };
+
+        $sorted = match ($sort) {
+            'price_asc' => $items->sortBy(fn (array $product) => [$resolveBasePrice($product), (string) ($product['title'] ?? '')]),
+            'price_desc' => $items->sortByDesc(fn (array $product) => [$resolveBasePrice($product), (string) ($product['title'] ?? '')]),
+            'discount_asc' => $items->sortBy(fn (array $product) => [
+                $resolveBaseDiscount($product) > 0 ? 0 : 1,
+                $resolveBaseDiscount($product),
+                (string) ($product['title'] ?? ''),
+            ]),
+            'discount_desc' => $items->sortBy(fn (array $product) => [
+                $resolveBaseDiscount($product) > 0 ? 0 : 1,
+                -1 * $resolveBaseDiscount($product),
+                (string) ($product['title'] ?? ''),
+            ]),
+            'new' => $items->sortByDesc(fn (array $product) => [$resolveWeight($product, 'is_new'), (string) ($product['title'] ?? '')]),
+            default => $items->sortByDesc(fn (array $product) => [$resolveWeight($product, 'is_hit'), (string) ($product['title'] ?? '')]),
+        };
+
+        return $sorted->values();
     };
 
     $normalizeImportedImage = static function (?string $image, ?\App\Models\Callcenter\Source $source): ?string {
@@ -358,7 +456,7 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
 
         $productsRows = \App\Models\Callcenter\SourceProduct::query()
             ->with([
-                'localProduct:id,title,short_desc,description,main_image,parent_id,price,in_stock',
+                'localProduct:id,title,short_desc,description,main_image,parent_id,price,old_price,in_stock,is_new,is_hit,is_promo,is_vegan,is_product_of_day,is_spicy',
                 'localProduct.parent:id,main_image',
                 'source:id,base_url',
             ])
@@ -370,13 +468,11 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
                 $needle = '%' . mb_strtolower($search) . '%';
                 $q->whereRaw('LOWER(title) LIKE ?', [$needle]);
             })
-            ->orderBy('external_parent_id')
-            ->orderBy('id')
             ->get();
 
         $productsPayload = $productsRows
             ->groupBy(fn (\App\Models\Callcenter\SourceProduct $row) => $row->external_parent_id ?: $row->external_id)
-            ->map(function ($rows) use ($compactDescription, $normalizeImportedImage, $fallbackImportedImage) {
+            ->map(function ($rows) use ($compactDescription, $normalizeImportedImage, $fallbackImportedImage, $resolveDiscountPercent) {
                 $resolveImportedDescription = function (?\App\Models\Shop\Product $localProduct, \App\Models\Callcenter\SourceProduct $sourceProduct) use ($compactDescription): string {
                     $locale = app()->getLocale();
 
@@ -456,19 +552,35 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
                         'source_base_url' => (string) ($source?->base_url ?? ''),
                         'has_variants' => false,
                         'price' => (float) ($single->price ?? $singleLocal?->price ?? 0),
+                        'old_price' => (float) ($singleLocal?->old_price ?? 0),
+                        'discount_percent' => $resolveDiscountPercent($single->price ?? $singleLocal?->price ?? 0, $singleLocal?->old_price ?? 0),
+                        'is_new' => (bool) ($singleLocal?->is_new ?? false),
+                        'is_hit' => (bool) ($singleLocal?->is_hit ?? false),
+                        'is_promo' => (bool) ($singleLocal?->is_promo ?? false),
+                        'is_vegan' => (bool) ($singleLocal?->is_vegan ?? false),
+                        'is_product_of_day' => (bool) ($singleLocal?->is_product_of_day ?? false),
+                        'is_spicy' => (bool) ($singleLocal?->is_spicy ?? false),
                         'unit' => $single->size_label ?: \App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions::resolveMenuUnitLabel($singleId),
                         'variants' => [],
                     ];
                 }
 
                 $variants = $rows
-                    ->map(function (\App\Models\Callcenter\SourceProduct $row): array {
+                    ->map(function (\App\Models\Callcenter\SourceProduct $row) use ($resolveDiscountPercent): array {
                         $localProductId = (int) ($row->local_product_id ?? 0);
 
                         return [
                             'id' => $localProductId,
                             'title' => (string) ($row->title ?: ($row->localProduct?->title ?? 'Вариант')),
                             'price' => (float) ($row->price ?? $row->localProduct?->price ?? 0),
+                            'old_price' => (float) ($row->localProduct?->old_price ?? 0),
+                            'discount_percent' => $resolveDiscountPercent($row->price ?? $row->localProduct?->price ?? 0, $row->localProduct?->old_price ?? 0),
+                            'is_new' => (bool) ($row->localProduct?->is_new ?? false),
+                            'is_hit' => (bool) ($row->localProduct?->is_hit ?? false),
+                            'is_promo' => (bool) ($row->localProduct?->is_promo ?? false),
+                            'is_vegan' => (bool) ($row->localProduct?->is_vegan ?? false),
+                            'is_product_of_day' => (bool) ($row->localProduct?->is_product_of_day ?? false),
+                            'is_spicy' => (bool) ($row->localProduct?->is_spicy ?? false),
                             'unit' => (string) ($row->size_label ?: \App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions::resolveMenuUnitLabel($localProductId)),
                         ];
                     })
@@ -484,11 +596,19 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
                     'source_base_url' => (string) ($source?->base_url ?? ''),
                     'has_variants' => $variants->isNotEmpty(),
                     'price' => 0,
+                    'old_price' => 0,
+                    'discount_percent' => null,
+                    'is_new' => (bool) ($firstLocalProduct?->is_new ?? false),
+                    'is_hit' => (bool) ($firstLocalProduct?->is_hit ?? false),
+                    'is_promo' => (bool) ($firstLocalProduct?->is_promo ?? false),
+                    'is_vegan' => (bool) ($firstLocalProduct?->is_vegan ?? false),
+                    'is_product_of_day' => (bool) ($firstLocalProduct?->is_product_of_day ?? false),
+                    'is_spicy' => (bool) ($firstLocalProduct?->is_spicy ?? false),
                     'unit' => '',
                     'variants' => $variants->all(),
                 ];
             })
-            ->values();
+            ->pipe(fn ($items) => $sortPayloadProducts($items, $sort));
     } else {
         $specialCategoryId = match ($categoryIdRaw) {
             'special:promo' => 'special:promo',
@@ -561,7 +681,7 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
             ->values())->values();
 
         $productsQuery = \App\Models\Shop\Product::query()
-            ->select(['id', 'title', 'short_name', 'short_desc', 'description', 'price', 'main_image', 'parent_id', 'category_id', 'in_stock', 'is_home', 'is_promo', 'is_new', 'is_hit'])
+            ->select(['id', 'title', 'short_name', 'short_desc', 'description', 'price', 'old_price', 'main_image', 'parent_id', 'category_id', 'in_stock', 'is_home', 'is_promo', 'is_new', 'is_hit', 'is_vegan', 'is_product_of_day', 'is_spicy', 'sort', 'created_at'])
             ->whereNull('parent_id')
             ->where('in_stock', 1)
             ->where(function ($w): void {
@@ -571,7 +691,7 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
 
         $applySourceFilter($productsQuery);
 
-        $products = $productsQuery
+        $productsQuery = $productsQuery
             ->when($specialCategoryId !== null, function ($q) use ($specialCategoryId): void {
                 match ($specialCategoryId) {
                     'special:promo' => $q->where('is_promo', 1),
@@ -670,17 +790,19 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
                 });
             })
             ->with(['children' => function ($q) {
-                $q->select(['id', 'title', 'short_desc', 'description', 'price', 'main_image', 'parent_id', 'in_stock'])
+                $q->select(['id', 'title', 'short_desc', 'description', 'price', 'old_price', 'main_image', 'parent_id', 'in_stock', 'is_promo', 'is_new', 'is_hit', 'is_vegan', 'is_product_of_day', 'is_spicy'])
                     ->where('in_stock', 1)
                     ->orderBy('sort')
                     ->orderBy('id');
-            }])
-            ->orderBy('sort')
-            ->orderBy('id')
+            }]);
+
+        $applyMenuSort($productsQuery, $sort);
+
+        $products = $productsQuery
             ->limit(120)
             ->get();
 
-        $productsPayload = $products->map(function (\App\Models\Shop\Product $product) use ($compactDescription) {
+        $productsPayload = $products->map(function (\App\Models\Shop\Product $product) use ($compactDescription, $resolveDiscountPercent) {
             $locale = app()->getLocale();
             $variants = $product->children ?? collect();
             $hasVariants = $variants->isNotEmpty();
@@ -708,9 +830,17 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
                         'title' => (string) ($product->display_name ?? $product->title ?? ''),
                         'description' => $compactDescription($productDescription),
                         'price' => (float) ($product->price ?? 0),
+                        'old_price' => (float) ($product->old_price ?? 0),
+                        'discount_percent' => $resolveDiscountPercent($product->price ?? 0, $product->old_price ?? 0),
+                        'is_promo' => (bool) ($product->is_promo ?? false),
+                        'is_new' => (bool) ($product->is_new ?? false),
+                        'is_hit' => (bool) ($product->is_hit ?? false),
+                        'is_vegan' => (bool) ($product->is_vegan ?? false),
+                        'is_product_of_day' => (bool) ($product->is_product_of_day ?? false),
+                        'is_spicy' => (bool) ($product->is_spicy ?? false),
                         'unit' => \App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions::resolveMenuUnitLabel((int) $product->id),
                     ],
-                ])->merge($variants->map(function (\App\Models\Shop\Product $variant) use ($compactDescription) {
+                ])->merge($variants->map(function (\App\Models\Shop\Product $variant) use ($compactDescription, $resolveDiscountPercent) {
                     $locale = app()->getLocale();
                     $variantShortDescription = trim(strip_tags((string) ($variant->short_desc ?? '')));
                     $variantDescription = method_exists($variant, 'getTranslation')
@@ -730,6 +860,14 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
                         'title' => (string) ($variant->display_name ?? $variant->title ?? ''),
                         'description' => $compactDescription($variantDescription),
                         'price' => (float) ($variant->price ?? 0),
+                        'old_price' => (float) ($variant->old_price ?? 0),
+                        'discount_percent' => $resolveDiscountPercent($variant->price ?? 0, $variant->old_price ?? 0),
+                        'is_promo' => (bool) ($variant->is_promo ?? false),
+                        'is_new' => (bool) ($variant->is_new ?? false),
+                        'is_hit' => (bool) ($variant->is_hit ?? false),
+                        'is_vegan' => (bool) ($variant->is_vegan ?? false),
+                        'is_product_of_day' => (bool) ($variant->is_product_of_day ?? false),
+                        'is_spicy' => (bool) ($variant->is_spicy ?? false),
                         'unit' => \App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions::resolveMenuUnitLabel((int) $variant->id),
                     ];
                 }))
@@ -744,6 +882,14 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
                 'description' => $compactDescription($productDescription),
                 'image' => $product->main_image_url,
                 'price' => (float) ($product->price ?? 0),
+                'old_price' => (float) ($product->old_price ?? 0),
+                'discount_percent' => $resolveDiscountPercent($product->price ?? 0, $product->old_price ?? 0),
+                'is_new' => (bool) ($product->is_new ?? false),
+                'is_hit' => (bool) ($product->is_hit ?? false),
+                'is_promo' => (bool) ($product->is_promo ?? false),
+                'is_vegan' => (bool) ($product->is_vegan ?? false),
+                'is_product_of_day' => (bool) ($product->is_product_of_day ?? false),
+                'is_spicy' => (bool) ($product->is_spicy ?? false),
                 'has_variants' => $hasVariants,
                 'unit' => \App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions::resolveMenuUnitLabel((int) $product->id),
                 'variants' => $variantsPayload,

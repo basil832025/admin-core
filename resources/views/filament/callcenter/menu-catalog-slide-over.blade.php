@@ -2,6 +2,8 @@
     x-data="{
         loading: false,
         q: '',
+        sort: 'popular',
+        sortMenuOpen: false,
         category: '',
         source: @js((string) ($defaultSourceId ?? '0')),
         sources: [],
@@ -11,9 +13,33 @@
         timer: null,
         componentId: @js($componentId),
         fetchUrl: @js($fetchUrl),
+        sortLabels: {
+            popular: 'Популярные',
+            new: 'Новинки',
+            price_asc: 'Цена: по возрастанию',
+            price_desc: 'Цена: по убыванию',
+            discount_asc: 'Скидка: по возрастанию',
+            discount_desc: 'Скидка: по убыванию',
+        },
+        badgeLabels: {
+            is_spicy: 'Гострий',
+            is_new: 'Новинка',
+            is_promo: 'Акція',
+            is_hit: 'Хіт',
+            is_vegan: 'Веган',
+            is_product_of_day: 'Пиріг дня',
+        },
 
         init() {
             this.load();
+        },
+
+        get sortLabel() {
+            return this.sortLabels[this.sort] || 'Сортировать';
+        },
+
+        get sortOptions() {
+            return Object.entries(this.sortLabels).map(([value, label]) => ({ value, label }));
         },
 
         debounceLoad() {
@@ -26,6 +52,7 @@
             try {
                 const params = new URLSearchParams({
                     q: this.q || '',
+                    sort: this.sort || 'popular',
                     category_id: this.category || '',
                     source_id: this.source || '0',
                 });
@@ -68,8 +95,69 @@
             this.previewProductId = null;
         },
 
+        selectSort(value) {
+            this.sort = String(value || 'popular');
+            this.sortMenuOpen = false;
+            this.load();
+        },
+
         isDescriptionOpen(product) {
             return Number(this.previewProductId || 0) === Number(product?.id || -1);
+        },
+
+        hasDiscount(item) {
+            const price = Number(item?.price || 0);
+            const oldPrice = Number(item?.old_price || 0);
+
+            return oldPrice > 0 && oldPrice > price;
+        },
+
+        discountLabel(item) {
+            const discount = Number(item?.discount_percent || 0);
+
+            return discount > 0 ? `-${discount}%` : '';
+        },
+
+        buildBadges(item) {
+            if (!item) {
+                return [];
+            }
+
+            const items = [];
+
+            if (item.is_spicy) {
+                items.push({ key: 'is_spicy', color: '#FF0013', textColor: '#FFFFFF', label: this.badgeLabels.is_spicy });
+            }
+            if (item.is_new) {
+                items.push({ key: 'is_new', color: '#B91C1C', textColor: '#FFFFFF', label: this.badgeLabels.is_new });
+            }
+            if (item.is_promo) {
+                items.push({ key: 'is_promo', color: '#FF7500', textColor: '#FFFFFF', label: this.badgeLabels.is_promo });
+            }
+            if (item.is_hit) {
+                items.push({ key: 'is_hit', color: '#FFD700', textColor: '#19191A', label: this.badgeLabels.is_hit });
+            }
+            if (item.is_vegan) {
+                items.push({ key: 'is_vegan', color: '#27AE60', textColor: '#FFFFFF', label: this.badgeLabels.is_vegan });
+            }
+            if (item.is_product_of_day) {
+                items.push({ key: 'is_product_of_day', color: '#5D4037', textColor: '#FFFFFF', label: this.badgeLabels.is_product_of_day });
+            }
+
+            return items;
+        },
+
+        formatMoney(value) {
+            const amount = Number(value || 0);
+
+            if (!Number.isFinite(amount)) {
+                return '0';
+            }
+
+            return amount.toLocaleString('uk-UA', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2,
+            });
         },
 
         resolveImage(product) {
@@ -90,17 +178,49 @@
     }"
     class="space-y-4"
 >
-    <div class="grid grid-cols-1 gap-2 md:grid-cols-[1fr_auto]">
-        <x-filament::input.wrapper>
-            <x-filament::input
-                x-model="q"
-                x-on:input="debounceLoad()"
-                type="text"
-                placeholder="Пошук товарів..."
-            />
-        </x-filament::input.wrapper>
+    <div class="flex items-center gap-3 pb-1">
+        <div class="shrink-0" style="width: 300px;">
+            <x-filament::input.wrapper>
+                <x-filament::input
+                    x-model="q"
+                    x-on:input="debounceLoad()"
+                    type="text"
+                    placeholder="Пошук товарів..."
+                />
+            </x-filament::input.wrapper>
+        </div>
 
-        <div class="text-xs text-gray-500 self-center" x-show="loading">Завантаження...</div>
+        <div class="relative shrink-0" style="width: 300px;" @click.outside="sortMenuOpen = false">
+            <button
+                type="button"
+                class="flex h-10 w-full items-center justify-between rounded-xl border border-[#E5E7EB] bg-white px-3 text-left"
+                @click="sortMenuOpen = !sortMenuOpen"
+            >
+                <span class="truncate text-[15px] font-semibold text-[#19191A]" x-text="sortLabel"></span>
+                <svg class="h-5 w-5 text-[#19191A] transition-transform" :class="sortMenuOpen ? 'rotate-180' : ''" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+
+            <div
+                x-show="sortMenuOpen"
+                x-cloak
+                x-transition.origin.top.left
+                class="absolute z-30 mt-2 w-full rounded-2xl border border-[#E5E7EB] bg-white p-2 shadow-lg"
+            >
+                <template x-for="option in sortOptions" :key="option.value">
+                    <button
+                        type="button"
+                        class="block w-full rounded-[10px] px-3 py-2 text-left text-[15px] text-[#19191A] hover:bg-neutral-100"
+                        :class="String(sort) === String(option.value) ? 'bg-[#FFE6B8] font-semibold' : ''"
+                        @click="selectSort(option.value)"
+                        x-text="option.label"
+                    ></button>
+                </template>
+            </div>
+        </div>
+
+        <div class="shrink-0 self-center text-xs text-gray-500" x-show="loading">Завантаження...</div>
     </div>
 
     <div class="flex flex-wrap gap-2">
@@ -151,23 +271,43 @@
                         class="flex-none rounded"
                         @click.stop="openDescription(product)"
                     >
-                        <img
-                            :src="resolveImage(product)"
-                            alt=""
-                            class="rounded object-cover"
-                            style="width: 100px; height: 80px;"
-                        />
+                        <div class="relative overflow-hidden rounded" style="width: 100px; height: 80px;">
+                            <img
+                                :src="resolveImage(product)"
+                                alt=""
+                                class="h-full w-full object-cover"
+                            />
+                            <div class="absolute top-1 z-10 flex flex-col items-end" style="right: 5px; max-width: 76px; gap: 2px;">
+                                <template x-if="hasDiscount(product)">
+                                    <span class="bg-[#B91C1C] font-bold leading-none text-white" style="border-radius: 2px; padding: 1px 4px; font-size: 12px; line-height: 1;" x-text="discountLabel(product)"></span>
+                                </template>
+                                <template x-for="badge in buildBadges(product)" :key="badge.key">
+                                    <span
+                                        x-text="badge.label"
+                                        :style="`background:${badge.color};color:${badge.textColor};border-radius:2px;padding:1px 4px;font-size:12px;line-height:1;font-weight:700;max-width:76px;`"
+                                    ></span>
+                                </template>
+                            </div>
+                        </div>
                     </button>
                     <div class="min-w-0 flex-1">
                         <div class="truncate text-xs font-semibold" x-text="product.title"></div>
 
                         <template x-if="!product.has_variants">
                             <div class="mt-2 flex items-center justify-between gap-2 rounded bg-gray-50 px-2 py-1.5 text-xs text-gray-700">
-                                <div>
-                                    <span x-text="product.unit || 'Порція'"></span>
-                                    <span class="mx-1">·</span>
-                                    <span x-text="product.price"></span>
-                                    <span> грн</span>
+                                <div class="min-w-0">
+                                    <div class="flex flex-wrap items-center gap-1.5">
+                                        <span x-text="product.unit || 'Порція'"></span>
+                                        <span class="mx-1">·</span>
+                                        <span class="font-semibold text-slate-900" x-text="formatMoney(product.price)"></span>
+                                        <span> грн</span>
+                                        <template x-if="hasDiscount(product)">
+                                            <span class="flex flex-wrap items-center gap-2">
+                                                <span class="text-[11px] text-slate-400" style="text-decoration: line-through;" x-text="formatMoney(product.old_price) + ' грн'"></span>
+                                                <span class="text-[11px] font-semibold text-[#B91C1C]" x-text="discountLabel(product)"></span>
+                                            </span>
+                                        </template>
+                                    </div>
                                 </div>
                                 <button
                                     type="button"
@@ -182,11 +322,19 @@
                             <div class="mt-2 space-y-1">
                         <template x-for="variant in product.variants" :key="variant.id">
                             <div class="flex items-center justify-between gap-2 rounded bg-gray-50 px-2 py-1.5 text-xs text-gray-700">
-                                <div class="truncate">
-                                    <span x-text="variant.unit || variant.title"></span>
-                                    <span class="mx-1">·</span>
-                                    <span x-text="variant.price"></span>
-                                    <span> грн</span>
+                                <div class="min-w-0 truncate">
+                                    <div class="flex flex-wrap items-center gap-1.5 truncate">
+                                        <span x-text="variant.unit || variant.title"></span>
+                                        <span class="mx-1">·</span>
+                                        <span class="font-semibold text-slate-900" x-text="formatMoney(variant.price)"></span>
+                                        <span> грн</span>
+                                        <template x-if="hasDiscount(variant)">
+                                            <span class="flex flex-wrap items-center gap-2">
+                                                <span class="text-[11px] text-slate-400" style="text-decoration: line-through;" x-text="formatMoney(variant.old_price) + ' грн'"></span>
+                                                <span class="text-[11px] font-semibold text-[#B91C1C]" x-text="discountLabel(variant)"></span>
+                                            </span>
+                                        </template>
+                                    </div>
                                 </div>
                                 <button
                                     type="button"
