@@ -490,7 +490,60 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
             })
             ->values();
     } else {
-        $categories = \App\Models\Shop\ProductCategory::query()
+        $specialCategoryId = match ($categoryIdRaw) {
+            'special:promo' => 'special:promo',
+            'special:new' => 'special:new',
+            'special:hit' => 'special:hit',
+            default => null,
+        };
+
+        $baseLocalProductsQuery = static function () use ($applySourceFilter) {
+            $query = \App\Models\Shop\Product::query()
+                ->whereNull('parent_id')
+                ->where('in_stock', 1)
+                ->where(function ($w): void {
+                    $w->whereNull('is_imported')
+                        ->orWhere('is_imported', false);
+                });
+
+            $applySourceFilter($query);
+
+            return $query;
+        };
+
+        $specialCategories = collect([
+            [
+                'id' => 'special:promo',
+                'name' => 'Акционные пропозиции',
+                'apply' => static function ($query): void {
+                    $query->where('is_promo', 1);
+                },
+            ],
+            [
+                'id' => 'special:new',
+                'name' => 'Новинки',
+                'apply' => static function ($query): void {
+                    $query->where('is_new', 1);
+                },
+            ],
+            [
+                'id' => 'special:hit',
+                'name' => 'Хиты',
+                'apply' => static function ($query): void {
+                    $query->where('is_hit', 1);
+                },
+            ],
+        ])->filter(function (array $special) use ($baseLocalProductsQuery): bool {
+            $query = $baseLocalProductsQuery();
+            ($special['apply'])($query);
+
+            return $query->exists();
+        })->map(fn (array $special): array => [
+            'id' => $special['id'],
+            'name' => $special['name'],
+        ])->values();
+
+        $categories = $specialCategories->concat(\App\Models\Shop\ProductCategory::query()
             ->where('slug', 'not like', 'src-%-import')
             ->whereHas('products', function ($q) use ($applySourceFilter): void {
                 $q->where('in_stock', 1);
@@ -505,10 +558,10 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
                 'id' => (int) $cat->id,
                 'name' => (string) $cat->name,
             ])
-            ->values();
+            ->values())->values();
 
         $productsQuery = \App\Models\Shop\Product::query()
-            ->select(['id', 'title', 'short_name', 'short_desc', 'description', 'price', 'main_image', 'parent_id', 'category_id', 'in_stock'])
+            ->select(['id', 'title', 'short_name', 'short_desc', 'description', 'price', 'main_image', 'parent_id', 'category_id', 'in_stock', 'is_home', 'is_promo', 'is_new', 'is_hit'])
             ->whereNull('parent_id')
             ->where('in_stock', 1)
             ->where(function ($w): void {
@@ -519,7 +572,15 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
         $applySourceFilter($productsQuery);
 
         $products = $productsQuery
-            ->when($localCategoryId > 0, fn ($q) => $q->where('category_id', $localCategoryId))
+            ->when($specialCategoryId !== null, function ($q) use ($specialCategoryId): void {
+                match ($specialCategoryId) {
+                    'special:promo' => $q->where('is_promo', 1),
+                    'special:new' => $q->where('is_new', 1),
+                    'special:hit' => $q->where('is_hit', 1),
+                    default => null,
+                };
+            })
+            ->when($specialCategoryId === null && $localCategoryId > 0, fn ($q) => $q->where('category_id', $localCategoryId))
             ->when($search !== '', function ($q) use ($needle, $locales): void {
                 $q->where(function ($w) use ($needle, $locales): void {
                     foreach ($locales as $loc) {
@@ -538,7 +599,6 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
                         ->orWhereRaw('LOWER(`short_name`) LIKE ?', [$needle]);
 
                     $w->orWhereRaw('LOWER(`slug`) LIKE ?', [$needle])
-                        ->orWhereRaw('LOWER(`code2`) LIKE ?', [$needle])
                         ->orWhereRaw('LOWER(`sku`) LIKE ?', [$needle]);
 
                     $w->orWhereExists(function ($query) use ($needle) {
@@ -604,7 +664,6 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
                                     ->orWhereRaw('LOWER(child_products.short_name) LIKE ?', [$needle]);
 
                                 $cw->orWhereRaw('LOWER(child_products.slug) LIKE ?', [$needle])
-                                    ->orWhereRaw('LOWER(child_products.code2) LIKE ?', [$needle])
                                     ->orWhereRaw('LOWER(child_products.sku) LIKE ?', [$needle]);
                             });
                     });

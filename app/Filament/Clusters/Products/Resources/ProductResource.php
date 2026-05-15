@@ -1397,17 +1397,6 @@ class ProductResource extends Resource
                             ->when($data['until'] ?? null, fn ($q, $d) => $q->whereDate('created_at', '<=', $d));
                     }),*/
 
-                // Поиск по внешнему коду
-                Filter::make('code2_like')
-                    ->columnSpan(1)
-                    ->form([
-                        TextInput::make('code2')->label('Код')->placeholder('ABC-123'),
-                    ])
-                    ->query(fn (Builder $q, array $data) =>
-                    $q->when($data['code2'] ?? null, fn ($qq, $v) => $qq->where('code2', 'like', "%{$v}%"))
-                    )
-                    ->indicateUsing(fn (array $data) => ($data['code2'] ?? null) ? ['Код: '.$data['code2']] : []),
-
                 // Диапазон цены (если есть price)
           /*      Filter::make('price_between')
                     ->columns(2)

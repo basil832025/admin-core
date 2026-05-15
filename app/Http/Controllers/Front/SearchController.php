@@ -54,18 +54,16 @@ class SearchController extends Controller
             })
             ->where(function (Builder $w) use ($searchLocales, $needle) {
                 $this->applyTitleSlugLikeCI($w, $searchLocales, $needle);
-                // Поиск по артикулу/коду: sku/code2 у родителя
+                // Поиск по артикулу: sku у родителя
                 $w->orWhereRaw('LOWER(`sku`) LIKE ?', [$needle]);
-                $w->orWhereRaw('LOWER(`code2`) LIKE ?', [$needle]);
 
-                // Поиск по артикулу/коду у вариантов (детей)
+                // Поиск по артикулу у вариантов (детей)
                 $w->orWhereExists(function ($q) use ($needle) {
                     $q->select(DB::raw(1))
                         ->from('bs_products AS child_products')
                         ->whereColumn('child_products.parent_id', 'bs_products.id')
                         ->where(function ($ww) use ($needle) {
-                            $ww->whereRaw('LOWER(child_products.sku) LIKE ?', [$needle])
-                                ->orWhereRaw('LOWER(child_products.code2) LIKE ?', [$needle]);
+                            $ww->whereRaw('LOWER(child_products.sku) LIKE ?', [$needle]);
                         });
                 });
 
@@ -131,18 +129,16 @@ class SearchController extends Controller
             })
             ->where(function (Builder $w) use ($searchLocales, $needle) {
                 $this->applyTitleSlugLikeCI($w, $searchLocales, $needle);
-                // Поиск по артикулу/коду: sku/code2 у родителя
+                // Поиск по артикулу: sku у родителя
                 $w->orWhereRaw('LOWER(`sku`) LIKE ?', [$needle]);
-                $w->orWhereRaw('LOWER(`code2`) LIKE ?', [$needle]);
 
-                // Поиск по артикулу/коду у вариантов (детей)
+                // Поиск по артикулу у вариантов (детей)
                 $w->orWhereExists(function ($q) use ($needle) {
                     $q->select(DB::raw(1))
                         ->from('bs_products AS child_products')
                         ->whereColumn('child_products.parent_id', 'bs_products.id')
                         ->where(function ($ww) use ($needle) {
-                            $ww->whereRaw('LOWER(child_products.sku) LIKE ?', [$needle])
-                                ->orWhereRaw('LOWER(child_products.code2) LIKE ?', [$needle]);
+                            $ww->whereRaw('LOWER(child_products.sku) LIKE ?', [$needle]);
                         });
                 });
 
