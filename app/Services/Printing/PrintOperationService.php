@@ -280,8 +280,9 @@ class PrintOperationService
 
         $presetCss = $this->presetCss((string) ($template->css_preset ?? 'none'));
         $customCss = trim((string) ($template->custom_css ?? ''));
+        $receiptSafetyCss = $this->isReceiptTemplate($template) ? $this->receiptSafetyCss() : '';
 
-        return $this->joinCssBlocks($globalReportCss, $presetCss, $customCss);
+        return $this->joinCssBlocks($globalReportCss, $presetCss, $customCss, $receiptSafetyCss);
     }
 
     private function joinCssBlocks(string ...$blocks): string
@@ -300,6 +301,34 @@ class PrintOperationService
         }
 
         return (string) $type === PrintTemplateType::Report->value;
+    }
+
+    private function isReceiptTemplate(PrintTemplate $template): bool
+    {
+        $type = $template->type;
+
+        if ($type instanceof PrintTemplateType) {
+            return $type === PrintTemplateType::Receipt;
+        }
+
+        return (string) $type === PrintTemplateType::Receipt->value;
+    }
+
+    private function receiptSafetyCss(): string
+    {
+        return '.r-meta{width:100%;table-layout:fixed;}'
+            . '.r-meta .k{width:28% !important;}'
+            . '.r-meta .v{width:72% !important;word-break:break-word;overflow-wrap:anywhere;}'
+            . '.r-items{width:100%;table-layout:fixed;border-collapse:collapse;}'
+            . '.r-items th,.r-items td{vertical-align:top;border:1px solid #111 !important;padding:1.2mm 0.8mm !important;}'
+            . '.r-items .name{width:56% !important;font-size:7pt !important;line-height:1.15 !important;word-break:break-word;overflow-wrap:anywhere;}'
+            . '.r-items .qty{width:8% !important;font-size:7pt !important;white-space:nowrap;text-align:center;}'
+            . '.r-items .price,.r-items .sum{width:18% !important;font-size:7pt !important;white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums;}'
+            . '.r-items thead .price,.r-items thead .sum,.r-items thead .qty{font-size:7pt !important;}'
+            . '.r-total{display:block !important;margin-top:1.5mm !important;padding-top:1mm !important;font-size:10pt !important;line-height:1.1 !important;text-align:right !important;}'
+            . '.r-total > span{display:block !important;}'
+            . '.r-total > strong{display:block !important;margin-top:.6mm !important;font-size:11pt !important;white-space:nowrap;}'
+            . '.r-thanks{font-size:8pt !important;letter-spacing:.02em !important;}';
     }
 
     private function presetCss(string $preset): string
