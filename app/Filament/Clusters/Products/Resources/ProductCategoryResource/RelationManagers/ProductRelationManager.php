@@ -78,6 +78,17 @@ class ProductRelationManager extends RelationManager
                     ->rules(['numeric','min:0']) // валидация на сохранение
                     ->alignRight()
                     ->label(__('product.columns.price'))
+                    ->updateStateUsing(function (Product $record, $state, $livewire): float {
+                        $record->price = (float) $state;
+                        $record->manual_discount_percent = null;
+                        $record->save();
+
+                        if (is_object($livewire) && method_exists($livewire, 'dispatch')) {
+                            $livewire->dispatch('$refresh');
+                        }
+
+                        return (float) $record->price;
+                    })
                     ->sortable(),
 
                 TextInputColumn::make('old_price')
@@ -86,6 +97,17 @@ class ProductRelationManager extends RelationManager
                     ->rules(['nullable', 'numeric', 'min:0'])
                     ->alignRight()
                     ->label(__('product.fields.old_price'))
+                    ->updateStateUsing(function (Product $record, $state, $livewire): ?float {
+                        $record->old_price = $state === null || $state === '' ? null : (float) $state;
+                        $record->manual_discount_percent = null;
+                        $record->save();
+
+                        if (is_object($livewire) && method_exists($livewire, 'dispatch')) {
+                            $livewire->dispatch('$refresh');
+                        }
+
+                        return $record->old_price !== null ? (float) $record->old_price : null;
+                    })
                     ->sortable(),
 
                 TextInputColumn::make('discount_percent')
@@ -95,6 +117,10 @@ class ProductRelationManager extends RelationManager
                     ->alignRight()
                     ->label('Скидка %')
                     ->getStateUsing(function (Product $record): ?float {
+                        if ($record->manual_discount_percent !== null) {
+                            return round((float) $record->manual_discount_percent, 2);
+                        }
+
                         $oldPrice = (float) ($record->old_price ?? 0);
                         $price = (float) ($record->price ?? 0);
 
@@ -104,7 +130,7 @@ class ProductRelationManager extends RelationManager
 
                         return round((($oldPrice - $price) / $oldPrice) * 100, 2);
                     })
-                    ->updateStateUsing(function (Product $record, $state): ?float {
+                    ->updateStateUsing(function (Product $record, $state, $livewire): ?float {
                         $discountPercent = (float) ($state ?? 0);
 
                         if ($discountPercent <= 0) {
@@ -115,26 +141,38 @@ class ProductRelationManager extends RelationManager
                             }
 
                             $record->old_price = null;
+                            $record->manual_discount_percent = null;
                             $record->save();
+
+                            if (is_object($livewire) && method_exists($livewire, 'dispatch')) {
+                                $livewire->dispatch('$refresh');
+                            }
 
                             return null;
                         }
 
                         $currentPrice = (float) ($record->price ?? 0);
                         $existingOldPrice = (float) ($record->old_price ?? 0);
-                        $basePrice = ($existingOldPrice > 0 && $existingOldPrice > $currentPrice)
-                            ? $existingOldPrice
-                            : $currentPrice;
+                        $hasExistingOldPrice = $existingOldPrice > 0 && $existingOldPrice > $currentPrice;
+                        $basePrice = $hasExistingOldPrice ? $existingOldPrice : $currentPrice;
 
                         if ($basePrice <= 0) {
                             return null;
                         }
 
-                        $record->old_price = round($basePrice);
+                        if (! $hasExistingOldPrice) {
+                            $record->old_price = round($basePrice);
+                        }
+
+                        $record->manual_discount_percent = round($discountPercent, 2);
                         $record->price = round($basePrice * (1 - ($discountPercent / 100)));
                         $record->save();
 
-                        return round((($record->old_price - $record->price) / $record->old_price) * 100, 2);
+                        if (is_object($livewire) && method_exists($livewire, 'dispatch')) {
+                            $livewire->dispatch('$refresh');
+                        }
+
+                        return round((float) $record->manual_discount_percent, 2);
                     }),
 
                 TextColumn::make('sku')

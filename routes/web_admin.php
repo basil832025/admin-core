@@ -215,6 +215,8 @@ Route::post('/admin/client-addresses/{address}/coords', function (\Illuminate\Ht
 Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request $request) {
     $search = trim((string) $request->query('q', ''));
     $sort = trim((string) $request->query('sort', 'popular'));
+    $page = max(1, (int) $request->query('page', 1));
+    $perPage = 100;
     $categoryIdRaw = trim((string) $request->query('category_id', ''));
     $localCategoryId = (int) $categoryIdRaw;
     $sourceIdRaw = (string) $request->query('source_id', $request->query('order_source_id', '0'));
@@ -428,6 +430,8 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
         return $base . '/images/catalog_products/' . $imageId . '.1.b.png';
     };
 
+    $hasMore = false;
+
     if ($selectedSourceId > 0) {
         $categories = \App\Models\Callcenter\SourceCategory::query()
             ->where('source_id', $selectedSourceId)
@@ -609,6 +613,12 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
                 ];
             })
             ->pipe(fn ($items) => $sortPayloadProducts($items, $sort));
+
+        $totalProducts = $productsPayload->count();
+        $productsPayload = $productsPayload
+            ->slice(($page - 1) * $perPage, $perPage)
+            ->values();
+        $hasMore = $totalProducts > ($page * $perPage);
     } else {
         $specialCategoryId = match ($categoryIdRaw) {
             'special:promo' => 'special:promo',
@@ -634,21 +644,21 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
         $specialCategories = collect([
             [
                 'id' => 'special:promo',
-                'name' => 'Акционные пропозиции',
+                'name' => function_exists('st') ? st('menu.promotions', 'Акційні пропозиції') : 'Акційні пропозиції',
                 'apply' => static function ($query): void {
                     $query->where('is_promo', 1);
                 },
             ],
             [
                 'id' => 'special:new',
-                'name' => 'Новинки',
+                'name' => function_exists('st') ? st('menu.news', 'Новинки') : 'Новинки',
                 'apply' => static function ($query): void {
                     $query->where('is_new', 1);
                 },
             ],
             [
                 'id' => 'special:hit',
-                'name' => 'Хиты',
+                'name' => function_exists('st') ? st('menu.hits', 'Хіти') : 'Хіти',
                 'apply' => static function ($query): void {
                     $query->where('is_hit', 1);
                 },
@@ -799,8 +809,14 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
         $applyMenuSort($productsQuery, $sort);
 
         $products = $productsQuery
-            ->limit(120)
+            ->offset(($page - 1) * $perPage)
+            ->limit($perPage + 1)
             ->get();
+
+        $hasMore = $products->count() > $perPage;
+        if ($hasMore) {
+            $products = $products->take($perPage)->values();
+        }
 
         $productsPayload = $products->map(function (\App\Models\Shop\Product $product) use ($compactDescription, $resolveDiscountPercent) {
             $locale = app()->getLocale();
@@ -902,6 +918,9 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
         'selected_source_id' => $selectedSourceId,
         'categories' => $categories,
         'products' => $productsPayload,
+        'page' => $page,
+        'per_page' => $perPage,
+        'has_more' => $hasMore,
     ]);
 })
     ->name('admin.callcenter.menu-catalog')

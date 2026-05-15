@@ -9,17 +9,20 @@
         sources: [],
         categories: [],
         products: [],
+        page: 1,
+        hasMore: false,
+        loadingMore: false,
         previewProductId: null,
         timer: null,
         componentId: @js($componentId),
         fetchUrl: @js($fetchUrl),
         sortLabels: {
-            popular: 'Популярные',
-            new: 'Новинки',
-            price_asc: 'Цена: по возрастанию',
-            price_desc: 'Цена: по убыванию',
-            discount_asc: 'Скидка: по возрастанию',
-            discount_desc: 'Скидка: по убыванию',
+            popular: @js(st('catalog.sort.popular', 'Популярні')),
+            new: @js(st('catalog.sort.new', 'Новинки')),
+            price_asc: @js(st('catalog.sort.price_asc', 'Ціна: за зростанням')),
+            price_desc: @js(st('catalog.sort.price_desc', 'Ціна: за спаданням')),
+            discount_asc: @js(st('catalog.sort.discount_asc', 'Знижка: за зростанням')),
+            discount_desc: @js(st('catalog.sort.discount_desc', 'Знижка: за спаданням')),
         },
         badgeLabels: {
             is_spicy: 'Гострий',
@@ -35,7 +38,7 @@
         },
 
         get sortLabel() {
-            return this.sortLabels[this.sort] || 'Сортировать';
+            return this.sortLabels[this.sort] || @js(st('catalog.sort.title', 'Сортувати'));
         },
 
         get sortOptions() {
@@ -47,14 +50,25 @@
             this.timer = setTimeout(() => this.load(), 220);
         },
 
-        async load() {
-            this.loading = true;
+        async load(reset = true) {
+            if (reset) {
+                this.page = 1;
+                this.loading = true;
+            } else {
+                if (this.loadingMore || !this.hasMore) {
+                    return;
+                }
+
+                this.loadingMore = true;
+            }
+
             try {
                 const params = new URLSearchParams({
                     q: this.q || '',
                     sort: this.sort || 'popular',
                     category_id: this.category || '',
                     source_id: this.source || '0',
+                    page: String(this.page || 1),
                 });
                 const response = await fetch(`${this.fetchUrl}?${params.toString()}`, {
                     headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
@@ -62,21 +76,39 @@
                 });
 
                 if (!response.ok) {
-                    this.products = [];
+                    if (reset) {
+                        this.products = [];
+                    }
+                    this.hasMore = false;
                     return;
                 }
 
                 const payload = await response.json();
                 this.sources = Array.isArray(payload.sources) ? payload.sources : [];
                 this.categories = Array.isArray(payload.categories) ? payload.categories : [];
-                this.products = Array.isArray(payload.products) ? payload.products : [];
+                const nextProducts = Array.isArray(payload.products) ? payload.products : [];
+                this.products = reset ? nextProducts : this.products.concat(nextProducts);
+                this.hasMore = Boolean(payload.has_more);
 
                 if (!this.sources.find((s) => String(s.id) === String(this.source)) && this.sources.length) {
                     this.source = String(this.sources[0].id);
                 }
             } finally {
-                this.loading = false;
+                if (reset) {
+                    this.loading = false;
+                } else {
+                    this.loadingMore = false;
+                }
             }
+        },
+
+        async loadMore() {
+            if (!this.hasMore || this.loadingMore) {
+                return;
+            }
+
+            this.page += 1;
+            await this.load(false);
         },
 
         async addProduct(productId) {
@@ -367,5 +399,17 @@
                 </div>
             </div>
         </template>
+    </div>
+
+    <div class="flex justify-center pt-2" x-show="hasMore">
+        <button
+            type="button"
+            class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            :disabled="loadingMore"
+            @click="loadMore()"
+        >
+            <span x-show="!loadingMore">Показати ще</span>
+            <span x-show="loadingMore">Завантаження...</span>
+        </button>
     </div>
 </div>

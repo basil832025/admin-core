@@ -42,7 +42,7 @@ class Product extends Model implements HasMedia
     }
     protected $table = 'bs_products';
     protected $fillable = [
-        'title','sku', 'slug', 'description', 'price', 'old_price',
+        'title','sku', 'slug', 'description', 'price', 'old_price', 'manual_discount_percent',
         'quantity', 'in_stock','main_image','parent_id','short_name',
         'seo_title', 'seo_description', 'seo_keywords','category_id','dop_info',
           'is_new',  'is_hit',  'is_home', 'is_promo', 'is_vegan', 'is_product_of_day', 'is_spicy',
