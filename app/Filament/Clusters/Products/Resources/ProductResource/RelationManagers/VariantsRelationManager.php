@@ -123,6 +123,11 @@ class VariantsRelationManager extends RelationManager
                         TextInput::make('old_price')
                             ->label('Старая цена')
                             ->numeric()->inputMode('decimal')->step('any'),
+
+                        TextInput::make('variant_display_sort')
+                            ->label('Сортування в картці')
+                            ->numeric()
+                            ->helperText('Порядок відображення варіантів у картці товару.'),
                     ])->columnSpanFull(),
 
                 // --- Характеристики только с is_main_tab = 1 ---
@@ -186,13 +191,47 @@ class VariantsRelationManager extends RelationManager
     public function table(Table $table): Table
     {    $defaultLocale = Setting::value('default_language_code') ?: config('app.locale');
 
-        // размер пирогов
-        $sizeCharId = Characteristic::query()->where('slug', 'rozmir-pirogiv')->value('id'); // ← поменяй slug на свой
+        $sizeCharIds = Characteristic::query()
+            ->whereIn('slug', ['rozmir-pirogiv', 'rozmiri-insi'])
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $resolveSizeLabel = function (Product $record) use ($defaultLocale, $sizeCharIds): ?string {
+            if (empty($sizeCharIds)) {
+                return null;
+            }
+
+            $size = $record->characteristicValues
+                ->filter(fn ($value) => in_array((int) ($value->pivot->characteristic_id ?? 0), $sizeCharIds, true))
+                ->map(fn ($value) => $value->getTranslation('value', $defaultLocale))
+                ->filter()
+                ->implode(', ');
+
+            if ($size === '') {
+                return null;
+            }
+
+            $size = str_replace(' ', '', $size);
+            $size = str_replace('.', ',', $size);
+
+            return $size;
+        };
 
         $locales = static::getActiveLocales();
         return $table
-            ->reorderable('sort')
-            ->defaultSort('sort', 'asc')
+            ->modifyQueryUsing(function ($query) {
+                $owner = $this->getOwnerRecord();
+
+                return $query
+                    ->orWhere($query->getModel()->getQualifiedKeyName(), $owner->getKey())
+                    ->orderByRaw('CASE WHEN variant_display_sort IS NULL THEN 1 ELSE 0 END asc')
+                    ->orderBy('variant_display_sort')
+                    ->orderBy('sort')
+                    ->orderBy('id');
+            })
+            ->reorderable('variant_display_sort')
+            ->defaultSort('variant_display_sort', 'asc')
             ->recordTitleAttribute('title')
             ->columns([
                 TextInputColumn::make('sort')
@@ -202,14 +241,34 @@ class VariantsRelationManager extends RelationManager
                     ->rules(['integer', 'min:0'])
                     ->alignRight()
                     ->sortable(),
+                TextInputColumn::make('variant_display_sort')
+                    ->label('Сорт в картці')
+                    ->type('number')
+                    ->step('1')
+                    ->rules(['nullable', 'integer', 'min:0'])
+                    ->alignRight()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('sku')->label('SKU')->searchable(),
+                Tables\Columns\TextColumn::make('variant_kind')
+                    ->label('Тип')
+                    ->getStateUsing(fn (Product $record): string => $record->parent_id === null ? 'Родитель' : 'Вариант')
+                    ->badge()
+                    ->color(fn (Product $record): string => $record->parent_id === null ? 'warning' : 'gray'),
                 TextColumn::make('title')->label('Название')->sortable()->searchable()
-                    ->getStateUsing(function (\App\Models\Shop\Product $record, TextColumn $column, $livewire) use ($defaultLocale) {
+                    ->getStateUsing(function (\App\Models\Shop\Product $record, TextColumn $column, $livewire) use ($resolveSizeLabel, $defaultLocale) {
+                        $size = $resolveSizeLabel($record);
+
                         if (!empty($record->short_name)) {
-                            return $record->short_name;
+                            return $record->parent_id === null && $size
+                                ? $record->short_name . ' [' . $size . ']'
+                                : $record->short_name;
                         }
-                        //  dd($lang);
-                        return $record->getTranslation('title', $defaultLocale);
+
+                        $title = $record->getTranslation('title', $defaultLocale);
+
+                        return $record->parent_id === null && $size
+                            ? $title . ' [' . $size . ']'
+                            : $title;
 
                     }),
                // Tables\Columns\TextColumn::make('price')->label('Цена')->numeric(2),
@@ -256,13 +315,8 @@ class VariantsRelationManager extends RelationManager
                 // 👇 РОЗМІР ПИРОГІВ
                 Tables\Columns\TextColumn::make('pie_size')
                     ->label('Розмір пирогів')
-                    ->getStateUsing(function (\App\Models\Shop\Product $record) use ($sizeCharId, $defaultLocale) {
-                        if (!$sizeCharId) return null;
-                        return $record->characteristicValues
-                            ->where('pivot.characteristic_id', $sizeCharId)
-                            ->map(fn ($v) => $v->getTranslation('value', $defaultLocale)) // или свой способ получения текста
-                            ->filter()
-                            ->implode(', ');
+                    ->getStateUsing(function (\App\Models\Shop\Product $record) use ($resolveSizeLabel) {
+                        return $resolveSizeLabel($record);
                     })
                     ->toggleable()
                     ->wrap(),
@@ -290,6 +344,16 @@ class VariantsRelationManager extends RelationManager
                             $data['sort'] = ((int) $maxSort) + 10;
                         }
 
+                        if (! isset($data['variant_display_sort']) || $data['variant_display_sort'] === null || $data['variant_display_sort'] === '') {
+                            $maxVariantDisplaySort = Product::query()
+                                ->where(function ($query) use ($owner): void {
+                                    $query->whereKey($owner->getKey())
+                                        ->orWhere('parent_id', $owner->getKey());
+                                })
+                                ->max('variant_display_sort');
+                            $data['variant_display_sort'] = ((int) $maxVariantDisplaySort) + 10;
+                        }
+
                         return $data;
                     })
                     ->after(function (\App\Models\Shop\Product $record) {
@@ -314,6 +378,7 @@ class VariantsRelationManager extends RelationManager
                 Action::make('clone')
                     ->label('Клонировать')
                     ->icon('heroicon-m-rectangle-stack')
+                    ->visible(fn (Product $record): bool => $record->parent_id !== null)
                     ->requiresConfirmation()
                     ->action(function (Product $record) {
                         $copy = $record->replicate(['id','slug','created_at','updated_at']);
@@ -328,6 +393,7 @@ class VariantsRelationManager extends RelationManager
                     }),
 
                 DeleteAction::make()
+                    ->visible(fn (Product $record): bool => $record->parent_id !== null)
                     ->disabled(fn (Product $record): bool => $record->hasDeleteDependencies())
                     ->tooltip(fn (Product $record): ?string => $record->hasDeleteDependencies()
                         ? $record->getDeleteDependencyMessage()

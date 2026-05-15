@@ -47,7 +47,7 @@ class Product extends Model implements HasMedia
         'seo_title', 'seo_description', 'seo_keywords','category_id','dop_info',
           'is_new',  'is_hit',  'is_home', 'is_promo', 'is_vegan', 'is_product_of_day', 'is_spicy',
         'exclude_from_promotions',
-        'code2', 'is_imported', 'import_source_id', 'sort','short_desc', 'main_image_small',
+          'code2', 'is_imported', 'import_source_id', 'sort', 'variant_display_sort', 'short_desc', 'main_image_small',
     ];
     protected $casts = [
         'title' => 'array',
@@ -65,6 +65,7 @@ class Product extends Model implements HasMedia
         'is_imported' => 'boolean',
         'import_source_id' => 'int',
         'sort'    => 'integer',
+        'variant_display_sort' => 'integer',
     ];
 
     public function excludedFromPromotions(): bool
@@ -474,6 +475,7 @@ class Product extends Model implements HasMedia
             'bs_products.is_vegan',
             'bs_products.is_product_of_day',
             'bs_products.is_spicy',
+            'bs_products.variant_display_sort',
         ])
             ->with('categories:id,slug,title');
     }
@@ -501,6 +503,7 @@ class Product extends Model implements HasMedia
                     'seo_keywords',
                     'parent_id',
                     'sort',
+                    'variant_display_sort',
                     'is_new',
                     'is_hit',
                     'is_promo',

@@ -15,7 +15,8 @@
     };
 
     $rootId   = $rootId ?? ($rows[0]['product_id'] ?? null);
-    $rootKey  = $rootId !== null ? (string)$rootId : '';
+    $selectedId = $rows[0]['product_id'] ?? $rootId;
+    $rootKey  = $selectedId !== null ? (string)$selectedId : '';
     $rootRow  = null;
     if ($rootId) foreach ($rows as $r) if (($r['product_id'] ?? null) === $rootId) { $rootRow = $r; break; }
     $rootRow ??= $rows[0] ?? ['price'=>$defaultPrice,'old_price'=>$defaultOldPrice,'product_id'=>null];

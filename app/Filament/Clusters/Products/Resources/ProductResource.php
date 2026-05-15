@@ -168,6 +168,12 @@ class ProductResource extends Resource
                                 ->numeric()
                                 ->nullable()
                                 ->reactive(),
+                            TextInput::make('variant_display_sort')
+                                ->label('Сортування варіанта в картці')
+                                ->numeric()
+                                ->helperText('Окремо від загального сортування товарів у каталозі.')
+                                ->visible(fn (?Product $record): bool => $record?->parent_id === null)
+                                ->nullable(),
                             Placeholder::make('discount_percent')
                                 ->label('Скидка %')
                                 ->content(function (Get $get) {
@@ -182,7 +188,7 @@ class ProductResource extends Resource
                                     return new HtmlString('<span class="text-danger font-semibold">–' . $discount . '%</span>');
                                 })
                                 ->reactive(),
-                        ]) ->columns(3),
+                        ]) ->columns(4),
                     Section::make(__('product.sections.stock'))
                         ->schema([
                             TextInput::make('sku')->label(__('product.fields.sku')),

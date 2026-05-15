@@ -109,6 +109,8 @@ class ProductCardPresenter
         $variantRows = [[
             'product_id'  => $p->id,
             'slug'        => $p->slug,
+            'variant_display_sort' => $p->variant_display_sort,
+            'is_root'     => true,
             'price'       => $p->price,
             'old_price'   => $p->old_price,
             'article'     => $pickArticle($p),
@@ -132,6 +134,8 @@ class ProductCardPresenter
                 'product_id'  => $child->id,
                 'slug'        => $child->slug,
                 'sort'        => (int) ($child->sort ?? 0),
+                'variant_display_sort' => $child->variant_display_sort,
+                'is_root'     => false,
                 'price'       => $child->price,
                 'old_price'   => $childOldPrice,
                 'article'     => $pickArticle($child),
@@ -146,6 +150,23 @@ class ProductCardPresenter
                 'char_values' => $buildCharMap($child),
             ];
         }
+
+        $variantRows = collect($variantRows)
+            ->sortBy(function (array $row): string {
+                $displaySort = $row['variant_display_sort'] ?? null;
+
+                if ($displaySort !== null && $displaySort !== '') {
+                    return '0-' . sprintf('%010d-%010d', (int) $displaySort, (int) ($row['product_id'] ?? 0));
+                }
+
+                if (($row['is_root'] ?? false) === true) {
+                    return '1-0000000000-' . sprintf('%010d', (int) ($row['product_id'] ?? 0));
+                }
+
+                return '2-' . sprintf('%010d-%010d', (int) ($row['sort'] ?? 0), (int) ($row['product_id'] ?? 0));
+            })
+            ->values()
+            ->all();
 
         // ссылки
 
