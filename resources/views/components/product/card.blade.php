@@ -22,6 +22,7 @@
     // Подготовка карты цен для всех вариантов
     $priceMap = [];
     $badgeMap = [];
+    $manualDiscountMap = [];
     $initialDiscount = null;
     $initialProductId = (string)($rows[0]['product_id'] ?? ($pid ?: ''));
 
@@ -44,6 +45,10 @@
                 'old'   => $rowOldPrice,
             ];
 
+            $manualDiscountMap[$rowId] = isset($row['manual_discount_percent']) && $row['manual_discount_percent'] !== null && $row['manual_discount_percent'] !== ''
+                ? (float) $row['manual_discount_percent']
+                : null;
+
             $badgeMap[$rowId] = [
                 'is_spicy' => (bool)($row['is_spicy'] ?? false),
                 'is_new' => (bool)($row['is_new'] ?? false),
@@ -54,9 +59,12 @@
             ];
 
             // Рассчитываем скидку только для начального варианта
-            if ($rowId === $initialProductId && $rowOldPrice && $rowOldPrice > 0 && $rowPrice && $rowPrice > 0 && $rowOldPrice > $rowPrice) {
-                $discount = round((($rowOldPrice - $rowPrice) / $rowOldPrice) * 100);
-                $initialDiscount = $discount;
+            if ($rowId === $initialProductId) {
+                if ($manualDiscountMap[$rowId] !== null) {
+                    $initialDiscount = (float) $manualDiscountMap[$rowId];
+                } elseif ($rowOldPrice && $rowOldPrice > 0 && $rowPrice && $rowPrice > 0 && $rowOldPrice > $rowPrice) {
+                    $initialDiscount = round((($rowOldPrice - $rowPrice) / $rowOldPrice) * 100);
+                }
             }
         }
     }
@@ -80,6 +88,7 @@
     x-data="{
         prices: @js($priceMap),
         badges: @js($badgeMap),
+        manualDiscounts: @js($manualDiscountMap),
         discountLabel: @js($discountLabel),
         badgeLabels: @js([
             'is_spicy' => st('product.badges.is_spicy', 'Гострий'),
@@ -130,6 +139,11 @@
                 return;
             }
             const priceData = this.prices[String(productId)];
+            const manualDiscount = this.manualDiscounts[String(productId)] ?? null;
+            if (manualDiscount !== null && manualDiscount !== undefined && manualDiscount !== '') {
+                this.discountPercent = Number(manualDiscount);
+                return;
+            }
             if (!priceData) {
                 this.discountPercent = null;
                 return;

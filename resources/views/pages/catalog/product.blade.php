@@ -52,11 +52,15 @@
         $priceMap = [];
         $articleMap = [];
         $badgeMap = [];
+        $manualDiscountMap = [];
         foreach ($rows as $row) {
             $priceMap[(string)$row['product_id']] = [
                 'price' => (float)($row['price'] ?? 0),
                 'old'   => isset($row['old_price']) ? (float)$row['old_price'] : null,
             ];
+            $manualDiscountMap[(string)$row['product_id']] = isset($row['manual_discount_percent']) && $row['manual_discount_percent'] !== null && $row['manual_discount_percent'] !== ''
+                ? (float) $row['manual_discount_percent']
+                : null;
             $articleMap[(string)$row['product_id']] = trim((string)($row['article'] ?? ''));
 
             $badgeMap[(string)$row['product_id']] = [
@@ -84,11 +88,15 @@
         // расчет начальной скидки для начального варианта
         $initialDiscount = null;
         if ($rootKey && isset($priceMap[$rootKey])) {
-            $initialPriceData = $priceMap[$rootKey];
-            $oldPrice = $initialPriceData['old'];
-            $currentPrice = $initialPriceData['price'];
-            if ($oldPrice !== null && $oldPrice > 0 && $currentPrice > 0 && $oldPrice > $currentPrice) {
-                $initialDiscount = round((($oldPrice - $currentPrice) / $oldPrice) * 100);
+            if (($manualDiscountMap[$rootKey] ?? null) !== null) {
+                $initialDiscount = (float) $manualDiscountMap[$rootKey];
+            } else {
+                $initialPriceData = $priceMap[$rootKey];
+                $oldPrice = $initialPriceData['old'];
+                $currentPrice = $initialPriceData['price'];
+                if ($oldPrice !== null && $oldPrice > 0 && $currentPrice > 0 && $oldPrice > $currentPrice) {
+                    $initialDiscount = round((($oldPrice - $currentPrice) / $oldPrice) * 100);
+                }
             }
         }
     @endphp
@@ -102,6 +110,7 @@
                 prices: @js($priceMap),
                 articles: @js($articleMap),
                 badges: @js($badgeMap),
+                manualDiscounts: @js($manualDiscountMap),
                 discountLabel: @js($discountLabel),
                 badgeLabels: @js($badgeLabels),
                 bonusPercent: {{ $bonusPercent ?? 0 }},
@@ -116,6 +125,10 @@
                     return this.defaultArticle;
                 },
                 discountPercent(){
+                    const manualDiscount = this.manualDiscounts[String(this.selected)] ?? null;
+                    if (manualDiscount !== null && manualDiscount !== undefined && manualDiscount !== '') {
+                        return Number(manualDiscount);
+                    }
                     const oldPrice = this.old();
                     const currentPrice = this.price();
                     if (oldPrice && oldPrice > 0 && currentPrice > 0 && oldPrice > currentPrice) {

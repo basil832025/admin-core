@@ -113,6 +113,7 @@ class ProductCardPresenter
             'is_root'     => true,
             'price'       => $p->price,
             'old_price'   => $p->old_price,
+            'manual_discount_percent' => $p->manual_discount_percent,
             'article'     => $pickArticle($p),
             'is_new'      => (bool) ($p->is_new ?? false),
             'is_hit'      => (bool) ($p->is_hit ?? false),
@@ -138,6 +139,7 @@ class ProductCardPresenter
                 'is_root'     => false,
                 'price'       => $child->price,
                 'old_price'   => $childOldPrice,
+                'manual_discount_percent' => $child->manual_discount_percent,
                 'article'     => $pickArticle($child),
                 // Badges are defined on the root product and must stay visible
                 // when switching between variant sizes.
@@ -230,6 +232,7 @@ class ProductCardPresenter
             'short_desc'      => $p->short_desc,
             'old_price'       => $p->old_price,
             'price'           => $p->price,
+            'manual_discount_percent' => $p->manual_discount_percent,
             'main_image'      => $p->main_image_url,
             'slug'            => $p->slug,
             'article'         => $pickArticle($p),

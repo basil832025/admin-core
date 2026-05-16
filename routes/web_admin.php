@@ -673,6 +673,8 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
             'name' => $special['name'],
         ])->values();
 
+        $locale = app()->getLocale();
+
         $categories = $specialCategories->concat(\App\Models\Shop\ProductCategory::query()
             ->where('slug', 'not like', 'src-%-import')
             ->whereHas('products', function ($q) use ($applySourceFilter): void {
@@ -686,7 +688,12 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
             ->get(['id', 'title'])
             ->map(fn (\App\Models\Shop\ProductCategory $cat) => [
                 'id' => (int) $cat->id,
-                'name' => (string) $cat->name,
+                'name' => (string) (
+                    $cat->getTranslation('title', $locale, false)
+                    ?: $cat->getTranslation('title', 'uk', false)
+                    ?: $cat->getTranslation('title', 'ru', false)
+                    ?: (is_string($cat->title) ? $cat->title : json_encode($cat->title, JSON_UNESCAPED_UNICODE))
+                ),
             ])
             ->values())->values();
 
