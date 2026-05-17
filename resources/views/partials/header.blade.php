@@ -23,9 +23,8 @@
                     <picture>
                         <source media="(min-width: 1250px)" srcset="{{ asset('images/logo.svg') }}">
                         <source media="(min-width: 768px)" srcset="{{ asset('images/logo_m.svg') }}">
-                        <img src="{{ asset('images/logo_mob.svg') }}" alt="Три Пироги" decoding="async"
-                             class="shrink-0 flex-none
-           basis-[57px] max-w-none object-contain" fetchpriority="high">
+                        <img src="{{ asset('images/logo_m.svg') }}" alt="Три Пироги" decoding="async"
+                             class="shrink-0 flex-none basis-[52px] md:basis-[57px] max-w-none object-contain" fetchpriority="high">
                     </picture>
                 </a>
 
