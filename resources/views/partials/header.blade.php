@@ -19,7 +19,7 @@
                 </button>
 
                 {{-- logo --}}
-                <a href="{{ in_array($locale ?? app()->getLocale(), ['ru', 'en'], true) ? route('localized.home', ['locale' => ($locale ?? app()->getLocale())]) : route('home') }}" class="-ml-2 block md:ml-0 md:gap-2 desk:gap-6" aria-label="Три Пироги — на главную">
+                <a href="{{ in_array($locale ?? app()->getLocale(), ['ru', 'en'], true) ? route('localized.home', ['locale' => ($locale ?? app()->getLocale())]) : route('home') }}" class="-ml-[4px] block md:ml-0 md:gap-2 desk:gap-6" aria-label="Три Пироги — на главную">
                     <picture>
                         <source media="(min-width: 1250px)" srcset="{{ asset('images/logo.svg') }}">
                         <source media="(min-width: 768px)" srcset="{{ asset('images/logo_m.svg') }}">
@@ -132,7 +132,7 @@
             </div>
 
             {{-- ПРАВО: иконки --}}
-            <div class="flex items-center gap-[20px] shrink-0">
+            <div class="flex items-center gap-3 md:gap-[20px] shrink-0">
                 {{-- Поиск (mobile) --}}
                 <button
                     type="button"
