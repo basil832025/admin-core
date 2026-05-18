@@ -7,20 +7,31 @@ use App\Models\Setting;
 
 class HeaderContacts
 {
+    private static array $buildBySlugCache = [];
+    private static array $buildCache = [];
+
     public function buildBySlug(string $slug): array
     {
+        if (array_key_exists($slug, self::$buildBySlugCache)) {
+            return self::$buildBySlugCache[$slug];
+        }
+
         $loc = Location::query()
                 ->where('is_active', 1)
                 ->where('slug', $slug)
                 ->first()
             ?? Location::query()->where('is_active', 1)->orderBy('sort')->first();
 
-        return $this->pack($loc);
+        return self::$buildBySlugCache[$slug] = $this->pack($loc);
     }
 
     public function build(?int $locationId = null): array
     {
         $locationId = $locationId ?? (int) (Setting::value('default_location_id') ?? 0);
+
+        if (array_key_exists($locationId, self::$buildCache)) {
+            return self::$buildCache[$locationId];
+        }
 
         $loc = Location::query()
             ->where('is_active', 1)
@@ -28,7 +39,7 @@ class HeaderContacts
             ->orderBy('sort')
             ->first();
 
-        return $this->pack($loc);
+        return self::$buildCache[$locationId] = $this->pack($loc);
     }
 
     private function pack(?Location $loc): array

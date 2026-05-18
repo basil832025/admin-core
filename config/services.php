@@ -47,6 +47,7 @@ return [
         'webhook_public_url' => env('BINOTEL_WEBHOOK_PUBLIC_URL'),
         'crm_base_url' => env('BINOTEL_CRM_BASE_URL', env('APP_URL')),
         'webhook_secret' => env('BINOTEL_WEBHOOK_SECRET'),
+        'admin_polling_enabled' => (bool) env('ADMIN_BINOTEL_POLLING_ENABLED', true),
         'ip_check_mode' => env('BINOTEL_IP_CHECK_MODE', 'strict'),
         'allowed_ips' => [
             '194.88.218.116', '194.88.218.114', '194.88.218.117', '194.88.218.118',
@@ -56,6 +57,10 @@ return [
             '194.88.219.89', '194.88.219.92', '194.88.218.119', '194.88.218.120',
             '185.100.66.145', '185.100.66.146', '185.100.66.147',
         ],
+    ],
+
+    'courier_comment' => [
+        'admin_polling_enabled' => (bool) env('ADMIN_COURIER_COMMENT_POLLING_ENABLED', true),
     ],
 
     'pirogovaya_api' => [

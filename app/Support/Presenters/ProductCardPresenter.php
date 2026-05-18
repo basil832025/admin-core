@@ -13,6 +13,7 @@ class ProductCardPresenter
     public function __construct(
         protected string $locale = 'uk',
         protected ?string $fallbackCategorySlug = null, // <— добавили
+        protected bool $lightweight = false,
     ) {}
 
     public function for(Product $p): array
@@ -105,6 +106,14 @@ class ProductCardPresenter
             ?? ($p->relationLoaded('categories') ? $p->categories->first()?->slug : null)
             ?? $this->fallbackCategorySlug;
 
+        $allCategorySlugs = $p->relationLoaded('categories')
+            ? $p->categories->pluck('slug')->filter()->values()->all()
+            : [];
+
+        if ($categorySlug && ! in_array($categorySlug, $allCategorySlugs, true)) {
+            array_unshift($allCategorySlugs, $categorySlug);
+        }
+
         // Варианты: родитель + дети
         $variantRows = [[
             'product_id'  => $p->id,
@@ -176,7 +185,7 @@ class ProductCardPresenter
             ? $p->getTranslation('description', $this->locale)
             : $p->description;
 
-        $ingredientText = collect($p->ingredients ?? [])
+        $ingredientText = collect($p->relationLoaded('ingredients') ? ($p->ingredients ?? collect()) : [])
             ->map(function ($ingredient) {
                 if (method_exists($ingredient, 'getTranslation')) {
                     $val = $ingredient->getTranslation('name', $this->locale);
@@ -198,13 +207,11 @@ class ProductCardPresenter
             ->filter(fn ($v) => is_string($v) && $v !== '')
             ->values();
 
-        $ingredientsText = $ingredientText->isNotEmpty()
-            ? $ingredientText->implode(', ')
-            : '';
+        $ingredientsText = $ingredientText->isNotEmpty() ? $ingredientText->implode(', ') : '';
 
-        $cardDescription = $ingredientsText !== ''
-            ? $ingredientsText
-            : $description;
+        $cardDescription = $this->lightweight
+            ? trim((string) ($p->short_desc ?? $description ?? ''))
+            : ($ingredientsText !== '' ? $ingredientsText : $description);
 
         $productRouteName = in_array($this->locale, ['ru', 'en'], true)
             ? 'localized.product.show'
@@ -236,17 +243,24 @@ class ProductCardPresenter
             'main_image'      => $p->main_image_url,
             'slug'            => $p->slug,
             'article'         => $pickArticle($p),
-            'seo_title'        => $pickTr($p, 'seo_title'),
-            'seo_description'  => $pickTr($p, 'seo_description'),
-            'seo_keywords'     => $pickTr($p, 'seo_keywords'),
             'characteristics' => $main,
             'variant_rows'    => $variantRows,
             'root_id'         => $p->id,
             // NEW:
             'category_slug'   => $categorySlug,
+            'all_category_slugs' => $allCategorySlugs,
             'url'             => $url,
             'category_url'    => $category_url,
         ];
+
+        if (! $this->lightweight) {
+            $result['ingredients_text'] = $ingredientsText;
+            $result['seo_title'] = $pickTr($p, 'seo_title');
+            $result['seo_description'] = $pickTr($p, 'seo_description');
+            $result['seo_keywords'] = $pickTr($p, 'seo_keywords');
+        }
+
+        return $result;
     }
 
     /** Коллекции — одним вызовом */

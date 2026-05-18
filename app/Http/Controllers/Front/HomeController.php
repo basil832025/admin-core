@@ -51,17 +51,17 @@ class HomeController extends Controller
         $excludeRootIds = [];
 
         // 0) АКЦИИ (is_promo + is_home) — должны быть первыми
-        $promoQuery = Product::withCardRelations()
-            ->active()->home()->where('bs_products.is_promo', 1)->cardSelect()->MainProduct()->Pie();
+        $promoQuery = Product::withListingCardRelations()
+            ->active()->home()->where('bs_products.is_promo', 1)->cardListingSelect()->MainProduct()->Pie();
         $applyMainPageBase($promoQuery);
         $this->applySort($promoQuery, request());
         $promo_products = $promoQuery->get();
-        $promo = (new ProductCardPresenter($locale))->collection($promo_products);
+        $promo = (new ProductCardPresenter($locale, null, true))->collection($promo_products);
         $excludeRootIds = array_values(array_unique(array_merge($excludeRootIds, $promo_products->pluck('id')->all())));
 
         // 1) ХІТИ (is_hit + is_home)
-        $hitsQuery = Product::withCardRelations()
-            ->active()->home()->hit()->cardSelect()->MainProduct()
+        $hitsQuery = Product::withListingCardRelations()
+            ->active()->home()->hit()->cardListingSelect()->MainProduct()
             ->when(!empty($excludeRootIds), fn ($q) => $q->whereNotIn('bs_products.id', $excludeRootIds));
         $applyMainPageBase($hitsQuery);
         if (in_array(request()->query('sort', 'popular'), [null, '', 'popular'], true)) {
@@ -76,12 +76,12 @@ class HomeController extends Controller
             $this->applySort($hitsQuery, request());
         }
         $hits_products = $hitsQuery->get();
-        $hits = (new ProductCardPresenter($locale))->collection($hits_products);
+        $hits = (new ProductCardPresenter($locale, null, true))->collection($hits_products);
         $excludeRootIds = array_values(array_unique(array_merge($excludeRootIds, $hits_products->pluck('id')->all())));
 
         // 2) НОВИНКИ (is_new + is_home)
-        $newsQuery = Product::withCardRelations()
-            ->active()->home()->new()->cardSelect()->MainProduct()
+        $newsQuery = Product::withListingCardRelations()
+            ->active()->home()->new()->cardListingSelect()->MainProduct()
             ->when(!empty($excludeRootIds), fn ($q) => $q->whereNotIn('bs_products.id', $excludeRootIds));
         $applyMainPageBase($newsQuery);
         if (in_array(request()->query('sort', 'popular'), [null, '', 'popular'], true)) {
@@ -96,7 +96,7 @@ class HomeController extends Controller
             $this->applySort($newsQuery, request());
         }
         $news_products = $newsQuery->get();
-        $news = (new ProductCardPresenter($locale))->collection($news_products);
+        $news = (new ProductCardPresenter($locale, null, true))->collection($news_products);
         $excludeRootIds = array_values(array_unique(array_merge($excludeRootIds, $news_products->pluck('id')->all())));
 
         $parentSlug = 'pies';
@@ -109,8 +109,8 @@ class HomeController extends Controller
         };
 
         $buildHomeCategorySection = function (string $slug, string $title) use ($locale, $applyMainPageBase, &$excludeRootIds): ?array {
-            $q = Product::withCardRelations()
-                ->active()->home()->cardSelect()->MainProduct()
+            $q = Product::withListingCardRelations()
+                ->active()->home()->cardListingSelect()->MainProduct()
                 ->where(function ($query) use ($slug) {
                     $query->whereHas('categories', fn($qq) => $qq->where('slug', $slug))
                         ->orWhereHas('mainCategory', fn($qq) => $qq->where('slug', $slug));
@@ -129,7 +129,7 @@ class HomeController extends Controller
 
             return [
                 'title' => $title,
-                'items' => (new ProductCardPresenter($locale))->collection($models),
+                'items' => (new ProductCardPresenter($locale, null, true))->collection($models),
                 'slug'  => $slug,
             ];
         };

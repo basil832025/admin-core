@@ -247,15 +247,19 @@ class AdminPanelProvider extends PanelProvider
             fn () => view('filament.hooks.logistics-route-map-init')
         );
 
-        $panel->renderHook(
-            PanelsRenderHook::BODY_END,
-            fn () => view('filament.hooks.binotel-incoming-call-popup')
-        );
+        if (config('services.binotel.admin_polling_enabled', true)) {
+            $panel->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn () => view('filament.hooks.binotel-incoming-call-popup')
+            );
+        }
 
-        $panel->renderHook(
-            PanelsRenderHook::BODY_END,
-            fn () => view('filament.hooks.courier-comment-popup')
-        );
+        if (config('services.courier_comment.admin_polling_enabled', true)) {
+            $panel->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn () => view('filament.hooks.courier-comment-popup')
+            );
+        }
 
         $panel->renderHook(
             PanelsRenderHook::BODY_END,

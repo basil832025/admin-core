@@ -7,17 +7,26 @@ use App\Enums\OrderStatus;
 use App\Models\Shop\OrderItem;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
 
 class CartService
 {
     const SESSION_KEY = 'cart.items'; // [ [product_id, qty, price, meta], ... ]
 
+    private ?Authenticatable $cachedUser = null;
+    private bool $cachedUserResolved = false;
+    private array $draftOrderCache = [];
+    private array $cartItemsCache = [];
+    private array $cartItemsByProductIdCache = [];
+    private array $variantAttributesCache = [];
+
     /** Добавить товар */
     public function add(int $productId, int $qty = 1, ?float $price = null, array $meta = []): array
     {
-        $user = auth()->user();
+        $user = $this->authUser();
 
         if ($user) {
             $this->addForUser($user, $productId, $qty, $price, $meta);
@@ -39,7 +48,7 @@ class CartService
     /** Удалить товар */
     public function remove(int $productId): array
     {
-        $user = auth()->user();
+        $user = $this->authUser();
 
         if ($user) {
             $order = $this->getOrCreateDraftOrder($user, false);
@@ -67,7 +76,7 @@ class CartService
     /** Очистить корзину */
     public function clear(): array
     {
-        $user = auth()->user();
+        $user = $this->authUser();
 
         if ($user) {
             $order = $this->getOrCreateDraftOrder($user, false);
@@ -85,7 +94,7 @@ class CartService
     /** Информация по корзине (для бейджа, мини-корзины и т.п.) */
     public function info(): array
     {
-        $user = auth()->user();
+        $user = $this->authUser();
 
         if ($user) {
             // только читаем, не создаём
@@ -101,12 +110,12 @@ class CartService
                 ];
             }
 
-            return [
-                'ok'          => true,
-                'qty'         => (int) $order->items()->sum('qty'),
-                'total_price' => (float) $order->total_price,
-                'items'       => $this->items(),
-            ];
+                return [
+                    'ok'          => true,
+                    'qty'         => (int) $this->cartOrderItems($order)->sum('qty'),
+                    'total_price' => (float) $order->total_price,
+                    'items'       => $this->items(),
+                ];
         }
 
         // гость
@@ -239,9 +248,9 @@ class CartService
         }
 
         // Авторизованный — читаем из OrderItem
-        if ($user = auth()->user()) {
+        if ($user = $this->authUser()) {
             $order = $this->getOrCreateDraftOrder($user, false);
-            if ($oi = $order->items()->where('product_id', $productId)->first()) {
+            if ($oi = $this->cartOrderItemsByProductId($order)->get($productId)) {
                 return [
                     'product_id' => (int)$oi->product_id,
                     'qty'        => (int)$oi->qty,
@@ -311,11 +320,11 @@ class CartService
         $qty = 0;
         $sum = 0.0;
 
-        $user = auth()->user();
+        $user = $this->authUser();
 
         if ($user) {
             $order = $this->getOrCreateDraftOrder($user, false);
-            foreach ($order->items as $oi) {
+            foreach ($this->cartOrderItems($order) as $oi) {
                 $qty += (int)$oi->qty;
                 $sum += (float)$oi->qty * (float)$oi->unit_price;
             }
@@ -385,7 +394,7 @@ class CartService
 // Δ-изменение количества (+1 / -1 / +N / -N)
     public function changeQty(int $productId, int $delta = 1, ?float $price = null, array $meta = []): array
     {
-        $user = auth()->user();
+        $user = $this->authUser();
 
         if ($user) {
             // без abs()/max(1,...) — дельта может быть отрицательной
@@ -413,7 +422,7 @@ class CartService
     public function setQty(int $productId, int $qty, ?float $price = null, array $meta = []): array
     {
         $qty  = max(0, (int) $qty);
-        $user = auth()->user();
+        $user = $this->authUser();
 
         if ($user) $this->setForUser($user, $productId, $qty, $price, $meta);
         else       $this->setInSession($productId, $qty, $price, $meta);
@@ -457,7 +466,7 @@ class CartService
         $item = $order->items()->firstOrNew(['product_id' => $productId]);
 
         if ($qty <= 0) {
-            if ($item->exists) { $item->delete(); $this->recalc($order); }
+            if ($item->exists) { $item->delete(); $this->forgetOrderCaches($order); $this->recalc($order); }
             return;
         }
 
@@ -468,6 +477,7 @@ class CartService
         if (!empty($meta)) $item->meta = $meta;
 
         $item->save();
+        $this->forgetOrderCaches($order);
         $this->recalc($order);
     }
     protected function sessionTotal(): float
@@ -499,6 +509,7 @@ class CartService
             // qty <= 0 — удаляем строку, пересчитываем заказ
             if ($item->exists) {
                 $item->delete();
+                $this->forgetOrderCaches($order);
                 $this->recalc($order);
             }
             return;
@@ -518,6 +529,7 @@ class CartService
         }
 
         $item->save();
+        $this->forgetOrderCaches($order);
         $this->recalc($order);
     }
 
@@ -559,6 +571,12 @@ class CartService
 
     protected function getOrCreateDraftOrder(Authenticatable $user, bool $createIfMissing = true): ?Order
     {
+        $cacheKey = ($user->getAuthIdentifier() ?? 'guest').':'.($createIfMissing ? 'create' : 'readonly');
+
+        if (array_key_exists($cacheKey, $this->draftOrderCache)) {
+            return $this->draftOrderCache[$cacheKey];
+        }
+
         $clientId = $user->getAuthIdentifier();
         
         // Проверяем, что клиент существует в базе данных
@@ -566,7 +584,7 @@ class CartService
         
         // Если клиента нет, устанавливаем clients_id = null (для гостевых заказов)
         if (!$clientExists) {
-            \Log::warning('Client not found when creating draft order', [
+            Log::warning('Client not found when creating draft order', [
                 'client_id' => $clientId,
                 'user_class' => get_class($user),
             ]);
@@ -589,7 +607,61 @@ class CartService
         }
 
         // если не нашли и не создавали — вернётся null
-        return $order?->fresh(['items']);
+        $order = $order?->fresh(['items']);
+
+        return $this->draftOrderCache[$cacheKey] = $order;
+    }
+
+    private function authUser(): ?Authenticatable
+    {
+        if (! $this->cachedUserResolved) {
+            $this->cachedUser = Auth::user();
+            $this->cachedUserResolved = true;
+        }
+
+        return $this->cachedUser;
+    }
+
+    private function cartOrderItems(?Order $order): \Illuminate\Support\Collection
+    {
+        if (! $order) {
+            return collect();
+        }
+
+        $orderId = (int) $order->id;
+
+        if (! array_key_exists($orderId, $this->cartItemsCache)) {
+            $this->cartItemsCache[$orderId] = $order->relationLoaded('items')
+                ? $order->items
+                : $order->items()->get();
+        }
+
+        return $this->cartItemsCache[$orderId];
+    }
+
+    private function cartOrderItemsByProductId(?Order $order): \Illuminate\Support\Collection
+    {
+        if (! $order) {
+            return collect();
+        }
+
+        $orderId = (int) $order->id;
+
+        if (! array_key_exists($orderId, $this->cartItemsByProductIdCache)) {
+            $this->cartItemsByProductIdCache[$orderId] = $this->cartOrderItems($order)->keyBy('product_id');
+        }
+
+        return $this->cartItemsByProductIdCache[$orderId];
+    }
+
+    private function forgetOrderCaches(?Order $order): void
+    {
+        if (! $order) {
+            return;
+        }
+
+        $orderId = (int) $order->id;
+        unset($this->cartItemsCache[$orderId], $this->cartItemsByProductIdCache[$orderId]);
     }
 
 
@@ -633,17 +705,26 @@ class CartService
 
     public function items(): array
     {
-        $user = auth()->user();
+        $user = $this->authUser();
 
         // вспомогалка: строки атрибутов из варианта (размер/вес и т.д.)
         $variantAttrs = function ($product) {
-            if (! $product || ! method_exists($product, 'productCharacteristicValues')) {
+            if (! $product) {
                 return '';
             }
 
-            $vals = $product->productCharacteristicValues()
-                ->with(['characteristic:id,slug', 'characteristicValue'])
-                ->get();
+            $productId = (int) ($product->id ?? 0);
+            if ($productId <= 0) {
+                return '';
+            }
+
+            if (array_key_exists($productId, $this->variantAttributesCache)) {
+                return $this->variantAttributesCache[$productId];
+            }
+
+            $vals = $product->relationLoaded('productCharacteristicValues')
+                ? ($product->productCharacteristicValues ?? collect())
+                : collect();
 
             $keep  = ['rozmir-pirogiv', 'vaga']; // размер и вес
             $parts = [];
@@ -661,7 +742,7 @@ class CartService
                 }
             }
 
-            return implode(' · ', array_filter($parts));
+            return $this->variantAttributesCache[$productId] = implode(' · ', array_filter($parts));
         };
 
         if ($user) {
@@ -672,10 +753,21 @@ class CartService
                 return [];
             }
 
-            $order->load(['items.product.parent']);
+            $items = $this->cartOrderItems($order);
+            $productIds = $items->pluck('product_id')->map(fn ($id) => (int) $id)->filter()->values()->all();
 
-            return $order->items->map(function (\App\Models\Shop\OrderItem $it) use ($variantAttrs) {
-                $p      = $it->product;                 // это вариант (child) либо сам parent
+            $products = \App\Models\Shop\Product::query()
+                ->with([
+                    'parent:id,old_price,title,short_name,main_image,sku,code2',
+                    'productCharacteristicValues.characteristic:id,slug',
+                    'productCharacteristicValues.characteristicValue',
+                ])
+                ->whereIn('id', $productIds)
+                ->get()
+                ->keyBy('id');
+
+            return $items->map(function (\App\Models\Shop\OrderItem $it) use ($variantAttrs, $products) {
+                $p      = $products->get((int) $it->product_id); // это вариант (child) либо сам parent
                 $parent = $p?->parent ?: $p;            // если есть родитель — берём его
                 $oldPrice = $this->resolveDisplayedOldPrice($p, (float) $it->unit_price);
 
@@ -712,7 +804,11 @@ class CartService
         $prodModel = app(\App\Models\Shop\Product::class);
 
         $products = $prodModel->newQuery()
-            ->with(['parent'])
+            ->with([
+                'parent:id,old_price,title,short_name,main_image,sku,code2',
+                'productCharacteristicValues.characteristic:id,slug',
+                'productCharacteristicValues.characteristicValue',
+            ])
             ->whereIn('id', $ids)
             ->get()
             ->keyBy('id');

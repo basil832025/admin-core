@@ -2,6 +2,7 @@
 
 namespace App\Models\Shop;
 
+use App\Services\CatalogCacheService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -57,6 +58,14 @@ class ProductCategory extends Model
 
     protected static function booted(): void
     {
+        static::saved(function (): void {
+            app(CatalogCacheService::class)->bump();
+        });
+
+        static::deleted(function (): void {
+            app(CatalogCacheService::class)->bump();
+        });
+
         static::deleting(function (ProductCategory $category): void {
             if ($category->hasDeleteDependencies()) {
                 throw new \RuntimeException($category->getDeleteDependencyMessage());

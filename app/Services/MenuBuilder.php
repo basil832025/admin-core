@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Shop\ProductCategory;
+use App\Services\CatalogCacheService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use App\Models\Shop\Product;
@@ -26,6 +27,8 @@ class MenuBuilder
     /** Весь каталог «плоско», без вложенности */
     protected function catalogFlat(): Collection
     {
+        $countsBySlug = $this->menuProductCounts();
+
         // быстрый вариант: все видимые в порядке order
         return ProductCategory::query()
             ->where('is_visible', 1)
@@ -37,13 +40,15 @@ class MenuBuilder
                 'url'   => route('catalog.category', $c->slug),
                 'slug'  => $c->slug,
                 'order' => (int)($c->order ?? 0),
-                'count' => $this->countProductsForCategory($c),
+                'count' => (int) ($countsBySlug[$c->slug] ?? 0),
             ])->values();
     }
 
     /** Только корневые категории */
     protected function catalogRoot(): Collection
     {
+        $countsBySlug = $this->menuProductCounts();
+
         return ProductCategory::query()
             ->where('is_visible', 1)
             ->whereNull('parent_id')
@@ -55,7 +60,7 @@ class MenuBuilder
                 'url'   => route('catalog.category', $c->slug),
                 'slug'  => $c->slug,
                 'order' => (int)($c->order ?? 0),
-                'count' => $this->countProductsForCategory($c),
+                'count' => (int) ($countsBySlug[$c->slug] ?? 0),
             ])->values();
     }
 
@@ -78,20 +83,40 @@ class MenuBuilder
             ['title' => __('menu.privacy'), 'url' => route('pages.show', 'privacy')],
         ]);
     }
-    protected function countProductsForCategory(ProductCategory $category): int
+    protected function menuProductCounts(): array
     {
-        $slug = $category->slug;
+        $cacheKey = app(CatalogCacheService::class)->key('menu_builder_product_counts');
 
+        return Cache::remember($cacheKey, now()->addMinutes(5), function (): array {
+            $products = Product::query()
+                ->active()
+                ->mainProduct()
+                ->where(function ($query) {
+                    $query->whereNull('is_imported')
+                        ->orWhere('is_imported', false);
+                })
+                ->select(['id', 'category_id'])
+                ->with([
+                    'mainCategory:id,slug',
+                    'categories:id,slug',
+                ])
+                ->get();
 
-        return Product::query()
-            ->active()
-            ->cardSelect()
-            ->mainProduct()
-            ->where(function ($q) use ($slug) {
-                $q->whereHas('categories', fn($qq) => $qq->where('slug', $slug))
-                    ->orWhereHas('mainCategory', fn($qq) => $qq->where('slug', $slug));
-            })
-            ->count();
+            $counts = [];
+
+            foreach ($products as $product) {
+                $slugs = collect([
+                    $product->mainCategory?->slug,
+                    ...$product->categories->pluck('slug')->all(),
+                ])->filter()->unique();
+
+                foreach ($slugs as $slug) {
+                    $counts[$slug] = ($counts[$slug] ?? 0) + 1;
+                }
+            }
+
+            return $counts;
+        });
     }
 
 }

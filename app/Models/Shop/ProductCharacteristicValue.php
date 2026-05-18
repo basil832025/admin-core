@@ -2,6 +2,7 @@
 
 namespace App\Models\Shop;
 
+use App\Services\CatalogCacheService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -25,6 +26,17 @@ class ProductCharacteristicValue extends Model
         'value_number' =>   'int',
         'price_modifier' => 'decimal:2',
     ];
+
+    protected static function booted(): void
+    {
+        static::saved(function (): void {
+            app(CatalogCacheService::class)->bump();
+        });
+
+        static::deleted(function (): void {
+            app(CatalogCacheService::class)->bump();
+        });
+    }
 
     public function product(): BelongsTo
     {

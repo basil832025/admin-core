@@ -16,6 +16,23 @@
 ])
 
 @php
+    static $productCardLabels = null;
+
+    if ($productCardLabels === null) {
+        $productCardLabels = [
+            'discount' => st('product.badges.discount', 'Знижка'),
+            'badgeLabels' => [
+                'is_spicy' => st('product.badges.is_spicy', 'Гострий'),
+                'is_new' => st('product.badges.is_new', 'Новинка'),
+                'is_promo' => st('product.badges.is_promo', 'Акція'),
+                'is_hit' => st('product.badges.is_hit', 'Хіт'),
+                'is_vegan' => st('product.badges.is_vegan', 'Веган'),
+                'is_product_of_day' => st('product.badges.is_product_of_day', 'Пиріг дня'),
+            ],
+            'sku_label' => st('product.sku_label', 'Артикул'),
+        ];
+    }
+
     // ЕДИНЫЙ ID, по которому ставим/снимаем избранное
     $pid = $productId ?? $root_id ?? ($rows[0]['product_id'] ?? null);
 
@@ -81,7 +98,7 @@
     // Признак карточки с одним вариантом (для внутренних отступов)
     $rowsCount = count($rows ?? []);
     $isSingleVariant = $rowsCount <= 1;
-    $discountLabel = st('product.badges.discount', 'Знижка');
+    $discountLabel = $productCardLabels['discount'];
 @endphp
 
 <article
@@ -90,14 +107,7 @@
         badges: @js($badgeMap),
         manualDiscounts: @js($manualDiscountMap),
         discountLabel: @js($discountLabel),
-        badgeLabels: @js([
-            'is_spicy' => st('product.badges.is_spicy', 'Гострий'),
-            'is_new' => st('product.badges.is_new', 'Новинка'),
-            'is_promo' => st('product.badges.is_promo', 'Акція'),
-            'is_hit' => st('product.badges.is_hit', 'Хіт'),
-            'is_vegan' => st('product.badges.is_vegan', 'Веган'),
-            'is_product_of_day' => st('product.badges.is_product_of_day', 'Пиріг дня'),
-        ]),
+        badgeLabels: @js($productCardLabels['badgeLabels']),
         discountPercent: @js($initialDiscount ?? null),
         activeBadges: [],
         rootId: @js($pid),
@@ -243,7 +253,7 @@
             </div>
 
             <p class="w-full font-intro text-[13px] leading-[16px] text-[#C04103] break-words">
-                {{ st('product.sku_label', 'Артикул') }}: {{ $article ?? '123456' }}
+                {{ $productCardLabels['sku_label'] }}: {{ $article ?? '123456' }}
             </p>
 
             <div class="w-full font-intro text-[13px] leading-[16px] text-[#A9A9A9] break-words mb-1">

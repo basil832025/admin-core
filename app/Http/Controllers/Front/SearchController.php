@@ -45,8 +45,8 @@ class SearchController extends Controller
 
         // ==== ТОВАРЫ ====
         
-        $productsQuery = Product::withCardRelations()
-            ->cardSelect()
+        $productsQuery = Product::withListingCardRelations()
+            ->cardListingSelect()
             ->where('in_stock', true)
             ->whereRaw('COALESCE(parent_id,0)=0')
             ->where(function (Builder $w) {
@@ -74,7 +74,7 @@ class SearchController extends Controller
             ->limit(50);
         
         $productsCollection = $productsQuery->get();
-        $products = collect((new ProductCardPresenter($locale))->collection($productsCollection));
+        $products = collect((new ProductCardPresenter($locale, null, true))->collection($productsCollection));
 
         // ==== КАТЕГОРИИ ====
         $categories = ProductCategory::query()

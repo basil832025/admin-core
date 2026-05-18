@@ -4,7 +4,9 @@ namespace App\Providers;
 
 use App\Models\Shop\Product;
 use App\Models\Shop\ProductCategory;
+use App\Services\CatalogCacheService;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\ServiceProvider;
 
 class ViewServiceProvider extends ServiceProvider
@@ -21,6 +23,7 @@ class ViewServiceProvider extends ServiceProvider
             $locale = app()->getLocale();
             $brand  = '#FF7500';
             $prefix = in_array($locale, ['ru', 'en'], true) ? '/' . $locale : '';
+            $countsBySlug = $this->menuProductCounts();
 
             // корневые = parent_id = -1
             $roots = ProductCategory::query()
@@ -40,7 +43,7 @@ class ViewServiceProvider extends ServiceProvider
          //   dd($roots);
             $flat = collect();
 // анонимная функция проходит по всему масвиву и собирает родителей и если есть дети то и деьтей в один уровень
-            $walk = function ($node) use (&$walk, &$flat, $locale, $prefix) {
+            $walk = function ($node) use (&$walk, &$flat, $locale, $prefix, $countsBySlug) {
                 // сам узел
                 $flat->push([
                     'id'    => $node->id,
@@ -48,7 +51,7 @@ class ViewServiceProvider extends ServiceProvider
                     'slug'  => $node->slug,
                     'url'   => $prefix . '/' . ltrim((string) $node->slug, '/'),
                     'order' => (int) ($node->order ?? 0),
-                    'count' => $this->countProductsForCategory($node->slug),
+                    'count' => (int) ($countsBySlug[$node->slug] ?? 0),
                 ]);
                 // если родителький слаг Все пироги то выведим Хиты и новинки
                 if ($node->slug=='pies')
@@ -97,19 +100,40 @@ class ViewServiceProvider extends ServiceProvider
             $view->with(compact('MainMenuItems', 'MenuactiveIndex', 'MenuBrand'));
         });
     }
-    protected function countProductsForCategory($slug): int
+
+    protected function menuProductCounts(): array
     {
-     //   $slug = $category->slug;
+        $cacheKey = app(CatalogCacheService::class)->key('menu_product_counts');
 
+        return Cache::remember($cacheKey, now()->addMinutes(5), function (): array {
+            $products = Product::query()
+                ->active()
+                ->mainProduct()
+                ->where(function ($query) {
+                    $query->whereNull('is_imported')
+                        ->orWhere('is_imported', false);
+                })
+                ->select(['id', 'category_id'])
+                ->with([
+                    'mainCategory:id,slug',
+                    'categories:id,slug',
+                ])
+                ->get();
 
-        return Product::query()
-            ->active()
-            ->cardSelect()
-            ->mainProduct()
-            ->where(function ($q) use ($slug) {
-                $q->whereHas('categories', fn($qq) => $qq->where('slug', $slug))
-                    ->orWhereHas('mainCategory', fn($qq) => $qq->where('slug', $slug));
-            })
-            ->count();
+            $counts = [];
+
+            foreach ($products as $product) {
+                $slugs = collect([
+                    $product->mainCategory?->slug,
+                    ...$product->categories->pluck('slug')->all(),
+                ])->filter()->unique();
+
+                foreach ($slugs as $slug) {
+                    $counts[$slug] = ($counts[$slug] ?? 0) + 1;
+                }
+            }
+
+            return $counts;
+        });
     }
 }

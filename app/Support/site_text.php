@@ -17,6 +17,8 @@ if (! function_exists('st')) {
      */
     function st(string $slug, ?string $default = null, ?string $locale = null, ?string $group = null): string
     {
+        static $resolvedTexts = [];
+
         $locale ??= app()->getLocale();
        // dump($locale);
         // Если group не указан, пытаемся парсить из slug (например, 'auth.enter_phone' -> group='auth', slug='enter_phone')
@@ -29,6 +31,14 @@ if (! function_exists('st')) {
         }
 
         $cacheKey = "st:$fullSlug:$locale";
+        $requestMemoKey = $fullSlug.'|'.$locale;
+
+        if (array_key_exists($requestMemoKey, $resolvedTexts)) {
+            $result = $resolvedTexts[$requestMemoKey] ?? $default ?? $slug;
+
+            return $result !== null ? (string) $result : '';
+        }
+
         $text = Cache::remember($cacheKey, 3600, function () use ($fullSlug, $locale) {
             $row = SiteText::query()
                 ->where('slug', $fullSlug)
@@ -49,6 +59,7 @@ if (! function_exists('st')) {
         // Возвращаем неэкранированный текст, так как Blade {{ }} сам экранирует
         // Это предотвращает двойное экранирование
         $result = $text ?? $default ?? $slug;
+        $resolvedTexts[$requestMemoKey] = $result;
         if ($result !== null) {
             return (string)$result;
         }

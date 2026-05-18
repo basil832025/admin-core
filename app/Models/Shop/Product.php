@@ -2,6 +2,7 @@
 
 namespace App\Models\Shop;
 
+use App\Services\CatalogCacheService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -175,6 +176,14 @@ class Product extends Model implements HasMedia
             if ($product->hasDeleteDependencies()) {
                 throw new \RuntimeException($product->getDeleteDependencyMessage());
             }
+        });
+
+        static::saved(function (): void {
+            app(CatalogCacheService::class)->bump();
+        });
+
+        static::deleted(function (): void {
+            app(CatalogCacheService::class)->bump();
         });
     }
 /** Характеристики только для главной вкладки */
@@ -481,6 +490,34 @@ class Product extends Model implements HasMedia
             ->with('categories:id,slug,title');
     }
 
+    public function scopeCardListingSelect($q)
+    {
+        return $q->select([
+            'bs_products.id',
+            'bs_products.sku',
+            'bs_products.title',
+            'bs_products.price',
+            'bs_products.old_price',
+            'bs_products.manual_discount_percent',
+            'bs_products.main_image',
+            'bs_products.slug',
+            'bs_products.code2',
+            'bs_products.description',
+            'bs_products.short_desc',
+            'bs_products.category_id',
+            'bs_products.is_new',
+            'bs_products.is_hit',
+            'bs_products.is_promo',
+            'bs_products.is_vegan',
+            'bs_products.is_product_of_day',
+            'bs_products.is_spicy',
+            'bs_products.variant_display_sort',
+        ])->with([
+            'categories:id,slug,title',
+            'mainCategory:id,slug',
+        ]);
+    }
+
     public function scopeWithCardRelations($q)
     {
         return $q->with([
@@ -517,6 +554,55 @@ class Product extends Model implements HasMedia
             'children.productCharacteristicValues.characteristic.svgImage',
             'children.productCharacteristicValues.characteristicValue',
             'mainCategory:id,slug',// ← можно сузить столбцы
+        ]);
+    }
+
+    public function scopeWithListingCardRelations($q)
+    {
+        return $q->with([
+            'productCharacteristicValues' => function ($query) {
+                $query->whereHas('characteristic', function ($characteristicQuery) {
+                    $characteristicQuery->where('is_main_tab', true)
+                        ->where('is_active', true);
+                });
+            },
+            'productCharacteristicValues.characteristic.svgImage',
+            'productCharacteristicValues.characteristicValue',
+            'children' => function ($query) {
+                $query->select([
+                    'id',
+                    'sku',
+                    'title',
+                    'price',
+                    'old_price',
+                    'manual_discount_percent',
+                    'main_image',
+                    'slug',
+                    'code2',
+                    'description',
+                    'short_desc',
+                    'category_id',
+                    'parent_id',
+                    'sort',
+                    'variant_display_sort',
+                    'is_new',
+                    'is_hit',
+                    'is_promo',
+                    'is_vegan',
+                    'is_product_of_day',
+                    'is_spicy',
+                ]);
+            },
+            'children.productCharacteristicValues' => function ($query) {
+                $query->whereHas('characteristic', function ($characteristicQuery) {
+                    $characteristicQuery->where('is_main_tab', true)
+                        ->where('is_active', true);
+                });
+            },
+            'children.productCharacteristicValues.characteristic.svgImage',
+            'children.productCharacteristicValues.characteristicValue',
+            'mainCategory:id,slug',
+            'categories:id,slug,title',
         ]);
     }
     public static function getPriceBoundsForCategorySlug(string $slug): array

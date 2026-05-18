@@ -28,9 +28,9 @@ class FavoriteController extends Controller
             return view('pages.catalog.category', compact('categorySections', 'page'));
         }
 
-        $items = (new ProductCardPresenter($locale))->collection(
-            Product::withCardRelations()
-                ->active()->cardSelect()->MainProduct()
+        $items = (new ProductCardPresenter($locale, null, true))->collection(
+            Product::withListingCardRelations()
+                ->active()->cardListingSelect()->MainProduct()
                 ->whereIn('id', $ids)   // фильтр есть всегда
                 ->orderBy('sort')
                 ->get()

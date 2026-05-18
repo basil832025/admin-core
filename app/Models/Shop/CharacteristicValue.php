@@ -2,6 +2,7 @@
 
 namespace App\Models\Shop;
 
+use App\Services\CatalogCacheService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -25,6 +26,18 @@ class CharacteristicValue extends Model
         'value',
 
     ];
+
+    protected static function booted(): void
+    {
+        static::saved(function (): void {
+            app(CatalogCacheService::class)->bump();
+        });
+
+        static::deleted(function (): void {
+            app(CatalogCacheService::class)->bump();
+        });
+    }
+
     public function products(): BelongsToMany
     {
         return $this->belongsToMany(

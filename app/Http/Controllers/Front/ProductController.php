@@ -45,11 +45,11 @@ class ProductController extends Controller
                      SUM(rating=1) as r1')
             ->first();
         // выведим хиты для рекомендаций
-        $q = Product::withCardRelations()
+        $q = Product::withListingCardRelations()
             // ->addSelect('category_id')
-            ->active()->cardSelect()->MainProduct()->hit()
+            ->active()->cardListingSelect()->MainProduct()->hit()
            ->orderBy('sort');
-        $related = (new ProductCardPresenter($locale))->collection($q->get());
+        $related = (new ProductCardPresenter($locale, null, true))->collection($q->get());
         $product = (new ProductCardPresenter($locale))->for($product);
 
         // Расчет процента начисления бонусов и минимальной суммы
@@ -61,4 +61,3 @@ class ProductController extends Controller
         return view('pages.catalog.product', compact('product', 'category', 'related','reviews','stats', 'bonusPercent', 'minOrderSumForEarn'));
     }
 }
-

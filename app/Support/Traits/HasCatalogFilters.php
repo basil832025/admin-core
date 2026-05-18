@@ -5,100 +5,126 @@ namespace App\Support\Traits;
 use App\Models\Shop\Client;
 use App\Models\Shop\Product;
 use App\Models\Shop\Characteristic;
+use App\Services\CatalogCacheService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 trait HasCatalogFilters
 {
-    protected function getFilterCharacteristics(): Collection
+    protected function getFilterCharacteristics(array $menuSlugs = []): Collection
     {
-        $rootIds = Product::query()
-            ->active()
-            ->MainProduct()
-            ->where(function (Builder $w) {
-                $this->applyMainSiteProductFilter($w);
-            })
-            ->pluck('id');
+        $locale = app()->getLocale();
+        $cacheKey = app(CatalogCacheService::class)->key('filter_characteristics', $menuSlugs, $locale);
 
-        if ($rootIds->isEmpty()) {
-            return collect();
-        }
+        return Cache::remember($cacheKey, now()->addMinutes(5), function () use ($menuSlugs) {
+            $rootIds = $this->catalogRootIds($menuSlugs);
 
-        $childIds = Product::query()
-            ->active()
-            ->whereIn('parent_id', $rootIds)
-            ->where(function (Builder $w) {
-                $this->applyMainSiteProductFilter($w);
-            })
-            ->pluck('id');
+            if ($rootIds->isEmpty()) {
+                return collect();
+            }
 
-        $productIds = $rootIds->merge($childIds)->unique();
+            $childIds = Product::query()
+                ->active()
+                ->whereIn('parent_id', $rootIds)
+                ->where(function (Builder $w) {
+                    $this->applyMainSiteProductFilter($w);
+                })
+                ->pluck('id');
 
-        $valueCounts = DB::table('bs_product_characteristic_value')
-            ->whereIn('product_id', $productIds)
-            ->groupBy('characteristic_value_id')
-            ->select('characteristic_value_id', DB::raw('COUNT(DISTINCT product_id) as cnt'))
-            ->pluck('cnt', 'characteristic_value_id');
+            $productIds = $rootIds->merge($childIds)->unique();
 
-        $slugs = ['miaso', 'moreprodukti', 'sir', 'sousi', 'ovoci'];
+            $valueCounts = DB::table('bs_product_characteristic_value')
+                ->whereIn('product_id', $productIds)
+                ->groupBy('characteristic_value_id')
+                ->select('characteristic_value_id', DB::raw('COUNT(DISTINCT product_id) as cnt'))
+                ->pluck('cnt', 'characteristic_value_id');
 
-        $characteristics = Characteristic::query()
-            ->whereIn('slug', $slugs)
-            ->with('values')
-            ->get()
-            ->keyBy('slug');
+            $slugs = ['miaso', 'moreprodukti', 'sir', 'sousi', 'ovoci'];
 
-        foreach ($characteristics as $char) {
-            $char->setRelation(
-                'values',
-                $char->values->filter(function ($val) use ($valueCounts) {
-                    $cnt = (int) ($valueCounts[$val->id] ?? 0);
-                    $val->products_count = $cnt;
-                    return $cnt > 0;
-                })->values()
-            );
-        }
+            $characteristics = Characteristic::query()
+                ->whereIn('slug', $slugs)
+                ->with('values')
+                ->get()
+                ->keyBy('slug');
 
-        return $characteristics;
+            foreach ($characteristics as $char) {
+                $char->setRelation(
+                    'values',
+                    $char->values->filter(function ($val) use ($valueCounts) {
+                        $cnt = (int) ($valueCounts[$val->id] ?? 0);
+                        $val->products_count = $cnt;
+                        return $cnt > 0;
+                    })->values()
+                );
+            }
+
+            return $characteristics;
+        });
     }
 
-    protected function getPriceBounds(string $slug = 'all'): array
+    protected function getPriceBounds(string $slug = 'all', array $menuSlugs = []): array
     {
-        $rootIds = Product::query()
-            ->active()
-            ->MainProduct()
-            ->where(function (Builder $w) {
-                $this->applyMainSiteProductFilter($w);
-            })
-            ->pluck('id');
+        $effectiveSlugs = $menuSlugs ?: ($slug !== 'all' ? [$slug] : []);
+        $cacheKey = app(CatalogCacheService::class)->key('price_bounds', $effectiveSlugs);
 
-        if ($rootIds->isEmpty()) {
-            return [0, 0];
-        }
+        return Cache::remember($cacheKey, now()->addMinutes(5), function () use ($effectiveSlugs) {
+            $rootIds = $this->catalogRootIds($effectiveSlugs);
 
-        $row = Product::query()
-            ->where(function (Builder $q) use ($rootIds) {
-                $q->whereIn('id', $rootIds)
-                    ->orWhereIn('parent_id', $rootIds);
-            })
-            ->selectRaw('MIN(price) as min_price, MAX(price) as max_price')
-            ->first();
+            if ($rootIds->isEmpty()) {
+                return [0, 0];
+            }
 
-        $min = (int) floor($row->min_price ?? 0);
-        $max = (int) ceil($row->max_price ?? 0);
+            $row = Product::query()
+                ->where(function (Builder $q) use ($rootIds) {
+                    $q->whereIn('id', $rootIds)
+                        ->orWhereIn('parent_id', $rootIds);
+                })
+                ->selectRaw('MIN(price) as min_price, MAX(price) as max_price')
+                ->first();
 
-        if ($min === 0 && $max === 0) {
-            return [0, 0];
-        }
+            $min = (int) floor($row->min_price ?? 0);
+            $max = (int) ceil($row->max_price ?? 0);
 
-        if ($min === $max) {
-            $min = max(0, $min - 10);
-            $max = $max + 10;
-        }
+            if ($min === 0 && $max === 0) {
+                return [0, 0];
+            }
 
-        return [$min, $max];
+            if ($min === $max) {
+                $min = max(0, $min - 10);
+                $max = $max + 10;
+            }
+
+            return [$min, $max];
+        });
+    }
+
+    protected function catalogRootIds(array $menuSlugs = []): Collection
+    {
+        $cacheKey = app(CatalogCacheService::class)->key('root_ids', $menuSlugs);
+
+        return Cache::remember($cacheKey, now()->addMinutes(5), function () use ($menuSlugs) {
+            return Product::query()
+                ->active()
+                ->MainProduct()
+                ->where(function (Builder $w) {
+                    $this->applyMainSiteProductFilter($w);
+                })
+                ->when(! empty($menuSlugs), function (Builder $query) use ($menuSlugs): void {
+                    $query->where(function (Builder $categoryQuery) use ($menuSlugs): void {
+                        $categoryQuery
+                            ->whereHas('categories', function (Builder $relatedQuery) use ($menuSlugs): void {
+                                $relatedQuery->whereIn('slug', $menuSlugs);
+                            })
+                            ->orWhereHas('mainCategory', function (Builder $relatedQuery) use ($menuSlugs): void {
+                                $relatedQuery->whereIn('slug', $menuSlugs);
+                            });
+                    });
+                })
+                ->pluck('id');
+        });
     }
 
     protected function applyFilters(Builder $q, Request $request): void

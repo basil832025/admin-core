@@ -2,6 +2,7 @@
 namespace App\Models\Shop;
 
 use App\Models\SvgImage;
+use App\Services\CatalogCacheService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use Spatie\Translatable\HasTranslations;
@@ -84,6 +85,14 @@ class Characteristic extends Model
     // генерация slug  при создании и для текущего языка по умолчанию
     protected static function booted(): void
     {
+        static::saved(function (): void {
+            app(CatalogCacheService::class)->bump();
+        });
+
+        static::deleted(function (): void {
+            app(CatalogCacheService::class)->bump();
+        });
+
         static::saving(function (Characteristic $post) {
 
             // проверяем, что slug ещё пустой и есть title

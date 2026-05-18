@@ -1096,6 +1096,7 @@ Route::get('/admin/callcenter/synced-catalog/data', function (\Illuminate\Http\R
     ->middleware(['web', 'auth:admin']);
 
 Route::get('/admin/clear-cache', function () {
+    $catalogCacheVersion = app(\App\Services\CatalogCacheService::class)->bump();
     $cleared = [];
 
     // Получаем активные языки динамически
@@ -1139,13 +1140,13 @@ Route::get('/admin/clear-cache', function () {
         session()->flash('notification', [
             'type' => 'success',
             'title' => 'Кеш очищен',
-            'body' => "Успешно очищено {$count} ключей кеша",
+            'body' => "Успешно очищено {$count} ключей кеша. Версия кеша каталога: {$catalogCacheVersion}",
         ]);
     } else {
         session()->flash('notification', [
             'type' => 'info',
             'title' => 'Кеш пуст',
-            'body' => 'Нет кешированных данных для очистки',
+            'body' => "Нет кешированных данных для очистки. Версия кеша каталога: {$catalogCacheVersion}",
         ]);
     }
 
