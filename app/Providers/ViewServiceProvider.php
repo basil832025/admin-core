@@ -21,67 +21,71 @@ class ViewServiceProvider extends ServiceProvider
             'components.menu-drawer',      // наш шаблон фильтра
           ], function ($view) {
             $locale = app()->getLocale();
-            $brand  = '#FF7500';
             $prefix = in_array($locale, ['ru', 'en'], true) ? '/' . $locale : '';
-            $countsBySlug = $this->menuProductCounts();
+            $items = Cache::remember(
+                app(CatalogCacheService::class)->key('main_menu_items', locale: $locale),
+                now()->addMinutes(30),
+                function () use ($locale, $prefix): array {
+                    $countsBySlug = $this->menuProductCounts();
 
-            // корневые = parent_id = -1
-            $roots = ProductCategory::query()
-                ->where('is_visible', 1)
-                ->where('parent_id', -1)
-                ->orderBy('order')
-                ->with([
-                    'children' => fn ($q) => $q->where('is_visible', 1)
+                    $roots = ProductCategory::query()
+                        ->where('is_visible', 1)
+                        ->where('parent_id', -1)
                         ->orderBy('order')
                         ->with([
                             'children' => fn ($q) => $q->where('is_visible', 1)
                                 ->orderBy('order')
-                                ->with('children'), // добавляй уровни, если нужно глубже
-                        ]),
-                ])
-                ->get();
-         //   dd($roots);
-            $flat = collect();
-// анонимная функция проходит по всему масвиву и собирает родителей и если есть дети то и деьтей в один уровень
-            $walk = function ($node) use (&$walk, &$flat, $locale, $prefix, $countsBySlug) {
-                // сам узел
-                $flat->push([
-                    'id'    => $node->id,
-                    'label' => $node->getTranslation('title', $locale),
-                    'slug'  => $node->slug,
-                    'url'   => $prefix . '/' . ltrim((string) $node->slug, '/'),
-                    'order' => (int) ($node->order ?? 0),
-                    'count' => (int) ($countsBySlug[$node->slug] ?? 0),
-                ]);
-                // если родителький слаг Все пироги то выведим Хиты и новинки
-                if ($node->slug=='pies')
-                {
-                    $flat->push([
-                        'id'    => 5000,
-                        'label' => st('menu.hits','Хіти'),
-                        'slug'  => 'pies_hits',
-                        'url'   => $prefix . '/pies_hits',
-                        'order' => (int) ($node->order ?? 0),
-                    ]);
-                    $flat->push([
-                        'id'    => 5001,
-                        'label' => st('menu.news','Новинки'),
-                        'slug'  => 'pies_news',
-                        'url'   => $prefix . '/pies_news',
-                        'order' => (int) ($node->order ?? 0),
-                    ]);
-                }
-                // сразу за родителем — его дети (и их дети, если есть)
-                if ($node->relationLoaded('children') && $node->children->isNotEmpty()) {
-                    foreach ($node->children as $child) {
-                        $walk($child);
+                                ->with([
+                                    'children' => fn ($q) => $q->where('is_visible', 1)
+                                        ->orderBy('order')
+                                        ->with('children'),
+                                ]),
+                        ])
+                        ->get();
+
+                    $flat = collect();
+
+                    $walk = function ($node) use (&$walk, &$flat, $locale, $prefix, $countsBySlug) {
+                        $flat->push([
+                            'id' => $node->id,
+                            'label' => $node->getTranslation('title', $locale),
+                            'slug' => $node->slug,
+                            'url' => $prefix . '/' . ltrim((string) $node->slug, '/'),
+                            'order' => (int) ($node->order ?? 0),
+                            'count' => (int) ($countsBySlug[$node->slug] ?? 0),
+                        ]);
+
+                        if ($node->slug == 'pies') {
+                            $flat->push([
+                                'id' => 5000,
+                                'label' => st('menu.hits', 'Хіти'),
+                                'slug' => 'pies_hits',
+                                'url' => $prefix . '/pies_hits',
+                                'order' => (int) ($node->order ?? 0),
+                            ]);
+                            $flat->push([
+                                'id' => 5001,
+                                'label' => st('menu.news', 'Новинки'),
+                                'slug' => 'pies_news',
+                                'url' => $prefix . '/pies_news',
+                                'order' => (int) ($node->order ?? 0),
+                            ]);
+                        }
+
+                        if ($node->relationLoaded('children') && $node->children->isNotEmpty()) {
+                            foreach ($node->children as $child) {
+                                $walk($child);
+                            }
+                        }
+                    };
+
+                    foreach ($roots as $root) {
+                        $walk($root);
                     }
+
+                    return $flat->values()->all();
                 }
-            };
-            foreach ($roots as $root) {
-                $walk($root);
-            }
-            $items = $flat->values()->all();
+            );
 
             $currentSlug = request()->routeIs('catalog.index', 'localized.catalog.index')
                 ? 'pies'

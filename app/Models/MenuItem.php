@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\MenuCacheService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Session;
@@ -111,6 +112,14 @@ class MenuItem extends Model
                 $m->parent_id = -1;
             }
         });
+
+        static::saved(function (): void {
+            app(MenuCacheService::class)->bump();
+        });
+
+        static::deleted(function (): void {
+            app(MenuCacheService::class)->bump();
+        });
     }
     public function children()
     {
@@ -122,4 +131,3 @@ class MenuItem extends Model
         return $this->children()->with('childrenRecursive');
     }
 }
-

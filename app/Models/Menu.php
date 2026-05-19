@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\MenuCacheService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -24,6 +25,17 @@ class Menu extends Model
         'max_depth' => 'integer',
         'sort'      => 'integer',
     ];
+
+    protected static function booted(): void
+    {
+        static::saved(function (): void {
+            app(MenuCacheService::class)->bump();
+        });
+
+        static::deleted(function (): void {
+            app(MenuCacheService::class)->bump();
+        });
+    }
 
     public function items(): HasMany
     {

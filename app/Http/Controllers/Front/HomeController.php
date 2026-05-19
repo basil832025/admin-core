@@ -8,6 +8,7 @@ use App\Models\Pages;
 use App\Models\Shop\Product;
 use App\Http\Controllers\Controller;
 use App\Models\Shop\ProductCategory;
+use App\Services\CatalogCacheService;
 use App\Support\Presenters\ProductCardPresenter;
 use App\Services\SiteTemplates\SiteTemplateRenderer;
 use Illuminate\Support\Facades\Cache;
@@ -108,36 +109,50 @@ class HomeController extends Controller
             return is_string($title) ? (string) $title : '';
         };
 
-        $buildHomeCategorySection = function (string $slug, string $title) use ($locale, $applyMainPageBase, &$excludeRootIds): ?array {
-            $q = Product::withListingCardRelations()
-                ->active()->home()->cardListingSelect()->MainProduct()
-                ->where(function ($query) use ($slug) {
-                    $query->whereHas('categories', fn($qq) => $qq->where('slug', $slug))
-                        ->orWhereHas('mainCategory', fn($qq) => $qq->where('slug', $slug));
-                })
-                ->when(!empty($excludeRootIds), fn ($qq) => $qq->whereNotIn('bs_products.id', $excludeRootIds));
+        $catalogCache = app(CatalogCacheService::class);
 
-            $applyMainPageBase($q);
-            $this->applySort($q, request());
+        $buildHomeCategorySection = function (string $slug, string $title) use ($locale, $applyMainPageBase, &$excludeRootIds, $catalogCache): ?array {
+            $excludedIds = $excludeRootIds;
+            $cacheKey = $catalogCache->key('home_category_section', array_merge([$slug], $excludedIds), $locale);
 
-            $models = $q->get();
-            if ($models->isEmpty()) {
+            $payload = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($slug, $locale, $applyMainPageBase, $excludedIds) {
+                $q = Product::withListingCardRelations()
+                    ->active()->home()->cardListingSelect()->MainProduct()
+                    ->where(function ($query) use ($slug) {
+                        $query->whereHas('categories', fn ($qq) => $qq->where('slug', $slug))
+                            ->orWhereHas('mainCategory', fn ($qq) => $qq->where('slug', $slug));
+                    })
+                    ->when(! empty($excludedIds), fn ($qq) => $qq->whereNotIn('bs_products.id', $excludedIds));
+
+                $applyMainPageBase($q);
+                $this->applySort($q, request());
+
+                $models = $q->get();
+
+                return [
+                    'ids' => $models->pluck('id')->values()->all(),
+                    'items' => (new ProductCardPresenter($locale, null, true))->collection($models),
+                ];
+            });
+
+            $modelsIds = $payload['ids'] ?? [];
+            if ($modelsIds === []) {
                 return null;
             }
 
-            $excludeRootIds = array_values(array_unique(array_merge($excludeRootIds, $models->pluck('id')->all())));
+            $excludeRootIds = array_values(array_unique(array_merge($excludeRootIds, $modelsIds)));
 
             return [
                 'title' => $title,
-                'items' => (new ProductCardPresenter($locale, null, true))->collection($models),
-                'slug'  => $slug,
+                'items' => $payload['items'] ?? [],
+                'slug' => $slug,
             ];
         };
 
         $categorySections = [];
 
         // 3) Пироги по группам (только is_home)
-        $pieChildren = Cache::remember("home:pies:children:$locale", 3600, function () use ($parentSlug) {
+        $pieChildren = Cache::remember($catalogCache->key('home_pies_children', [$parentSlug], $locale), now()->addMinutes(30), function () use ($parentSlug) {
             $parent = ProductCategory::query()->where('slug', $parentSlug)->first();
             if (!$parent) {
                 return collect();
@@ -162,7 +177,7 @@ class HomeController extends Controller
         }
 
         // 4) Остальные группы по группам (только is_home)
-        $otherRoots = Cache::remember("home:other:roots:v2:$locale", 3600, function () use ($parentSlug) {
+        $otherRoots = Cache::remember($catalogCache->key('home_other_roots', [$parentSlug], $locale), now()->addMinutes(30), function () use ($parentSlug) {
             return ProductCategory::query()
                 ->where(function ($q) {
                     $q->whereNull('parent_id')->orWhere('parent_id', -1);
@@ -171,16 +186,17 @@ class HomeController extends Controller
                 ->where('slug', '!=', $parentSlug)
                 ->orderBy('order')
                 ->orderBy('id')
+                ->with([
+                    'children' => fn ($q) => $q->where('is_visible', 1)
+                        ->orderBy('order')
+                        ->orderBy('id'),
+                ])
                 ->get();
         });
 
         foreach ($otherRoots as $root) {
             /** @var ProductCategory $root */
-            $children = $root->children()
-                ->where('is_visible', 1)
-                ->orderBy('order')
-                ->orderBy('id')
-                ->get();
+            $children = $root->children ?? collect();
 
             $groups = $children->isNotEmpty() ? $children : collect([$root]);
 

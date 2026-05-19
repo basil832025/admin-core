@@ -7,6 +7,8 @@ use App\Models\BlogCategory;
 use App\Models\Menu;
 use App\Models\MenuItem;
 use App\Models\Shop\ProductCategory;
+use App\Services\MenuCacheService;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use App\Models\Pages;
 
@@ -18,75 +20,68 @@ class Menus
      */
     public static function bySlug(string $slug): array
     {
-        $menu = Menu::query()->where('slug', $slug)->first();
-       // dump($menu);
-        if (!$menu) return [];
-
-        $now    = now();
         $locale = app()->getLocale();
 
-        $items = MenuItem::query()
-            ->where('menu_id', $menu->id)
-            ->where('parent_id', -1)                 // твоя договорённость с деревом
-            ->where('is_active', true)
-            ->where(function ($q) use ($now) {
-                $q->whereNull('visible_from')->orWhere('visible_from', '<=', $now);
-            })
-            ->where(function ($q) use ($now) {
-                $q->whereNull('visible_to')->orWhere('visible_to', '>=', $now);
-            })
-            ->orderBy('sort')
-            ->get();
-      //  dd($items);
-        return $items->map(function (MenuItem $i) use ($locale) {
-            // Используем getTranslation из HasTranslations для правильного извлечения перевода
-            if (method_exists($i, 'getTranslation') && method_exists($i, 'isTranslatableAttribute') && $i->isTranslatableAttribute('label')) {
-                $label = $i->getTranslation('label', $locale, false); // false = без fallback
-                if (empty($label)) {
-                    // Fallback на другие локали
-                    $label = $i->getTranslation('label', 'uk', false)
-                        ?? $i->getTranslation('label', 'ru', false)
-                        ?? $i->getTranslation('label', 'en', false);
-                }
-            } else {
-                // Если нет HasTranslations, работаем напрямую с массивом
-                $labelRaw = $i->label;
-                if (is_array($labelRaw)) {
-                    $label = $labelRaw[$locale] 
-                        ?? $labelRaw['uk'] 
-                        ?? $labelRaw['ru'] 
-                        ?? $labelRaw['en'] 
-                        ?? reset($labelRaw);
-                } else {
-                    $label = $labelRaw;
-                }
-            }
-            $href  = self::resolveHref($i);
+        $cacheKey = app(MenuCacheService::class)->key('by_slug', [$slug], $locale);
 
-            // простая автоподсветка активного: по текущему path
-            $path  = trim(parse_url($href, PHP_URL_PATH) ?: '', '/');
-            // Формируем паттерн для подсветки: путь + * для подпутей.
-            // Для /profile (включая локализованный /ru/profile, /en/profile)
-            // делаем точное совпадение, чтобы не подсвечивать /profile/orders и т.п.
-            $isProfileRoot = (bool) preg_match('#(^|/)profile$#', $path);
-            if ($isProfileRoot) {
-                $activeWhen = $path;
-            } else {
-                $activeWhen = $path ? $path . '*' : '';
+        return Cache::remember($cacheKey, now()->addMinutes(30), function () use ($slug, $locale): array {
+            $menu = Menu::query()->where('slug', $slug)->first();
+            if (! $menu) {
+                return [];
             }
 
-            return [
-                'key'        => (string) $i->id,
-                'label'      => $label ?: ('#' . $i->id),
-                // оставляем поле 'route' как у тебя в компоненте — кладём сюда уже готовую HREF
-                // (если нужен именно route name — см. resolveHref ниже, можно переключить)
-                'route'      => $href,
-                'href'      => $href,
-                'activeWhen' => $activeWhen,
-                'auth_only'  => (bool) $i->auth_only,
-                'icon'       => $i->icon ?: null,
-            ];
-        })->all();
+            $now = now();
+
+            return MenuItem::query()
+                ->where('menu_id', $menu->id)
+                ->where('parent_id', -1)
+                ->where('is_active', true)
+                ->where(function ($q) use ($now) {
+                    $q->whereNull('visible_from')->orWhere('visible_from', '<=', $now);
+                })
+                ->where(function ($q) use ($now) {
+                    $q->whereNull('visible_to')->orWhere('visible_to', '>=', $now);
+                })
+                ->orderBy('sort')
+                ->get()
+                ->map(function (MenuItem $i) use ($locale) {
+                    if (method_exists($i, 'getTranslation') && method_exists($i, 'isTranslatableAttribute') && $i->isTranslatableAttribute('label')) {
+                        $label = $i->getTranslation('label', $locale, false);
+                        if (empty($label)) {
+                            $label = $i->getTranslation('label', 'uk', false)
+                                ?? $i->getTranslation('label', 'ru', false)
+                                ?? $i->getTranslation('label', 'en', false);
+                        }
+                    } else {
+                        $labelRaw = $i->label;
+                        if (is_array($labelRaw)) {
+                            $label = $labelRaw[$locale]
+                                ?? $labelRaw['uk']
+                                ?? $labelRaw['ru']
+                                ?? $labelRaw['en']
+                                ?? reset($labelRaw);
+                        } else {
+                            $label = $labelRaw;
+                        }
+                    }
+
+                    $href = self::resolveHref($i);
+                    $path = trim(parse_url($href, PHP_URL_PATH) ?: '', '/');
+                    $isProfileRoot = (bool) preg_match('#(^|/)profile$#', $path);
+                    $activeWhen = $isProfileRoot ? $path : ($path ? $path . '*' : '');
+
+                    return [
+                        'key' => (string) $i->id,
+                        'label' => $label ?: ('#' . $i->id),
+                        'route' => $href,
+                        'href' => $href,
+                        'activeWhen' => $activeWhen,
+                        'auth_only' => (bool) $i->auth_only,
+                        'icon' => $i->icon ?: null,
+                    ];
+                })
+                ->all();
+        });
     }
 
     /**
