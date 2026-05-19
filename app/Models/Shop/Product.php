@@ -568,6 +568,7 @@ class Product extends Model implements HasMedia
             },
             'productCharacteristicValues.characteristic.svgImage',
             'productCharacteristicValues.characteristicValue',
+            'ingredients',
             'children' => function ($query) {
                 $query->select([
                     'id',

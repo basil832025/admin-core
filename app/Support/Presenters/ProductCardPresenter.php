@@ -210,8 +210,12 @@ class ProductCardPresenter
         $ingredientsText = $ingredientText->isNotEmpty() ? $ingredientText->implode(', ') : '';
 
         $cardDescription = $this->lightweight
-            ? trim((string) ($p->short_desc ?? $description ?? ''))
+            ? trim((string) ($p->short_desc ?? ''))
             : ($ingredientsText !== '' ? $ingredientsText : $description);
+
+        if ($this->lightweight && $cardDescription === '') {
+            $cardDescription = $ingredientsText !== '' ? $ingredientsText : trim((string) ($description ?? ''));
+        }
 
         $productRouteName = in_array($this->locale, ['ru', 'en'], true)
             ? 'localized.product.show'
