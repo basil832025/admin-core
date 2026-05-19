@@ -6,6 +6,7 @@ use App\Models\Shop\Client;
 use App\Models\Shop\Product;
 use App\Models\Shop\Characteristic;
 use App\Services\CatalogCacheService;
+use App\Support\GuestFavoritesStore;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -207,12 +208,7 @@ trait HasCatalogFilters
                 ->all();
         }
 
-        return collect((array) session('favorites', []))
-            ->map(fn ($v) => (int) $v)
-            ->filter(fn ($v) => $v > 0)
-            ->unique()
-            ->values()
-            ->all();
+        return GuestFavoritesStore::idsFromRequest();
     }
 
     private function currentClient(): ?Client

@@ -14,10 +14,13 @@
             this.loading = true;
 
             try {
+                const csrf = typeof window.ensureCsrfToken === 'function'
+                    ? await window.ensureCsrfToken()
+                    : (document.querySelector('meta[name=csrf-token]')?.content || '');
                 const res = await fetch(@js($postUrl), {
                     method: 'POST',
                     headers: {
-                        'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                        'X-CSRF-TOKEN': csrf,
                         'Accept': 'application/json',
                     },
                 });

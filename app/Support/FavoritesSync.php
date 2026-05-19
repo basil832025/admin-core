@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Shop\Client;
+use App\Support\GuestFavoritesStore;
 use Illuminate\Support\Facades\DB;
 
 class FavoritesSync
@@ -13,12 +14,7 @@ class FavoritesSync
     {
         if (!$client) return;
 
-        $ids = collect((array) session(self::SESSION_KEY, []))
-            ->map(fn($v) => (int) $v)
-            ->filter(fn($v) => $v > 0)
-            ->unique()
-            ->values()
-            ->all();
+        $ids = GuestFavoritesStore::idsFromRequest();
 
         if (!$ids) return;
 
@@ -42,6 +38,6 @@ class FavoritesSync
             DB::table('bs_favorites')->insert($rows);
         }
 
-        session()->forget(self::SESSION_KEY);
+        GuestFavoritesStore::queueIds([]);
     }
 }

@@ -30,11 +30,14 @@ export default function registerFavoriteButton(Alpine) {
             if (this.postUrl && this.id != null) {
                 try {
                     this.loading = true;
+                    const csrf = this.csrf || (typeof window.ensureCsrfToken === 'function'
+                        ? await window.ensureCsrfToken()
+                        : (document.querySelector('meta[name=csrf-token]')?.content || null));
                     const res = await fetch(this.postUrl, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            ...(this.csrf ? { 'X-CSRF-TOKEN': this.csrf } : {}),
+                            ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
                         },
                         body: JSON.stringify({ product_id: this.id, favorite: this.active }),
                         credentials: 'same-origin',

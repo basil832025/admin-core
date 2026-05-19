@@ -12,14 +12,18 @@ use Illuminate\Support\Facades\URL;
 class SetLocaleFromSession
 {
     private const DEFAULT_LOCALES = ['ru', 'uk', 'en'];
+    private const LANGUAGES_TABLE_EXISTS_CACHE_KEY = 'front.languages_table_exists';
 
-    public function handle(Request $request, Closure $next)
+    private function activeLocales(): array
     {
-        // Получаем список разрешенных языков из БД или используем дефолтные
         $allowed = self::DEFAULT_LOCALES;
 
         try {
-            if (Schema::hasTable('bs_languages')) {
+            $hasLanguagesTable = Cache::remember(self::LANGUAGES_TABLE_EXISTS_CACHE_KEY, now()->addHours(6), function (): bool {
+                return Schema::hasTable('bs_languages');
+            });
+
+            if ($hasLanguagesTable) {
                 $allowed = Cache::remember('front.active_languages', now()->addHours(6), function (): array {
                     $locales = Language::query()
                         ->where('active', true)
@@ -33,14 +37,16 @@ class SetLocaleFromSession
                     return $locales !== [] ? $locales : self::DEFAULT_LOCALES;
                 });
             }
-        } catch (\Exception $e) {
-            // Если таблицы нет, используем дефолтные
+        } catch (\Exception) {
+            return self::DEFAULT_LOCALES;
         }
 
-        // Если языков нет, используем дефолтные
-        if (empty($allowed)) {
-            $allowed = self::DEFAULT_LOCALES;
-        }
+        return $allowed !== [] ? $allowed : self::DEFAULT_LOCALES;
+    }
+
+    public function handle(Request $request, Closure $next)
+    {
+        $allowed = $this->activeLocales();
 
         // Определяем, находимся ли мы в админке
         $isAdmin = $request->is('admin*') || $request->is('*/admin*');
@@ -56,15 +62,9 @@ class SetLocaleFromSession
                 ?? config('app.locale');
         } else {
             $routeLocale = $request->route('locale');
-            if (is_string($routeLocale) && in_array(strtolower($routeLocale), ['ru', 'en'], true)) {
-                $locale = strtolower($routeLocale);
-                session(['locale' => $locale]);
-                cookie()->queue(cookie('locale', $locale, 60 * 24 * 365));
-            } else {
-                $locale = 'uk';
-                session(['locale' => $locale]);
-                cookie()->queue(cookie('locale', $locale, 60 * 24 * 365));
-            }
+            $locale = is_string($routeLocale) && in_array(strtolower($routeLocale), ['ru', 'en'], true)
+                ? strtolower($routeLocale)
+                : 'uk';
         }
 
         if (is_array($locale)) {

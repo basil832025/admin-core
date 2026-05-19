@@ -42,6 +42,14 @@ export function registerCartStore(Alpine, { infoUrl = '/cart/info', initQty = 0,
     });
 }
 
+async function resolveCsrfToken() {
+    if (typeof window.ensureCsrfToken === 'function') {
+        return await window.ensureCsrfToken();
+    }
+
+    return document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+}
+
 /** Локальный компонент для списков/сайдбаров корзины (твоя версия, с правками удаления) */
 export default function registerCartActions(Alpine) {
     Alpine.data('cartActions', (addUrl, removeUrl) => ({
@@ -186,13 +194,14 @@ export default function registerCartActions(Alpine) {
         async _send(url, payload) {
             let data = {};
             try {
+                const csrf = await resolveCsrfToken();
                 const res = await fetch(url, {
                     method: 'POST',
                     headers: {
                         Accept: 'application/json',
                         'Content-Type': 'application/json',
                         'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+                        'X-CSRF-TOKEN': csrf,
                     },
                     body: JSON.stringify(payload),
                 });
@@ -210,13 +219,14 @@ export default function registerCartActions(Alpine) {
     if (!window.CartAPI) window.CartAPI = {};
     window.CartAPI.add = async (addUrl, payload = {}) => {
         try {
+            const csrf = await resolveCsrfToken();
             const res = await fetch(addUrl, {
                 method: 'POST',
                 headers: {
                     Accept: 'application/json',
                     'Content-Type': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+                    'X-CSRF-TOKEN': csrf,
                 },
                 body: JSON.stringify(payload),
             });

@@ -1,51 +1,79 @@
 <!DOCTYPE html>
 <html lang="{{ app()->getLocale() }}">
 <head>
+    @php
+        $isGuestPageCacheCandidate = !auth()->check() && (bool) request()->route('page_cache_candidate', false);
+        $initialCsrfToken = $isGuestPageCacheCandidate ? '' : csrf_token();
+    @endphp
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="csrf-token" content="{{ $initialCsrfToken }}" data-lazy="{{ $isGuestPageCacheCandidate ? '1' : '0' }}">
     <script>
+        window.getCsrfToken = function() {
+            return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        };
+
+        window.ensureCsrfToken = async function() {
+            const currentToken = window.getCsrfToken();
+            if (currentToken) {
+                return currentToken;
+            }
+
+            if (!window.__csrfTokenPromise) {
+                window.__csrfTokenPromise = fetch('/csrf-token', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin'
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        const token = data?.token || '';
+                        if (token) {
+                            const metaToken = document.querySelector('meta[name="csrf-token"]');
+                            if (metaToken) {
+                                metaToken.setAttribute('content', token);
+                            }
+                            document.querySelectorAll('input[name="_token"]').forEach(input => {
+                                input.value = token;
+                            });
+                        }
+
+                        return token;
+                    })
+                    .finally(() => {
+                        window.__csrfTokenPromise = null;
+                    });
+            }
+
+            return window.__csrfTokenPromise;
+        };
+
         // Обновляем CSRF токен при загрузке страницы
         document.addEventListener('DOMContentLoaded', function() {
             const metaToken = document.querySelector('meta[name="csrf-token"]');
-            if (metaToken) {
-                const newToken = metaToken.getAttribute('content');
-                if (newToken) {
-                    document.querySelectorAll('input[name="_token"]').forEach(input => {
-                        input.value = newToken;
-                    });
-                }
+            const newToken = metaToken?.getAttribute('content');
+            if (newToken) {
+                document.querySelectorAll('input[name="_token"]').forEach(input => {
+                    input.value = newToken;
+                });
             }
         });
 
         // Периодически обновляем CSRF токен (каждые 30 минут)
         setInterval(function() {
-            fetch('/csrf-token', {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                credentials: 'same-origin'
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.token) {
-                    const metaToken = document.querySelector('meta[name="csrf-token"]');
-                    if (metaToken) {
-                        metaToken.setAttribute('content', data.token);
-                    }
-                    document.querySelectorAll('input[name="_token"]').forEach(input => {
-                        input.value = data.token;
-                    });
-                }
-            })
-            .catch(() => {
+            if (!window.getCsrfToken()) {
+                return;
+            }
+
+            window.ensureCsrfToken().catch(() => {
                 // Игнорируем ошибки при обновлении токена
             });
         }, 30 * 60 * 1000); // 30 минут
 
-        window.isGuestCheckout = {{ auth()->check() ? 'false' : 'true' }};
+        window.isGuestCheckout = {{ json_encode(!auth()->check()) }};
 
         // Защита от ошибок с undefined key в обработчиках клавиатуры
         // Обертываем обработчики событий перед инициализацией Alpine.js

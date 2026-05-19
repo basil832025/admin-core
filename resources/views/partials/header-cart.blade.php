@@ -1,6 +1,7 @@
 @php
 //dd($cartQty);
-    $cartQty = (int)($cartQty ?? (app(\App\Services\CartService::class)->info()['qty'] ?? 0));
+    $isGuestPageCacheCandidate = !auth()->check() && (bool) request()->route('page_cache_candidate', false);
+    $cartQty = (int) ($cartQty ?? ($isGuestPageCacheCandidate ? 0 : (app(\App\Services\CartService::class)->info()['qty'] ?? 0)));
     $locale = app()->getLocale();
     $isLocalized = in_array($locale, ['ru', 'en'], true);
     $cartPageUrl = $isLocalized

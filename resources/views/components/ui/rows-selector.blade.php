@@ -73,6 +73,7 @@
         },
 
         adding: false,
+        cartQty: 0,
 
         init() {
             this.$watch('selected', (newVal) => {
@@ -91,6 +92,8 @@
                 }
 
                 this.$dispatch('variant-selected', detail);
+
+                this.checkCartQty();
             });
 
             this.$nextTick(() => {
@@ -109,7 +112,43 @@
                 }
 
                 this.$dispatch('variant-selected', detail);
+
+                setTimeout(() => {
+                    this.checkCartQty();
+                }, Math.random() * 50 + 10);
             });
+
+            window.addEventListener('cart-updated', (e) => {
+                if (e?.detail?.item?.product_id === parseInt(this.selected)) {
+                    this.cartQty = e.detail.item?.qty ?? 0;
+                } else if (e?.detail?.items) {
+                    const item = e.detail.items.find(i => parseInt(i.product_id) === parseInt(this.selected));
+                    if (item) {
+                        this.cartQty = item.qty ?? 0;
+                    }
+                }
+            });
+        },
+
+        async checkCartQty() {
+            try {
+                const cache = window.__CART_CACHE__;
+                if (!cache) {
+                    const res = await fetch('{{ route('cart.info') }}', {
+                        headers: { 'Accept': 'application/json' }
+                    });
+                    const data = await res.json();
+                    const item = (data?.items ?? []).find(i => parseInt(i.product_id) === parseInt(this.selected));
+                    this.cartQty = item?.qty ?? 0;
+                    return;
+                }
+
+                const data = await cache.get();
+                const item = (data?.items ?? []).find(i => parseInt(i.product_id) === parseInt(this.selected));
+                this.cartQty = item?.qty ?? 0;
+            } catch (e) {
+                this.cartQty = 0;
+            }
         },
 
         async addToCart() {
@@ -123,11 +162,55 @@
                     price: this.prices[this.selected]?.price ?? null,
                 });
 
+                this.cartQty = data?.item?.qty ?? 1;
+
                 this.$dispatch('notify', { text: 'Додано до кошика', type: 'success' });
 
             } catch (e) {
                 console.error(e);
                 alert('Не вдалося додати до кошика');
+            } finally {
+                this.adding = false;
+            }
+        },
+
+        async incrementQty() {
+            if (this.adding) return;
+            this.adding = true;
+
+            try {
+                const data = await window.CartAPI.add('{{ route('cart.add') }}', {
+                    product_id: this.selected,
+                    qty: 1,
+                    price: this.prices[this.selected]?.price ?? null,
+                });
+
+                this.cartQty = data?.item?.qty ?? this.cartQty + 1;
+
+            } catch (e) {
+                console.error(e);
+                alert('Не вдалося оновити кількість');
+            } finally {
+                this.adding = false;
+            }
+        },
+
+        async decrementQty() {
+            if (this.adding || this.cartQty <= 0) return;
+            this.adding = true;
+
+            try {
+                const data = await window.CartAPI.add('{{ route('cart.add') }}', {
+                    product_id: this.selected,
+                    qty: -1,
+                    price: this.prices[this.selected]?.price ?? null,
+                });
+
+                this.cartQty = data?.item?.qty ?? Math.max(0, this.cartQty - 1);
+
+            } catch (e) {
+                console.error(e);
+                alert('Не вдалося оновити кількість');
             } finally {
                 this.adding = false;
             }
@@ -229,6 +312,8 @@
             <div class="w-[153px] md:w-[173px] shrink-0">
                 <button
                     type="button"
+                    x-show="cartQty === 0"
+                    x-cloak
                     class="w-full inline-flex items-center justify-center text-[12px] h-[36px] gap-2 rounded bg-[#FF7500] px-4 font-semibold text-white shadow-[0_4px_12px_rgba(255,117,0,.35)] transition
                hover:bg-[#ff841f] active:bg-[#e66700] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FF7500]/50 disabled:opacity-60"
                     x-bind:data-product-id="selected"
@@ -247,6 +332,43 @@
                     </template>
                     {{ $cartText }}
                 </button>
+
+                <div
+                    x-show="cartQty > 0"
+                    x-cloak
+                    class="w-full inline-flex items-center justify-between bg-[#FDDDA7] text-[#FF7500] h-[36px] rounded px-2"
+                >
+                    <button
+                        type="button"
+                        class="w-8 h-8 grid place-items-center text-[22px] leading-none rounded disabled:opacity-40"
+                        @click="decrementQty"
+                        x-bind:disabled="adding || cartQty <= 0"
+                        x-bind:aria-label="cartQty === 1 ? 'Видалити з кошика' : 'Зменшити кількість'"
+                    >
+                        <svg x-show="cartQty > 1" class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M5 12H19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                        </svg>
+
+                        <svg x-show="cartQty === 1" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14zM14 11v6M10 11v6M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" stroke="currentColor" stroke-width="2" stroke-linecap="square"/>
+                        </svg>
+                    </button>
+
+                    <div class="flex-1 text-center font-semibold text-[14px]" x-text="cartQty">1</div>
+
+                    <button
+                        type="button"
+                        class="w-8 h-8 grid place-items-center text-[22px] leading-none rounded disabled:opacity-40"
+                        @click="incrementQty"
+                        x-bind:disabled="adding"
+                        aria-label="Збільшити кількість"
+                    >
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M5 12H19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                            <path d="M12 5V19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                </div>
             </div>
 
         </div>

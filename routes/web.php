@@ -12,7 +12,6 @@ Route::get('/lang/{locale}', function (string $locale) {
     $allowed = ['uk', 'ru', 'en'];
     abort_unless(in_array($locale, $allowed, true), 404);
 
-    session(['locale' => $locale]);
     app()->setLocale($locale);
 
     $referer = (string) request()->headers->get('referer', '/');

@@ -30,8 +30,14 @@ $registerFrontRoutes = function (): void {
 Route::get('/search', [SearchController::class, 'index'])->name('search');
 Route::get('/search/suggest', [SearchController::class, 'suggest'])->name('search.suggest');
 
-Route::get('/', [HomeController::class, 'index'])->name('home');
-Route::get('/cart', [CartController::class, 'page'])->name('cart.page');
+Route::get('/', [HomeController::class, 'index'])
+    ->name('home')
+    ->defaults('page_cache_candidate', true)
+    ->withoutMiddleware([VerifyCsrfToken::class]);
+Route::get('/cart', [CartController::class, 'page'])
+    ->name('cart.page')
+    ->defaults('guest_stateless', true)
+    ->withoutMiddleware([VerifyCsrfToken::class]);
 Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout');
 Route::post('/checkout', [CheckoutController::class, 'submit'])->name('checkout.submit');
 Route::post('/checkout/save-form-data', [CheckoutController::class, 'saveFormData'])->name('checkout.save-form-data');
@@ -78,12 +84,24 @@ Route::post('/checkout/success/{order}/send-email', [CheckoutController::class, 
 Route::post('/cart/add', [CartController::class, 'add'])->name('cart.add');
 Route::post('/cart/remove', [CartController::class, 'remove'])->name('cart.remove');
 Route::post('/cart/clear', [CartController::class, 'clear'])->name('cart.clear');
-Route::get('/cart/info', [CartController::class, 'info'])->name('cart.info');
-Route::get('/cart/sidebar', [CartController::class, 'sidebar'])->name('cart.sidebar');
+Route::get('/cart/info', [CartController::class, 'info'])
+    ->name('cart.info')
+    ->defaults('guest_stateless', true)
+    ->withoutMiddleware([VerifyCsrfToken::class]);
+Route::get('/cart/sidebar', [CartController::class, 'sidebar'])
+    ->name('cart.sidebar')
+    ->defaults('guest_stateless', true)
+    ->withoutMiddleware([VerifyCsrfToken::class]);
 
 Route::post('/favorite/{product}', [FavoriteController::class, 'toggle'])->name('favorite.toggle');
-Route::get('/favorites', [FavoriteController::class, 'index'])->name('favorites.index');
-Route::get('/favorites/info', [FavoriteController::class, 'info'])->name('favorites.info');
+Route::get('/favorites', [FavoriteController::class, 'index'])
+    ->name('favorites.index')
+    ->defaults('guest_stateless', true)
+    ->withoutMiddleware([VerifyCsrfToken::class]);
+Route::get('/favorites/info', [FavoriteController::class, 'info'])
+    ->name('favorites.info')
+    ->defaults('guest_stateless', true)
+    ->withoutMiddleware([VerifyCsrfToken::class]);
 
 Route::middleware(['web', 'auth'])->group(function () {
     Route::get('/profile', function () {
@@ -215,7 +233,10 @@ Route::get('/{categorySlug}/{itemSlug}', function () {
 
 Route::get('/pies', function () {
     return app(CatalogController::class)->show('pies');
-})->name('catalog.index');
+})
+    ->name('catalog.index')
+    ->defaults('page_cache_candidate', true)
+    ->withoutMiddleware([VerifyCsrfToken::class]);
 
 Route::get('/nas-blagodaryat', function () {
     $page = Pages::query()->where('slug', 'nas-blagodaryat')->first();

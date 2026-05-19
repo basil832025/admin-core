@@ -1,7 +1,11 @@
 // resources/js/alpine/auth-modal.js
-// если у тебя уже есть глобальный getCsrf(), этот можно удалить
-const getCsrf = () =>
-    document.querySelector('meta[name="csrf-token"]')?.content || '';
+const getCsrf = async () => {
+    if (typeof window.ensureCsrfToken === 'function') {
+        return await window.ensureCsrfToken();
+    }
+
+    return document.querySelector('meta[name="csrf-token"]')?.content || '';
+};
 
 export default function authModal(opts = {}) {
     // локальный словарь, пришёл из Blade: { 'auth.login': 'Увійти', ... }
@@ -295,12 +299,13 @@ export default function authModal(opts = {}) {
         async login(){
             this.loginLoading = true; this.loginError = null;
             try{
+                const csrf = await getCsrf();
                 const res = await fetch(this.routes.login, {
                     method: 'POST',
                     credentials: 'same-origin',
                     headers: {
                         'Accept': 'application/json',
-                        'X-CSRF-TOKEN': getCsrf(),
+                        'X-CSRF-TOKEN': csrf,
                         'X-Requested-With': 'XMLHttpRequest',
                         'Content-Type': 'application/json',
                     },
@@ -446,7 +451,7 @@ export default function authModal(opts = {}) {
 
             const fd = new FormData();
             Object.entries(this.registerData).forEach(([k,v]) => fd.append(k, v ?? ''));
-            fd.append('_token', getCsrf());
+            fd.append('_token', await getCsrf());
 
             try {
                 const res = await fetch(this.routes.sendCode, {
@@ -506,7 +511,7 @@ export default function authModal(opts = {}) {
             try {
                 const fd = new FormData();
                 fd.append('phone', this.forgot.phonePretty);
-                fd.append('_token', getCsrf());
+                fd.append('_token', await getCsrf());
 
                 const res = await fetch(this.routes.pwdSendCode, {
                     method:'POST',
@@ -561,7 +566,7 @@ export default function authModal(opts = {}) {
                 const fd = new FormData();
                 fd.append('phone', phoneDigits);
                 fd.append('code',  code);
-                fd.append('_token', getCsrf());
+                fd.append('_token', await getCsrf());
 
                 const res = await fetch(this.routes.pwdVerify, {
                     method:'POST',
@@ -628,7 +633,7 @@ export default function authModal(opts = {}) {
                 const fd = new FormData();
                 fd.append('phone', phoneDigits);
                 fd.append('code',  code);
-                fd.append('_token', getCsrf());
+                fd.append('_token', await getCsrf());
 
                 const res  = await fetch(verifyRoute, {
                     method: 'POST',
@@ -696,7 +701,7 @@ export default function authModal(opts = {}) {
 
                 const fd = new FormData();
                 fd.append('phone', phoneDigits);
-                fd.append('_token', getCsrf());
+                fd.append('_token', await getCsrf());
 
                 const res = await fetch(sendRoute, {
                     method: 'POST',
@@ -753,7 +758,7 @@ export default function authModal(opts = {}) {
                 // Отправка запроса на сервер (в тестовом режиме сервер не отправляет реальное SMS)
                 const fd = new FormData();
                 fd.append('phone', phoneDigits);
-                fd.append('_token', getCsrf());
+                fd.append('_token', await getCsrf());
 
                 const res = await fetch(this.routes.phoneSmsSendCode, {
                     method: 'POST',
@@ -847,5 +852,4 @@ export default function authModal(opts = {}) {
         }
     };
 }
-
 

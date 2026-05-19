@@ -58,6 +58,10 @@ return [
 
     'max_pagination_page' => (int) env('MAX_PAGINATION_PAGE', 1000),
 
+    'page_cache_public_max_age' => (int) env('PAGE_CACHE_PUBLIC_MAX_AGE', 60),
+
+    'page_cache_shared_max_age' => (int) env('PAGE_CACHE_SHARED_MAX_AGE', 300),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

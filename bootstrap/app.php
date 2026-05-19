@@ -7,6 +7,9 @@ use Filament\Support\SupportServiceProvider;
 use Filament\FilamentServiceProvider;
 use Filament\Forms\FormsServiceProvider;
 use Filament\Tables\TablesServiceProvider;
+use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Session\Middleware\StartSession;
+use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -15,10 +18,16 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withMiddleware(function ($middleware) {
+    ->withMiddleware(function (Middleware $middleware) {
+        $middleware->web(replace: [
+            StartSession::class => \App\Http\Middleware\StartSessionForCacheableGuests::class,
+            ShareErrorsFromSession::class => \App\Http\Middleware\ShareErrorsFromSessionForCacheableGuests::class,
+        ]);
+
         $middleware->appendToGroup('web', [
             \App\Http\Middleware\ValidatePaginationPage::class,
             \App\Http\Middleware\SetLocaleFromSession::class,
+            \App\Http\Middleware\CacheableGuestResponseHeaders::class,
         ]);
     })
     ->withExceptions(function ($exceptions) {

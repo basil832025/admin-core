@@ -8,6 +8,7 @@ use App\Models\Shop\OrderItem;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
@@ -15,6 +16,8 @@ use Illuminate\Support\Facades\Session;
 class CartService
 {
     const SESSION_KEY = 'cart.items'; // [ [product_id, qty, price, meta], ... ]
+    private const COOKIE_KEY = 'guest_cart';
+    private const COOKIE_MINUTES = 60 * 24 * 30;
 
     private ?Authenticatable $cachedUser = null;
     private bool $cachedUserResolved = false;
@@ -22,6 +25,8 @@ class CartService
     private array $cartItemsCache = [];
     private array $cartItemsByProductIdCache = [];
     private array $variantAttributesCache = [];
+    private bool $guestCartLoaded = false;
+    private array $guestCartCache = [];
 
     /** Добавить товар */
     public function add(int $productId, int $qty = 1, ?float $price = null, array $meta = []): array
@@ -55,11 +60,11 @@ class CartService
             $order->items()->where('product_id', $productId)->delete();
             $this->recalc($order);
         } else {
-            $items = collect(Session::get(self::SESSION_KEY, []))
+            $items = collect($this->guestCartItems())
                 ->reject(fn($i) => (int)$i['product_id'] === $productId)
                 ->values()
                 ->all();
-            Session::put(self::SESSION_KEY, $items);
+            $this->storeGuestCartItems($items);
         }
 
         $this->resetCheckoutState();
@@ -83,7 +88,7 @@ class CartService
             $order->items()->delete();
             $this->recalc($order);
         } else {
-            Session::forget(self::SESSION_KEY);
+            $this->forgetGuestCartItems();
         }
 
         $this->resetCheckoutState();
@@ -265,11 +270,11 @@ class CartService
     /** Приводим сессию к единому формату: список уникальных product_id */
     private function normalizeSessionCart(): array
     {
-        $raw = Session::get(self::SESSION_KEY, []);
+        $raw = $this->guestCartItems();
         $acc = [];
 
         if (!is_array($raw)) {
-            Session::put(self::SESSION_KEY, []);
+            $this->storeGuestCartItems([]);
             return [];
         }
 
@@ -311,7 +316,7 @@ class CartService
         }
 
         $items = array_values($acc);
-        Session::put(self::SESSION_KEY, $items);
+        $this->storeGuestCartItems($items);
         return $items;
     }
 
@@ -341,12 +346,12 @@ class CartService
         return [$qty, (float)$sum];
     }
     /**
-     * Переносит позиции из сессии в черновой заказ пользователя.
+     * Переносит позиции из guest storage в черновой заказ пользователя.
      * Вызывается после логина/регистрации (слушатель MergeCartOnLogin).
      */
     public function mergeSessionIntoUser(Authenticatable $user): void
     {
-        // возьмём всё из сессии в едином формате (product_id, qty, price, meta)
+        // возьмём всё из guest storage в едином формате (product_id, qty, price, meta)
         $items = $this->normalizeSessionCart();
         if (empty($items)) {
             return;
@@ -384,12 +389,12 @@ class CartService
             $this->recalc($order);
         });
 
-        // очистим корзину гость-сессии, чтобы не слить повторно
-        Session::forget(self::SESSION_KEY);
+        // очистим гостевую корзину, чтобы не слить повторно
+        $this->forgetGuestCartItems();
     }
     protected function sessionQty(): int
     {
-        return (int)collect(Session::get(self::SESSION_KEY, []))->sum('qty');
+        return (int) collect($this->guestCartItems())->sum('qty');
     }
 // Δ-изменение количества (+1 / -1 / +N / -N)
     public function changeQty(int $productId, int $delta = 1, ?float $price = null, array $meta = []): array
@@ -442,7 +447,7 @@ class CartService
         if ($qty <= 0) {
             if ($idx !== false) {
                 $items->forget($idx);
-                Session::put(self::SESSION_KEY, array_values($items->all()));
+                $this->storeGuestCartItems(array_values($items->all()));
             }
             return;
         }
@@ -457,7 +462,7 @@ class CartService
             $items->put($idx, $row);
         }
 
-        Session::put(self::SESSION_KEY, array_values($items->all()));
+        $this->storeGuestCartItems(array_values($items->all()));
     }
     protected function setForUser($user, int $productId, int $qty, ?float $price, array $meta): void
     {
@@ -482,7 +487,7 @@ class CartService
     }
     protected function sessionTotal(): float
     {
-        return (float)collect(Session::get(self::SESSION_KEY, []))
+        return (float) collect($this->guestCartItems())
             ->sum(fn($i) => (float)($i['price'] ?? 0) * (int)$i['qty']);
     }
 
@@ -566,7 +571,7 @@ class CartService
             }
         }
 
-        Session::put(self::SESSION_KEY, array_values($items->all()));
+        $this->storeGuestCartItems(array_values($items->all()));
     }
 
     protected function getOrCreateDraftOrder(Authenticatable $user, bool $createIfMissing = true): ?Order
@@ -685,6 +690,10 @@ class CartService
 
     protected function resetCheckoutState(): void
     {
+        if (! $this->authUser() && ! $this->hasSessionCookie()) {
+            return;
+        }
+
         $formData = Session::get('checkout.form_data', []);
 
         unset(
@@ -795,7 +804,7 @@ class CartService
         }
 
         // Гость — из сессии + подгружаем продукты и родителей
-        $rows = collect(Session::get(self::SESSION_KEY, []));
+        $rows = collect($this->guestCartItems());
         if ($rows->isEmpty()) return [];
 
         $ids = $rows->pluck('product_id')->all();
@@ -842,6 +851,75 @@ class CartService
                     'article'    => $article,
                 ];
         })->values()->all();
+    }
+
+    private function guestCartItems(): array
+    {
+        if ($this->guestCartLoaded) {
+            return $this->guestCartCache;
+        }
+
+        $raw = request()->cookie(self::COOKIE_KEY);
+        if (! is_string($raw) || $raw === '') {
+            $this->guestCartLoaded = true;
+            return $this->guestCartCache = [];
+        }
+
+        $decoded = json_decode($raw, true);
+
+        $this->guestCartLoaded = true;
+
+        return $this->guestCartCache = (is_array($decoded) ? $decoded : []);
+    }
+
+    private function storeGuestCartItems(array $items): void
+    {
+        $normalized = array_values(array_filter(array_map(function ($item) {
+            if (! is_array($item)) {
+                return null;
+            }
+
+            $productId = (int) ($item['product_id'] ?? 0);
+            $qty = (int) ($item['qty'] ?? 0);
+
+            if ($productId <= 0 || $qty <= 0) {
+                return null;
+            }
+
+            return [
+                'product_id' => $productId,
+                'qty' => $qty,
+                'price' => isset($item['price']) ? (float) $item['price'] : 0,
+                'meta' => is_array($item['meta'] ?? null) ? $item['meta'] : [],
+            ];
+        }, $items)));
+
+        if ($normalized === []) {
+            $this->guestCartLoaded = true;
+            $this->guestCartCache = [];
+            $this->forgetGuestCartItems();
+
+            return;
+        }
+
+        $this->guestCartLoaded = true;
+        $this->guestCartCache = $normalized;
+
+        Cookie::queue(cookie(self::COOKIE_KEY, json_encode($normalized), self::COOKIE_MINUTES, '/', null, null, false, false, 'lax'));
+    }
+
+    private function forgetGuestCartItems(): void
+    {
+        $this->guestCartLoaded = true;
+        $this->guestCartCache = [];
+        Cookie::queue(Cookie::forget(self::COOKIE_KEY));
+    }
+
+    private function hasSessionCookie(): bool
+    {
+        $sessionCookie = (string) config('session.cookie');
+
+        return $sessionCookie !== '' && request()->cookies->has($sessionCookie);
     }
 
 }

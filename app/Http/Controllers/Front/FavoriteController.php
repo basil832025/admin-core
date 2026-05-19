@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Front;
 use App\Http\Controllers\Controller;
 use App\Models\Shop\Product;
 use App\Support\Presenters\ProductCardPresenter;
+use App\Support\GuestFavoritesStore;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\Shop\Client;
@@ -64,17 +65,17 @@ class FavoriteController extends Controller
         }
 
         // гость — храним в сессии
-        $key = 'favorites';
-        $list = collect((array) session($key, []))->map(fn($v) => (int) $v)->unique()->values();
+        $list = collect(GuestFavoritesStore::idsFromRequest());
         $wasInList = $list->contains($product->id);
 
         if ($wasInList) {
             $list = $list->reject(fn($id) => $id === $product->id)->values();
-            session([$key => $list->all()]);
         } else {
             $list->push($product->id);
-            session([$key => $list->unique()->values()->all()]);
+            $list = $list->unique()->values();
         }
+
+        GuestFavoritesStore::queueIds($list->all());
         
         // Возвращаем обновленное количество
         return response()->json([
@@ -108,12 +109,7 @@ class FavoriteController extends Controller
         }
 
         // гость — из сессии
-        return collect((array) session('favorites', []))
-            ->map(fn ($v) => (int) $v)
-            ->filter(fn ($v) => $v > 0)
-            ->unique()
-            ->values()
-            ->all();
+        return GuestFavoritesStore::idsFromRequest();
     }
     private function currentClient(): ?Client
     {
