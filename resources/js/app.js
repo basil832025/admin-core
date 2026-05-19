@@ -143,6 +143,38 @@ window.eSputnikTrackProductPage = function(product = {}) {
     });
 };
 
+window.eSputnikTrackAddToWishlist = function(product = {}) {
+    const productKey = window.eSputnikProductKey(product);
+    if (!productKey) {
+        return false;
+    }
+
+    return window.eSputnikSendEvent('AddToWishlist', {
+        AddToWishlist: {
+            productKey,
+            price: String(product.price ?? ''),
+            isInStock: Number(product.isInStock ?? 1),
+        },
+    });
+};
+
+window.eSputnikTrackCategoryPage = function(categoryKey) {
+    const normalized = String(categoryKey || '').trim();
+    if (!normalized) {
+        return false;
+    }
+
+    return window.eSputnikSendEvent('CategoryPage', {
+        CategoryPage: {
+            categoryKey: normalized,
+        },
+    });
+};
+
+window.eSputnikTrackMainPage = function() {
+    return window.eSputnikSendEvent('MainPage');
+};
+
 window.eSputnikTrackStatusCart = function(cartData = {}) {
     const items = Array.isArray(cartData.items) ? cartData.items : [];
     const statusCart = items

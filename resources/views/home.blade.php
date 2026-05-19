@@ -104,4 +104,12 @@
 
     </div>
     </div>
+
+    @push('scripts')
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                window.eSputnikTrackMainPage();
+            });
+        </script>
+    @endpush
 @endsection

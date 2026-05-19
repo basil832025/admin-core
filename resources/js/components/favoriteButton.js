@@ -1,6 +1,7 @@
 export default function registerFavoriteButton(Alpine) {
     Alpine.data('favoriteButton', (opts = {}) => ({
         id: opts.id ?? null,
+        productKey: opts.productKey ?? opts.id ?? null,
         active: !!opts.active,
         color: opts.color ?? '#FF7500',
         persist: opts.persist ?? true,
@@ -46,6 +47,13 @@ export default function registerFavoriteButton(Alpine) {
                     // После успешного изменения избранного обновляем счетчик
                     if (res.ok) {
                         const data = await res.json().catch(() => ({}));
+                        if (this.active) {
+                            window.eSputnikTrackAddToWishlist({
+                                product_key: this.productKey || this.id,
+                                price: data.item?.price ?? null,
+                                isInStock: 1,
+                            });
+                        }
                         // Отправляем событие для обновления store с количеством
                         window.dispatchEvent(new CustomEvent('favorite-updated', { 
                             detail: { qty: data.qty } 

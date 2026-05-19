@@ -1,5 +1,6 @@
 @props([
 'productId' => null,
+'productKey' => null,
 'active'    => false,
 'color'     => '#FF7500',
 'postUrl'   => route('favorite.toggle', $productId),
@@ -28,6 +29,14 @@
                 const data = await res.json();
                 if (data.status === 'added') this.active = true;
                 else if (data.status === 'removed') this.active = false;
+
+                if (data.status === 'added') {
+                    window.eSputnikTrackAddToWishlist({
+                        product_key: @js($productKey ?: $productId),
+                        price: data.item?.price ?? null,
+                        isInStock: 1,
+                    });
+                }
                 
                 // Отправляем событие для обновления счетчика в хедере
                 window.dispatchEvent(new CustomEvent('favorite-updated', { 

@@ -98,6 +98,13 @@
             $seoDescription = rtrim(mb_substr($seoDescription, 0, 247)) . '...';
         }
     }
+
+    $eSputnikCategoryKey = trim((string) ($pageTitle ?? ''));
+    if ($eSputnikCategoryKey === '' && !empty($category)) {
+        $eSputnikCategoryKey = method_exists($category, 'getTranslation')
+            ? (string) ($category->getTranslation('title', $locale) ?: $category->getTranslation('title', 'uk') ?: '')
+            : (string) (data_get($category, "title.$locale") ?? data_get($category, 'title.uk') ?? '');
+    }
 @endphp
 
 @section('title', $seoTitle)
@@ -245,4 +252,12 @@
             @include('product.filter-panel')
     </div>
     </div>
+
+    @push('scripts')
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                window.eSputnikTrackCategoryPage(@json($eSputnikCategoryKey));
+            });
+        </script>
+    @endpush
 @endsection

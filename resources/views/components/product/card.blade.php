@@ -35,6 +35,7 @@
 
     // ЕДИНЫЙ ID, по которому ставим/снимаем избранное
     $pid = $productId ?? $root_id ?? ($rows[0]['product_id'] ?? null);
+    $productKey = trim((string) (($rows[0]['product_key'] ?? null) ?: ($rows[0]['article'] ?? null) ?: ($pid ?? '')));
 
     // Подготовка карты цен для всех вариантов
     $priceMap = [];
@@ -245,6 +246,7 @@
                 @if($pid)
                         <x-ui.favorite-button
                         :product-id="$pid"
+                        :product-key="$productKey"
                         :post-url="route('favorite.toggle', $pid)"
                         :active="$isFavorite"
                         color="#FF7500"
