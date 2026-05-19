@@ -50,6 +50,7 @@
         $rootId  = $rootId ?? ($rows[0]['product_id'] ?? null);
         $rootKey = $rootId !== null ? (string)$rootId : '';
         $priceMap = [];
+        $productKeyMap = [];
         $articleMap = [];
         $badgeMap = [];
         $manualDiscountMap = [];
@@ -58,6 +59,7 @@
                 'price' => (float)($row['price'] ?? 0),
                 'old'   => isset($row['old_price']) ? (float)$row['old_price'] : null,
             ];
+            $productKeyMap[(string)$row['product_id']] = trim((string) ($row['product_key'] ?? $row['article'] ?? $row['product_id']));
             $manualDiscountMap[(string)$row['product_id']] = isset($row['manual_discount_percent']) && $row['manual_discount_percent'] !== null && $row['manual_discount_percent'] !== ''
                 ? (float) $row['manual_discount_percent']
                 : null;
@@ -108,6 +110,7 @@
             Alpine.store('sku', {
                 selected: '{{ $rootKey }}',
                 prices: @js($priceMap),
+                productKeys: @js($productKeyMap),
                 articles: @js($articleMap),
                 badges: @js($badgeMap),
                 manualDiscounts: @js($manualDiscountMap),
@@ -123,6 +126,10 @@
                     const value = this.articles[this.selected];
                     if (typeof value === 'string' && value.trim() !== '') return value;
                     return this.defaultArticle;
+                },
+                productKey(){
+                    const value = this.productKeys[this.selected];
+                    return typeof value === 'string' && value.trim() !== '' ? value : String(this.selected || '');
                 },
                 discountPercent(){
                     const manualDiscount = this.manualDiscounts[String(this.selected)] ?? null;
@@ -570,4 +577,31 @@
             </section>
         </div>
     @include('pages.catalog.reviews', ['product' => $rootId])
+
+    @push('scripts')
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const trackCurrentProduct = () => {
+                    const skuStore = window.Alpine && typeof window.Alpine.store === 'function'
+                        ? window.Alpine.store('sku')
+                        : null;
+                    if (!skuStore) {
+                        return;
+                    }
+
+                    window.eSputnikTrackProductPage({
+                        product_key: typeof skuStore.productKey === 'function' ? skuStore.productKey() : @js($product['product_key'] ?? $rootId),
+                        price: typeof skuStore.price === 'function' ? skuStore.price() : {{ (float) ($product['price'] ?? 0) }},
+                        isInStock: {{ !empty($product['in_stock']) ? 1 : 0 }},
+                    });
+                };
+
+                trackCurrentProduct();
+
+                window.addEventListener('variant-selected', () => {
+                    trackCurrentProduct();
+                });
+            });
+        </script>
+    @endpush
 @endsection

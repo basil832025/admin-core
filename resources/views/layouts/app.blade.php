@@ -201,7 +201,7 @@
             t['eS'] = t['eS'] || f;
         })(window, document, 'script', 'A920E7D8C5A44F21B655D59464A373DF');
     </script>
-    <script>eS('init');</script>
+    <script>eS('init', { TRACKING: false, RECOMS: true });</script>
 </head>
 <body data-page="@yield('page','')" class="antialiased text-gray-900 overflow-x-hidden">
 <!-- Google Tag Manager (noscript) -->

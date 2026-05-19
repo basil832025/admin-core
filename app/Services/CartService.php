@@ -783,6 +783,7 @@ class CartService
                 $name  = $parent?->display_name ?? $parent?->displayName ?? $parent?->title ?? 'Товар';
                 $sku   = $parent?->sku ?: null;
                 $code2 = $parent?->code2 ?: null;
+                $productKey = trim((string) ($code2 ?: $sku ?: $it->product_id));
                 $article = ($sku !== null && trim((string)$sku) !== '') ? $sku : $code2;
                 $image = $parent?->main_image_url ?? ($parent?->image_url ?? null);
 
@@ -790,10 +791,13 @@ class CartService
                     'product_id' => (int) $it->product_id,
                     'name'       => (string) $name,
                     'sku'        => $sku,
+                    'code2'      => $code2,
+                    'product_key'=> $productKey,
                     'image'      => $image,
                     'variant'    => $variantAttrs($p), // “33 см · 1300 г”
                     'qty'        => (int) $it->qty,
                     'price'      => (float) $it->unit_price,
+                    'currency'   => (string) ($it->currency ?? 'UAH'),
                     'subtotal'   => (float) $it->qty * (float) $it->unit_price,
                     'old_price'  => $oldPrice,
                     'old_subtotal' => $oldPrice ? (float) ($it->qty * $oldPrice) : null,
@@ -829,6 +833,7 @@ class CartService
             $name  = $parent?->display_name ?? $parent?->displayName ?? $parent?->title ?? 'Товар';
             $sku   = $parent?->sku ?: null;
             $code2 = $parent?->code2 ?: null;
+            $productKey = trim((string) ($code2 ?: $sku ?: ($i['product_id'] ?? 0)));
             $article = ($sku !== null && trim((string) $sku) !== '') ? $sku : $code2;
             $image = $parent?->main_image_url ?? ($parent?->image_url ?? null);
 
@@ -840,10 +845,13 @@ class CartService
                     'product_id' => (int)($i['product_id'] ?? 0),
                     'name'       => (string) $name,
                     'sku'        => $sku,
+                    'code2'      => $code2,
+                    'product_key'=> $productKey,
                     'image'      => $image,
                     'variant'    => $variantAttrs($p),
                     'qty'        => $qty,
                     'price'      => $price,
+                    'currency'   => 'UAH',
                     'subtotal'   => $qty * $price,
                     'old_price'  => $oldPrice,
                     'old_subtotal' => $oldPrice ? $qty * $oldPrice : null,

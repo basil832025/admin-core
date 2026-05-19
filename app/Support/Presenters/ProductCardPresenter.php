@@ -117,6 +117,7 @@ class ProductCardPresenter
         // Варианты: родитель + дети
         $variantRows = [[
             'product_id'  => $p->id,
+            'product_key' => trim((string) ($p->code2 ?: $p->sku ?: $p->id)),
             'slug'        => $p->slug,
             'variant_display_sort' => $p->variant_display_sort,
             'is_root'     => true,
@@ -142,6 +143,7 @@ class ProductCardPresenter
             
             $variantRows[] = [
                 'product_id'  => $child->id,
+                'product_key' => trim((string) ($child->code2 ?: $child->sku ?: $child->id)),
                 'slug'        => $child->slug,
                 'sort'        => (int) ($child->sort ?? 0),
                 'variant_display_sort' => $child->variant_display_sort,
@@ -250,6 +252,7 @@ class ProductCardPresenter
             'characteristics' => $main,
             'variant_rows'    => $variantRows,
             'root_id'         => $p->id,
+            'product_key'     => trim((string) ($p->code2 ?: $p->sku ?: $p->id)),
             // NEW:
             'category_slug'   => $categorySlug,
             'all_category_slugs' => $allCategorySlugs,

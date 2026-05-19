@@ -16,6 +16,10 @@ class FeedController extends Controller
 
         $products = Product::query()
             ->active()
+            ->where(function ($query) {
+                $query->whereNull('is_imported')
+                    ->orWhere('is_imported', false);
+            })
             ->select([
                 'id',
                 'parent_id',

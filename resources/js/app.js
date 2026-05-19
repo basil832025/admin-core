@@ -102,6 +102,116 @@ window.applyUaPhoneMask = function (el) {
     el.__uaPhoneMasked = true;
 };
 
+window.eSputnikSendEvent = function(eventName, payload = {}) {
+    try {
+        if (typeof window.eS !== 'function' || !eventName) {
+            return false;
+        }
+
+        window.eS('sendEvent', eventName, payload);
+        return true;
+    } catch (error) {
+        console.error('eSputnik sendEvent error:', error, eventName, payload);
+        return false;
+    }
+};
+
+window.eSputnikProductKey = function(product = {}) {
+    return String(product.product_key || product.code2 || product.sku || product.product_id || product.id || '').trim();
+};
+
+window.eSputnikGetStoredCartGuid = function() {
+    try {
+        return localStorage.getItem('esputnik_cart_guid') || '';
+    } catch (_) {
+        return '';
+    }
+};
+
+window.eSputnikTrackProductPage = function(product = {}) {
+    const productKey = window.eSputnikProductKey(product);
+    if (!productKey) {
+        return false;
+    }
+
+    return window.eSputnikSendEvent('ProductPage', {
+        ProductPage: {
+            productKey,
+            price: String(product.price ?? ''),
+            isInStock: Number(product.isInStock ?? 1),
+        },
+    });
+};
+
+window.eSputnikTrackStatusCart = function(cartData = {}) {
+    const items = Array.isArray(cartData.items) ? cartData.items : [];
+    const statusCart = items
+        .map((item) => {
+            const productKey = window.eSputnikProductKey(item);
+            if (!productKey) {
+                return null;
+            }
+
+            return {
+                productKey,
+                price: String(item.price ?? 0),
+                quantity: String(item.qty ?? item.quantity ?? 0),
+                currency: String(item.currency || cartData.currency || 'UAH'),
+            };
+        })
+        .filter(Boolean);
+
+    const guid = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `cart-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+
+    try {
+        localStorage.setItem('esputnik_cart_guid', guid);
+    } catch (_) {
+        // ignore storage errors
+    }
+
+    return window.eSputnikSendEvent('StatusCart', {
+        StatusCart: statusCart,
+        GUID: guid,
+    });
+};
+
+window.eSputnikTrackPurchasedItems = function(order = {}) {
+    const items = Array.isArray(order.items) ? order.items : [];
+    const purchasedItems = items
+        .map((item) => {
+            const productKey = window.eSputnikProductKey(item);
+            if (!productKey) {
+                return null;
+            }
+
+            return {
+                productKey,
+                price: String(item.price ?? 0),
+                quantity: String(item.quantity ?? item.qty ?? 0),
+                currency: String(item.currency || order.currency || 'UAH'),
+            };
+        })
+        .filter(Boolean);
+
+    if (purchasedItems.length === 0 || !order.orderNumber) {
+        return false;
+    }
+
+    const payload = {
+        OrderNumber: String(order.orderNumber),
+        PurchasedItems: purchasedItems,
+    };
+
+    const guid = window.eSputnikGetStoredCartGuid();
+    if (guid) {
+        payload.GUID = guid;
+    }
+
+    return window.eSputnikSendEvent('PurchasedItems', payload);
+};
+
 // Google Maps directions helper (used in mobile menu address link)
 window.openGoogleMapsRoute = function openGoogleMapsRoute({ destination = '', destinationAddress = '' } = {}) {
     const dest = String(destination || '').trim();
@@ -250,6 +360,16 @@ function registerAlpineComponents() {
     };
 
     window.addEventListener('cart-updated', () => window.__CART_CACHE__?.invalidate?.());
+    window.addEventListener('cart-updated', async () => {
+        try {
+            const data = window.__CART_CACHE__ ? await window.__CART_CACHE__.get() : null;
+            if (data) {
+                window.eSputnikTrackStatusCart(data);
+            }
+        } catch (_) {
+            // ignore tracking errors
+        }
+    });
 
     registerCartActions(Alpine);
     registerFavoriteButton(Alpine);
