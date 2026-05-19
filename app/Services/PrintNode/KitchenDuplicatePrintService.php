@@ -465,8 +465,14 @@ class KitchenDuplicatePrintService
         $operator = trim((string) ($operatorName ?: auth('admin')->user()?->name ?: 'System'));
         $phone = trim((string) ($order->clients?->phone ?? ''));
         $printAt = now()->format('d.m.Y H:i');
-        $deliveryAt = $this->formatOrderDateTime($order->date_order, $order->time_order);
-        $issuedAt = $this->formatOrderDateTime($order->dat, $order->time_start);
+        $deliveryAt = $this->formatOrderDateTime(
+            $order->getRawOriginal('date_order') ?: $order->date_order,
+            $order->getRawOriginal('time_order') ?: $order->time_order,
+        );
+        $issuedAt = $this->formatOrderDateTime(
+            $order->getRawOriginal('date_order') ?: $order->date_order,
+            $order->getRawOriginal('time_issue') ?: $order->time_issue ?: $order->getRawOriginal('time_start') ?: $order->time_start,
+        );
         $address = $this->resolveAddressLine($order);
         $kitchenNote = trim((string) ($order->kitchen_note ?? ''));
         $deliveryAmount = $order->resolveDeliveryAmount();

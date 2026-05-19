@@ -234,13 +234,6 @@ class VariantsRelationManager extends RelationManager
             ->defaultSort('variant_display_sort', 'asc')
             ->recordTitleAttribute('title')
             ->columns([
-                TextInputColumn::make('sort')
-                    ->label('Сорт')
-                    ->type('number')
-                    ->step('1')
-                    ->rules(['integer', 'min:0'])
-                    ->alignRight()
-                    ->sortable(),
                 TextInputColumn::make('variant_display_sort')
                     ->label('Сорт в картці')
                     ->type('number')
