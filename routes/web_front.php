@@ -10,6 +10,7 @@ use App\Http\Controllers\Front\CatalogController;
 use App\Http\Controllers\Front\CheckoutController;
 use App\Http\Controllers\Front\ClientAddressController;
 use App\Http\Controllers\Front\FavoriteController;
+use App\Http\Controllers\Front\FeedController;
 use App\Http\Controllers\Front\HomeController;
 use App\Http\Controllers\Front\LiqPayController;
 use App\Http\Controllers\Front\PageController;
@@ -29,6 +30,7 @@ use Illuminate\Support\Str;
 $registerFrontRoutes = function (): void {
 Route::get('/search', [SearchController::class, 'index'])->name('search');
 Route::get('/search/suggest', [SearchController::class, 'suggest'])->name('search.suggest');
+Route::get('/feeds/esputnik-products.xml', [FeedController::class, 'esputnikProducts'])->name('feeds.esputnik.products');
 
 Route::get('/', [HomeController::class, 'index'])
     ->name('home')
