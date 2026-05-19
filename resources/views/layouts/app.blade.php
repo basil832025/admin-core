@@ -185,6 +185,23 @@
     'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
     })(window,document,'script','dataLayer','GTM-5R7VLG9');</script>
     <!-- End Google Tag Manager -->
+    <script>
+        (function (t, e, c, n) {
+            var s = e.createElement(c);
+            s.async = 1, s.src = 'https://statics.esputnik.com/scripts/' + n + '.js';
+            var r = e.scripts[0];
+            r.parentNode.insertBefore(s, r);
+            var f = function () {
+                f.c(arguments);
+            };
+            f.q = [];
+            f.c = function () {
+                f.q.push(arguments);
+            };
+            t['eS'] = t['eS'] || f;
+        })(window, document, 'script', 'A920E7D8C5A44F21B655D59464A373DF');
+    </script>
+    <script>eS('init');</script>
 </head>
 <body data-page="@yield('page','')" class="antialiased text-gray-900 overflow-x-hidden">
 <!-- Google Tag Manager (noscript) -->
