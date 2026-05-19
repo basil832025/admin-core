@@ -382,19 +382,26 @@ async function sendOrderToEmail(orderId) {
         }
     });
 
-    window.eSputnikTrackPurchasedItems({
-        orderNumber: @json((string) $orderNumber),
-        currency: @json((string) ($order->currency ?? 'UAH')),
-        items: [
-                @foreach($order->items ?? [] as $item)
-            {
-                product_key: @json((string) (($item->product?->code2) ?: ($item->product?->parent?->code2) ?: ($item->product?->sku) ?: ($item->product?->parent?->sku) ?: ($item->product_id ?? ''))),
-                price: @json((string) ((float) ($item->unit_price_effective ?? $item->unit_price ?? 0))),
-                quantity: @json((string) ((int) ($item->qty ?? 1))),
-                currency: @json((string) ($item->currency ?? $order->currency ?? 'UAH')),
-            },
-            @endforeach
-        ]
+    document.addEventListener('DOMContentLoaded', function () {
+        if (typeof window.eSputnikTrackPurchasedItems !== 'function') {
+            console.warn('eSputnik purchase helper is not ready');
+            return;
+        }
+
+        window.eSputnikTrackPurchasedItems({
+            orderNumber: @json((string) $orderNumber),
+            currency: @json((string) ($order->currency ?? 'UAH')),
+            items: [
+                    @foreach($order->items ?? [] as $item)
+                {
+                    product_key: @json((string) (($item->product?->code2) ?: ($item->product?->parent?->code2) ?: ($item->product?->sku) ?: ($item->product?->parent?->sku) ?: ($item->product_id ?? ''))),
+                    price: @json((string) ((float) ($item->unit_price_effective ?? $item->unit_price ?? 0))),
+                    quantity: @json((string) ((int) ($item->qty ?? 1))),
+                    currency: @json((string) ($item->currency ?? $order->currency ?? 'UAH')),
+                },
+                @endforeach
+            ]
+        });
     });
 </script>
 @endpush
