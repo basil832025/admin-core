@@ -7,6 +7,11 @@ use Illuminate\Http\Request;
 
 class ValidatePaginationPage
 {
+    private function reject()
+    {
+        return response()->view('errors.lightweight-404', [], 404);
+    }
+
     public function handle(Request $request, Closure $next)
     {
         if (! $request->isMethod('GET')) {
@@ -24,17 +29,17 @@ class ValidatePaginationPage
         }
 
         if (is_array($raw)) {
-            return response()->view('404', [], 404);
+            return $this->reject();
         }
 
         $raw = trim((string) $raw);
         if ($raw === '' || ! ctype_digit($raw)) {
-            return response()->view('404', [], 404);
+            return $this->reject();
         }
 
         // Must be >= 1. ("0", "00" are invalid)
         if ((int) $raw < 1) {
-            return response()->view('404', [], 404);
+            return $this->reject();
         }
 
         // Protect from integer overflow: treat values > PHP_INT_MAX as invalid.
@@ -42,14 +47,21 @@ class ValidatePaginationPage
         $max = (string) PHP_INT_MAX;
         $rawNoZeros = ltrim($raw, '0');
         if ($rawNoZeros === '') {
-            return response()->view('404', [], 404);
+            return $this->reject();
         }
 
         if (strlen($rawNoZeros) > strlen($max)) {
-            return response()->view('404', [], 404);
+            return $this->reject();
         }
         if (strlen($rawNoZeros) === strlen($max) && strcmp($rawNoZeros, $max) > 0) {
-            return response()->view('404', [], 404);
+            return $this->reject();
+        }
+
+        $page = (int) $rawNoZeros;
+        $maxPage = max(1, (int) config('app.max_pagination_page', 1000));
+
+        if ($page > $maxPage) {
+            return $this->reject();
         }
 
         return $next($request);

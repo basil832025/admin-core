@@ -56,6 +56,8 @@ return [
 
     'kiosk_api_key' => env('KIOSK_API_KEY', ''),
 
+    'max_pagination_page' => (int) env('MAX_PAGINATION_PAGE', 1000),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

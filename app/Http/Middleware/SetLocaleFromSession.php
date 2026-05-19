@@ -2,30 +2,44 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Language;
 use Illuminate\Http\Request;
 use Closure;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\URL;
 
 class SetLocaleFromSession
 {
+    private const DEFAULT_LOCALES = ['ru', 'uk', 'en'];
+
     public function handle(Request $request, Closure $next)
     {
         // Получаем список разрешенных языков из БД или используем дефолтные
-        $allowed = [];
+        $allowed = self::DEFAULT_LOCALES;
+
         try {
-            if (\Illuminate\Support\Facades\Schema::hasTable('bs_languages')) {
-                $allowed = \App\Models\Language::where('active', true)
-                    ->pluck('code')
-                    ->map(fn($c) => strtolower($c))
-                    ->toArray();
+            if (Schema::hasTable('bs_languages')) {
+                $allowed = Cache::remember('front.active_languages', now()->addHours(6), function (): array {
+                    $locales = Language::query()
+                        ->where('active', true)
+                        ->pluck('code')
+                        ->map(fn ($code) => strtolower((string) $code))
+                        ->filter()
+                        ->unique()
+                        ->values()
+                        ->all();
+
+                    return $locales !== [] ? $locales : self::DEFAULT_LOCALES;
+                });
             }
         } catch (\Exception $e) {
             // Если таблицы нет, используем дефолтные
         }
-        
+
         // Если языков нет, используем дефолтные
         if (empty($allowed)) {
-            $allowed = ['ru', 'uk', 'en'];
+            $allowed = self::DEFAULT_LOCALES;
         }
 
         // Определяем, находимся ли мы в админке
