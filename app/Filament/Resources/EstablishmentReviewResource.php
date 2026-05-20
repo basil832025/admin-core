@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Models\EstablishmentReview;
 use App\Filament\Resources\EstablishmentReviewResource\Pages;
+use Filament\Facades\Filament;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -20,6 +21,28 @@ class EstablishmentReviewResource extends Resource
     protected static ?string $navigationGroup = 'Контент';
     protected static ?string $navigationLabel = 'Відгуки (заклад)';
     protected static ?int $navigationSort = 65;
+
+    protected static function canAccessModule(): bool
+    {
+        $user = Filament::auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        return (method_exists($user, 'hasRole') && $user->hasRole(config('shield.super_admin.name', 'super_admin')))
+            || $user->can('view_any_product::review');
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::canAccessModule();
+    }
+
+    public static function canViewAny(): bool
+    {
+        return static::canAccessModule();
+    }
 
     public static function form(Form $form): Form
     {

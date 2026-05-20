@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\DeliveryZoneResource\Pages;
 use App\Models\DeliveryZone;
+use Filament\Facades\Filament;
 use Filament\Forms;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\Grid;
@@ -32,6 +33,23 @@ class DeliveryZoneResource extends Resource
     protected static ?string $navigationLabel = 'Зоны доставки';
     protected static ?string $modelLabel = 'Зона доставки';
     protected static ?string $pluralModelLabel = 'Зоны доставки';
+
+    protected static function canAccessModule(): bool
+    {
+        $user = Filament::auth()->user();
+
+        return (bool) ($user && method_exists($user, 'hasRole') && $user->hasRole(config('shield.super_admin.name', 'super_admin')));
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::canAccessModule();
+    }
+
+    public static function canViewAny(): bool
+    {
+        return static::canAccessModule();
+    }
 
     public static function form(Form $form): Form
     {

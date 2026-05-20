@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Shop;
 use App\Filament\Resources\Shop\SmsLogResource\Pages;
 use App\Models\Shop\SmsLog;
 use App\Services\Sms\EsputnikSms;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\DatePicker;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
@@ -28,6 +29,28 @@ class SmsLogResource extends Resource
     protected static ?string $pluralModelLabel = 'Логи SMS';
     protected static ?string $slug = 'shop/sms-logs';
     protected static ?int $navigationSort = 24;
+
+    protected static function canAccessModule(): bool
+    {
+        $user = Filament::auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        return (method_exists($user, 'hasRole') && $user->hasRole(config('shield.super_admin.name', 'super_admin')))
+            || $user->can('view_any_sms_log');
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::canAccessModule();
+    }
+
+    public static function canViewAny(): bool
+    {
+        return static::canAccessModule();
+    }
 
     public static function table(Table $table): Table
     {

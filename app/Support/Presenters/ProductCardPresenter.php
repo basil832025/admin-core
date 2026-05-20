@@ -211,12 +211,12 @@ class ProductCardPresenter
 
         $ingredientsText = $ingredientText->isNotEmpty() ? $ingredientText->implode(', ') : '';
 
-        $cardDescription = $this->lightweight
-            ? trim((string) ($p->short_desc ?? ''))
-            : ($ingredientsText !== '' ? $ingredientsText : $description);
+        $cardDescription = $ingredientsText !== ''
+            ? $ingredientsText
+            : trim((string) ($p->short_desc ?? ''));
 
-        if ($this->lightweight && $cardDescription === '') {
-            $cardDescription = $ingredientsText !== '' ? $ingredientsText : trim((string) ($description ?? ''));
+        if ($cardDescription === '') {
+            $cardDescription = trim((string) ($description ?? ''));
         }
 
         $productRouteName = in_array($this->locale, ['ru', 'en'], true)

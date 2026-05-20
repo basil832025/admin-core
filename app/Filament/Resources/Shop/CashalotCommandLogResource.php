@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Shop;
 
 use App\Filament\Resources\Shop\CashalotCommandLogResource\Pages;
 use App\Models\Shop\CashalotCommandLog;
+use Filament\Facades\Filament;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -19,6 +20,28 @@ class CashalotCommandLogResource extends Resource
     protected static ?string $pluralModelLabel = 'Логи Cashalot (команди)';
     protected static ?string $navigationGroup = 'Настройки';
     protected static ?int $navigationSort = 98;
+
+    protected static function canAccessModule(): bool
+    {
+        $user = Filament::auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        return (method_exists($user, 'hasRole') && $user->hasRole(config('shield.super_admin.name', 'super_admin')))
+            || $user->can('view_any_shop::cashalot::command::log');
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::canAccessModule();
+    }
+
+    public static function canViewAny(): bool
+    {
+        return static::canAccessModule();
+    }
 
     public static function form(Form $form): Form
     {

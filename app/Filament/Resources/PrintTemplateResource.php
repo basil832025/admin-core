@@ -10,6 +10,7 @@ use App\Models\Setting;
 use App\Services\Printing\TwigTemplateRenderService;
 use Dompdf\Dompdf;
 use Dompdf\Options;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -51,6 +52,23 @@ class PrintTemplateResource extends Resource
     protected static ?string $modelLabel = 'Шаблон печати';
 
     protected static ?string $pluralModelLabel = 'Шаблоны печати';
+
+    protected static function canAccessModule(): bool
+    {
+        $user = Filament::auth()->user();
+
+        return (bool) ($user && method_exists($user, 'hasRole') && $user->hasRole(config('shield.super_admin.name', 'super_admin')));
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::canAccessModule();
+    }
+
+    public static function canViewAny(): bool
+    {
+        return static::canAccessModule();
+    }
 
     public static function form(Form $form): Form
     {

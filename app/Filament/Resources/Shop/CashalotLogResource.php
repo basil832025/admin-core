@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Shop;
 
 use App\Filament\Resources\Shop\CashalotLogResource\Pages;
 use App\Models\Shop\CashalotLog;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\DatePicker;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -24,6 +25,28 @@ class CashalotLogResource extends Resource
     protected static ?string $pluralModelLabel = 'Логи Cashalot';
     protected static ?string $slug = 'shop/cashalot-logs';
     protected static ?int $navigationSort = 21;
+
+    protected static function canAccessModule(): bool
+    {
+        $user = Filament::auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        return (method_exists($user, 'hasRole') && $user->hasRole(config('shield.super_admin.name', 'super_admin')))
+            || $user->can('view_any_shop::cashalot::log');
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::canAccessModule();
+    }
+
+    public static function canViewAny(): bool
+    {
+        return static::canAccessModule();
+    }
 
     public static function table(Table $table): Table
     {

@@ -2,10 +2,34 @@
 
 namespace App\Filament\Clusters;
 
+use Filament\Facades\Filament;
 use Filament\Clusters\Cluster;
 
 class Characteristics extends Cluster
 {
+    protected static function canAccessModule(): bool
+    {
+        $user = Filament::auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        return (method_exists($user, 'hasRole') && $user->hasRole(config('shield.super_admin.name', 'super_admin')))
+            || $user->can('page_Characteristics')
+            || $user->can('view_any_characteristic')
+            || $user->can('view_any_characteristic::category');
+    }
+
+    public static function canAccess(): bool
+    {
+        return static::canAccessModule();
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::canAccessModule();
+    }
 
 
     /**

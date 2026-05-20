@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Models\Shop\Prro;
 use App\Models\Shop\CashalotCommandLog;
 use App\Services\CashalotApiClient;
+use Filament\Facades\Filament;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -42,13 +43,18 @@ class CashalotShiftControl extends Page implements Forms\Contracts\HasForms
 
     public static function canAccess(): bool
     {
-        $user = auth('admin')->user();
+        $user = Filament::auth()->user();
         if (! $user || ! $user instanceof \App\Models\User) {
             return false;
         }
 
-        // Keep access simple: any admin user that can access the panel.
-        return $user->roles()->where('guard_name', 'admin')->exists();
+        return (method_exists($user, 'hasRole') && $user->hasRole(config('shield.super_admin.name', 'super_admin')))
+            || $user->can('page_CashalotShiftControl');
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::canAccess();
     }
 
     public function mount(): void

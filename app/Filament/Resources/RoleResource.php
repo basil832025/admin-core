@@ -16,6 +16,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Arrayable;
+use Illuminate\Support\Arr;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Unique;
@@ -51,7 +52,8 @@ class RoleResource extends Resource implements HasShieldPermissions
             'access_synced_site_directories',
             'access_logistics_orders',
             'set_order_status*',   // все статусы
-            'order_status_downgrade'
+            'order_status_downgrade',
+            'page_*',
         ];
 
         $translations = [
@@ -72,6 +74,16 @@ class RoleResource extends Resource implements HasShieldPermissions
             'set_order_status_processing' => 'Статус: На кухне',
             'set_order_status_shipped' => 'Статус: Отправлен',
             'order_status_downgrade' => 'Статус: Возврат статуса назад',
+            'page_cashalotshiftcontrol' => 'Сторінка: Cashalot зміна',
+            'page_characteristics' => 'Сторінка: Характеристики',
+            'page_generalsettings' => 'Сторінка: Загальні налаштування',
+            'page_reference' => 'Сторінка: Довідники',
+            'page_productcategorytree' => 'Сторінка: Дерево категорій товарів',
+            'view_any_shop::prro' => 'ПРРО: перегляд списку',
+            'view_shop::prro' => 'ПРРО: перегляд запису',
+            'create_shop::prro' => 'ПРРО: створення',
+            'update_shop::prro' => 'ПРРО: редагування',
+            'delete_shop::prro' => 'ПРРО: видалення',
         ];
 
         return collect(FilamentShield::getCustomPermissions())
@@ -81,9 +93,11 @@ class RoleResource extends Resource implements HasShieldPermissions
             ->unique()
             ->mapWithKeys(function (string $perm) use ($translations): array {
                 $permKey = Str::of($perm)->lower()->replace(' ', '_')->toString();
+                $label = $translations[$permKey]
+                    ?? Arr::first($translations, fn ($value, $key) => Str::is($key, $permKey));
 
                 return [
-                    $perm => $translations[$permKey] ?? $perm,
+                    $perm => $label ?? $perm,
                 ];
             })
             ->all();

@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Shop;
 use App\Filament\Resources\Shop\BinotelCallLogResource\Pages;
 use App\Models\Callcenter\Source;
 use App\Models\Shop\BinotelCallLog;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\DatePicker;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -25,6 +26,28 @@ class BinotelCallLogResource extends Resource
     protected static ?string $pluralModelLabel = 'Логи Binotel';
     protected static ?string $slug = 'shop/binotel-call-logs';
     protected static ?int $navigationSort = 22;
+
+    protected static function canAccessModule(): bool
+    {
+        $user = Filament::auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        return (method_exists($user, 'hasRole') && $user->hasRole(config('shield.super_admin.name', 'super_admin')))
+            || $user->can('view_any_binotel_call_log');
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::canAccessModule();
+    }
+
+    public static function canViewAny(): bool
+    {
+        return static::canAccessModule();
+    }
 
     public static function table(Table $table): Table
     {

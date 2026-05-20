@@ -6,6 +6,7 @@ use App\Enums\PrintOperationCode;
 use App\Filament\Resources\PrintOperationProfileResource\Pages;
 use App\Models\PrintOperationProfile;
 use App\Models\PrintTemplate;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Section;
@@ -28,6 +29,23 @@ class PrintOperationProfileResource extends Resource
     protected static ?string $navigationLabel = 'Печать чеков';
     protected static ?string $modelLabel = 'Профиль печати';
     protected static ?string $pluralModelLabel = 'Профили печати';
+
+    protected static function canAccessModule(): bool
+    {
+        $user = Filament::auth()->user();
+
+        return (bool) ($user && method_exists($user, 'hasRole') && $user->hasRole(config('shield.super_admin.name', 'super_admin')));
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::canAccessModule();
+    }
+
+    public static function canViewAny(): bool
+    {
+        return static::canAccessModule();
+    }
 
     public static function form(Form $form): Form
     {

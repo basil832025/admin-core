@@ -70,6 +70,11 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
         return false;
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::canAccess();
+    }
+
     protected function getActions(): array
     {
         return [

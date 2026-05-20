@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Enums\PrintTemplateType;
 use App\Filament\Resources\ReportResource\Pages;
 use App\Models\PrintTemplate;
+use Filament\Facades\Filament;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
@@ -25,6 +26,28 @@ class ReportResource extends Resource
     protected static ?string $modelLabel = 'Отчет';
 
     protected static ?string $pluralModelLabel = 'Отчеты';
+
+    protected static function canAccessModule(): bool
+    {
+        $user = Filament::auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        return (method_exists($user, 'hasRole') && $user->hasRole(config('shield.super_admin.name', 'super_admin')))
+            || $user->can('view_any_report');
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::canAccessModule();
+    }
+
+    public static function canViewAny(): bool
+    {
+        return static::canAccessModule();
+    }
 
     public static function getEloquentQuery(): Builder
     {
