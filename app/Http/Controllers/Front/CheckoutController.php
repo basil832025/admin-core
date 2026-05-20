@@ -1291,8 +1291,16 @@ public function success($localeOrOrder, ?Order $order = null)
 /**
  * Отправка заказа на email клиенту
  */
-public function sendOrderToEmail(Request $request, Order $order)
+public function sendOrderToEmail(Request $request, string|Order $localeOrOrder, ?Order $order = null)
 {
+    if ($localeOrOrder instanceof Order) {
+        $order = $localeOrOrder;
+    }
+
+    if (! $order instanceof Order) {
+        abort(404);
+    }
+
     // Защита от чужих заказов
     if ($order->clients_id) {
         $orderClientId = (int) $order->clients_id;
