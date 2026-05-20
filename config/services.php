@@ -17,6 +17,7 @@ return [
         'login'    => env('ESPUTNIK_LOGIN'),
         'password' => env('ESPUTNIK_PASSWORD'),
         'from'     => env('ESPUTNIK_SMS_FROM', 'TRIPIROGI'),
+        'sms_status_url' => env('ESPUTNIK_SMS_STATUS_URL'),
     ],
 
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\Shop\Client;
+use App\Services\Sms\EsputnikSms;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
@@ -181,7 +182,11 @@ class ClientAuthController extends Controller
 
         Cache::put($key.':resend_lock', 1, $resendAfter);
 
-        $resp = $sms->sendCode($digits, (string)$code);
+        $resp = $sms->sendCode($digits, (string)$code, null, [
+            'message_type' => 'register',
+            'client_id' => $existing?->id,
+            'raw_phone' => (string) $r->input('phone'),
+        ]);
         if (($resp['status'] ?? 500) >= 300) {
             Cache::forget($key);
             Cache::forget($key.':resend_lock');
@@ -414,16 +419,16 @@ class ClientAuthController extends Controller
         Cache::put($key . ':resend_lock', 1, $resendAfter);
 
         // Реальная отправка SMS через API
-        $resp = $sms->sendCode($digits, $code);
+        $resp = $sms->sendCode($digits, $code, null, [
+            'message_type' => 'login',
+            'client_id' => $client->id,
+            'raw_phone' => (string) $r->input('phone'),
+        ]);
         if (($resp['status'] ?? 500) >= 300) {
-            // Логируем ошибку для отладки
             Log::error('SMS отправка не удалась', [
+                'sms_log_id' => $resp['log_id'] ?? null,
                 'phone' => $digits,
-                'code' => $code,
                 'status' => $resp['status'] ?? 'unknown',
-                'body' => $resp['body'] ?? 'no body',
-                'esputnik_login' => config('services.esputnik.login') ? 'set' : 'not set',
-                'esputnik_password' => config('services.esputnik.password') ? 'set' : 'not set',
             ]);
             
             Cache::forget($key);
@@ -434,12 +439,6 @@ class ClientAuthController extends Controller
             ], 422);
         }
         
-        // Логируем успешную отправку
-        Log::info('SMS код отправлен', [
-            'phone' => $digits,
-            'status' => $resp['status'] ?? 'unknown',
-        ]);
-
         return response()->json([
             'ok'        => true,
             'ttl'       => $ttl,

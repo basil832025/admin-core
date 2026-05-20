@@ -111,7 +111,10 @@ class PhoneRegisterController extends Controller
         }
 
         // 4) Реальная отправка
-        $resp = $sms->sendCode($digits, $code);
+        $resp = $sms->sendCode($digits, $code, null, [
+            'message_type' => 'register',
+            'raw_phone' => (string) $r->input('phone'),
+        ]);
         if (($resp['status'] ?? 500) >= 300) {
             // не ставим лок, чтобы можно было попробовать ещё раз
             return response()->json([
