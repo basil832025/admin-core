@@ -1236,6 +1236,8 @@ public function submit(Request $request)
         ? ['locale' => $locale, 'order' => $order]
         : ['order' => $order];
 
+    $this->rememberRecentCheckoutOrder($order);
+
     return redirect()->route($routeName, $routeParams);
 
 }
@@ -1257,13 +1259,8 @@ public function success($localeOrOrder, ?Order $order = null)
     }
 
     // защита от чужих заказов
-    if ($order->clients_id) {
-        $orderClientId = (int) $order->clients_id;
-        $currentUserId = auth()->check() ? (int) auth()->id() : null;
-
-        if (!$currentUserId || $currentUserId !== $orderClientId) {
-            abort(403);
-        }
+    if (! $this->canAccessCustomerOrder($order)) {
+        abort(403);
     }
   //  dd($order);
     // сразу подгружаем items + product
@@ -1302,13 +1299,8 @@ public function sendOrderToEmail(Request $request, string|Order $localeOrOrder, 
     }
 
     // Защита от чужих заказов
-    if ($order->clients_id) {
-        $orderClientId = (int) $order->clients_id;
-        $currentUserId = auth()->check() ? (int) auth()->id() : null;
-
-        if (!$currentUserId || $currentUserId !== $orderClientId) {
-            abort(403);
-        }
+    if (! $this->canAccessCustomerOrder($order)) {
+        abort(403);
     }
 
     // Загружаем связь clients если не загружена
@@ -1934,6 +1926,58 @@ private function matchesCheckoutTimeDiscountScopeInline(TimeDiscount $discount, 
     }
 
     return true;
+}
+
+private function canAccessCustomerOrder(Order $order): bool
+{
+    if (! $order->clients_id) {
+        return true;
+    }
+
+    $orderClientId = (int) $order->clients_id;
+    $currentUserId = auth()->check() ? (int) auth()->id() : null;
+
+    if ($currentUserId && $currentUserId === $orderClientId) {
+        return true;
+    }
+
+    return $this->hasRecentCheckoutOrderAccess($order);
+}
+
+private function rememberRecentCheckoutOrder(Order $order): void
+{
+    $key = 'checkout_recent_success_orders';
+    $ttlSeconds = 30 * 60;
+    $recent = session($key, []);
+
+    if (! is_array($recent)) {
+        $recent = [];
+    }
+
+    $now = now()->timestamp;
+
+    $recent = array_filter($recent, fn ($timestamp) => is_numeric($timestamp) && ((int) $timestamp + $ttlSeconds) >= $now);
+    $recent[(string) $order->id] = $now;
+
+    session([$key => $recent]);
+}
+
+private function hasRecentCheckoutOrderAccess(Order $order): bool
+{
+    $key = 'checkout_recent_success_orders';
+    $ttlSeconds = 30 * 60;
+    $recent = session($key, []);
+
+    if (! is_array($recent)) {
+        return false;
+    }
+
+    $timestamp = $recent[(string) $order->id] ?? null;
+    if (! is_numeric($timestamp)) {
+        return false;
+    }
+
+    return ((int) $timestamp + $ttlSeconds) >= now()->timestamp;
 }
 
 }
