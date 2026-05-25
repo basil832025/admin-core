@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Setting;
 use App\Models\Shop\LoyaltyAccount;
 use App\Models\Shop\LoyaltyRule;
 use App\Models\Shop\LoyaltyTransaction;
@@ -11,6 +12,9 @@ use Illuminate\Support\Facades\DB;
 
 class LoyaltyService
 {
+    public const EARN_BASE_GROSS = 'gross';
+    public const EARN_BASE_NET_AFTER_DISCOUNTS = 'net_after_discounts';
+
     // App\Services\LoyaltyService.php
 
 
@@ -58,9 +62,17 @@ class LoyaltyService
      */
     public function previewEarnForCart(float $itemsTotal, float $discount = 0.0): float
     {
-        $base = max($itemsTotal - $discount, 0);
+        $base = $this->resolveEarnBaseForCart($itemsTotal, $discount);
 
         return $this->previewEarnForSum($base);
+    }
+
+    public function resolveEarnBaseForCart(float $itemsTotal, float $discount = 0.0): float
+    {
+        return match ($this->earnBaseMode()) {
+            self::EARN_BASE_NET_AFTER_DISCOUNTS => max($itemsTotal - $discount, 0),
+            default => max($itemsTotal, 0),
+        };
     }
 
     /**
@@ -169,14 +181,7 @@ class LoyaltyService
             return;
         }
 
-        // Сумма для начисления:
-        // сначала total_price_sale, потом grand_total, потом total_price.
-        $sumForBonus = (float) (
-            $order->total_price_sale
-            ?? $order->grand_total
-            ?? $order->total_price
-            ?? 0
-        );
+        $sumForBonus = $this->resolveEarnBaseForOrder($order);
 
         if ($rule->min_order_sum_for_earn && $sumForBonus < (float) $rule->min_order_sum_for_earn) {
             return;
@@ -215,6 +220,45 @@ class LoyaltyService
             $account->balance = $tx->balance_after;
             $account->save();
         });
+    }
+
+    public function resolveEarnBaseForOrder(Order $order): float
+    {
+        $subtotal = (float) ($order->subtotal ?? 0);
+        $discountTotal = (float) ($order->discount_total ?? 0);
+
+        if (abs($discountTotal) < 0.0001) {
+            $discountTotal = (float) $order->adjustments()
+                ->whereNull('shop_order_item_id')
+                ->whereNotIn('type', ['loyalty', 'loyalty_spent', 'bonus_spent'])
+                ->sum('amount');
+        }
+
+        if ($subtotal <= 0) {
+            $subtotal = (float) ($order->total_price ?? $order->grand_total ?? 0);
+        }
+
+        return match ($this->earnBaseMode()) {
+            self::EARN_BASE_NET_AFTER_DISCOUNTS => max($subtotal + $discountTotal, 0),
+            default => max($subtotal, 0),
+        };
+    }
+
+    public function earnBaseMode(): string
+    {
+        $mode = (string) Setting::admin('loyalty.earn_base_mode', self::EARN_BASE_GROSS);
+
+        return in_array($mode, [self::EARN_BASE_GROSS, self::EARN_BASE_NET_AFTER_DISCOUNTS], true)
+            ? $mode
+            : self::EARN_BASE_GROSS;
+    }
+
+    public static function earnBaseModeOptions(): array
+    {
+        return [
+            self::EARN_BASE_GROSS => 'Від суми без знижок',
+            self::EARN_BASE_NET_AFTER_DISCOUNTS => 'Від суми зі всіма знижками',
+        ];
     }
 
     /**

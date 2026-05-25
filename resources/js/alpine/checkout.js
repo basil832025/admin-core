@@ -65,6 +65,30 @@ function debounce(fn, wait) {
     };
 }
 
+function getShippingMethodValue(root = document) {
+    const checked = root.querySelector('input[name="shipping_method"]:checked');
+    if (checked && checked.value) return String(checked.value).trim();
+
+    const direct = root.querySelector('[name="shipping_method"]');
+    if (direct && direct.value) return String(direct.value).trim();
+
+    return 'delivery';
+}
+
+function getSelectedAddressRadio(root = document) {
+    const checked = root.querySelector('input[name="selected_address_id"]:checked');
+    if (checked) return checked;
+
+    const selectedId = String(root.querySelector('#selected_address_id')?.value || '').trim();
+    if (!selectedId) return null;
+
+    const esc = (window.CSS && typeof window.CSS.escape === 'function')
+        ? window.CSS.escape(selectedId)
+        : selectedId.replace(/(["\\\]])/g, '\\$1');
+    const byValue = root.querySelector(`input[name="selected_address_id"][value="${esc}"]`);
+    return byValue || null;
+}
+
 
 /* =========================================================
  * Debug helpers (enable via: localStorage.checkoutDebug="1")
@@ -104,6 +128,9 @@ function deliveryBlock() {
     return {
         mode: 'asap',
         fpDate: null,
+        scheduleV2: null,
+        availableDates: [],
+        asapEnabled: true,
 
         allTimeIntervals: [],
         availableTimeIntervals: [],
@@ -117,6 +144,7 @@ function deliveryBlock() {
         // Debounce timer для checkPromoConditions (используем глобальный для всех вызовов)
 
         init() {
+            this.scheduleV2 = window.CHECKOUT_CONFIG?.scheduleV2 || null;
             // flatpickr locale (RU)
             const ruLocale = {
                 firstDayOfWeek: 1,
@@ -269,12 +297,91 @@ function deliveryBlock() {
             this.$watch('availableTimeIntervals', () => {
                 if (this.mode === 'fixed') this.$nextTick(() => autoPickTimeIfNeeded());
             });
+
+            document.addEventListener('change', (e) => {
+                if (e.target?.matches('[name="shipping_method"]')) {
+                    this.applyScheduleV2Availability();
+                    this.updateAvailableTimeIntervals();
+                }
+            });
+
+            this.applyScheduleV2Availability();
+        },
+
+        getCurrentShippingMethod() {
+            const form = document.querySelector('[data-checkout-form]');
+            const checked = form?.querySelector('input[name="shipping_method"]:checked');
+            if (checked?.value) return String(checked.value).trim();
+
+            return form?.querySelector('[name="shipping_method"]')?.value || 'delivery';
+        },
+
+        getScheduleV2MethodPayload() {
+            if (!this.scheduleV2 || !this.scheduleV2.enabled) return null;
+            return this.scheduleV2.methods?.[this.getCurrentShippingMethod()] || null;
+        },
+
+        applyScheduleV2Availability() {
+            const payload = this.getScheduleV2MethodPayload();
+            if (!payload) return;
+
+            this.availableDates = Array.isArray(payload.available_dates) ? payload.available_dates : [];
+            this.asapEnabled = !!payload.asap_available;
+
+            const asapRadio = this.$el?.querySelector('input[type="radio"][value="asap"]');
+            if (asapRadio) {
+                asapRadio.disabled = !this.asapEnabled;
+            }
+
+            if (!this.asapEnabled && this.mode === 'asap') {
+                this.mode = 'fixed';
+            }
+
+            if (this.fpDate) {
+                this.fpDate.set('enable', this.availableDates);
+                if (this.availableDates.length === 0) {
+                    this.fpDate.clear();
+                    this.availableTimeIntervals = [];
+                    this.selectedTime = '';
+                    return;
+                }
+
+                const currentDate = this.$refs.date?.value || '';
+                if (!currentDate || !this.availableDates.includes(currentDate)) {
+                    this.fpDate.setDate(payload.next_available_date || this.availableDates[0], true);
+                }
+            }
         },
 
         /**
          * Filters intervals for "today" based on leadMinutes
          */
         updateAvailableTimeIntervals() {
+            const methodPayload = this.getScheduleV2MethodPayload();
+            if (methodPayload) {
+                if (!this.$refs.date || !this.fpDate) {
+                    this.availableTimeIntervals = [];
+                    return;
+                }
+
+                const selectedDate = this.fpDate.selectedDates?.[0];
+                if (!selectedDate) {
+                    this.availableTimeIntervals = [];
+                    return;
+                }
+
+                const y = selectedDate.getFullYear();
+                const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                const d = String(selectedDate.getDate()).padStart(2, '0');
+                const dateKey = `${y}-${m}-${d}`;
+
+                this.availableTimeIntervals = methodPayload.slots_by_date?.[dateKey] || [];
+                if (this.selectedTime && !this.availableTimeIntervals.includes(this.selectedTime)) {
+                    this.selectedTime = '';
+                }
+                return;
+            }
+
             if (!this.$refs.date || !this.fpDate) {
                 this.availableTimeIntervals = this.allTimeIntervals || [];
                 return;
@@ -450,9 +557,14 @@ function deliveryBlock() {
 
             // switching to fixed => set default date (today)
             if (this.fpDate && !this.$refs.date.value) {
-                const d = new Date();
-                const t = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                this.fpDate.setDate(t, true);
+                const payload = this.getScheduleV2MethodPayload();
+                if (payload?.next_available_date) {
+                    this.fpDate.setDate(payload.next_available_date, true);
+                } else {
+                    const d = new Date();
+                    const t = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                    this.fpDate.setDate(t, true);
+                }
             }
 
             // ensure intervals & auto-pick
@@ -517,15 +629,27 @@ window.availablePromosComponent = function (initialSelected) {
                     // totals (big)
                     const totalUahEl = document.querySelector('[data-checkout-total-uah]');
                     const totalKopEl = document.querySelector('[data-checkout-total-kop]');
+                    const bonusEarnEl = document.querySelector('[data-checkout-bonus-earn]');
 
                     if (totalUahEl) totalUahEl.textContent = data.total_uah_formatted ?? data.total_uah;
                     if (totalKopEl) totalKopEl.textContent = data.total_kop;
+                    if (bonusEarnEl && data.bonus_earn !== undefined) bonusEarnEl.textContent = data.bonus_earn;
 
                     // re-render totals if needed
                     if (window.checkoutTotals && typeof window.checkoutTotals.setPromoDiscount === 'function') {
-                        window.checkoutTotals.setPromoDiscount(0);
+                        window.checkoutTotals.setPromoDiscount(0, { skipDeliveryRecalc: true });
+                        if (data.shipping !== undefined) {
+                            window.checkoutTotals.setShipping(Number(data.shipping || 0));
+                        } else {
+                            queueUnifiedDeliveryRecalc('available-promo-change-fallback');
+                        }
                     } else if (window.checkoutTotals && typeof window.checkoutTotals.render === 'function') {
                         window.checkoutTotals.render();
+                        if (data.shipping !== undefined) {
+                            window.checkoutTotals.setShipping(Number(data.shipping || 0));
+                        } else {
+                            queueUnifiedDeliveryRecalc('available-promo-change-fallback');
+                        }
                     }
                 })
                 .catch(() => {});
@@ -755,6 +879,12 @@ window.checkoutTotals = {
         };
     },
 
+    getDeliveryBase() {
+        const { sub, disc, bonus } = this.readBase();
+
+        return Math.max(sub - disc - bonus - (this.promoDiscount || 0), 0);
+    },
+
     setShipping(v) {
         this.shipping = Number(v || 0);
 
@@ -778,9 +908,12 @@ window.checkoutTotals = {
     },
 
 
-    setPromoDiscount(v) {
+    setPromoDiscount(v, opts = {}) {
         this.promoDiscount = Number(v || 0);
         this.render();
+        if (!opts.skipDeliveryRecalc) {
+            queueUnifiedDeliveryRecalc('promo-discount-change');
+        }
     },
 
     render() {
@@ -792,11 +925,7 @@ window.checkoutTotals = {
         const shipInput = document.querySelector('[data-shipping-price-input]');
         if (shipInput) shipInput.value = String(this.shipping || 0);
 
-        const { sub, disc, bonus } = this.readBase();
-
-        const total =
-            Math.max(sub - disc - bonus - (this.promoDiscount || 0), 0) +
-            (this.shipping || 0);
+        const total = this.getDeliveryBase() + (this.shipping || 0);
 
         const uah = Math.floor(total);
         let kop = Math.round((total - uah) * 100);
@@ -884,8 +1013,8 @@ function bindCheckoutAutosave() {
             contact_phone: document.getElementById('contact_phone')?.value || '',
             contact_email: document.getElementById('contact_email')?.value || '',
 
-            shipping_method: form.querySelector('[name="shipping_method"]')?.value || '',
-            selected_address_id: document.querySelector('input[name="selected_address_id"]:checked')?.value || null,
+            shipping_method: getShippingMethodValue(form),
+            selected_address_id: getSelectedAddressRadio(document)?.value || document.querySelector('#selected_address_id')?.value || null,
 
             use_new_address: document.querySelector('[name="use_new_address"]')?.value
                 || (document.querySelector('[name="use_new_address"]')?.checked ? 1 : 0)
@@ -921,6 +1050,8 @@ function bindCheckoutAutosave() {
             addr_comment: form.querySelector('[name="addr[comment]"]')?.value || '',
             addr_is_private_house: form.querySelector('[name="addr[is_private_house]"]')?.checked ? '1' : '0',
             addr_type: form.querySelector('[name="addr[type]"]')?.value || '',
+            addr_lat: document.getElementById('checkout-addr-lat')?.value || '',
+            addr_lng: document.getElementById('checkout-addr-lng')?.value || '',
 
             use_bonus: form.querySelector('[name="use_bonus"]')?.checked ? '1' : '0',
             bonus_amount: form.querySelector('[name="bonus_amount"]')?.value || '0',
@@ -1103,12 +1234,7 @@ function calcShippingByCoords(lat, lng) {
             const price    = z ? (parseFloat(z.delivery_price) || 0) : (parseFloat(area.price) || 0);
             const zoneName = z ? (z.name || group) : (group || '');
 
-            const itemsTotal = Money.parse(document.querySelector('[data-checkout-subtotal]')?.textContent);
-            const discount   = Money.parse(document.querySelector('[data-checkout-discount]')?.textContent);
-            const bonus      = Money.parse(document.querySelector('[data-checkout-bonus]')?.textContent);
-            const promo      = window.checkoutTotals?.promoDiscount || 0;
-
-            const base = Math.max(itemsTotal - discount - bonus - promo, 0);
+            const base = window.checkoutTotals?.getDeliveryBase?.() ?? 0;
             const shipping = (freeFrom > 0 && base >= freeFrom) ? 0 : price;
      //       dlog('shipping result', { freeFrom, price, base, shipping, zoneName, rawKey, group });
 
@@ -1122,14 +1248,14 @@ function bindDeliveryRecalc() {
     document.addEventListener('change', (e) => {
         const t = e.target;
         if (t && t.matches('input[name="selected_address_id"]')) {
-            handleSavedAddressChange(t);
+            queueUnifiedDeliveryRecalc('selected-address-change');
         }
     });
 
     // initial recalc
-    const checked = document.querySelector('input[name="selected_address_id"]:checked');
+    const checked = getSelectedAddressRadio(document);
     if (checked) {
-        handleSavedAddressChange(checked);
+        queueUnifiedDeliveryRecalc('initial-selected-address');
     } else {
         window.checkoutTotals.render();
     }
@@ -1140,18 +1266,14 @@ function bindDeliveryRecalc() {
 
     const triggerNew = () => {
         const useNew = document.querySelector('[name="use_new_address"]')?.value === '1';
-        const method = document.querySelector('[name="shipping_method"]')?.value === 'delivery';
+        const method = getShippingMethodValue(document) === 'delivery';
         if (!useNew || !method) return;
 
         const lat = latEl?.value;
         const lng = lngEl?.value;
         if (!lat || !lng) return;
 
-        calcShippingByCoords(lat, lng).then(({ shipping, zone }) => {
-            const z = document.querySelector('[data-delivery-zone-input]');
-            if (z) z.value = zone || '';
-            window.checkoutTotals.setShipping(shipping);
-        });
+        queueUnifiedDeliveryRecalc('new-address-coords-change');
     };
 
     if (latEl && lngEl) {
@@ -1160,6 +1282,33 @@ function bindDeliveryRecalc() {
         latEl.addEventListener('change', triggerNew);
         lngEl.addEventListener('change', triggerNew);
     }
+
+    document.addEventListener('input', (e) => {
+        const t = e.target;
+        if (!t) return;
+
+        if (t.matches('[name="bonus_amount"]')) {
+            queueUnifiedDeliveryRecalc('bonus-amount-input');
+        }
+    });
+
+    document.addEventListener('change', (e) => {
+        const t = e.target;
+        if (!t) return;
+
+        if (t.matches('[name="shipping_method"]')) {
+            const shippingMethod = t.value || 'delivery';
+            if (shippingMethod !== 'delivery') {
+                applyShippingResult({ shipping: 0, zone: '' });
+            } else {
+                queueUnifiedDeliveryRecalc('shipping-method-change');
+            }
+        }
+
+        if (t.matches('[name="use_bonus"], [name="bonus_amount"]')) {
+            queueUnifiedDeliveryRecalc('bonus-change');
+        }
+    });
 }
 
 /**
@@ -1167,12 +1316,12 @@ function bindDeliveryRecalc() {
  * - если есть координаты в data-атрибутах — сразу считаем доставку
  * - если координат нет — запрашиваем у Google по строке адреса, сохраняем в БД и считаем доставку
  */
-function handleSavedAddressChange(radio) {
+function handleSavedAddressChange(radio, token = null) {
     const latRaw = radio.dataset.lat;
     const lngRaw = radio.dataset.lng;
 
     if (latRaw && lngRaw) {
-        calcShippingByCoords(latRaw, lngRaw).then(applyShippingResult);
+        calcShippingByCoords(latRaw, lngRaw).then((res) => applyShippingResult(res, token));
         return;
     }
 
@@ -1182,14 +1331,14 @@ function handleSavedAddressChange(radio) {
         if (typeof loadGoogleMapsOnce === 'function') {
             loadGoogleMapsOnce((ok) => {
                 if (ok) {
-                    handleSavedAddressChange(radio);
+                    handleSavedAddressChange(radio, token);
                 } else {
-                    window.checkoutTotals.setShipping(0);
+                    applyShippingResult({ shipping: 0, zone: '' }, token);
                 }
             });
         } else {
             // без Google Maps не можем посчитать доставку
-            window.checkoutTotals.setShipping(0);
+            applyShippingResult({ shipping: 0, zone: '' }, token);
         }
         return;
     }
@@ -1213,13 +1362,13 @@ function handleSavedAddressChange(radio) {
     }
 
     if (!addressString) {
-        window.checkoutTotals.setShipping(0);
+        applyShippingResult({ shipping: 0, zone: '' }, token);
         return;
     }
 
     // Используем Places API (как при сохранении нового адреса через Autocomplete)
     if (!google.maps.places || !google.maps.places.PlacesService) {
-        window.checkoutTotals.setShipping(0);
+        applyShippingResult({ shipping: 0, zone: '' }, token);
         return;
     }
 
@@ -1241,7 +1390,7 @@ function handleSavedAddressChange(radio) {
                 !results[0].geometry ||
                 !results[0].geometry.location
             ) {
-                window.checkoutTotals.setShipping(0);
+                applyShippingResult({ shipping: 0, zone: '' }, token);
                 return;
             }
 
@@ -1250,7 +1399,7 @@ function handleSavedAddressChange(radio) {
             const lngVal = typeof loc.lng === 'function' ? loc.lng() : loc.lng;
 
             if (latVal == null || lngVal == null) {
-                window.checkoutTotals.setShipping(0);
+                applyShippingResult({ shipping: 0, zone: '' }, token);
                 return;
             }
 
@@ -1282,12 +1431,16 @@ function handleSavedAddressChange(radio) {
             });
 
             // Теперь можем посчитать доставку по свежим координатам
-            calcShippingByCoords(lat, lng).then(applyShippingResult);
+            calcShippingByCoords(lat, lng).then((res) => applyShippingResult(res, token));
         }
     );
 }
 
-function applyShippingResult({ shipping, zone }) {
+function applyShippingResult({ shipping, zone }, token = null) {
+    if (token !== null && token !== undefined) {
+        if (token !== window.__deliveryRecalcToken) return;
+    }
+
     const zoneEl1 = document.querySelector('[data-delivery-zone-input]');
     const zoneEl2 = document.getElementById('checkout-delivery-zone');
 
@@ -1305,22 +1458,59 @@ function applyShippingResult({ shipping, zone }) {
     window.checkoutTotals.setShipping(shipping);
 }
 
+window.recalculateCheckoutDelivery = function () {
+    window.__deliveryRecalcToken = (window.__deliveryRecalcToken || 0) + 1;
+    const token = window.__deliveryRecalcToken;
+
+    const shippingMethod = getShippingMethodValue(document);
+
+    if (shippingMethod !== 'delivery') {
+        applyShippingResult({ shipping: 0, zone: '' }, token);
+        return;
+    }
+
+    const selectedAddress = getSelectedAddressRadio(document);
+    if (selectedAddress) {
+        handleSavedAddressChange(selectedAddress, token);
+        return;
+    }
+
+    const useNew = document.querySelector('[name="use_new_address"]')?.value === '1';
+    const lat = document.getElementById('checkout-addr-lat')?.value;
+    const lng = document.getElementById('checkout-addr-lng')?.value;
+
+    if (useNew && lat && lng) {
+        calcShippingByCoords(lat, lng).then((res) => applyShippingResult(res, token));
+        return;
+    }
+
+    applyShippingResult({ shipping: 0, zone: '' }, token);
+};
+
+const scheduleCheckoutDeliveryRecalc = (() => {
+    let timer = null;
+
+    return () => {
+        if (timer) {
+            clearTimeout(timer);
+        }
+
+        timer = setTimeout(() => {
+            timer = null;
+            window.recalculateCheckoutDelivery?.();
+        }, 150);
+    };
+})();
+
+function queueUnifiedDeliveryRecalc(_reason = 'unknown') {
+    scheduleCheckoutDeliveryRecalc();
+}
+
 /**
  * Public helper for manual recalc (kept from your file)
  */
 window.checkoutDeliveryRecalc = function () {
-    const r = document.querySelector('[name="selected_address_id"]:checked');
-    if (!r) return;
-
-    const lat = parseFloat(r.dataset.lat);
-    const lng = parseFloat(r.dataset.lng);
-    if (isNaN(lat) || isNaN(lng)) return;
-
-    calcShippingByCoords(lat, lng).then(({ shipping, zone }) => {
-        const z = document.querySelector('[data-delivery-zone-input]');
-        if (z) z.value = zone || '';
-        window.checkoutTotals.setShipping(shipping);
-    });
+    window.recalculateCheckoutDelivery?.();
 };
 
 /* =========================================================
@@ -1558,7 +1748,7 @@ function initCheckoutAutocomplete() {
                 const form = streetInput.closest('form');
                 if (form) {
                     form.addEventListener('submit', (e) => {
-                        const shippingMethod = (form.querySelector('input[name="shipping_method"]')?.value || '').trim();
+                        const shippingMethod = getShippingMethodValue(form);
                         if (shippingMethod === 'pickup' || streetInput.disabled) {
                             return;
                         }

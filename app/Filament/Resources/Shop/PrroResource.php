@@ -22,7 +22,7 @@ class PrroResource extends Resource
     protected static ?string $navigationLabel = 'ПРРО';
     protected static ?string $modelLabel = 'ПРРО';
     protected static ?string $pluralModelLabel = 'ПРРО';
-    protected static ?string $navigationGroup = 'Настройки';
+    protected static ?string $navigationGroup = null;
     protected static ?int $navigationSort = 96;
 
     protected static function canAccessModule(): bool
@@ -302,4 +302,9 @@ class PrroResource extends Resource
 
         return $decoded;
     }
+    public static function getNavigationGroup(): ?string
+    {
+        return __('admin.nav.groups.settings');
+    }
+
 }

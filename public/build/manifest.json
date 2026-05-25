@@ -18,13 +18,13 @@
     "src": "resources/fonts/intro/intro_regular.ttf"
   },
   "resources/js/alpine/checkout.js": {
-    "file": "assets/checkout-CKaXC5g1.js",
+    "file": "assets/checkout-D5w36HKX.js",
     "name": "checkout",
     "src": "resources/js/alpine/checkout.js",
     "isDynamicEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-BaSt5fny.js",
+    "file": "assets/app-BrK7q6e3.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,

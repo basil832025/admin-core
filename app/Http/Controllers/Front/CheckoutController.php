@@ -20,6 +20,8 @@ use App\Models\Shop\OrderItem;
 use App\Models\Shop\Product;
 //use App\Models\Shop\FixedDiscount;
 use App\Models\Shop\TimeDiscount;
+use App\Services\DeliveryCalculationService;
+use App\Services\ScheduleV2Service;
 use App\Services\LiqPayService;
 use App\Mail\OrderNotificationMail;
 use App\Mail\OrderClientMail;
@@ -31,6 +33,8 @@ class CheckoutController extends Controller
     public function __construct(
         private readonly CartService $cart,
         private readonly LoyaltyService $loyalty,
+        private readonly DeliveryCalculationService $deliveryCalculation,
+        private readonly ScheduleV2Service $scheduleV2,
     ) {}
 
 /**
@@ -141,8 +145,13 @@ public function index()
         ->whereIn('id', $productIds)
         ->get();
 
-    // Генерируем временные интервалы для доставки
+    // Генерируем временные интервалы для доставки (legacy fallback)
     $timeIntervals = $this->getDeliveryTimeIntervals($locations);
+
+    $primaryLocation = $locations->firstWhere('schedule_v2_enabled', true) ?? $locations->first();
+    $scheduleV2Payload = $primaryLocation
+        ? $this->scheduleV2->buildPayload($primaryLocation, now('Europe/Kyiv'), 14)
+        : ['enabled' => false, 'timezone' => 'Europe/Kyiv', 'now' => now('Europe/Kyiv')->toIso8601String(), 'methods' => []];
 
 // локаль сайта
     $locale = app()->getLocale();
@@ -190,6 +199,7 @@ public function index()
         'availablePromos' => $availablePromos,
         'sessionData' => $sessionData,
         'timeIntervals' => $timeIntervals,
+        'scheduleV2' => $scheduleV2Payload,
     ]);
 }
 
@@ -357,6 +367,12 @@ public function saveFormData(Request $request)
     if ($request->has('addr_type')) {
         $data['addr_type'] = $request->input('addr_type');
     }
+    if ($request->has('addr_lat')) {
+        $data['addr_lat'] = $request->input('addr_lat');
+    }
+    if ($request->has('addr_lng')) {
+        $data['addr_lng'] = $request->input('addr_lng');
+    }
     if ($request->has('delivery_zone')) {
         $data['delivery_zone'] = $request->input('delivery_zone');
     }
@@ -505,12 +521,30 @@ public function saveFormData(Request $request)
                 } else {
                     // новый адрес — сохранённого id нет
                     $order->client_address_id = null;
+                    $order->address = [
+                        'street' => $mergedData['addr_street'] ?? null,
+                        'house' => $mergedData['addr_house'] ?? null,
+                        'apartment' => $mergedData['addr_apartment'] ?? null,
+                        'intercom' => $mergedData['addr_intercom'] ?? null,
+                        'floor' => $mergedData['addr_floor'] ?? null,
+                        'entrance' => $mergedData['addr_porch'] ?? null,
+                        'note' => $mergedData['addr_comment'] ?? null,
+                        'is_private_house' => ! empty($mergedData['addr_is_private_house']),
+                        'type' => $mergedData['addr_type'] ?? null,
+                        'city' => 'Київ',
+                        'latitude' => filled($mergedData['addr_lat'] ?? null) ? (float) $mergedData['addr_lat'] : null,
+                        'longitude' => filled($mergedData['addr_lng'] ?? null) ? (float) $mergedData['addr_lng'] : null,
+                    ];
                 }
             }
 
             if ($shippingMethod !== 'pickup' && ! $useNew && empty($mergedData['selected_address_id'])) {
                 $order->shipping_price = 0;
             }
+
+            $order->shipping_total = $shippingMethod === 'pickup'
+                ? 0
+                : max(0, (float) ($order->shipping_price ?? 0));
 
             $selection = (string) ($mergedData['selected_promo'] ?? session('checkout.selected_promo', 'none'));
             $pricing = app(OrderPricing::class);
@@ -548,6 +582,7 @@ public function saveFormData(Request $request)
             $useBonus = !empty($mergedData['use_bonus']);
             $bonusAmount = $useBonus ? max(0, (float) ($mergedData['bonus_amount'] ?? 0)) : 0.0;
             $order->sale_sum = $bonusAmount;
+            $this->recalculateOrderShipping($order);
             $order->grand_total = $this->calculatePayableTotal($order);
 
             $order->save();
@@ -594,6 +629,7 @@ public function updatePromo(Request $request)
             'selection' => $selection,
             'discount'  => 0,
             'total'     => $baseTotal,
+            'bonus_earn' => $this->loyalty->previewEarnForCart($baseTotal, 0),
             'discount_formatted' => number_format(0, 2, ',', ' ') . ' грн',
             'total_formatted'    => number_format($baseTotal, 2, ',', ' ') . ' грн',
             'total_uah'          => (int) floor($baseTotal),
@@ -623,6 +659,35 @@ public function updatePromo(Request $request)
         $pricing->recalc($order);
     }
 
+    $sessionData = session('checkout.form_data', []);
+
+    $shippingMethod = (string) ($sessionData['shipping_method'] ?? ($order->self_pickup ? 'pickup' : 'delivery'));
+    $order->shipping_method = $shippingMethod;
+    $order->self_pickup = $shippingMethod === 'pickup';
+
+    $selectedAddressId = (int) ($sessionData['selected_address_id'] ?? 0);
+    if (!empty($sessionData['use_new_address'])) {
+        $lat = (float) ($sessionData['addr_lat'] ?? 0);
+        $lng = (float) ($sessionData['addr_lng'] ?? 0);
+
+        if ($lat && $lng) {
+            $order->address = array_merge((array) ($order->address ?? []), [
+                'latitude' => $lat,
+                'longitude' => $lng,
+                'street' => (string) ($sessionData['addr_street'] ?? ''),
+                'house' => (string) ($sessionData['addr_house'] ?? ''),
+            ]);
+        }
+    } elseif ($selectedAddressId > 0) {
+        $order->client_address_id = $selectedAddressId;
+    }
+
+    $useBonus = !empty($sessionData['use_bonus']);
+    $order->sale_sum = $useBonus ? max(0, (float) ($sessionData['bonus_amount'] ?? 0)) : 0.0;
+    $this->recalculateOrderShipping($order);
+    $order->grand_total = $this->calculatePayableTotal($order);
+    $order->save();
+
     // 3) Берём результат из БД (adjustments уже записаны)
     $discount = abs((float) $order->adjustments()
         ->whereNull('shop_order_item_id')
@@ -630,6 +695,9 @@ public function updatePromo(Request $request)
         ->sum('amount')); // amount отрицательный, поэтому abs()
 
     $total = (float) ($order->grand_total ?? 0);
+    $itemsTotal = (float) ($order->total_price ?? 0);
+    $bonusEarn = $this->loyalty->previewEarnForCart($itemsTotal, $discount);
+    $shipping = (float) ($order->shipping_total ?? $order->shipping_price ?? 0);
 
     session(['checkout.promo_discount' => $discount]);
 
@@ -642,6 +710,8 @@ public function updatePromo(Request $request)
 
         'discount'  => $discount,
         'total'     => $total,
+        'shipping'  => $shipping,
+        'bonus_earn' => $bonusEarn,
 
         'discount_formatted' => number_format($discount, 2, ',', ' ') . ' грн',
         'total_formatted'    => number_format($total, 2, ',', ' ') . ' грн',
@@ -673,7 +743,7 @@ public function applyCoupon(Request $request)
         if (! $promo) {
             return response()->json([
                 'ok'   => false,
-                'mess' => 'Промокод не найден или не активен',
+                'mess' => st('checkout.promo.not_found_or_inactive', 'Промокод не найден или не активен'),
             ]);
         }
 
@@ -684,7 +754,7 @@ public function applyCoupon(Request $request)
         if (! $promo->canApplyForClient($clientId)) {
             return response()->json([
                 'ok'   => false,
-                'mess' => 'Этот промокод сейчас нельзя применить',
+                'mess' => st('checkout.promo.unavailable_now', 'Этот промокод сейчас нельзя применить'),
             ]);
         }
 
@@ -693,7 +763,7 @@ public function applyCoupon(Request $request)
         if (empty($cartItems)) {
             return response()->json([
                 'ok'   => false,
-                'mess' => 'Корзина пуста',
+                'mess' => st('checkout.promo.cart_empty', 'Корзина пуста'),
             ]);
         }
 
@@ -735,7 +805,7 @@ public function applyCoupon(Request $request)
         if ($amount >= 0.0) {
             return response()->json([
                 'ok'   => false,
-                'mess' => 'Промокод не даёт скидки для текущих товаров',
+                'mess' => st('checkout.promo.no_discount_for_items', 'Промокод не даёт скидки для текущих товаров'),
             ]);
         }
 
@@ -743,7 +813,7 @@ public function applyCoupon(Request $request)
             'ok'       => true,
             'code'     => $promo->code,
             'discount' => round(abs($amount), 2),
-            'message'  => 'Промокод застосовано',
+            'message'  => st('checkout.promo.applied', 'Промокод застосовано'),
         ]);
 
     } catch (\Throwable $e) {
@@ -881,6 +951,7 @@ public function submit(Request $request)
             $addressSnapshot = $address->only([
                 'street', 'house', 'apartment', 'intercom', 'floor',
                 'entrance', 'comment', 'is_private_house', 'type', 'city',
+                'latitude', 'longitude',
             ]);
         }
     }
@@ -999,6 +1070,7 @@ public function submit(Request $request)
 
         'total_price'       => $itemsTotal,
         'shipping_price'    => $shippingMethod === 'pickup' ? 0 : ($order->shipping_price ?? 0),
+        'shipping_total'    => $shippingMethod === 'pickup' ? 0 : ($order->shipping_price ?? 0),
     ]);
 
     $order->dat        = now()->toDateString();       // yyyy-mm-dd
@@ -1151,6 +1223,7 @@ public function submit(Request $request)
 
     $order->sale_sum = max(0, round($used, 2));
     $order->total_price_sale = max(0, round((float) $order->total_price - (float) $order->sale_sum, 2));
+    $this->recalculateOrderShipping($order);
     $order->save();
 
     // === 9.1 Финальный пересчёт grand_total для оплаты / Filament ===
@@ -1562,6 +1635,28 @@ private function calculatePayableTotal(Order $order): float
     $goodsTotal = max(0, round($itemsTotal + $adjustmentsTotal - $bonusTotal, 2));
 
     return max(0, round($goodsTotal + $shipping, 2));
+}
+
+private function recalculateOrderShipping(Order $order): void
+{
+    $shippingMethod = (string) ($order->shipping_method ?? ($order->self_pickup ? 'pickup' : 'delivery'));
+
+    if ($shippingMethod !== 'delivery' || (bool) ($order->self_pickup ?? false)) {
+        $order->shipping_price = 0;
+        $order->shipping_total = 0;
+
+        return;
+    }
+
+    // В этом месте адрес/ID адреса могли только что измениться,
+    // поэтому принудительно перезагружаем связь, а не loadMissing.
+    $order->load('clientAddress');
+
+    $delivery = $this->deliveryCalculation->calculateDelivery($order, $order->resolveDeliveryBaseAmount());
+    $shipping = max(0, (float) ($delivery['price'] ?? 0));
+
+    $order->shipping_price = $shipping;
+    $order->shipping_total = $shipping;
 }
 
 private function syncCheckoutStateWithCart(array $items, array $sessionData): array

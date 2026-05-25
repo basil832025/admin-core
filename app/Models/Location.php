@@ -21,6 +21,8 @@ class Location extends Model
         'phones',
         'emails',
         'schedule',
+        'schedule_v2_enabled',
+        'schedule_v2',
         'is_active',
         'sort',
         'slug',
@@ -33,6 +35,8 @@ class Location extends Model
         'phones'   => 'array',
         'emails'   => 'array',
         'schedule' => 'array',
+        'schedule_v2' => 'array',
+        'schedule_v2_enabled' => 'boolean',
         'is_active'=> 'boolean',
     ];
     public $translatable = [

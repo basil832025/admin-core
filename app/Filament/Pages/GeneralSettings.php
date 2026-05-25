@@ -29,6 +29,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
+use App\Services\LoyaltyService;
 use App\Services\PrintNode\KitchenDuplicatePrintService;
 use Wiebenieuwenhuis\FilamentCodeEditor\Components\CodeEditor;
 
@@ -37,7 +38,7 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
 
     use Forms\Concerns\InteractsWithForms;
     public array $admin_settings = [];
-    protected static ?string $navigationGroup = 'Настройки';
+    protected static ?string $navigationGroup = null;
     protected static ?string $navigationLabel = 'Общие настройки сайта';
     protected static ?string $navigationIcon  = 'heroicon-o-cog-6-tooth';
     protected static string $view             = 'filament.pages.general-settings';
@@ -321,6 +322,20 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
                         ->required()
                         ->helperText('Выберите способ авторизации: только по телефону с SMS-кодом или телефон + пароль с дополнительной SMS-подтверждением'),
                 ])
+                ->compact(),
+
+            Section::make('Бонусна програма')
+                ->description('Оберіть, від якої суми нараховувати бонуси клієнту.')
+                ->schema([
+                    Select::make('loyalty.earn_base_mode')
+                        ->label('База для нарахування бонусів')
+                        ->options(LoyaltyService::earnBaseModeOptions())
+                        ->default(LoyaltyService::EARN_BASE_GROSS)
+                        ->native(false)
+                        ->required()
+                        ->helperText('Поточний вибір впливає і на розрахунок у кошику, і на фактичне нарахування бонусів після оплати замовлення.'),
+                ])
+                ->statePath('admin_settings')
                 ->compact(),
         ]);
     }
@@ -670,4 +685,9 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
                 ->send();
         }
     }
+    public static function getNavigationGroup(): ?string
+    {
+        return __('admin.nav.groups.settings');
+    }
+
 }

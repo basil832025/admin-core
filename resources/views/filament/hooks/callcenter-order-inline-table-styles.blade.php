@@ -358,6 +358,13 @@
             min-height: 28px !important;
         }
 
+        .callcenter-items-table .callcenter-inline-input-discount {
+            min-height: 28px !important;
+            text-align: right !important;
+            color: #c2410c !important;
+            font-variant-numeric: tabular-nums;
+        }
+
         .callcenter-items-table .callcenter-inline-editable-wrapper .fi-input-wrp {
             display: none !important;
         }
@@ -385,6 +392,26 @@
             min-width: 0 !important;
             text-align: right !important;
             font-variant-numeric: tabular-nums;
+            line-height: 1.1 !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+        }
+
+        .callcenter-items-table .callcenter-inline-input-display.is-discount-display {
+            color: #c2410c;
+            font-weight: 700;
+        }
+
+        .callcenter-items-table .callcenter-inline-discount-wrapper.is-editing .fi-input-wrp-input {
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            width: 100% !important;
+            min-width: 0 !important;
+        }
+
+        .callcenter-items-table .callcenter-inline-discount-wrapper.is-editing .callcenter-inline-input-discount {
+            width: 100% !important;
+            min-width: 0 !important;
             line-height: 1.1 !important;
             padding-left: 0 !important;
             padding-right: 0 !important;
@@ -502,6 +529,22 @@
                 return number.toFixed(1).replace('.', ',');
             }
 
+            function formatTwoDecimals(value) {
+                const normalized = String(value).replace(',', '.').trim();
+
+                if (normalized === '') {
+                    return '';
+                }
+
+                const number = Number(normalized);
+
+                if (Number.isNaN(number)) {
+                    return String(value);
+                }
+
+                return number.toFixed(2).replace('.', ',');
+            }
+
             function escapeHtml(value) {
                 return String(value)
                     .replace(/&/g, '&amp;')
@@ -616,6 +659,7 @@
                 const editorContainer = editableWrapper?.querySelector('.fi-input-wrp') || input;
                 const isPriceInput = input.classList.contains('callcenter-inline-input-price');
                 const isQtyInput = input.classList.contains('callcenter-inline-input-qty');
+                const isDiscountInput = input.classList.contains('callcenter-inline-input-discount');
 
                 if (!display || !editorContainer) {
                     return;
@@ -625,10 +669,16 @@
                     display.classList.add('is-qty-display');
                 }
 
+                if (isDiscountInput) {
+                    display.classList.add('is-discount-display');
+                }
+
                 const updateDisplay = () => {
                     const value = (input.value || '').trim();
-                    const formatted = input.classList.contains('callcenter-inline-input-price')
+                    const formatted = isPriceInput
                         ? formatOneDecimal(value)
+                        : isDiscountInput
+                            ? formatTwoDecimals(value)
                         : value;
 
                     display.textContent = formatted || TEXT_EMPTY;
@@ -645,6 +695,13 @@
                 const openEditor = () => {
                     if (isPriceInput) {
                         const formatted = formatOneDecimal(input.value || '');
+                        if (formatted !== '') {
+                            input.value = formatted;
+                        }
+                    }
+
+                    if (isDiscountInput) {
+                        const formatted = formatTwoDecimals(input.value || '');
                         if (formatted !== '') {
                             input.value = formatted;
                         }
@@ -667,6 +724,13 @@
                         }
                     }
 
+                    if (isDiscountInput) {
+                        const formatted = formatTwoDecimals(input.value || '');
+                        if (formatted !== '') {
+                            input.value = formatted;
+                        }
+                    }
+
                     updateDisplay();
                     editorContainer.classList.add('callcenter-inline-hidden');
                     display.classList.remove('callcenter-inline-hidden');
@@ -675,7 +739,7 @@
                     }
                 };
 
-                display.addEventListener('click', openEditor);
+                display.addEventListener(isDiscountInput ? 'dblclick' : 'click', openEditor);
 
                 input.addEventListener('input', updateDisplay);
                 input.addEventListener('change', updateDisplay);
@@ -831,7 +895,7 @@
             }
 
             function initInlineEditors(root = document) {
-                root.querySelectorAll('.callcenter-items-table .callcenter-inline-input-price, .callcenter-items-table .callcenter-inline-input-qty').forEach(setupInput);
+                root.querySelectorAll('.callcenter-items-table .callcenter-inline-input-price, .callcenter-items-table .callcenter-inline-input-qty, .callcenter-items-table .callcenter-inline-input-discount').forEach(setupInput);
                 root.querySelectorAll('.callcenter-items-table .callcenter-inline-select').forEach(setupSelect);
             }
 

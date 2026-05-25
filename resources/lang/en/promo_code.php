@@ -16,7 +16,10 @@ return [
 
     'fields' => [
         'code'                      => 'Promo code',
+        'discount_type'             => 'Discount type',
         'percent'                   => 'Discount %',
+        'amount'                    => 'Discount, UAH',
+        'currency_suffix'           => 'UAH',
         'is_active'                 => 'Active',
         'starts_at'                 => 'Start date',
         'ends_at'                   => 'End date',
@@ -33,7 +36,8 @@ return [
 
     'columns' => [
         'code'          => 'Code',
-        'percent'       => 'Discount',
+        'discount_type' => 'Type',
+        'discount'      => 'Discount',
         'is_active'     => 'Active',
         'starts_at'     => 'Start',
         'ends_at'       => 'End',
@@ -51,5 +55,13 @@ return [
         'max_uses_empty'             => 'Empty = no limit',
         'characteristic_values_hint' => 'First select characteristic(s); only their values will be shown here.',
         'scope_description'         => 'Limit the promo code by groups, products and/or characteristics',
+        'fixed_amount_scope'        => 'A fixed amount applies only to products within the promo scope. If the discount exceeds the eligible subtotal, the remainder is discarded.',
+    ],
+
+    'options' => [
+        'discount_type' => [
+            'percent' => 'Percentage',
+            'fixed' => 'Fixed amount',
+        ],
     ],
 ];

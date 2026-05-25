@@ -31,7 +31,7 @@ class BannerResource extends Resource
     protected static ?string $model = Banner::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-photo';
-    protected static ?string $navigationGroup = 'Контент';
+    protected static ?string $navigationGroup = null;
     protected static ?string $navigationLabel = 'Баннери';
     protected static ?string $pluralLabel = 'Баннери';
     protected static ?string $modelLabel = 'Баннер';
@@ -392,4 +392,9 @@ class BannerResource extends Resource
             'edit'   => Pages\EditBanner::route('/{record}/edit'),
         ];
     }
+    public static function getNavigationGroup(): ?string
+    {
+        return __('admin.nav.groups.content');
+    }
+
 }

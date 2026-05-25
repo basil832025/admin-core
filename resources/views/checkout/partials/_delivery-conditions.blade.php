@@ -30,7 +30,7 @@
 
     <div class="flex flex-col md:flex-row md:items-center gap-4 mb-4">
         <label class="inline-flex items-center gap-2 cursor-pointer">
-            <input type="radio" value="asap"  x-model="mode" class="tp-radio" @checked($deliveryMode === 'asap')>
+            <input type="radio" value="asap"  x-model="mode" :disabled="!asapEnabled" class="tp-radio" @checked($deliveryMode === 'asap')>
             <span class="text-[16px] leading-[22px] text-[#272828]">
                 {{ st('cart.delivery.mode.asap', 'Якнайшвидше') }}
             </span>

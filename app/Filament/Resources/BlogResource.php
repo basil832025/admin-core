@@ -78,7 +78,7 @@ class BlogResource extends Resource
     {
         return __('blog.nav.plural_model_label');
     }
-    protected static ?string $navigationGroup = 'Контент';
+    protected static ?string $navigationGroup = null;
     protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
     public static function form(Form $form): Form
     {
@@ -485,4 +485,9 @@ class BlogResource extends Resource
 
         ];
     }
+    public static function getNavigationGroup(): ?string
+    {
+        return __('admin.nav.groups.content');
+    }
+
 }

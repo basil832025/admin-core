@@ -247,6 +247,7 @@ export default function authModal(opts = {}) {
         normalizePhone(val){
             let d = String(val || '').replace(/\D/g, '');
             if (d.startsWith('0')) d = '38' + d;
+            if (d.startsWith('3800')) d = '380' + d.slice(4);
             if (d.length === 9)  d = '380' + d;
             if (!d.startsWith('380') && d.length >= 10) d = '380' + d.slice(-9);
             return d;
@@ -735,12 +736,18 @@ export default function authModal(opts = {}) {
             try {
                 // Формируем полный номер телефона из кода страны и номера
                 const countryCode = (this.loginPhoneSmsData.countryCode || '+380').replace(/\+/g, '');
-                const phoneNumber = (this.loginPhoneSmsData.phoneNumber || '').replace(/\D/g, '');
+                let phoneNumber = (this.loginPhoneSmsData.phoneNumber || '').replace(/\D/g, '');
+
+                if (countryCode === '380') {
+                    phoneNumber = phoneNumber.replace(/^0+/, '');
+                }
                 
                 if (!phoneNumber) {
                     this.loginPhoneSmsError = t('auth.enter_phone', 'Вкажіть номер телефону');
                     return;
                 }
+
+                this.loginPhoneSmsData.phoneNumber = phoneNumber;
 
                 // Формируем полный номер для отображения
                 const fullPhoneDisplay = '+' + countryCode + ' ' + phoneNumber;
@@ -852,4 +859,3 @@ export default function authModal(opts = {}) {
         }
     };
 }
-

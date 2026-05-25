@@ -19,7 +19,7 @@ class MenuResource extends Resource
 {
     protected static ?string $model = Menu::class;
     protected static ?string $navigationIcon = 'heroicon-o-bars-3';
-    protected static ?string $navigationGroup = 'Контент';
+    protected static ?string $navigationGroup = null;
     protected static ?string $modelLabel = null;
     protected static ?string $pluralModelLabel = null;
 
@@ -200,4 +200,9 @@ class MenuResource extends Resource
          //   'items'  => Pages\ItemsTree::route('/{record}/items'),
         ];
     }
+    public static function getNavigationGroup(): ?string
+    {
+        return __('admin.nav.groups.content');
+    }
+
 }

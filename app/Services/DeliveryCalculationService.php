@@ -12,7 +12,7 @@ class DeliveryCalculationService
      * Рассчитывает стоимость доставки для заказа на основе адреса
      * 
      * @param Order $order
-     * @param float|null $orderTotal Сумма заказа без доставки (для проверки бесплатной доставки)
+     * @param float|null $orderTotal Фактически оплачиваемая сумма товаров без доставки
      * @return array ['price' => float, 'zone' => DeliveryZone|null, 'is_free' => bool]
      */
     public function calculateDelivery(Order $order, ?float $orderTotal = null): array
@@ -34,8 +34,11 @@ class DeliveryCalculationService
         // Если нет координат, пытаемся получить из clientAddress
         if (!$latitude || !$longitude) {
             if ($order->clientAddress) {
-                // Проверяем, есть ли координаты в clientAddress
-                // Если нет, возвращаем 0 (не можем определить зону)
+                $latitude = $order->clientAddress->latitude;
+                $longitude = $order->clientAddress->longitude;
+            }
+
+            if (! $latitude || ! $longitude) {
                 return [
                     'price' => 0,
                     'zone' => null,
@@ -57,9 +60,9 @@ class DeliveryCalculationService
             ];
         }
 
-        // Получаем сумму заказа для проверки бесплатной доставки
+        // Получаем фактически оплачиваемую сумму товаров для проверки бесплатной доставки
         if ($orderTotal === null) {
-            $orderTotal = (float)($order->total_price ?? $order->grand_total ?? 0);
+            $orderTotal = $order->resolveDeliveryBaseAmount();
         }
 
         // Проверяем, попадает ли заказ под бесплатную доставку

@@ -10,6 +10,17 @@ class EditPromoCode extends EditRecord
 {
     protected static string $resource = PromoCodeResource::class;
 
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        if (($data['discount_type'] ?? 'percent') === 'fixed') {
+            $data['percent'] = 0;
+        } else {
+            $data['amount'] = null;
+        }
+
+        return $data;
+    }
+
     protected function getHeaderActions(): array
     {
         return [

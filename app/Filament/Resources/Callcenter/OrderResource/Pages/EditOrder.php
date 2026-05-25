@@ -26,6 +26,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\HtmlString;
 
 class EditOrder extends EditRecord
@@ -56,11 +57,11 @@ class EditOrder extends EditRecord
         }
 
         if ($sourceName === '') {
-            return 'Змінити ' . $number;
+            return __('callcenter.pages.edit.heading', ['number' => $number]);
         }
 
         return new HtmlString(
-            'Змінити ' . e($number) . ' · <span style="color:#2563eb;font-weight:700;">' . e($sourceName) . '</span>'
+            e(__('callcenter.pages.edit.heading', ['number' => $number])) . ' · <span style="color:#2563eb;font-weight:700;">' . e($sourceName) . '</span>'
         );
     }
 
@@ -77,7 +78,7 @@ class EditOrder extends EditRecord
             return parent::getTitle();
         }
 
-        return 'Змінити ' . $number . ($sourceName !== '' ? (' · ' . $sourceName) : '');
+        return __('callcenter.pages.edit.heading', ['number' => $number]) . ($sourceName !== '' ? (' · ' . $sourceName) : '');
     }
 
     public function mount(int|string $record): void
@@ -118,10 +119,10 @@ class EditOrder extends EditRecord
             Action::make('print_kitchen')
                 ->label(function (): string {
                     $count = (int) ($this->record?->kitchen_print_count ?? 0);
-                    $base = 'Печать на кухню';
+                    $base = __('callcenter.actions.print_kitchen');
 
                     if ($count > 1) {
-                        return $base.' ('.$count.') Дубликат';
+                        return $base . ' (' . $count . ') ' . __('callcenter.actions.duplicate');
                     }
 
                     if ($count > 0) {
@@ -136,8 +137,8 @@ class EditOrder extends EditRecord
                     'data-hotkey' => 'cc-print-kitchen',
                     'data-hotkey-label' => 'Alt+R',
                 ])
-                ->modalHeading('Предпросмотр чека кухни')
-                ->modalDescription('Проверьте содержимое чека и укажите количество дубликатов перед печатью.')
+                ->modalHeading(__('callcenter.print.kitchen.preview_heading'))
+                ->modalDescription(__('callcenter.print.kitchen.preview_description'))
                 ->modalSubmitAction(false)
                 ->modalCancelAction(false)
                 ->fillForm(function (): array {
@@ -163,7 +164,7 @@ class EditOrder extends EditRecord
                     Grid::make(12)
                         ->schema([
                             TextInput::make('copies')
-                                ->label('Количество дубликатов')
+                                ->label(__('callcenter.print.kitchen.copies'))
                                 ->numeric()
                                 ->minValue(1)
                                 ->maxValue(20)
@@ -173,7 +174,7 @@ class EditOrder extends EditRecord
 
                             Actions::make([
                                 FormAction::make('printKitchenTop')
-                                    ->label('Печать')
+                                    ->label(__('callcenter.print.print'))
                                     ->color('primary')
                                     ->icon('heroicon-o-printer')
                                     ->action(function (callable $get, $livewire): void {
@@ -185,7 +186,7 @@ class EditOrder extends EditRecord
                                         }
                                     }),
                                 FormAction::make('closeKitchenTop')
-                                    ->label('Закрыть')
+                                    ->label(__('order.actions.cancel'))
                                     ->color('gray')
                                     ->action(function ($livewire): void {
                                         if (method_exists($livewire, 'unmountAction')) {
@@ -200,7 +201,7 @@ class EditOrder extends EditRecord
                                 ->columnSpan(9),
                         ]),
                     Placeholder::make('preview_render')
-                        ->label('Предпросмотр чека')
+                        ->label(__('callcenter.print.preview'))
                         ->content(fn (callable $get): HtmlString => $this->buildKitchenPreviewIframe((string) ($get('preview_html') ?? '')))
                         ->dehydrated(false)
                         ->columnSpanFull(),
@@ -210,12 +211,12 @@ class EditOrder extends EditRecord
                 }),
 
             Action::make('print_client_receipt_sidebar')
-                ->label('Клиентский чек')
+                ->label(__('callcenter.order.print_client_receipt'))
                 ->icon('heroicon-o-printer')
                 ->color('gray')
                 ->extraAttributes(['class' => 'hidden'])
-                ->modalHeading('Предпросмотр клиентского чека')
-                ->modalDescription('Проверьте содержимое чека и укажите количество копий перед печатью.')
+                ->modalHeading(__('callcenter.print.client.preview_heading'))
+                ->modalDescription(__('callcenter.print.client.preview_description'))
                 ->modalSubmitAction(false)
                 ->modalCancelAction(false)
                 ->fillForm(function (): array {
@@ -475,11 +476,6 @@ class EditOrder extends EditRecord
         if ($addr && $clientId) {
             $addr = $this->normalizeAddressCoordinates($addr);
 
-            // Persist full address in street (UX expects full string).
-            if (! empty($addr['formatted_address'])) {
-                $addr['street'] = $addr['formatted_address'];
-            }
-
             if ((string) $select === '-1' || empty($select)) {
                 // создать новый адрес
                 $new = ClientAddress::create($addr + ['client_id' => $clientId]);
@@ -628,36 +624,72 @@ class EditOrder extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        if (! (bool) data_get($this->data, 'date_order_manually_changed', false) && ! empty($data['dat'])) {
+            $data['date_order'] = $data['dat'];
+        }
+
+        if ((bool) ($data['self_pickup'] ?? false)) {
+            $data['shipping_method'] = in_array((string) ($data['shipping_method'] ?? ''), ['pickup', 'bolt', 'glovo'], true)
+                ? (string) $data['shipping_method']
+                : 'pickup';
+            $data['shipping_price'] = 0;
+            $data['shipping_total'] = 0;
+        } else {
+            $data['shipping_method'] = 'delivery';
+        }
+
         return $this->syncAddressOnSave($data);
     }
 
-    /*   protected function mutateFormDataBeforeFill(array $data): array
-       {
-           // гарантируем массив
-           $data['address'] = is_array($data['address'] ?? null) ? $data['address'] : [];
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        foreach (['dat', 'date_order'] as $field) {
+            $raw = $this->record?->getRawOriginal($field);
 
-           // гарантируем все ключи, чтобы entangle не падал
-           $data['address'] += [
-               'street_place_id'   => null,
-               'street'            => null,
-               'house'             => null,
-               'apartment'         => null,
-               'intercom'          => null,
-               'floor'             => null,
-               'entrance'          => null,
-               'zip'               => null,
-               'city'              => 'Київ',
-               'country'           => null,
-               'note'              => null,
-               'type'              => null,
-               'is_private_house'  => false,
-               'latitude'          => null,
-               'longitude'         => null,
-               'formatted_address' => null,
-           ];
+            if (! empty($raw)) {
+                $data[$field] = (string) $raw;
 
-           return $data;
-       }*/
+                continue;
+            }
+
+            if (! empty($data[$field])) {
+                $data[$field] = Carbon::parse((string) $data[$field], config('app.timezone'))->toDateString();
+            }
+        }
+
+        $data['address'] = is_array($data['address'] ?? null) ? $data['address'] : [];
+
+        $data['address'] += [
+            'street_place_id' => null,
+            'street' => null,
+            'house' => null,
+            'apartment' => null,
+            'intercom' => null,
+            'floor' => null,
+            'entrance' => null,
+            'zip' => null,
+            'city' => 'Київ',
+            'country' => null,
+            'note' => null,
+            'type' => null,
+            'is_private_house' => false,
+            'latitude' => null,
+            'longitude' => null,
+            'formatted_address' => null,
+        ];
+
+        if (empty($data['date_order']) && ! empty($data['dat'])) {
+            $data['date_order'] = $data['dat'];
+        }
+
+        $data['shipping_method'] = ! empty($data['self_pickup'])
+            ? (in_array((string) ($data['shipping_method'] ?? ''), ['pickup', 'bolt', 'glovo'], true)
+                ? (string) $data['shipping_method']
+                : 'pickup')
+            : 'delivery';
+
+        return $data;
+    }
     protected function afterSave(): void
     {
         $this->syncClientAddressCoordinatesFromOrder();

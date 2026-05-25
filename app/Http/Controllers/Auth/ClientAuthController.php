@@ -270,6 +270,7 @@ class ClientAuthController extends Controller
     {
         $d = preg_replace('/\D+/', '', $raw);   // тільки цифри
         if (Str::startsWith($d, '0'))  $d = '38'.$d; // 0XXXXXXXXX -> 380XXXXXXXXX
+        if (Str::startsWith($d, '3800')) $d = '380' . substr($d, 4);
         if (strlen($d) === 9)          $d = '380'.$d;
         if (Str::startsWith($d, '380') === false && strlen($d) >= 10) {
             // залишаємо останні 9 цифр + 380 (на випадок вставок з +38)

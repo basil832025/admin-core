@@ -35,6 +35,7 @@ class PhoneRegisterController extends Controller
     {
         $d = preg_replace('/\D+/', '', $raw);
         if (str_starts_with($d,'0')) $d = '38'.$d;
+        if (str_starts_with($d,'3800')) $d = '380'.substr($d, 4);
         if (strlen($d) === 9)       $d = '380'.$d;
         if (!str_starts_with($d,'380') && strlen($d) >= 10) $d = '380'.substr($d, -9);
         return $d;

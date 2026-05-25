@@ -16,7 +16,7 @@ trait HasMenuCatalogActions
     public function openMenuCatalogAction(): Action
     {
         return Action::make('menuCatalog')
-            ->label('Меню')
+            ->label(__('callcenter.actions.menu'))
             ->color('gray')
             ->icon('heroicon-m-squares-2x2')
             ->extraAttributes([
@@ -26,7 +26,7 @@ trait HasMenuCatalogActions
             ->slideOver()
             ->modalWidth('7xl')
             ->modalSubmitAction(false)
-            ->modalCancelActionLabel('Закрити')
+            ->modalCancelActionLabel(__('order.actions.cancel'))
             ->modalContent(fn () => view('filament.callcenter.menu-catalog-slide-over', [
                 'componentId' => method_exists($this, 'getId') ? $this->getId() : null,
                 'fetchUrl' => route('admin.callcenter.menu-catalog', absolute: false),
@@ -65,8 +65,53 @@ trait HasMenuCatalogActions
                 'unit_price' => (float) ($product->price ?? 0),
             ]);
 
-            app(OrderPricing::class)->recalc($this->record);
-            $this->record->recalculateTotalPrice();
+            $record = $this->record->fresh();
+            $pricing = app(OrderPricing::class);
+
+            $selectedTimeId = (int) ($state['ui_time_discount_id'] ?? 0);
+            $selectedFixedId = (int) ($state['ui_fixed_discount_id'] ?? 0);
+
+            if ($selectedTimeId > 0) {
+                $pricing->applyTimeExclusive($record, $selectedTimeId, 'single');
+            } elseif ($selectedFixedId > 0) {
+                $pricing->applyFixedExclusive($record, $selectedFixedId, 'single');
+            } else {
+                $timeAdj = $record->adjustments()
+                    ->where('type', 'time')
+                    ->whereNull('shop_order_item_id')
+                    ->latest('id')
+                    ->first();
+
+                if ($timeAdj) {
+                    $timeId = (int) (data_get($timeAdj->meta, 'id') ?? data_get($timeAdj->meta, 'time_discount_id') ?? 0);
+                    if ($timeId > 0) {
+                        $pricing->applyTimeExclusive($record, $timeId, 'single');
+                    } else {
+                        $pricing->recalc($record);
+                    }
+                } else {
+                    $fixedAdj = $record->adjustments()
+                        ->where('type', 'fixed')
+                        ->whereNull('shop_order_item_id')
+                        ->latest('id')
+                        ->first();
+
+                    if ($fixedAdj) {
+                        $fixedId = (int) (data_get($fixedAdj->meta, 'id') ?? data_get($fixedAdj->meta, 'fixed_discount_id') ?? 0);
+                        if ($fixedId > 0) {
+                            $pricing->applyFixedExclusive($record, $fixedId, 'single');
+                        } else {
+                            $pricing->recalc($record);
+                        }
+                    } else {
+                        $pricing->recalc($record);
+                    }
+                }
+            }
+
+            $record = $record->fresh();
+            $record->recalculateTotalPrice();
+            $this->record = $record->fresh();
 
             // И сразу отражаем в текущем состоянии формы, чтобы не закрывать меню.
             $items->push($newItem);
@@ -146,17 +191,9 @@ trait HasMenuCatalogActions
             return (float) ($state['shipping_price'] ?? 0);
         }
 
-        $items = collect($state['items'] ?? [])
-            ->map(fn ($item) => is_object($item) ? (array) $item : (array) $item);
-
-        $baseTotal = (float) $items->sum(function (array $item): float {
-            $qty = (float) ($item['qty'] ?? 0);
-            $price = (float) ($item['unit_price'] ?? 0);
-            $mods = collect($item['modifiers'] ?? [])->map(fn ($m) => is_object($m) ? (array) $m : (array) $m);
-            $modsSum = (float) $mods->sum(fn (array $m) => (float) ($m['price_modifier'] ?? 0));
-
-            return $qty * ($price + $modsSum);
-        });
+        $recordId = (int) ($state['id'] ?? 0);
+        $record = $recordId > 0 ? ShopOrder::query()->find($recordId) : null;
+        $baseTotal = static::calcDeliveryBaseFromStateArray($state, $record);
 
         $tempOrder = new ShopOrder();
         $tempOrder->address = $address;

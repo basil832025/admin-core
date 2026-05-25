@@ -8,7 +8,7 @@ class Products extends Cluster
 {
     protected static ?string $navigationIcon = 'heroicon-o-squares-2x2';
     protected static ?string $slug = 'catalog/products';
-    protected static ?string $navigationGroup = 'Магазин';
+    protected static ?string $navigationGroup = null;
     // НЕ хардкодим строкой — вернём перевод
     protected static ?string $navigationLabel = null;
     public static function getNavigationLabel(): string

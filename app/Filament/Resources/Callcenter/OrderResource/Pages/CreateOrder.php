@@ -11,7 +11,9 @@ use App\Services\OrderPricing;
 use Filament\Notifications\Notification;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\CreateRecord;
+use Filament\Support\Exceptions\Halt;
 use Illuminate\Support\Facades\Cache;
+use Throwable;
 
 class CreateOrder extends CreateRecord
 {
@@ -55,6 +57,70 @@ class CreateOrder extends CreateRecord
         return [];
     }
 
+    public function create(bool $another = false): void
+    {
+        if ($this->isCreating) {
+            return;
+        }
+
+        $this->isCreating = true;
+
+        $this->authorizeAccess();
+
+        try {
+            $this->beginDatabaseTransaction();
+
+            $this->callHook('beforeValidate');
+
+            $data = $this->form->getState();
+
+            $this->callHook('afterValidate');
+
+            $data = $this->mutateFormDataBeforeCreate($data);
+
+            $this->callHook('beforeCreate');
+
+            $this->record = $this->handleRecordCreation($data);
+
+            $this->form->model($this->getRecord())->saveRelationships();
+
+            $this->callHook('afterCreate');
+        } catch (Halt $exception) {
+            $exception->shouldRollbackDatabaseTransaction()
+                ? $this->rollBackDatabaseTransaction()
+                : $this->commitDatabaseTransaction();
+
+            $this->isCreating = false;
+
+            return;
+        } catch (Throwable $exception) {
+            $this->rollBackDatabaseTransaction();
+
+            $this->isCreating = false;
+
+            throw $exception;
+        }
+
+        $this->commitDatabaseTransaction();
+
+        $this->rememberData();
+
+        $this->getCreatedNotification()?->send();
+
+        if ($another) {
+            $this->form->model($this->getRecord()::class);
+            $this->record = null;
+
+            $this->fillForm();
+
+            $this->isCreating = false;
+
+            return;
+        }
+
+        $this->redirect($this->getRedirectUrl(), navigate: false);
+    }
+
     protected function afterCreate(): void
     {
         $this->syncClientAddressCoordinatesFromOrder();
@@ -89,6 +155,20 @@ class CreateOrder extends CreateRecord
     {
         $data['currency'] = (string) ($data['currency'] ?? 'UAH');
 
+        if (! (bool) data_get($this->data, 'date_order_manually_changed', false) && ! empty($data['dat'])) {
+            $data['date_order'] = $data['dat'];
+        }
+
+        if ((bool) ($data['self_pickup'] ?? false)) {
+            $data['shipping_method'] = in_array((string) ($data['shipping_method'] ?? ''), ['pickup', 'bolt', 'glovo'], true)
+                ? (string) $data['shipping_method']
+                : 'pickup';
+            $data['shipping_price'] = 0;
+            $data['shipping_total'] = 0;
+        } else {
+            $data['shipping_method'] = 'delivery';
+        }
+
         if (isset($data['items']) && is_array($data['items'])) {
             $data['items'] = array_values(array_filter($data['items'], function ($item): bool {
                 $row = is_array($item) ? $item : (array) $item;
@@ -104,11 +184,6 @@ class CreateOrder extends CreateRecord
 
         if ($addr && $clientId) {
             $addr = $this->normalizeAddressCoordinates($addr);
-
-            // Persist full address in street (UX expects full string).
-            if (! empty($addr['formatted_address'])) {
-                $addr['street'] = $addr['formatted_address'];
-            }
 
             if ((string) $select === '-1' || empty($select)) {
                 $new = ClientAddress::create($addr + ['client_id' => $clientId]);

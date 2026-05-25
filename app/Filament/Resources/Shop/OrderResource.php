@@ -72,10 +72,36 @@ class OrderResource extends Resource
         // Works for both initial page load and Livewire requests.
         return (string) static::getSlug() === 'callcenter/orders';
     }
+
+    protected static function pickupMethodOptions(): array
+    {
+        return [
+            'pickup' => __('order.delivery_methods.pickup'),
+            'bolt' => 'Bolt',
+            'glovo' => 'Glovo',
+        ];
+    }
+
+    protected static function normalizePickupShippingMethod(?string $method): string
+    {
+        return array_key_exists((string) $method, static::pickupMethodOptions())
+            ? (string) $method
+            : 'pickup';
+    }
+
+    protected static function deliveryMethodLabel(Order $record): string
+    {
+        if (! $record->self_pickup) {
+            return __('order.delivery_methods.delivery');
+        }
+
+        return static::pickupMethodOptions()[$record->shipping_method ?? ''] ?? __('order.delivery_methods.pickup');
+    }
+
     protected static ?string $model = Order::class;
     protected static ?string $slug = 'shop/orders';
     protected static ?string $recordTitleAttribute = 'number';
-    protected static ?string $navigationGroup = 'Магазин';
+    protected static ?string $navigationGroup = null;
     protected static ?string $navigationLabel = null;
     protected static ?string $modelLabel = null;
     protected static ?string $pluralModelLabel = null;
@@ -280,26 +306,42 @@ class OrderResource extends Resource
                                     }
                                 }
                                 $component->state((string) $id);
+                            } else {
+                                $component->state('none');
                             }
                         })
                         ->options(function (Get $get) {
                             $type = (string) ($get('time_type') ?? 'order');
                             $moment = static::resolveTimeDiscountMomentFromForm($get, $type);
 
-                            return TimeDiscount::query()
+                            $options = TimeDiscount::query()
                                 ->activeForMoment($moment, 'Europe/Kyiv')
                                 ->pluck('name', 'id')
                                 ->toArray();
+
+                            return ['none' => 'Без акції'] + $options;
                         })
                         ->afterStateUpdated(function ($state, Set $set, Get $get, ?Order $record) {
                             if (! $record) return;
 
-                            $discountType = (string) (TimeDiscount::find($state)?->time_type ?? ($get('time_type') ?? 'order'));
+                            $stateStr = trim((string) $state);
+
+                            if ($stateStr === '' || $stateStr === 'none') {
+                                $record->adjustments()->whereIn('type', ['time', 'fixed'])->delete();
+                                app(\App\Services\OrderPricing::class)->recalc($record);
+                                static::recalculateShippingFromCurrentForm($get, $set, $record);
+                                $set('delivery_price_auto', 'discount_time_none_' . microtime(true));
+                                return;
+                            }
+
+                            $record->adjustments()->where('type', 'manual_item_override')->delete();
+
+                            $discountType = (string) (TimeDiscount::find($stateStr)?->time_type ?? ($get('time_type') ?? 'order'));
                             $moment = static::resolveTimeDiscountMomentFromForm($get, $discountType);
 
                             app(\App\Services\OrderPricing::class)->applyTimeExclusive(
                                 $record,
-                                $state ? (int) $state : null,
+                                (int) $stateStr,
                                 'single',
                                 $moment
                             );
@@ -310,6 +352,26 @@ class OrderResource extends Resource
                             }
 
                             app(\App\Services\OrderPricing::class)->recalc($record);
+                            static::recalculateShippingFromCurrentForm($get, $set, $record);
+                            $set('delivery_price_auto', 'discount_time_' . microtime(true));
+
+                            $record->refresh()->loadMissing('adjustments');
+
+                            if ($state && method_exists(static::class, 'buildItemsStateFromOrder')) {
+                                $set('items', static::buildItemsStateFromOrder($record));
+                            }
+
+                            $timeAdj = $record->adjustments->firstWhere('type', 'time');
+
+                            if ($stateStr !== '' && (! $timeAdj || abs((float) $timeAdj->amount) < 0.0001)) {
+                                $set('ui_time_discount_id', 'none');
+
+                                Notification::make()
+                                    ->warning()
+                                    ->title('Акція не застосовується до цього замовлення')
+                                    ->body('Вибрана знижка за часом не підходить для товарів у поточному замовленні.')
+                                    ->send();
+                            }
                         }),
 
                     // 3) Промокод
@@ -338,6 +400,7 @@ class OrderResource extends Resource
                                     $ok = app(\App\Services\OrderPricing::class)->applyPromo($record, $code);
                                     if ($ok) {
                                         $set('ui_promo_code', $code);
+                                        $set('delivery_price_auto', 'discount_coupon_apply_' . microtime(true));
                                         Notification::make()->title('Промокод застосовано')->success()->send();
                                     } else {
                                         Notification::make()->title('Промокод не дійсний')->danger()->send();
@@ -371,6 +434,7 @@ class OrderResource extends Resource
 
                                             app(\App\Services\OrderPricing::class)->recalc($record);
                                             $set('ui_promo_code', null);
+                                            $set('delivery_price_auto', 'discount_coupon_clear_' . microtime(true));
                                         });
 
                                         Notification::make()
@@ -422,6 +486,7 @@ class OrderResource extends Resource
                                 ->applyManualPercentExclusive($record, $val);
 
                             app(\App\Services\OrderPricing::class)->recalc($record);
+                            $set('delivery_price_auto', 'discount_manual_percent_' . microtime(true));
                         }),
 
                     TextInput::make('ui_manual_fixed')
@@ -447,6 +512,7 @@ class OrderResource extends Resource
                             if (! $record) return;
                             app(\App\Services\OrderPricing::class)->applyManualFixed($record, (float)$state);
                             app(\App\Services\OrderPricing::class)->recalc($record);
+                            $set('delivery_price_auto', 'discount_manual_fixed_' . microtime(true));
                         }),
 
                     Placeholder::make('ui_adjustments_list')
@@ -458,7 +524,7 @@ class OrderResource extends Resource
                             $rows = $orderId > 0
                                 ? \Illuminate\Support\Facades\DB::table('bs_shop_order_adjustments')
                                     ->where('shop_order_id', $orderId)
-                                    ->whereNotIn('type', ['import_total_correction'])
+                                    ->whereNotIn('type', ['import_total_correction', 'manual_item_override'])
                                     ->orderByDesc('id')
                                     ->get(['id', 'type', 'label', 'amount'])
                                 : collect();
@@ -506,9 +572,29 @@ class OrderResource extends Resource
 
                             $out = '<div class="space-y-1">';
                             $hasDiscountRow = false;
+                            $promoTypes = ['time', 'fixed', 'coupon'];
+                            $promoRows = $rows->filter(fn ($adj) => in_array((string) $adj->type, $promoTypes, true))->values();
+                            $promoItemsDiscountAmount = abs((float) ($order->items()->sum('discount_total') ?? 0));
+                            $usePromoItemsDiscountFallback = $promoRows->isNotEmpty()
+                                && $discountAmount > 0
+                                && $promoItemsDiscountAmount > 0
+                                && $promoRows->every(fn ($adj) => abs((float) $adj->amount) < 0.0001);
+                            $promoFallbackApplied = false;
+
                             foreach ($rows as $adj) {
-                                $cls = $adj->amount < 0 ? 'text-rose-600' : 'text-emerald-600';
-                                if ((float) $adj->amount < 0) {
+                                $displayAmount = (float) $adj->amount;
+
+                                if (
+                                    ! $promoFallbackApplied
+                                    && $usePromoItemsDiscountFallback
+                                    && in_array((string) $adj->type, $promoTypes, true)
+                                ) {
+                                    $displayAmount = -1 * $promoItemsDiscountAmount;
+                                    $promoFallbackApplied = true;
+                                }
+
+                                $cls = $displayAmount < 0 ? 'text-rose-600' : 'text-emerald-600';
+                                if ($displayAmount < 0) {
                                     $hasDiscountRow = true;
                                 }
 
@@ -516,7 +602,7 @@ class OrderResource extends Resource
                                     .    '<div><span class="font-medium">'.e($adj->label).'</span> '
                                     .    ($adj->type ? '<span class="text-gray-500">('.e($adj->type).')</span>' : '')
                                     .    '</div>'
-                                    .    '<div class="'.$cls.'">'.number_format($adj->amount, 2, ',', ' ')
+                                    .    '<div class="'.$cls.'">'.number_format($displayAmount, 2, ',', ' ')
                                     .    ' '.e($order->currency ?? 'UAH').'</div>'
                                     . '</div>';
                             }
@@ -604,8 +690,7 @@ class OrderResource extends Resource
 
                                 if (!$selfPickup && $latitude && $longitude) {
                                     $deliveryService = app(\App\Services\DeliveryCalculationService::class);
-                                    $baseTotal = static::calcBaseTotalFromGet($get);
-                                    $orderTotal = (float) $baseTotal;
+                                    $orderTotal = static::calcDeliveryBaseFromGet($get, $record);
 
                                     $tempOrder = $record ? clone $record : new Order();
                                     $tempOrder->address = $address;
@@ -648,11 +733,7 @@ class OrderResource extends Resource
 
                                 if (!$selfPickup && $latitude && $longitude) {
                                     $deliveryService = app(\App\Services\DeliveryCalculationService::class);
-                                    $baseTotal = static::calcBaseTotalFromGet($get);
-                                    $hasAdjustments = $record->adjustments()->exists();
-                                    $orderTotal = $hasAdjustments
-                                        ? (float) ($record->grand_total ?? 0)
-                                        : (float) $baseTotal;
+                                    $orderTotal = static::calcDeliveryBaseFromGet($get, $record);
 
                                     $tempOrder = clone $record;
                                     $tempOrder->address = $address;
@@ -684,8 +765,7 @@ class OrderResource extends Resource
                             }
 
                             $deliveryService = app(\App\Services\DeliveryCalculationService::class);
-                            $baseTotal = static::calcBaseTotalFromGet($get);
-                            $orderTotal = (float) $baseTotal;
+                            $orderTotal = static::calcDeliveryBaseFromGet($get, $record);
 
                             $tempOrder = $record ? clone $record : new Order();
                             $tempOrder->address = $address;
@@ -740,6 +820,7 @@ class OrderResource extends Resource
 
                             if ($selfPickup) {
                                 $set('shipping_price', 0);
+                                $set('shipping_total', 0);
                                 \Log::info('OrderResource: shipping_price set to 0 (self pickup)');
                                 return;
                             }
@@ -750,8 +831,7 @@ class OrderResource extends Resource
                             }
 
                             $deliveryService = app(\App\Services\DeliveryCalculationService::class);
-                            $baseTotal = static::calcBaseTotalFromGet($get);
-                            $orderTotal = (float) $baseTotal;
+                            $orderTotal = static::calcDeliveryBaseFromGet($get, $record);
 
                             $tempOrder = $record ? clone $record : new Order();
                             $tempOrder->address = $address;
@@ -1170,6 +1250,10 @@ class OrderResource extends Resource
                 })*/
 
             Hidden::make('client_address_id')->dehydrated(true),
+            Hidden::make('time_order_manually_changed')->default(false)->dehydrated(false),
+            Hidden::make('time_order_internal_update')->default(false)->dehydrated(false),
+            Hidden::make('date_order_manually_changed')->default(false)->dehydrated(false),
+            Hidden::make('date_order_internal_update')->default(false)->dehydrated(false),
 
             Section::make(__('order.sections.time_payment'))
                 ->schema([
@@ -1178,8 +1262,9 @@ class OrderResource extends Resource
                             ->label(__('order.fields.created_date'))
                             ->default(fn (?Order $record) => $record?->exists ? null : now())
                             ->reactive()
-                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                if (! $get('date_order')) {
+                            ->afterStateUpdated(function ($state, Set $set, Get $get, ?Order $record) {
+                                if (! (bool) ($get('date_order_manually_changed') ?? false)) {
+                                    $set('date_order_internal_update', true);
                                     $set('date_order', $state);
                                 }
                             })
@@ -1207,11 +1292,30 @@ class OrderResource extends Resource
                                     ->label(__('order.fields.order_time'))
                                     ->seconds(false)
                                     ->default(fn () => Carbon::now(config('app.timezone'))->addMinutes(60)->format('H:i'))
-                                    ->afterStateHydrated(function ($component, $state) {
+                                    ->afterStateHydrated(function ($component, $state, Set $set, ?Order $record) {
+                                        if ($record?->exists && filled($state)) {
+                                            $set('time_order_manually_changed', true);
+
+                                            return;
+                                        }
+
                                         if (blank($state)) {
+                                            $set('time_order_internal_update', true);
+                                            $set('time_order_manually_changed', false);
                                             $component->state(
                                                 Carbon::now(config('app.timezone'))->addMinutes(60)->format('H:i')
                                             );
+                                        }
+                                    })
+                                    ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                        if ((bool) ($get('time_order_internal_update') ?? false)) {
+                                            $set('time_order_internal_update', false);
+
+                                            return;
+                                        }
+
+                                        if (filled($state)) {
+                                            $set('time_order_manually_changed', true);
                                         }
                                     })
                                     ->live(),
@@ -1225,7 +1329,60 @@ class OrderResource extends Resource
 
                         DatePicker::make('date_order')
                             ->label(__('order.fields.order_date'))
-                            ->default(now())
+                            ->default(fn (?Order $record, Get $get) => $record?->date_order ?? $record?->dat ?? $get('dat') ?? now()->toDateString())
+                            ->afterStateHydrated(function ($component, $state, Set $set, ?Order $record) {
+                                if ($record?->exists) {
+                                    $resolvedState = $state;
+
+                                    if (blank($resolvedState)) {
+                                        $resolvedState = $record->date_order ?? $record->dat;
+
+                                        if (filled($resolvedState)) {
+                                            $set('date_order_internal_update', true);
+                                            $component->state(
+                                                $resolvedState instanceof \DateTimeInterface
+                                                    ? Carbon::instance($resolvedState)->toDateString()
+                                                    : Carbon::parse((string) $resolvedState)->toDateString()
+                                            );
+                                        }
+                                    }
+
+                                    if (blank($resolvedState)) {
+                                        $set('date_order_manually_changed', false);
+
+                                        return;
+                                    }
+
+                                    $orderDate = $resolvedState instanceof \DateTimeInterface
+                                        ? Carbon::instance($resolvedState)->toDateString()
+                                        : Carbon::parse((string) $resolvedState)->toDateString();
+                                    $createdDate = filled($record->dat)
+                                        ? Carbon::parse((string) $record->dat)->toDateString()
+                                        : null;
+
+                                    $set('date_order_manually_changed', $createdDate !== null && $orderDate !== $createdDate);
+
+                                    return;
+                                }
+
+                                if (blank($state)) {
+                                    $set('date_order_internal_update', true);
+                                    $set('date_order_manually_changed', false);
+                                    $component->state(now()->toDateString());
+                                }
+                            })
+                            ->afterStateUpdated(function ($state, Set $set, Get $get, ?Order $record) {
+                                if ((bool) ($get('date_order_internal_update') ?? false)) {
+                                    $set('date_order_internal_update', false);
+
+                                    return;
+                                }
+
+                                if (filled($state)) {
+                                    $set('date_order_manually_changed', true);
+                                }
+                            })
+                            ->live()
                             ->columnSpan(3),
                     ]),
 
@@ -1247,20 +1404,53 @@ class OrderResource extends Resource
                                 $add = $state ? 15 : 60;
                                 $set('time_order', Carbon::parse($start)->addMinutes($add)->format('H:i'));
                             })*/
-                            ->afterStateUpdated(function ($state, Set $set) {
+                            ->afterStateUpdated(function ($state, Set $set, Get $get, ?Order $record) {
                                 $add = $state ? 15 : 60;
 
-                             // Берём текущее время в Киеве
-                             $dt = Carbon::now(config('app.timezone'))->addMinutes($add);
+                                if ($state) {
+                                    $set('shipping_method', static::normalizePickupShippingMethod((string) ($get('shipping_method') ?? null)));
+                                    $set('shipping_price', 0);
+                                    $set('shipping_total', 0);
+                                    $set('delivery_price_auto', 'pickup_' . microtime(true));
+                                } else {
+                                    $set('shipping_method', 'delivery');
+                                    $address = $get('address') ?? [];
+                                    $latitude = $address['latitude'] ?? null;
+                                    $longitude = $address['longitude'] ?? null;
 
-                             // Обновляем оба поля
-                             $set('time_order', $dt->format('H:i'));     // TimePicker
-                             $set('date_order', $dt->toDateString());    // DatePicker ожидает Y-m-d
+                                    if ($latitude && $longitude) {
+                                        $deliveryService = app(\App\Services\DeliveryCalculationService::class);
+                                        $orderTotal = static::calcDeliveryBaseFromGet($get, $record);
+                                        $tempOrder = new Order();
+                                        $tempOrder->address = $address;
+                                        $tempOrder->self_pickup = false;
+
+                                        $delivery = $deliveryService->calculateDelivery($tempOrder, $orderTotal);
+                                        $calculatedPrice = (float) ($delivery['price'] ?? 0);
+
+                                        $set('shipping_price', $calculatedPrice);
+                                        $set('shipping_total', $calculatedPrice);
+                                        $set('delivery_price_auto', 'delivery_' . microtime(true));
+                                    }
+                                }
+
+                                // Берём текущее время в Киеве
+                                $dt = Carbon::now(config('app.timezone'))->addMinutes($add);
+
+                                if (! (bool) ($get('time_order_manually_changed') ?? false)) {
+                                    $set('time_order_internal_update', true);
+                                    $set('time_order', $dt->format('H:i'));
+                                }
+
+                                if (! (bool) ($get('date_order_manually_changed') ?? false)) {
+                                    $set('date_order_internal_update', true);
+                                    $set('date_order', $dt->toDateString());
+                                }
                             })
 
                             ->columnSpan(fn () => static::isCallcenterContext() ? 2 : 3),
 
-                    /*    Select::make('payment')
+                     /*    Select::make('payment')
                             ->label('Способ оплаты')
                             ->options([
                                 1=> 'Кредитная карта',
@@ -1313,6 +1503,46 @@ class OrderResource extends Resource
                             ])
                             ->columnSpan(3),
 
+                        Select::make('shipping_method')
+                            ->label('Вид самовивозу')
+                            ->options(static::pickupMethodOptions())
+                            ->default('pickup')
+                            ->native(false)
+                            ->live()
+                            ->reactive()
+                            ->afterStateHydrated(function ($component, $state, Get $get) {
+                                if (! static::isCallcenterContext()) {
+                                    return;
+                                }
+
+                                if (! (bool) ($get('self_pickup') ?? false)) {
+                                    if ($state !== 'delivery') {
+                                        $component->state('delivery');
+                                    }
+
+                                    return;
+                                }
+
+                                $normalized = static::normalizePickupShippingMethod(is_string($state) ? $state : null);
+
+                                if ($state !== $normalized) {
+                                    $component->state($normalized);
+                                }
+                            })
+                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                if (! static::isCallcenterContext()) {
+                                    return;
+                                }
+
+                                if (! (bool) ($get('self_pickup') ?? false)) {
+                                    $set('shipping_method', 'delivery');
+                                } elseif (! array_key_exists((string) $state, static::pickupMethodOptions())) {
+                                    $set('shipping_method', 'pickup');
+                                }
+                            })
+                            ->visible(fn (Get $get) => static::isCallcenterContext() && (bool) ($get('self_pickup') ?? false))
+                            ->columnSpan(3),
+
                         TextInput::make('reason_non_payment')
                             ->label(__('order.fields.non_payment_reason'))
                             ->placeholder(__('order.placeholders.reason_short'))
@@ -1336,6 +1566,7 @@ class OrderResource extends Resource
                         if ($address) {
                             $addressData = $address->only([
                                 'street','house','apartment','intercom','floor','entrance','zip','city','country','note','type','is_private_house',
+                                'latitude','longitude','street_place_id','formatted_address',
                             ]);
 
                             // Получаем координаты из сохраненного адреса заказа, если они есть
@@ -1415,6 +1646,7 @@ class OrderResource extends Resource
 
                     if ($selfPickup) {
                         $set('shipping_price', 0);
+                        $set('shipping_total', 0);
                         return;
                     }
 
@@ -1424,9 +1656,7 @@ class OrderResource extends Resource
                     if ($lat && $lng) {
                         $deliveryService = app(\App\Services\DeliveryCalculationService::class);
 
-                        $baseTotal = static::calcBaseTotalFromGet($get);
-
-                        $orderTotal = (float) $baseTotal;
+                        $orderTotal = static::calcDeliveryBaseFromGet($get, $record);
 
                         $tempOrder = $record ? clone $record : new Order();
                         $tempOrder->address = $addressData;
@@ -2122,8 +2352,8 @@ class OrderResource extends Resource
                         'x-html' => json_encode(
                             '<span class="fi-ta-header-cell-label text-sm font-medium">'
                             . (static::class === \App\Filament\Resources\Callcenter\OrderResource::class
-                                ? 'Номер заказа<br>Дата заказа<br>Дата доставки'
-                                : 'Номер заказа<br>Дата заказа')
+                                ? __('order.columns.number_dates_delivery')
+                                : __('order.columns.number_dates'))
                             .'</span>'
                         ) ])
                     ->grow(false) // чтобы колонка не ужималась другими
@@ -2322,7 +2552,7 @@ class OrderResource extends Resource
                         'x-data' => '{}',
                         'x-html' => json_encode(
                             '<span class="fi-ta-header-cell-label text-sm font-medium">'
-                            .'Сумма<br>Скидка<br>Доставка<br>Сумма со скидкой'
+                            .__('order.columns.amount_discount_delivery_total')
                             .'</span>'
                         ),
                     ])
@@ -2332,7 +2562,7 @@ class OrderResource extends Resource
                         $discount = $discountValue != 0
                             ? number_format($discountValue, 2, ',', ' ') . ' грн'
                             : '—';
-                        $shippingValue = (float) ($record->shipping_total ?? $record->shipping_price ?? 0);
+                        $shippingValue = $record->resolveDeliveryAmount();
                         $shipping = $shippingValue != 0
                             ? number_format($shippingValue, 2, ',', ' ') . ' грн'
                             : '—';
@@ -2417,8 +2647,8 @@ class OrderResource extends Resource
                         ->toggleable()
                     : null,
                 TextColumn::make('delivery_info')
-                    ->label('Доставка')
-                    ->getStateUsing(fn (Order $record) => $record->self_pickup ? 'Самовывоз' : 'Доставка')
+                    ->label(__('order.columns.delivery_method'))
+                    ->getStateUsing(fn (Order $record) => static::deliveryMethodLabel($record))
                     ->badge() // красивый бейдж
                     ->grow(false) // чтобы ширина не “съедалась” другими колонками
                     ->extraHeaderAttributes(['class' => 'min-w-[22rem] w-[22rem]'])
@@ -2501,7 +2731,7 @@ class OrderResource extends Resource
                     : null,
 
                 TextColumn::make('payment')
-                    ->label(__('Оплата'))
+                    ->label(__('order.columns.payment'))
                     ->badge()
                     ->sortable()
                     ->formatStateUsing(
@@ -2519,16 +2749,16 @@ class OrderResource extends Resource
                     ),
                 // ⬇️ НОВАЯ КОЛОНКА L i q P a y
                 BadgeColumn::make('liqpay_status')
-                    ->label('LiqPay')
+                    ->label(__('order.columns.liqpay'))
                     ->getStateUsing(fn (Order $record) => $record->lastLiqpayLog?->status)
                     // что писать на бейдже
                     ->formatStateUsing(function ($state) {
                         return match ($state) {
-                            'success', 'sandbox'        => 'Успішно',
-                            'wait_accept', 'processing' => 'В обробці',
-                            'failure', 'error'          => 'Помилка',
-                            'reversed', 'refunded'      => 'Повернення',
-                            default                     => 'Немає',
+                            'success', 'sandbox'        => __('order.liqpay.success'),
+                            'wait_accept', 'processing' => __('order.liqpay.processing'),
+                            'failure', 'error'          => __('order.liqpay.failure'),
+                            'reversed', 'refunded'      => __('order.liqpay.refund'),
+                            default                     => __('order.liqpay.none'),
                         };
                     })
                     // цвет бейджа
@@ -2546,7 +2776,7 @@ class OrderResource extends Resource
                         $log = $record->lastLiqpayLog;
 
                         if (! $log) {
-                            return 'Callback від LiqPay ще не приходив';
+                            return __('order.liqpay.no_callback');
                         }
 
                         $payload = is_array($log->payload)
@@ -2576,17 +2806,17 @@ class OrderResource extends Resource
             ->filtersFormColumns(12)
             ->filters([
                 SelectFilter::make('source_id')
-                    ->label('Сайт')
+                    ->label(__('order.filters.site'))
                     ->options(fn () => CallcenterSource::query()->orderBy('name')->pluck('name', 'id')->toArray())
                     ->searchable()
                     ->preload()
                     ->columnSpan(1),
 
                 SelectFilter::make('import_type')
-                    ->label('Тип')
+                    ->label(__('order.filters.type'))
                     ->options([
-                        'imported' => 'Импортированные',
-                        'local' => 'Локальные',
+                        'imported' => __('order.filters.imported'),
+                        'local' => __('order.filters.local'),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         $value = $data['value'] ?? null;
@@ -2600,13 +2830,17 @@ class OrderResource extends Resource
                     ->columnSpan(1),
 
                 SelectFilter::make('payment')     // то же имя поля
-                ->label(__('Оплата'))
+                ->label(__('order.columns.payment'))
                     ->options(static::paymentOptionsAdmin())
                     ->multiple()
                     ->preload()
                     ->columnSpan(1),
 
                 TrashedFilter::make()
+                    ->label(__('order.filters.deleted_records'))
+                    ->placeholder(__('order.filters.without_deleted'))
+                    ->trueLabel(__('order.filters.with_deleted_only'))
+                    ->falseLabel(__('order.filters.without_deleted'))
                     ->columnSpan(1),
                 Filter::make('created_at')
                     ->columnSpan(7)
@@ -2625,12 +2859,12 @@ class OrderResource extends Resource
                             ->columnSpan(8),
                         DatePicker::make('created_from')
                             ->label(__('order.filters.date_from'))
-                            ->placeholder(fn ($state): string => 'Dec 18, ' . now()->subYear()->format('Y'))
+                            ->placeholder(fn ($state): string => now()->subYear()->format('d.m.Y'))
                             ->extraInputAttributes(['class' => 'w-[7.5rem] text-sm'])
                             ->columnSpan(2),
                         DatePicker::make('created_until')
                             ->label(__('order.filters.date_to'))
-                            ->placeholder(fn ($state): string => now()->format('M d, Y'))
+                            ->placeholder(fn ($state): string => now()->format('d.m.Y'))
                             ->extraInputAttributes(['class' => 'w-[7.5rem] text-sm'])
                             ->columnSpan(2),
                     ])
@@ -2755,7 +2989,7 @@ class OrderResource extends Resource
                 }),
             ])
             ->groups([
-                Tables\Grouping\Group::make('created_at')->label('Дата заказа')->date()->collapsible()
+                Tables\Grouping\Group::make('created_at')->label(__('order.filters.order_date'))->date()->collapsible()
                     // 👇 Фикс: принудительно сортируем по дате НОВЫЕ → СТАРЫЕ
                     ->orderQueryUsing(fn (Builder $query) =>
                     $query->orderBy('created_at', 'desc')->orderBy('id', 'desc')
@@ -3077,7 +3311,7 @@ class OrderResource extends Resource
             PaymentMethodEnum::CASH,
             PaymentMethodEnum::INVOICE,
             PaymentMethodEnum::FREE,
-            PaymentMethodEnum::CLUB,
+            // PaymentMethodEnum::CLUB,
         ];
 
         return collect($order)
@@ -3086,10 +3320,14 @@ class OrderResource extends Resource
     }
     protected static function calcBaseTotalFromGet(Get $get): float
     {
-        $items = collect($get('items') ?? [])
-            ->map(fn ($i) => is_object($i) ? (array) $i : $i);
+        return static::calcItemsSubtotal((array) ($get('items') ?? []));
+    }
 
-        return (float) $items->sum(function ($item) {
+    protected static function calcItemsSubtotal(array $items): float
+    {
+        return (float) collect($items)
+            ->map(fn ($i) => is_object($i) ? (array) $i : (array) $i)
+            ->sum(function (array $item) {
             $qty  = (float) ($item['qty'] ?? 0);
             $price = (float) ($item['unit_price'] ?? 0);
             $mods  = collect($item['modifiers'] ?? [])
@@ -3097,6 +3335,73 @@ class OrderResource extends Resource
             $modsSum = (float) $mods->sum(fn ($m) => (float) ($m['price_modifier'] ?? 0));
             return $qty * ($price + $modsSum);
         });
+    }
+
+    protected static function calcDeliveryBaseFromGet(Get $get, ?Order $record = null): float
+    {
+        return static::calcDeliveryBaseFromStateArray([
+            'items' => $get('items') ?? [],
+            'discount_total' => $get('discount_total'),
+            'sale_sum' => $get('sale_sum'),
+            'ui_promo_preview_discount' => $get('ui_promo_preview_discount'),
+        ], $record);
+    }
+
+    protected static function recalculateShippingFromCurrentForm(Get $get, Set $set, ?Order $record): void
+    {
+        $selfPickup = (bool) ($get('self_pickup') ?? false);
+        if ($selfPickup) {
+            $set('shipping_price', 0);
+            $set('shipping_total', 0);
+            return;
+        }
+
+        $address = (array) ($get('address') ?? []);
+        $lat = $address['latitude'] ?? null;
+        $lng = $address['longitude'] ?? null;
+
+        if (! $lat || ! $lng) {
+            return;
+        }
+
+        $deliveryService = app(\App\Services\DeliveryCalculationService::class);
+        $orderTotal = static::calcDeliveryBaseFromGet($get, $record);
+
+        $tempOrder = $record ? clone $record : new Order();
+        $tempOrder->address = $address;
+        $tempOrder->self_pickup = $selfPickup;
+
+        $delivery = $deliveryService->calculateDelivery($tempOrder, $orderTotal);
+        $calculatedPrice = (float) ($delivery['price'] ?? 0);
+
+        $set('shipping_price', $calculatedPrice);
+        $set('shipping_total', $calculatedPrice);
+    }
+
+    protected static function calcDeliveryBaseFromStateArray(array $state, ?Order $record = null): float
+    {
+        $baseTotal = static::calcItemsSubtotal((array) ($state['items'] ?? []));
+
+        $discountTotal = 0.0;
+        $bonuses = max(0, (float) ($state['sale_sum'] ?? 0));
+
+        if ($record) {
+            $record->refresh();
+            $discountTotal = $record->resolveDiscountAmount();
+            $bonuses = max($bonuses, $record->resolveSpentBonuses());
+        }
+
+        $stateDiscount = (float) ($state['discount_total'] ?? 0);
+        if (abs($discountTotal) < 0.0001 && $stateDiscount < 0) {
+            $discountTotal = $stateDiscount;
+        }
+
+        $previewDiscount = max(0, (float) ($state['ui_promo_preview_discount'] ?? 0));
+        if (abs($discountTotal) < 0.0001 && $previewDiscount > 0) {
+            $discountTotal = -1 * $previewDiscount;
+        }
+
+        return max(0, round($baseTotal + min(0, $discountTotal) - $bonuses, 2));
     }
 
     protected static function resolveSpentBonuses(?Order $order): float
@@ -3127,6 +3432,11 @@ class OrderResource extends Resource
             'final' => max(0, (float) $final),
             'bonuses' => $bonuses,
         ];
+    }
+
+    public static function getNavigationGroup(): ?string
+    {
+        return __('admin.nav.groups.shop');
     }
 
 }

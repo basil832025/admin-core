@@ -190,11 +190,45 @@ class Order extends Model
                 ->sum('amount')
         );
 
-        return max($spentFromTransactions, $spentFromAdjustments);
+        $spentFromSaleSum = max(0, (float) ($this->sale_sum ?? 0));
+
+        return max($spentFromTransactions, $spentFromAdjustments, $spentFromSaleSum);
+    }
+
+    public function resolveDiscountAmount(): float
+    {
+        $recordDiscount = (float) ($this->discount_total ?? 0);
+
+        if (abs($recordDiscount) < 0.0001) {
+            $recordDiscount = (float) $this->adjustments()->sum('amount');
+        }
+
+        return (float) $recordDiscount;
+    }
+
+    public function resolveDeliveryBaseAmount(
+        ?float $baseTotal = null,
+        ?float $discountTotal = null,
+        ?float $bonuses = null,
+    ): float {
+        $baseTotal ??= (float) ($this->subtotal ?? 0);
+
+        if ($baseTotal <= 0.0001) {
+            $baseTotal = (float) ($this->total_price ?? 0);
+        }
+
+        $discountTotal ??= $this->resolveDiscountAmount();
+        $bonuses ??= $this->resolveSpentBonuses();
+
+        return max(0, round($baseTotal + $discountTotal - $bonuses, 2));
     }
 
     public function resolveDeliveryAmount(?float $override = null): float
     {
+        if ((bool) ($this->self_pickup ?? false)) {
+            return 0.0;
+        }
+
         if ($override !== null) {
             return max(0, (float) $override);
         }
@@ -212,10 +246,7 @@ class Order extends Model
         $deliveryPrice = $this->resolveDeliveryAmount($deliveryPrice);
 
         $recordSubtotal = (float) ($this->subtotal ?? 0);
-        $recordDiscount = (float) ($this->discount_total ?? 0);
-        if (abs($recordDiscount) < 0.0001) {
-            $recordDiscount = (float) $this->adjustments()->sum('amount');
-        }
+        $recordDiscount = $this->resolveDiscountAmount();
 
         $baseTotal ??= $recordSubtotal > 0
             ? $recordSubtotal
@@ -315,7 +346,7 @@ class Order extends Model
             if (blank($order->time_start)) {
                 $order->time_start = now()->format('H:i');
             }
-            if ($order->time_start) {
+            if (blank($order->time_order) && $order->time_start) {
                 $start = Carbon::parse($order->time_start);
 
                 // если самовывоз -> +15 мин, иначе доставка -> +60

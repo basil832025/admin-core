@@ -102,6 +102,14 @@ return [
     ],
 
     'filters' => [
+        'site'       => 'Сайт',
+        'type'       => 'Тип',
+        'imported'   => 'Імпортовані',
+        'local'      => 'Локальні',
+        'deleted_records' => 'Видалені записи',
+        'without_deleted' => 'Без видалених',
+        'with_deleted_only' => 'Лише видалені',
+        'order_date' => 'Дата замовлення',
         'quick'      => 'Швидкий період',
         'date_from'  => 'Дата з',
         'date_to'    => 'Дата по',
@@ -114,6 +122,11 @@ return [
         'this_month' => 'Цей місяць',
         'order_number' => 'Номер замовлення',
         'phone' => 'Телефон',
+    ],
+
+    'delivery_methods' => [
+        'delivery' => 'Доставка',
+        'pickup' => 'Самовивіз',
     ],
 
     'steps' => [
@@ -144,10 +157,16 @@ return [
 
     'columns' => [
         'order_number'  => 'Номер замовлення',
+        'number_dates'  => 'Номер замовлення<br>Дата замовлення',
+        'number_dates_delivery' => 'Номер замовлення<br>Дата замовлення<br>Дата доставки',
         'client'        => 'Клієнт',
         'phone'         => 'Телефон',
         'status'        => 'Статус',
         'total_price'   => 'Сума',
+        'amount_discount_delivery_total' => 'Сума<br>Знижка<br>Доставка<br>Сума зі знижкою',
+        'delivery_method' => 'Доставка',
+        'payment' => 'Оплата',
+        'liqpay' => 'LiqPay',
         'discount'      => 'Знижка',
         'created_at'    => 'Створено',
         'operator_time' => 'Оператор<br>час',
@@ -155,6 +174,15 @@ return [
         'delivery_time' => 'Доставка<br>час',
         'total_time'    => 'Загальний<br>час',
         'items'         => 'Товари',
+    ],
+
+    'liqpay' => [
+        'success' => 'Успішно',
+        'processing' => 'В обробці',
+        'failure' => 'Помилка',
+        'refund' => 'Повернення',
+        'none' => 'Немає',
+        'no_callback' => 'Callback від LiqPay ще не надходив',
     ],
 
     'time_units' => [

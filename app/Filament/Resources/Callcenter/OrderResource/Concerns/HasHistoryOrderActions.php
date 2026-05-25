@@ -181,6 +181,11 @@ trait HasHistoryOrderActions
                     $this->data = array_replace_recursive($this->data, $payload);
                 }
 
+                if (property_exists($this, 'record') && $this->record) {
+                    $this->record->client_address_id = $selectedAddressId;
+                    $this->record->address = $mergedAddress;
+                }
+
                 $this->form->fill(array_replace_recursive($current, $payload));
 
                 $this->dispatch('callcenter-history-address-applied',
@@ -211,6 +216,11 @@ trait HasHistoryOrderActions
 
             if (property_exists($this, 'data') && is_array($this->data)) {
                 $this->data = array_replace_recursive($this->data, $payload);
+            }
+
+            if (property_exists($this, 'record') && $this->record) {
+                $this->record->client_address_id = null;
+                $this->record->address = $mergedAddress;
             }
 
             $this->form->fill(array_replace_recursive($current, $payload));
@@ -273,17 +283,9 @@ trait HasHistoryOrderActions
             return 0.0;
         }
 
-        $items = collect($state['items'] ?? [])
-            ->map(fn ($item) => is_object($item) ? (array) $item : (array) $item);
-
-        $baseTotal = (float) $items->sum(function (array $item): float {
-            $qty = (float) ($item['qty'] ?? 0);
-            $price = (float) ($item['unit_price'] ?? 0);
-            $mods = collect($item['modifiers'] ?? [])->map(fn ($m) => is_object($m) ? (array) $m : (array) $m);
-            $modsSum = (float) $mods->sum(fn (array $m) => (float) ($m['price_modifier'] ?? 0));
-
-            return $qty * ($price + $modsSum);
-        });
+        $recordId = (int) ($state['id'] ?? 0);
+        $record = $recordId > 0 ? Order::query()->find($recordId) : null;
+        $baseTotal = static::calcDeliveryBaseFromStateArray($state, $record);
 
         $lat = $address['latitude'] ?? null;
         $lng = $address['longitude'] ?? null;

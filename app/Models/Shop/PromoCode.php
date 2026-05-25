@@ -18,7 +18,9 @@ class PromoCode extends Model
 
     protected $fillable = [
         'code',
+        'discount_type',
         'percent',
+        'amount',
         'is_active',
         'starts_at',
         'ends_at',
@@ -28,7 +30,9 @@ class PromoCode extends Model
     ];
 
     protected $casts = [
+        'discount_type'     => 'string',
         'percent'          => 'decimal:2',
+        'amount'           => 'decimal:2',
         'is_active'        => 'boolean',
         'starts_at'        => 'datetime',
         'ends_at'          => 'datetime',
@@ -49,8 +53,30 @@ class PromoCode extends Model
      */
     public function calculateAmountForOrder(Order $order): float
     {
+        $eligible = $this->calculateEligibleSubtotalForOrder($order);
+
+        if ($eligible <= 0) {
+            return 0.0;
+        }
+
+        if ($this->discount_type === 'fixed') {
+            $amount = (float) ($this->amount ?? 0);
+
+            if ($amount <= 0) {
+                return 0.0;
+            }
+
+            return -round(min($amount, $eligible), 2);
+        }
+
         $percent = (float) ($this->percent ?? 0);
         if ($percent <= 0) return 0.0;
+
+        return -round($eligible * ($percent / 100), 2);
+    }
+
+    protected function calculateEligibleSubtotalForOrder(Order $order): float
+    {
 
         // квалифицированный pluck, чтобы не было "id is ambiguous"
         $ids = function ($rel) {
@@ -132,9 +158,7 @@ class PromoCode extends Model
             }
         }
 
-        if ($eligible <= 0) return 0.0;
-
-        return -round($eligible * ($percent / 100), 2);
+        return round($eligible, 2);
     }
 
 
@@ -363,8 +387,14 @@ class PromoCode extends Model
     }
     public function getDisplayLabelAttribute(): string
     {
+        if ($this->discount_type === 'fixed') {
+            $amount = number_format((float) $this->amount, 2, '.', '');
+
+            return "{$this->code} (-{$amount} грн)";
+        }
+
         $p = number_format((float) $this->percent, 2, '.', '');
-        return "{$this->code} (−{$p}%)";
+        return "{$this->code} (-{$p}%)";
     }
 
     /* ------------ Relations ------------ */

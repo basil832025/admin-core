@@ -293,6 +293,7 @@ document.addEventListener('alpine:init', () => {
                 // route(..., [], false) — путь без домена, например "/checkout/save-form-data"
                 saveUrl: @json($saveFormUrl),
                 googleMapsKey: @json(config('services.google_maps.key')),
+                scheduleV2: @json($scheduleV2 ?? ['enabled' => false]),
             };
         </script>
     @endpush

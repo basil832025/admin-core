@@ -18,7 +18,7 @@ class CashalotCommandLogResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list';
     protected static ?string $navigationLabel = 'Логи Cashalot (команди)';
     protected static ?string $pluralModelLabel = 'Логи Cashalot (команди)';
-    protected static ?string $navigationGroup = 'Настройки';
+    protected static ?string $navigationGroup = null;
     protected static ?int $navigationSort = 98;
 
     protected static function canAccessModule(): bool
@@ -127,4 +127,9 @@ class CashalotCommandLogResource extends Resource
             'view' => Pages\ViewCashalotCommandLog::route('/{record}'),
         ];
     }
+    public static function getNavigationGroup(): ?string
+    {
+        return __('admin.nav.groups.settings');
+    }
+
 }

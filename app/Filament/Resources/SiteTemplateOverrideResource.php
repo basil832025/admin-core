@@ -29,7 +29,7 @@ class SiteTemplateOverrideResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-document-duplicate';
 
-    protected static ?string $navigationGroup = 'Настройки';
+    protected static ?string $navigationGroup = null;
 
     protected static ?string $navigationLabel = 'Шаблоны сайта';
 
@@ -399,4 +399,9 @@ class SiteTemplateOverrideResource extends Resource
             'edit' => Pages\EditSiteTemplateOverride::route('/{record}/edit'),
         ];
     }
+    public static function getNavigationGroup(): ?string
+    {
+        return __('admin.nav.groups.settings');
+    }
+
 }

@@ -6,6 +6,7 @@ use App\Filament\Pages\Dashboard;
 use App\Http\Middleware\SetLocaleFromSession;
 use App\Models\Language;
 use App\Models\Setting;
+use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -112,7 +113,7 @@ class AdminPanelProvider extends PanelProvider
         
         // Добавляем пункт "Очистить кеш" в конец
         $userMenuItems['clear-cache'] = UserMenuItem::make()
-            ->label('Сбросить кеш')
+            ->label(__('admin.user_menu.clear_cache'))
             ->icon('heroicon-m-arrow-path')
             ->url(fn () => route('admin.clear-cache'))
             ->sort(100);
@@ -148,10 +149,58 @@ class AdminPanelProvider extends PanelProvider
             ])
             // Явный порядок групп:
             ->navigationGroups([
-                'Инфопанель',
-                'Магазин',      // <-- добавили
-                'Контент',
-                'Настройки',
+                __('admin.nav.groups.dashboard'),
+                __('admin.nav.groups.shop'),
+                __('admin.nav.groups.content'),
+                __('admin.nav.groups.settings'),
+            ])
+            ->navigationItems([
+                NavigationItem::make('callcenter-orders')
+                    ->label(fn (): string => __('callcenter.nav.navigation_label'))
+                    ->icon('heroicon-o-phone')
+                    ->url(fn (): string => \App\Filament\Resources\Callcenter\OrderResource::getUrl('index'))
+                    ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.resources.callcenter.orders.*'))
+                    ->visible(function (): bool {
+                        $user = Filament::auth()->user();
+                        if (! $user instanceof \App\Models\User) {
+                            return false;
+                        }
+
+                        return $user->can('access_callcenter_orders')
+                            || $user->can('view_any_callcenter::order')
+                            || $user->can('view_callcenter::order');
+                    }),
+
+                NavigationItem::make('logistics-orders')
+                    ->label(fn (): string => __('logistics.nav.navigation_label'))
+                    ->icon('heroicon-o-truck')
+                    ->url(fn (): string => \App\Filament\Resources\Logistics\OrderResource::getUrl('index'))
+                    ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.resources.logistics.orders.*'))
+                    ->visible(function (): bool {
+                        $user = Filament::auth()->user();
+                        if (! $user instanceof \App\Models\User) {
+                            return false;
+                        }
+
+                        return $user->can('access_logistics_orders')
+                            || $user->can('view_any_logistics::order')
+                            || $user->can('view_logistics::order');
+                    }),
+
+                NavigationItem::make('reports')
+                    ->label(fn (): string => __('report.nav.navigation_label'))
+                    ->icon('heroicon-o-chart-bar-square')
+                    ->url(fn (): string => \App\Filament\Resources\ReportResource::getUrl('index'))
+                    ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.resources.reports.*'))
+                    ->visible(function (): bool {
+                        $user = Filament::auth()->user();
+                        if (! $user) {
+                            return false;
+                        }
+
+                        return (method_exists($user, 'hasRole') && $user->hasRole(config('shield.super_admin.name', 'super_admin')))
+                            || $user->can('view_any_report');
+                    }),
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverClusters(in: app_path('Filament/Clusters'), for: 'App\\Filament\\Clusters')

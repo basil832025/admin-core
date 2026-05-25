@@ -19,30 +19,43 @@ class ListOrders extends ListRecords
     {
         return [
             Action::make('syncCatalog')
-                ->label('Синхронизировать каталог')
+                ->label(__('callcenter.list.actions.sync_catalog'))
                 ->icon('heroicon-m-squares-2x2')
                 ->color('gray')
                 ->action(function (): void {
                     $stats = app(ExternalSyncService::class)->syncCatalogFromAllSources();
 
                     Notification::make()
-                        ->title('Синхронизация каталога завершена')
-                        ->body("Источников: {$stats['sources']}. Обработано: {$stats['processed']}. Создано: {$stats['created']}. Обновлено: {$stats['updated']}. Ошибок: {$stats['failed']}.")
+                        ->title(__('callcenter.list.notifications.catalog_done_title'))
+                        ->body(__('callcenter.list.notifications.catalog_done_body', [
+                            'sources' => $stats['sources'] ?? 0,
+                            'processed' => $stats['processed'] ?? 0,
+                            'created' => $stats['created'] ?? 0,
+                            'updated' => $stats['updated'] ?? 0,
+                            'failed' => $stats['failed'] ?? 0,
+                        ]))
                         ->success()
                         ->send();
                 }),
             Action::make('syncOrders')
-                ->label('Получить новые заказы')
+                ->label(__('callcenter.list.actions.sync_orders'))
                 ->icon('heroicon-m-arrow-path')
                 ->color('primary')
                 ->action(function (): void {
                     $stats = app(ExternalSyncService::class)->syncOrdersFromAllSources(80);
                     $errors = array_slice((array) ($stats['errors'] ?? []), 0, 2);
-                    $errorsText = $errors ? (' Ошибки: ' . implode(' | ', $errors)) : '';
+                    $errorsText = $errors ? implode(' | ', $errors) : '';
 
                     Notification::make()
-                        ->title('Синхронизация заказов завершена')
-                        ->body("Источников: {$stats['sources']}. Проверено заказов: {$stats['processed']}. Новых: {$stats['created']}. Уже были: {$stats['updated']}. Ошибок: {$stats['failed']}.{$errorsText}")
+                        ->title(__('callcenter.list.notifications.orders_done_title'))
+                        ->body(__('callcenter.list.notifications.orders_done_body', [
+                            'sources' => $stats['sources'] ?? 0,
+                            'processed' => $stats['processed'] ?? 0,
+                            'created' => $stats['created'] ?? 0,
+                            'updated' => $stats['updated'] ?? 0,
+                            'failed' => $stats['failed'] ?? 0,
+                            'errors' => $errorsText,
+                        ]))
                         ->color(($stats['failed'] ?? 0) > 0 ? 'warning' : 'success')
                         ->send();
                 }),

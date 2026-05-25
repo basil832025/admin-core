@@ -65,6 +65,17 @@ class PromoCodeResource extends Resource
                             $component->state(mb_strtoupper(trim((string) $state)));
                         }),
 
+                    Forms\Components\Select::make('discount_type')
+                        ->label(__('promo_code.fields.discount_type'))
+                        ->options([
+                            'percent' => __('promo_code.options.discount_type.percent'),
+                            'fixed' => __('promo_code.options.discount_type.fixed'),
+                        ])
+                        ->default('percent')
+                        ->required()
+                        ->native(false)
+                        ->live(),
+
                     Forms\Components\TextInput::make('percent')
                         ->label(__('promo_code.fields.percent'))
                         ->numeric()
@@ -72,7 +83,18 @@ class PromoCodeResource extends Resource
                         ->minValue(0.01)
                         ->maxValue(100)
                         ->step(0.01)
-                        ->required(),
+                        ->required(fn (Get $get) => (string) ($get('discount_type') ?? 'percent') === 'percent')
+                        ->visible(fn (Get $get) => (string) ($get('discount_type') ?? 'percent') === 'percent'),
+
+                    Forms\Components\TextInput::make('amount')
+                        ->label(__('promo_code.fields.amount'))
+                        ->numeric()
+                        ->suffix(__('promo_code.fields.currency_suffix'))
+                        ->minValue(0.01)
+                        ->step(0.01)
+                        ->required(fn (Get $get) => (string) ($get('discount_type') ?? 'percent') === 'fixed')
+                        ->visible(fn (Get $get) => (string) ($get('discount_type') ?? 'percent') === 'fixed')
+                        ->helperText(__('promo_code.helpers.fixed_amount_scope')),
 
                     Forms\Components\Toggle::make('is_active')
                         ->label(__('promo_code.fields.is_active'))
@@ -313,10 +335,21 @@ class PromoCodeResource extends Resource
                     ->searchable()
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('percent')
-                    ->label(__('promo_code.columns.percent'))
-                    ->suffix('%')
+                Tables\Columns\TextColumn::make('discount_type')
+                    ->label(__('promo_code.columns.discount_type'))
+                    ->formatStateUsing(fn (string $state): string => __('promo_code.options.discount_type.' . $state))
+                    ->badge()
                     ->sortable(),
+
+                Tables\Columns\TextColumn::make('discount_value')
+                    ->label(__('promo_code.columns.discount'))
+                    ->state(function (PromoCode $record): string {
+                        if ($record->discount_type === 'fixed') {
+                            return number_format((float) $record->amount, 2, ',', ' ') . ' ' . __('promo_code.fields.currency_suffix');
+                        }
+
+                        return number_format((float) $record->percent, 2, ',', ' ') . '%';
+                    }),
 
                 Tables\Columns\IconColumn::make('is_active')
                     ->label(__('promo_code.columns.is_active'))

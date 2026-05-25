@@ -85,16 +85,23 @@
 
 
              @auth('web')
-                     @php $isActive = request()->routeIs('logout'); @endphp
-                     <a href="{{ route('logout') }}"
-                        class="group flex items-center gap-3 rounded-xl px-3 py-2 transition-colors
-              {{ $isActive ? 'text-[#FF7500] font-semibold bg-[#FFF9ED]' : 'text-[#929292] hover:bg-[#FFF9ED] hover:text-[#19191A]' }}"
-                        onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
-                         <x-icons.login class="w-6 h-6 {{ $isActive ? 'text-[#FF7500]' : 'text-[#929292] group-hover:text-[#FF7500]' }}"/>
-                         <span>{{ st('auth.log_out','Вийти') }} </span>
-                     </a>
-                     <form id="logout-form" action="{{ route('logout') }}" method="POST" class="hidden">
+                     @php
+                         $isActive = request()->routeIs('logout', 'localized.logout');
+                         $localeSegment = request()->segment(1);
+                         $logoutUrl = route('logout');
+
+                         if (in_array($localeSegment, ['ru', 'en'], true) && \Illuminate\Support\Facades\Route::has('localized.logout')) {
+                             $logoutUrl = route('localized.logout', ['locale' => $localeSegment]);
+                         }
+                     @endphp
+                     <form action="{{ $logoutUrl }}" method="POST" class="block">
                          @csrf
+                         <button type="submit"
+                                 class="group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors
+              {{ $isActive ? 'text-[#FF7500] font-semibold bg-[#FFF9ED]' : 'text-[#929292] hover:bg-[#FFF9ED] hover:text-[#19191A]' }}">
+                             <x-icons.login class="w-6 h-6 {{ $isActive ? 'text-[#FF7500]' : 'text-[#929292] group-hover:text-[#FF7500]' }}"/>
+                             <span>{{ st('auth.log_out','Вийти') }}</span>
+                         </button>
                      </form>
                  @endauth
 

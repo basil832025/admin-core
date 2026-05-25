@@ -29,7 +29,7 @@ class DeliveryZoneResource extends Resource
     protected static ?string $model = DeliveryZone::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-map';
-    protected static ?string $navigationGroup = 'Настройки';
+    protected static ?string $navigationGroup = null;
     protected static ?string $navigationLabel = 'Зоны доставки';
     protected static ?string $modelLabel = 'Зона доставки';
     protected static ?string $pluralModelLabel = 'Зоны доставки';
@@ -214,4 +214,9 @@ class DeliveryZoneResource extends Resource
             'edit' => Pages\EditDeliveryZone::route('/{record}/edit'),
         ];
     }
+    public static function getNavigationGroup(): ?string
+    {
+        return __('admin.nav.groups.settings');
+    }
+
 }

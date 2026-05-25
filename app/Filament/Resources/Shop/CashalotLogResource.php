@@ -19,7 +19,7 @@ class CashalotLogResource extends Resource
 {
     protected static ?string $model = CashalotLog::class;
 
-    protected static ?string $navigationGroup = 'Магазин';
+    protected static ?string $navigationGroup = null;
     protected static ?string $navigationIcon = 'heroicon-o-receipt-percent';
     protected static ?string $navigationLabel = 'Логи Cashalot';
     protected static ?string $pluralModelLabel = 'Логи Cashalot';
@@ -182,4 +182,9 @@ class CashalotLogResource extends Resource
     {
         return $form;
     }
+    public static function getNavigationGroup(): ?string
+    {
+        return __('admin.nav.groups.shop');
+    }
+
 }

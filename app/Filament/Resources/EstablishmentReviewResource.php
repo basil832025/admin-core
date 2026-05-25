@@ -18,7 +18,7 @@ class EstablishmentReviewResource extends Resource
     protected static ?string $model = EstablishmentReview::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-chat-bubble-left-right';
-    protected static ?string $navigationGroup = 'Контент';
+    protected static ?string $navigationGroup = null;
     protected static ?string $navigationLabel = 'Відгуки (заклад)';
     protected static ?int $navigationSort = 65;
 
@@ -148,4 +148,9 @@ class EstablishmentReviewResource extends Resource
             'edit' => Pages\EditEstablishmentReview::route('/{record}/edit'),
         ];
     }
+    public static function getNavigationGroup(): ?string
+    {
+        return __('admin.nav.groups.content');
+    }
+
 }

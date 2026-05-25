@@ -27,7 +27,7 @@ class LiqPayLogResource extends Resource
 {
     protected static ?string $model = LiqPayLog::class;
 
-    protected static ?string $navigationGroup = 'Магазин';
+    protected static ?string $navigationGroup = null;
     protected static ?string $navigationIcon  = 'heroicon-o-clipboard-document-list';
     protected static ?string $navigationLabel = 'Логи LiqPay';
     protected static ?string $pluralModelLabel = 'Логи LiqPay';
@@ -183,4 +183,9 @@ class LiqPayLogResource extends Resource
         // но Filament требует метод form — можно оставить пустой.
         return $form;
     }
+    public static function getNavigationGroup(): ?string
+    {
+        return __('admin.nav.groups.shop');
+    }
+
 }

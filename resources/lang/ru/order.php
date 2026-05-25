@@ -102,6 +102,14 @@ return [
     ],
 
     'filters' => [
+        'site'       => 'Сайт',
+        'type'       => 'Тип',
+        'imported'   => 'Импортированные',
+        'local'      => 'Локальные',
+        'deleted_records' => 'Удалённые записи',
+        'without_deleted' => 'Без удалённых',
+        'with_deleted_only' => 'Только удалённые',
+        'order_date' => 'Дата заказа',
         'quick'      => 'Быстрый период',
         'date_from'  => 'Дата с',
         'date_to'    => 'Дата по',
@@ -114,6 +122,11 @@ return [
         'this_month' => 'Этот месяц',
         'order_number' => 'Номер заказа',
         'phone' => 'Телефон',
+    ],
+
+    'delivery_methods' => [
+        'delivery' => 'Доставка',
+        'pickup' => 'Самовывоз',
     ],
 
     'steps' => [
@@ -144,10 +157,16 @@ return [
 
     'columns' => [
         'order_number'  => 'Номер заказа',
+        'number_dates'  => 'Номер заказа<br>Дата заказа',
+        'number_dates_delivery' => 'Номер заказа<br>Дата заказа<br>Дата доставки',
         'client'        => 'Клиент',
         'phone'         => 'Телефон',
         'status'        => 'Статус',
         'total_price'   => 'Сумма',
+        'amount_discount_delivery_total' => 'Сумма<br>Скидка<br>Доставка<br>Сумма со скидкой',
+        'delivery_method' => 'Доставка',
+        'payment' => 'Оплата',
+        'liqpay' => 'LiqPay',
         'discount'      => 'Скидка',
         'created_at'    => 'Создан',
         'operator_time' => 'Оператор<br>время',
@@ -155,6 +174,15 @@ return [
         'delivery_time' => 'Доставка<br>время',
         'total_time'    => 'Общее<br>время',
         'items'         => 'Товары',
+    ],
+
+    'liqpay' => [
+        'success' => 'Успешно',
+        'processing' => 'В обработке',
+        'failure' => 'Ошибка',
+        'refund' => 'Возврат',
+        'none' => 'Нет',
+        'no_callback' => 'Callback от LiqPay ещё не приходил',
     ],
 
     'time_units' => [

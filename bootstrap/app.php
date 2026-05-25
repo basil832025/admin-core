@@ -35,8 +35,22 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (\Illuminate\Session\TokenMismatchException $e, $request) {
             // Logout should never show the "Page Expired" screen in production.
             // If CSRF token is stale (cached page / long-lived tab), redirect to login.
-            if ($request->is('auth/logout')) {
-                return redirect('/auth', 303);
+            if ($request->is('auth/logout', 'ru/auth/logout', 'en/auth/logout')) {
+                if (\Illuminate\Support\Facades\Auth::guard('web')->check()) {
+                    \Illuminate\Support\Facades\Auth::guard('web')->logout();
+                }
+
+                if ($request->hasSession()) {
+                    $request->session()->invalidate();
+                    $request->session()->regenerateToken();
+                }
+
+                $locale = $request->segment(1);
+                $target = in_array($locale, ['ru', 'en'], true)
+                    ? '/' . $locale . '/auth'
+                    : '/auth';
+
+                return redirect($target, 303);
             }
 
             // Для AJAX запросов возвращаем JSON с флагом для перезагрузки

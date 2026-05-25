@@ -23,7 +23,7 @@ class ProductReviewResource extends Resource
     protected static ?string $model = ProductReview::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-chat-bubble-left-right';
-    protected static ?string $navigationGroup = 'Магазин';
+    protected static ?string $navigationGroup = null;
     protected static ?string $navigationLabel = null;
     protected static ?int $navigationSort = 60;
 
@@ -205,4 +205,9 @@ class ProductReviewResource extends Resource
 
     public static function getModelLabel(): string { return __('product_review.nav.model_label'); }
     public static function getPluralModelLabel(): string { return __('product_review.nav.plural_model_label'); }
+    public static function getNavigationGroup(): ?string
+    {
+        return __('admin.nav.groups.shop');
+    }
+
 }

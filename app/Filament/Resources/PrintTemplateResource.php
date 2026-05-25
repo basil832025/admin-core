@@ -45,7 +45,7 @@ class PrintTemplateResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
 
-    protected static ?string $navigationGroup = 'Настройки';
+    protected static ?string $navigationGroup = null;
 
     protected static ?string $navigationLabel = 'Шаблоны печати';
 
@@ -1575,4 +1575,9 @@ class PrintTemplateResource extends Resource
             'edit' => Pages\EditPrintTemplate::route('/{record}/edit'),
         ];
     }
+    public static function getNavigationGroup(): ?string
+    {
+        return __('admin.nav.groups.settings');
+    }
+
 }

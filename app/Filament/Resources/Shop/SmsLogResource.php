@@ -23,7 +23,7 @@ class SmsLogResource extends Resource
 {
     protected static ?string $model = SmsLog::class;
 
-    protected static ?string $navigationGroup = 'Магазин';
+    protected static ?string $navigationGroup = null;
     protected static ?string $navigationIcon = 'heroicon-o-chat-bubble-left-right';
     protected static ?string $navigationLabel = 'Логи SMS';
     protected static ?string $pluralModelLabel = 'Логи SMS';
@@ -186,4 +186,9 @@ class SmsLogResource extends Resource
     {
         return $form;
     }
+    public static function getNavigationGroup(): ?string
+    {
+        return __('admin.nav.groups.shop');
+    }
+
 }

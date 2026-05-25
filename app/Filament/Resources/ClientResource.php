@@ -31,7 +31,7 @@ class ClientResource extends Resource
     protected static ?string $model = Client::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-user-group';
-    protected static ?string $navigationGroup = 'Магазин';
+    protected static ?string $navigationGroup = null;
     protected static ?string $navigationLabel = null;
     protected static ?string $modelLabel = null;
     protected static ?string $pluralModelLabel = null;
@@ -215,4 +215,9 @@ class ClientResource extends Resource
             'edit' => Pages\EditClient::route('/{record}/edit'),
         ];
     }
+    public static function getNavigationGroup(): ?string
+    {
+        return __('admin.nav.groups.shop');
+    }
+
 }

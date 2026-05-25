@@ -27,7 +27,7 @@ class CashalotShiftControl extends Page implements Forms\Contracts\HasForms
      */
     public array $data = [];
 
-    protected static ?string $navigationGroup = 'Настройки';
+    protected static ?string $navigationGroup = null;
     protected static ?string $navigationLabel = 'Cashalot: зміна';
     protected static ?string $navigationIcon = 'heroicon-o-receipt-percent';
     protected static ?int $navigationSort = 97;
@@ -417,4 +417,9 @@ class CashalotShiftControl extends Page implements Forms\Contracts\HasForms
             'shift_id' => $shiftId,
         ]);
     }
+    public static function getNavigationGroup(): ?string
+    {
+        return __('admin.nav.groups.settings');
+    }
+
 }

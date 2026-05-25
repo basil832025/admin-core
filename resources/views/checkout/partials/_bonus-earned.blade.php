@@ -10,7 +10,7 @@
     </span>
     <span>
       {{ st('cart.za-pokupku-narahovano', 'За покупку вам буде нараховано') }}
-        <span class="text-[#FF7500] font-semibold">
+        <span class="text-[#FF7500] font-semibold" data-checkout-bonus-earn>
             {{ $totals['bonus_earn'] ?? 0 }}
         </span> {{ st('cart.balliv', 'балів') }}
     </span>

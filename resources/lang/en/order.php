@@ -102,6 +102,14 @@ return [
     ],
 
     'filters' => [
+        'site'       => 'Site',
+        'type'       => 'Type',
+        'imported'   => 'Imported',
+        'local'      => 'Local',
+        'deleted_records' => 'Deleted records',
+        'without_deleted' => 'Without deleted',
+        'with_deleted_only' => 'Only deleted',
+        'order_date' => 'Order date',
         'quick'      => 'Quick range',
         'date_from'  => 'Date from',
         'date_to'    => 'Date to',
@@ -114,6 +122,11 @@ return [
         'this_month' => 'This month',
         'order_number' => 'Order #',
         'phone' => 'Phone',
+    ],
+
+    'delivery_methods' => [
+        'delivery' => 'Delivery',
+        'pickup' => 'Pickup',
     ],
 
     'steps' => [
@@ -144,10 +157,16 @@ return [
 
     'columns' => [
         'order_number'  => 'Order number',
+        'number_dates'  => 'Order number<br>Order date',
+        'number_dates_delivery' => 'Order number<br>Order date<br>Delivery date',
         'client'        => 'Client',
         'phone'         => 'Phone',
         'status'        => 'Status',
         'total_price'   => 'Amount',
+        'amount_discount_delivery_total' => 'Amount<br>Discount<br>Delivery<br>Total with discount',
+        'delivery_method' => 'Delivery',
+        'payment' => 'Payment',
+        'liqpay' => 'LiqPay',
         'discount'      => 'Discount',
         'created_at'    => 'Created',
         'operator_time' => 'Operator<br>time',
@@ -155,6 +174,15 @@ return [
         'delivery_time' => 'Delivery<br>time',
         'total_time'    => 'Total<br>time',
         'items'         => 'Items',
+    ],
+
+    'liqpay' => [
+        'success' => 'Success',
+        'processing' => 'Processing',
+        'failure' => 'Failed',
+        'refund' => 'Refund',
+        'none' => 'None',
+        'no_callback' => 'LiqPay callback has not been received yet',
     ],
 
     'time_units' => [

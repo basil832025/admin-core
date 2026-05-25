@@ -20,7 +20,7 @@ class BinotelCallLogResource extends Resource
 {
     protected static ?string $model = BinotelCallLog::class;
 
-    protected static ?string $navigationGroup = 'Магазин';
+    protected static ?string $navigationGroup = null;
     protected static ?string $navigationIcon = 'heroicon-o-phone-arrow-down-left';
     protected static ?string $navigationLabel = 'Логи Binotel';
     protected static ?string $pluralModelLabel = 'Логи Binotel';
@@ -188,4 +188,9 @@ class BinotelCallLogResource extends Resource
     {
         return $form;
     }
+    public static function getNavigationGroup(): ?string
+    {
+        return __('admin.nav.groups.shop');
+    }
+
 }

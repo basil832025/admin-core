@@ -25,7 +25,7 @@ class PrintOperationProfileResource extends Resource
     protected static ?string $model = PrintOperationProfile::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-printer';
-    protected static ?string $navigationGroup = 'Настройки';
+    protected static ?string $navigationGroup = null;
     protected static ?string $navigationLabel = 'Печать чеков';
     protected static ?string $modelLabel = 'Профиль печати';
     protected static ?string $pluralModelLabel = 'Профили печати';
@@ -268,4 +268,9 @@ class PrintOperationProfileResource extends Resource
             'edit' => Pages\EditPrintOperationProfile::route('/{record}/edit'),
         ];
     }
+    public static function getNavigationGroup(): ?string
+    {
+        return __('admin.nav.groups.settings');
+    }
+
 }

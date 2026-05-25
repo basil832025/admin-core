@@ -31,7 +31,7 @@ class RoleResource extends Resource implements HasShieldPermissions
         return true;
     }
     protected static ?string $recordTitleAttribute = 'name';
-    protected static ?string $navigationGroup = 'Настройки';
+    protected static ?string $navigationGroup = null;
     protected static bool $shouldRegisterNavigation = true;
     public static function getPermissionPrefixes(): array
     {
@@ -104,7 +104,7 @@ class RoleResource extends Resource implements HasShieldPermissions
     }
     public static function getNavigationGroup(): ?string
     {
-        return 'Настройки';
+        return __('admin.nav.groups.settings');
     }
     public static function form(Form $form): Form
     {

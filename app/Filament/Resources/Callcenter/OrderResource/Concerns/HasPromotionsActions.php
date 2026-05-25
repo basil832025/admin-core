@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Callcenter\OrderResource\Concerns;
 
+use App\Filament\Resources\Callcenter\OrderResource;
 use App\Models\Shop\FixedDiscount;
 use App\Models\Shop\Product;
 use App\Models\Shop\TimeDiscount;
@@ -17,7 +18,7 @@ trait HasPromotionsActions
     public function openPromotionsAction(): Action
     {
         return Action::make('promotions')
-            ->label('Акции')
+            ->label(__('callcenter.actions.promotions'))
             ->color('gray')
             ->icon('heroicon-m-tag')
             ->extraAttributes([
@@ -27,7 +28,7 @@ trait HasPromotionsActions
             ->slideOver()
             ->modalWidth('2xl')
             ->modalSubmitAction(false)
-            ->modalCancelActionLabel('Закрыть')
+            ->modalCancelActionLabel(__('order.actions.cancel'))
             ->modalContent(fn () => view('filament.callcenter.promotions-slide-over', [
                 'promos' => $this->buildAvailablePromotionsPayload(),
                 'selected' => $this->resolveSelectedPromotionValue(),
@@ -43,6 +44,8 @@ trait HasPromotionsActions
 
         if (isset($this->record) && $this->record?->exists) {
             $order = $this->record;
+
+            $order->adjustments()->where('type', 'manual_item_override')->delete();
 
             if ($value === 'none') {
                 $order->adjustments()->whereIn('type', ['fixed', 'time', 'manual_percent'])->delete();
@@ -63,11 +66,21 @@ trait HasPromotionsActions
             }
 
             $order->refresh();
+            $this->record = $order->fresh(['items.product.parent', 'adjustments']);
+
+            $state = $this->form->getRawState();
+            if ($state instanceof \Illuminate\Contracts\Support\Arrayable) {
+                $state = $state->toArray();
+            }
+            $state = is_array($state) ? $state : [];
+            $state['items'] = OrderResource::buildItemsStateFromOrder($this->record);
+            $this->form->fill($state);
+
             $this->dispatch('$refresh');
 
             Notification::make()
                 ->success()
-                ->title($value === 'none' ? 'Акция снята' : 'Акция применена')
+                ->title($value === 'none' ? __('callcenter.notifications.promo_removed') : __('callcenter.notifications.promo_applied'))
                 ->send();
 
             return;

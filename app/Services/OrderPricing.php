@@ -6,6 +6,7 @@ use App\Models\Shop\Order;
 use App\Models\Shop\FixedDiscount;
 use App\Models\Shop\TimeDiscount;
 use App\Models\Shop\PromoCode;
+use App\Models\Shop\OrderItem;
 use Carbon\Carbon;
 
 class OrderPricing
@@ -180,6 +181,13 @@ class OrderPricing
         $newAmount = (float) $time->calculateAmountForOrder($order);
         $newMeta   = ['id' => $time->id, 'name' => $time->name];
 
+        if ($newAmount <= 0.0) {
+            $order->adjustments()->where('type', 'time')->delete();
+            $this->recalc($order);
+
+            return;
+        }
+
         if ($policy === 'single') {
             // ❗️сносим конкурентов: fixed и manual_percent
             $order->adjustments()->whereIn('type', ['fixed', 'manual_percent'])->delete();
@@ -294,7 +302,12 @@ class OrderPricing
                 'amount'        => $amount,
                 'promotion_id'  => $promo->promotion_id ?? null,
                 'promo_code_id' => $promo->id,
-                'meta'          => ['code' => $promo->code, 'percent' => $promo->percent ?? null],
+                'meta'          => [
+                    'code' => $promo->code,
+                    'discount_type' => $promo->discount_type ?? 'percent',
+                    'percent' => $promo->percent ?? null,
+                    'amount' => $promo->amount ?? null,
+                ],
             ]
         );
 
@@ -471,14 +484,84 @@ class OrderPricing
 
     public function recalc(Order $order): void
     {
-        $order->loadMissing(['items.product.parent']);
+        $order->loadMissing(['items.product.parent', 'items.product.categories', 'items.product.characteristicValues', 'adjustments']);
+
+        $manualOverrideItemIds = $order->adjustments
+            ->where('type', 'manual_item_override')
+            ->pluck('shop_order_item_id')
+            ->filter(fn ($id) => (int) $id > 0)
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        if ($timeAdj = $order->adjustments->firstWhere('type', 'time')) {
+            $timeId = (int) ($timeAdj->meta['id'] ?? $timeAdj->meta['time_discount_id'] ?? 0);
+            $time = $timeId > 0 ? TimeDiscount::query()->find($timeId) : null;
+            $baseAmount = $time ? abs((float) $time->calculateAmountForOrder($order)) : abs((float) $timeAdj->amount);
+            $map = $time ? $this->buildTimeDiscountRecipientsMap($order, $time) : [];
+            $reduction = 0.0;
+
+            foreach ($manualOverrideItemIds as $itemId) {
+                $reduction += (float) data_get($map, $itemId . '.amount', 0);
+            }
+
+            $effectiveAmount = -1 * max(0, round($baseAmount - $reduction, 2));
+
+            if ((float) $timeAdj->amount !== (float) $effectiveAmount) {
+                $timeAdj->amount = $effectiveAmount;
+                $timeAdj->save();
+            }
+        }
+
+        if ($fixedAdj = $order->adjustments->firstWhere('type', 'fixed')) {
+            $fixedId = (int) ($fixedAdj->meta['id'] ?? $fixedAdj->meta['fixed_discount_id'] ?? 0);
+            $fixed = $fixedId > 0 ? FixedDiscount::active()->find($fixedId) : null;
+            $baseAmount = $fixed ? abs((float) $fixed->calculateAmountForOrder($order)) : abs((float) $fixedAdj->amount);
+            $map = $fixed ? $this->buildFixedDiscountRecipientsMap($order, $fixed) : [];
+            $reduction = 0.0;
+
+            foreach ($manualOverrideItemIds as $itemId) {
+                $reduction += (float) ($map[$itemId] ?? 0);
+            }
+
+            $effectiveAmount = -1 * max(0, round($baseAmount - $reduction, 2));
+
+            if ((float) $fixedAdj->amount !== (float) $effectiveAmount) {
+                $fixedAdj->amount = $effectiveAmount;
+                $fixedAdj->save();
+            }
+        }
 
         foreach ($order->items as $item) {
             $item->subtotal = $item->unit_price * $item->qty;
 
-            $itemAdj = $order->adjustments()
+            $baseItemAdj = $order->adjustments()
                 ->where('shop_order_item_id', $item->id)
+                ->where('type', '!=', 'manual_item_override')
                 ->sum('amount');
+
+            $manualItemOverride = $order->adjustments()
+                ->where('shop_order_item_id', $item->id)
+                ->where('type', 'manual_item_override')
+                ->latest('id')
+                ->first();
+
+            $itemAdj = (float) $baseItemAdj;
+
+            if ($manualItemOverride) {
+                $overrideTarget = (float) ($manualItemOverride->meta['amount'] ?? abs((float) $manualItemOverride->amount));
+                $overrideAmount = -1 * min($overrideTarget, max(0, (float) $item->subtotal));
+
+                if ((float) $manualItemOverride->amount !== (float) $overrideAmount) {
+                    $manualItemOverride->amount = $overrideAmount;
+                    $manualItemOverride->meta = array_merge((array) ($manualItemOverride->meta ?? []), [
+                        'amount' => abs($overrideAmount),
+                    ]);
+                    $manualItemOverride->save();
+                }
+
+                $itemAdj = $overrideAmount;
+            }
 
             $item->discount_total = $itemAdj; // <= 0
             $item->tax_total      = $item->tax_total ?? 0;
@@ -548,7 +631,9 @@ class OrderPricing
 
         $order->subtotal       = $subtotal;
         $order->discount_total = $itemsAdj + $otherOrderAdj + $manualPercentAmount + $manualFixedAmount;
-        $order->shipping_total = $order->shipping_total ?? 0;
+        $order->shipping_total = (bool) ($order->self_pickup ?? false)
+            ? 0
+            : max(0, (float) ($order->shipping_price ?? 0));
         $order->tax_total      = $order->tax_total ?? 0;
 
         $order->grand_total = $order->subtotal
@@ -557,5 +642,206 @@ class OrderPricing
             + $order->tax_total;
 
         $order->save();
+    }
+
+    /**
+     * @return array<int,array{units:int,amount:float}>
+     */
+    private function buildTimeDiscountRecipientsMap(Order $order, TimeDiscount $discount): array
+    {
+        $percent = (float) ($discount->percent ?? 0);
+        $eachN = (int) ($discount->nth_item ?? 0);
+
+        if ($percent <= 0 || $eachN < 1) {
+            return [];
+        }
+
+        $units = [];
+
+        foreach ($order->items as $item) {
+            $product = $item->product;
+
+            if (! $product || $product->excludedFromPromotions()) {
+                continue;
+            }
+
+            if (! $this->matchesTimeDiscountScope($discount, $item)) {
+                continue;
+            }
+
+            $qty = (int) ($item->qty ?? 0);
+            $price = (float) ($item->unit_price ?? 0);
+
+            if ($qty <= 0 || $price <= 0) {
+                continue;
+            }
+
+            for ($i = 0; $i < $qty; $i++) {
+                $units[] = ['item_id' => (int) $item->id, 'price' => $price];
+            }
+        }
+
+        if ($units === []) {
+            return [];
+        }
+
+        $result = [];
+
+        if ($eachN === 1) {
+            foreach ($units as $unit) {
+                $itemId = (int) $unit['item_id'];
+                $result[$itemId] ??= ['units' => 0, 'amount' => 0.0];
+                $result[$itemId]['units'] += 1;
+                $result[$itemId]['amount'] += ((float) $unit['price']) * ($percent / 100);
+            }
+
+            foreach ($result as &$row) {
+                $row['amount'] = round((float) $row['amount'], 2);
+            }
+
+            return $result;
+        }
+
+        if (count($units) < $eachN) {
+            return [];
+        }
+
+        $grouping = (string) ($discount->grouping_mode ?: TimeDiscount::GROUP_PRICE_SORTED);
+        $target = (string) ($discount->apply_target ?: TimeDiscount::TARGET_CHEAPEST);
+        $index = (int) ($discount->apply_index ?? 0);
+
+        if ($grouping === TimeDiscount::GROUP_PRICE_SORTED) {
+            usort($units, fn (array $a, array $b) => $b['price'] <=> $a['price']);
+        }
+
+        $chunks = array_chunk($units, $eachN);
+        $chunks = array_values(array_filter($chunks, fn (array $chunk) => count($chunk) === $eachN));
+
+        foreach ($chunks as $chunk) {
+            if ($target === TimeDiscount::TARGET_MOST_EXPENSIVE) {
+                usort($chunk, fn (array $a, array $b) => $b['price'] <=> $a['price']);
+                $recipient = $chunk[0] ?? null;
+            } elseif ($target === TimeDiscount::TARGET_INDEX) {
+                usort($chunk, fn (array $a, array $b) => $a['price'] <=> $b['price']);
+                $recipient = $chunk[max(0, min(count($chunk) - 1, ($index > 0 ? $index : 1) - 1))] ?? null;
+            } else {
+                usort($chunk, fn (array $a, array $b) => $a['price'] <=> $b['price']);
+                $recipient = $chunk[0] ?? null;
+            }
+
+            if (! is_array($recipient)) {
+                continue;
+            }
+
+            $itemId = (int) ($recipient['item_id'] ?? 0);
+            if ($itemId <= 0) {
+                continue;
+            }
+
+            $result[$itemId] ??= ['units' => 0, 'amount' => 0.0];
+            $result[$itemId]['units'] += 1;
+            $result[$itemId]['amount'] += ((float) ($recipient['price'] ?? 0)) * ($percent / 100);
+        }
+
+        foreach ($result as &$row) {
+            $row['amount'] = round((float) $row['amount'], 2);
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return array<int,float>
+     */
+    private function buildFixedDiscountRecipientsMap(Order $order, FixedDiscount $discount): array
+    {
+        $items = $order->items
+            ->filter(fn (OrderItem $item) => $item->product && ! $item->product->excludedFromPromotions() && (float) $item->unit_price > 0 && (int) $item->qty > 0)
+            ->values();
+
+        if ($items->isEmpty()) {
+            return [];
+        }
+
+        $sum = (float) $items->sum(fn (OrderItem $item) => (float) $item->unit_price * (int) $item->qty);
+
+        if ($sum <= 0) {
+            return [];
+        }
+
+        $map = [];
+        $percent = (float) ($discount->percent ?? 0);
+
+        if ($percent > 0) {
+            foreach ($items as $item) {
+                $amount = round(((float) $item->unit_price * (int) $item->qty) * ($percent / 100), 2);
+                if ($amount > 0) {
+                    $map[$item->id] = $amount;
+                }
+            }
+
+            return $map;
+        }
+
+        $fixedAmount = min((float) ($discount->amount ?? 0), $sum);
+
+        if ($fixedAmount <= 0) {
+            return [];
+        }
+
+        $remaining = round($fixedAmount, 2);
+        $lastId = (int) $items->last()->id;
+
+        foreach ($items as $item) {
+            $itemSubtotal = (float) $item->unit_price * (int) $item->qty;
+            $amount = ((int) $item->id === $lastId)
+                ? $remaining
+                : round($fixedAmount * ($itemSubtotal / $sum), 2);
+
+            $amount = min($amount, $remaining, $itemSubtotal);
+            $remaining = round($remaining - $amount, 2);
+
+            if ($amount > 0) {
+                $map[$item->id] = $amount;
+            }
+        }
+
+        return $map;
+    }
+
+    private function matchesTimeDiscountScope(TimeDiscount $discount, OrderItem $item): bool
+    {
+        $product = $item->product;
+
+        if (! $product) {
+            return false;
+        }
+
+        try {
+            static $matchProductMethod;
+            static $matchCategoryMethod;
+            static $matchCharacteristicsMethod;
+
+            if (! $matchProductMethod) {
+                $matchProductMethod = new \ReflectionMethod(TimeDiscount::class, 'matchesProduct');
+                $matchProductMethod->setAccessible(true);
+            }
+
+            if (! $matchCategoryMethod) {
+                $matchCategoryMethod = new \ReflectionMethod(TimeDiscount::class, 'matchesCategory');
+                $matchCategoryMethod->setAccessible(true);
+            }
+
+            if (! $matchCharacteristicsMethod) {
+                $matchCharacteristicsMethod = new \ReflectionMethod(TimeDiscount::class, 'matchesCharacteristics');
+                $matchCharacteristicsMethod->setAccessible(true);
+            }
+
+            return (bool) $matchProductMethod->invoke($discount, $product)
+                && (bool) $matchCategoryMethod->invoke($discount, $product)
+                && (bool) $matchCharacteristicsMethod->invoke($discount, $item);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 }

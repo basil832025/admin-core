@@ -23,7 +23,7 @@ class SyncedCatalogResource extends Resource
     protected static ?string $slug = 'callcenter/synced-catalog';
     protected static ?string $navigationIcon = 'heroicon-o-squares-2x2';
     protected static ?int $navigationSort = 50;
-    protected static ?string $navigationGroup = 'Магазин';
+    protected static ?string $navigationGroup = null;
 
     public static function getNavigationLabel(): string
     {
@@ -252,4 +252,9 @@ class SyncedCatalogResource extends Resource
             'index' => Pages\ListSyncedCatalog::route('/'),
         ];
     }
+    public static function getNavigationGroup(): ?string
+    {
+        return __('admin.nav.groups.shop');
+    }
+
 }

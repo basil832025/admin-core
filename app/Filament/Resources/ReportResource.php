@@ -19,7 +19,7 @@ class ReportResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-chart-bar-square';
 
-    protected static ?string $navigationGroup = 'Отчеты';
+    protected static ?string $navigationGroup = null;
 
     protected static ?string $navigationLabel = 'Отчеты';
 
@@ -41,7 +41,7 @@ class ReportResource extends Resource
 
     public static function shouldRegisterNavigation(): bool
     {
-        return static::canAccessModule();
+        return false;
     }
 
     public static function canViewAny(): bool

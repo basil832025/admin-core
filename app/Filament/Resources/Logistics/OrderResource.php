@@ -64,7 +64,7 @@ class OrderResource extends CallcenterOrderResource
 
     public static function shouldRegisterNavigation(): bool
     {
-        return static::canAccessModule();
+        return false;
     }
 
     public static function canViewAny(): bool

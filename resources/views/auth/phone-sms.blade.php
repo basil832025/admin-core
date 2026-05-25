@@ -67,7 +67,12 @@
                                             @focus="onPhoneNumberFocus($event)"
                                             @click="onPhoneNumberClick($event)"
                                             @keydown.backspace="onPhoneNumberBackspace($event)"
-                                            @input="if (loginPhoneSmsError) loginPhoneSmsError = null;"
+                                            @input="
+                                                let digits = ($event.target.value || '').replace(/\D/g, '');
+                                                digits = digits.replace(/^0+/, '').slice(0, 9);
+                                                loginPhoneSmsData.phoneNumber = digits;
+                                                if (loginPhoneSmsError) loginPhoneSmsError = null;
+                                            "
                                             @keydown.enter.prevent="if (!loginPhoneSmsLoading && !loginPhoneSmsSent) sendLoginPhoneSms()"
                                             inputmode="numeric"
                                             dir="ltr"
@@ -291,11 +296,15 @@
                 },
 
                 async sendLoginPhoneSms() {
-                    const phoneNumber = this.loginPhoneSmsData.phoneNumber.replace(/\D/g, '');
+                    let phoneNumber = this.loginPhoneSmsData.phoneNumber.replace(/\D/g, '');
+                    phoneNumber = phoneNumber.replace(/^0+/, '');
+
                     if (phoneNumber.length !== 9) {
                         this.loginPhoneSmsError = 'Введіть правильний номер телефону';
                         return;
                     }
+
+                    this.loginPhoneSmsData.phoneNumber = phoneNumber;
 
                     const phone = '380' + phoneNumber;
                     this.loginPhoneSmsLoading = true;

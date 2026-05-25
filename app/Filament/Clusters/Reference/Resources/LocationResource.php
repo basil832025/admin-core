@@ -56,6 +56,15 @@ class LocationResource extends Resource
     {
         $defaultLocale = Setting::value('default_language_code') ?: config('app.locale');
         $locales = static::getActiveLocales();
+        $weekDays = [
+            'mon' => 'Понеділок',
+            'tue' => 'Вівторок',
+            'wed' => 'Середа',
+            'thu' => 'Четвер',
+            'fri' => 'Пʼятниця',
+            'sat' => 'Субота',
+            'sun' => 'Неділя',
+        ];
 
 
         return $form->schema([
@@ -322,6 +331,190 @@ Section::make(__('location.sections.contacts'))
                     ->itemLabel(fn (array $state) => $state['title.ru'] ?? $state['time.'.$defaultLocale] ?? ($state['slug'] ?? 'Графік'))
                     ->columns(2),
             ]),
+
+            Forms\Components\Section::make('Графік v2 (по точці)')
+                ->schema([
+                    Forms\Components\Toggle::make('schedule_v2_enabled')
+                        ->label('Увімкнути новий графік v2 для цієї точки')
+                        ->inline(false)
+                        ->default(false),
+
+                    Forms\Components\Tabs::make('schedule_v2_tabs')
+                        ->tabs([
+                            Forms\Components\Tabs\Tab::make('Самовивіз v2')
+                                ->schema([
+                                    Forms\Components\Repeater::make('schedule_v2.pickup.days')
+                                        ->label('Дні тижня')
+                                        ->afterStateHydrated(function (Repeater $component, $state) use ($weekDays) {
+                                            $rows = is_array($state) ? array_values($state) : [];
+
+                                            if (count($rows) > 0) {
+                                                $byKey = [];
+                                                foreach ($rows as $row) {
+                                                    $k = (string) ($row['day_key'] ?? '');
+                                                    if ($k !== '') {
+                                                        $byKey[$k] = $row;
+                                                    }
+                                                }
+
+                                                $normalized = [];
+                                                foreach ($weekDays as $key => $label) {
+                                                    $existing = $byKey[$key] ?? [];
+                                                    $normalized[] = [
+                                                        'day_key' => $key,
+                                                        'day_label' => $label,
+                                                        'is_working' => (bool) ($existing['is_working'] ?? !in_array($key, ['sat', 'sun'], true)),
+                                                        'open_time' => (string) ($existing['open_time'] ?? '08:30'),
+                                                        'close_time' => (string) ($existing['close_time'] ?? '20:00'),
+                                                        'today_cutoff_time' => (string) ($existing['today_cutoff_time'] ?? '19:59'),
+                                                        'interval_step_minutes' => (int) ($existing['interval_step_minutes'] ?? 15),
+                                                    ];
+                                                }
+
+                                                $component->state($normalized);
+                                                return;
+                                            }
+
+                                            $component->state(
+                                                collect($weekDays)->map(fn ($label, $key) => [
+                                                    'day_key' => $key,
+                                                    'day_label' => $label,
+                                                    'is_working' => !in_array($key, ['sat', 'sun'], true),
+                                                    'open_time' => '08:30',
+                                                    'close_time' => '20:00',
+                                                    'today_cutoff_time' => '19:59',
+                                                    'interval_step_minutes' => 15,
+                                                ])->values()->all()
+                                            );
+                                        })
+                                        ->default(function () use ($weekDays) {
+                                            return collect($weekDays)->map(fn ($label, $key) => [
+                                                'day_key' => $key,
+                                                'day_label' => $label,
+                                                'is_working' => !in_array($key, ['sat', 'sun'], true),
+                                                'open_time' => '08:30',
+                                                'close_time' => '20:00',
+                                                'today_cutoff_time' => '19:59',
+                                                'interval_step_minutes' => 15,
+                                            ])->values()->all();
+                                        })
+                                        ->addable(false)
+                                        ->deletable(false)
+                                        ->reorderable(false)
+                                        ->schema([
+                                            Forms\Components\Hidden::make('day_key'),
+                                            Forms\Components\TextInput::make('day_label')->label('День')->disabled()->dehydrated(false),
+                                            Forms\Components\Toggle::make('is_working')->label('Робочий день')->inline(false),
+                                            Forms\Components\TimePicker::make('open_time')->label('Відкриття')->seconds(false),
+                                            Forms\Components\TimePicker::make('close_time')->label('Закриття')->seconds(false),
+                                            Forms\Components\TimePicker::make('today_cutoff_time')->label('Крайній час прийому')->seconds(false),
+                                            Forms\Components\Select::make('interval_step_minutes')
+                                                ->label('Крок інтервалів, хв')
+                                                ->options([5 => '5', 10 => '10', 15 => '15', 20 => '20', 30 => '30'])
+                                                ->default(15)
+                                                ->native(false),
+                                        ])
+                                        ->columns(7)
+                                        ->itemLabel(fn (array $state) => (string) ($state['day_label'] ?? 'День')),
+
+                                    Forms\Components\Repeater::make('schedule_v2.pickup.closed_dates')
+                                        ->label('Неробочі дати (самовивіз)')
+                                        ->default([])
+                                        ->schema([
+                                            Forms\Components\DatePicker::make('date')->label('Дата')->native(false),
+                                        ])
+                                        ->columns(1)
+                                        ->addActionLabel('Додати дату'),
+                                ]),
+
+                            Forms\Components\Tabs\Tab::make('Доставка v2')
+                                ->schema([
+                                    Forms\Components\Repeater::make('schedule_v2.delivery.days')
+                                        ->label('Дні тижня')
+                                        ->afterStateHydrated(function (Repeater $component, $state) use ($weekDays) {
+                                            $rows = is_array($state) ? array_values($state) : [];
+
+                                            if (count($rows) > 0) {
+                                                $byKey = [];
+                                                foreach ($rows as $row) {
+                                                    $k = (string) ($row['day_key'] ?? '');
+                                                    if ($k !== '') {
+                                                        $byKey[$k] = $row;
+                                                    }
+                                                }
+
+                                                $normalized = [];
+                                                foreach ($weekDays as $key => $label) {
+                                                    $existing = $byKey[$key] ?? [];
+                                                    $normalized[] = [
+                                                        'day_key' => $key,
+                                                        'day_label' => $label,
+                                                        'is_working' => (bool) ($existing['is_working'] ?? !in_array($key, ['sat', 'sun'], true)),
+                                                        'open_time' => (string) ($existing['open_time'] ?? '09:00'),
+                                                        'close_time' => (string) ($existing['close_time'] ?? '21:00'),
+                                                        'today_cutoff_time' => (string) ($existing['today_cutoff_time'] ?? '20:00'),
+                                                        'interval_step_minutes' => (int) ($existing['interval_step_minutes'] ?? 15),
+                                                    ];
+                                                }
+
+                                                $component->state($normalized);
+                                                return;
+                                            }
+
+                                            $component->state(
+                                                collect($weekDays)->map(fn ($label, $key) => [
+                                                    'day_key' => $key,
+                                                    'day_label' => $label,
+                                                    'is_working' => !in_array($key, ['sat', 'sun'], true),
+                                                    'open_time' => '09:00',
+                                                    'close_time' => '21:00',
+                                                    'today_cutoff_time' => '20:00',
+                                                    'interval_step_minutes' => 15,
+                                                ])->values()->all()
+                                            );
+                                        })
+                                        ->default(function () use ($weekDays) {
+                                            return collect($weekDays)->map(fn ($label, $key) => [
+                                                'day_key' => $key,
+                                                'day_label' => $label,
+                                                'is_working' => !in_array($key, ['sat', 'sun'], true),
+                                                'open_time' => '09:00',
+                                                'close_time' => '21:00',
+                                                'today_cutoff_time' => '20:00',
+                                                'interval_step_minutes' => 15,
+                                            ])->values()->all();
+                                        })
+                                        ->addable(false)
+                                        ->deletable(false)
+                                        ->reorderable(false)
+                                        ->schema([
+                                            Forms\Components\Hidden::make('day_key'),
+                                            Forms\Components\TextInput::make('day_label')->label('День')->disabled()->dehydrated(false),
+                                            Forms\Components\Toggle::make('is_working')->label('Робочий день')->inline(false),
+                                            Forms\Components\TimePicker::make('open_time')->label('Відкриття')->seconds(false),
+                                            Forms\Components\TimePicker::make('close_time')->label('Закриття')->seconds(false),
+                                            Forms\Components\TimePicker::make('today_cutoff_time')->label('Крайній час прийому')->seconds(false),
+                                            Forms\Components\Select::make('interval_step_minutes')
+                                                ->label('Крок інтервалів, хв')
+                                                ->options([5 => '5', 10 => '10', 15 => '15', 20 => '20', 30 => '30'])
+                                                ->default(15)
+                                                ->native(false),
+                                        ])
+                                        ->columns(7)
+                                        ->itemLabel(fn (array $state) => (string) ($state['day_label'] ?? 'День')),
+
+                                    Forms\Components\Repeater::make('schedule_v2.delivery.closed_dates')
+                                        ->label('Неробочі дати (доставка)')
+                                        ->default([])
+                                        ->schema([
+                                            Forms\Components\DatePicker::make('date')->label('Дата')->native(false),
+                                        ])
+                                        ->columns(1)
+                                        ->addActionLabel('Додати дату'),
+                                ]),
+                        ]),
+                ])
+                ->collapsible(),
 
             Forms\Components\Section::make(__('location.sections.publish'))->schema([
                 Forms\Components\Toggle::make('is_active')->label(__('location.fields.is_active'))->default(true),

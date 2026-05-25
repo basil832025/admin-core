@@ -9,6 +9,7 @@ use App\Filament\Resources\Callcenter\OrderResource\Widgets;
 use App\Filament\Resources\Shop\OrderResource as ShopOrderResource;
 use App\Services\PrintNode\KitchenDuplicatePrintService;
 use App\Models\Shop\Client;
+use App\Models\Shop\OrderAdjustment;
 use App\Models\Shop\OrderItem;
 use App\Models\Shop\ProductCharacteristicValue;
 use App\Models\Shop\TimeDiscount;
@@ -76,7 +77,7 @@ class OrderResource extends ShopOrderResource
 
     public static function shouldRegisterNavigation(): bool
     {
-        return static::canAccessModule();
+        return false;
     }
 
     public static function canViewAny(): bool
@@ -326,7 +327,8 @@ class OrderResource extends ShopOrderResource
 
             if (! $historyInjected) {
                 $fields[] = Hidden::make('history_refresh')
-                    ->default('0')
+                    ->default(fn () => (string) microtime(true))
+                    ->live()
                     ->dehydrated(false);
 
                 $historyInjected = true;
@@ -346,14 +348,14 @@ class OrderResource extends ShopOrderResource
 
         $extraNotesFields = [
             Textarea::make('kitchen_note')
-                ->label('Примечание для кухни')
-                ->placeholder('Общее примечание по заказу для поваров')
+                ->label(__('callcenter.order.kitchen_info'))
+                ->placeholder(__('callcenter.order.kitchen_info_placeholder'))
                 ->rows(3)
                 ->columnSpanFull(),
 
             Textarea::make('courier_comment')
-                ->label('Комментарий курьера')
-                ->placeholder('Комментарий во время/после доставки')
+                ->label(__('callcenter.order.client_info'))
+                ->placeholder(__('callcenter.order.client_info_placeholder'))
                 ->rows(3)
                 ->columnSpanFull(),
         ];
@@ -449,7 +451,7 @@ class OrderResource extends ShopOrderResource
                 'class' => 'callcenter-items-table',
             ])
             ->afterStateUpdated(function (Set $set, Get $get): void {
-                static::recalculateShippingFromCurrentForm($get, $set);
+                static::recalculateShippingFromCurrentForm($get, $set, null);
             })
             ->addActionLabel(__('order.actions.add_item'))
             ->headers([
@@ -462,11 +464,11 @@ class OrderResource extends ShopOrderResource
                     ->width('44%')
                     ->markAsRequired(),
                 Header::make('unit')
-                    ->label('Од.')
+                    ->label(__('callcenter.order.unit_short'))
                     ->align('center')
                     ->width('8%'),
                 Header::make('qty')
-                    ->label('Кол-во')
+                    ->label(__('callcenter.order.qty_short'))
                     ->align('center')
                     ->width('8%')
                     ->markAsRequired(),
@@ -546,12 +548,12 @@ class OrderResource extends ShopOrderResource
 
                         return new \Illuminate\Support\HtmlString(
                             '<div x-data="{ open: false }" class="relative flex justify-center">'
-                            . '<button type="button" class="' . $buttonClass . '" title="Примечание для кухни" @click.prevent="open = !open">+</button>'
+                            . '<button type="button" class="' . $buttonClass . '" title="' . e(__('callcenter.order.kitchen_info')) . '" @click.prevent="open = !open">+</button>'
                             . '<div x-show="open" x-cloak @click.outside="open = false" class="callcenter-kitchen-note-popover">'
                             . '<textarea class="callcenter-kitchen-note-textarea" rows="4" placeholder="Например: без лука, хорошо пропечь, двойная начинка">' . $noteEscaped . '</textarea>'
                             . '<div class="callcenter-kitchen-note-actions">'
-                            . '<button type="button" class="callcenter-kitchen-note-save" data-order-item-id="' . $orderItemId . '" @click.prevent.stop="window.callcenterHandleKitchenNoteSave($el, $wire); open = false;">Сохранить</button>'
-                            . '<button type="button" class="callcenter-kitchen-note-cancel" @click.prevent.stop="open = false">Закрыть</button>'
+                            . '<button type="button" class="callcenter-kitchen-note-save" data-order-item-id="' . $orderItemId . '" @click.prevent.stop="window.callcenterHandleKitchenNoteSave($el, $wire); open = false;">' . e(__('order.actions.save')) . '</button>'
+                            . '<button type="button" class="callcenter-kitchen-note-cancel" @click.prevent.stop="open = false">' . e(__('order.actions.cancel')) . '</button>'
                             . '</div>'
                             . '</div>'
                             . '</div>'
@@ -676,7 +678,7 @@ class OrderResource extends ShopOrderResource
                     ->live(debounce: 250)
                     ->afterStateUpdated(function ($state, Set $set, Get $get, $livewire): void {
                         static::persistOrderItemInlineChanges($get, ['qty' => max(1, (int) $state)], $livewire);
-                        static::recalculateShippingFromCurrentForm($get, $set);
+                        static::recalculateShippingFromCurrentForm($get, $set, null);
                     }),
 
                 TextInput::make('unit_price')
@@ -693,7 +695,7 @@ class OrderResource extends ShopOrderResource
                     ->afterStateUpdated(function ($state, Set $set, Get $get, $livewire): void {
                         $normalized = (float) str_replace(',', '.', (string) $state);
                         static::persistOrderItemInlineChanges($get, ['unit_price' => $normalized], $livewire);
-                        static::recalculateShippingFromCurrentForm($get, $set);
+                        static::recalculateShippingFromCurrentForm($get, $set, null);
                     }),
 
                 Placeholder::make('item_total')
@@ -709,50 +711,216 @@ class OrderResource extends ShopOrderResource
                         return number_format($qty * $price, 1, ',', ' ');
                     }),
 
-                Placeholder::make('time_discount_marker')
-                    ->label('')
-                    ->hiddenLabel()
-                    ->extraAttributes([
-                        'class' => 'text-center',
+                TextInput::make('manual_discount_amount')
+                    ->dehydrated(false)
+                    ->extraFieldWrapperAttributes([
+                        'class' => 'callcenter-inline-editable-wrapper callcenter-inline-discount-wrapper',
                     ])
-                    ->content(function (Get $get): HtmlString {
+                    ->extraInputAttributes([
+                        'class' => 'callcenter-inline-input-discount',
+                        'data-inline-open' => 'dblclick',
+                        'title' => 'Подвійний клік для зміни знижки',
+                    ])
+                    ->rule('numeric')
+                    ->inputMode('decimal')
+                    ->afterStateHydrated(function ($component, Get $get): void {
                         $orderItemId = (int) ($get('id') ?? 0);
+
                         if ($orderItemId <= 0) {
-                            return new HtmlString('<span style="color:#9ca3af;">—</span>');
+                            $component->state(null);
+
+                            return;
                         }
 
-                        $orderId = static::resolveOrderIdByItemId($orderItemId);
-                        if (! $orderId) {
-                            return new HtmlString('<span style="color:#9ca3af;">—</span>');
+                        $component->state(static::resolveCurrentItemDiscountValue($orderItemId));
+                    })
+                    ->live(debounce: 300)
+                    ->afterStateUpdated(function ($state, Set $set, Get $get, $livewire): void {
+                        static::persistOrderItemManualDiscount($get, $state, $livewire);
+
+                        $orderItemId = (int) ($get('id') ?? 0);
+                        if ($orderItemId > 0) {
+                            $set('manual_discount_amount', static::resolveCurrentItemDiscountValue($orderItemId));
                         }
-
-                        $timeDiscountId = static::resolveSelectedTimeDiscountId($get, $orderId);
-                        if (! $timeDiscountId) {
-                            return new HtmlString('<span style="color:#9ca3af;">—</span>');
-                        }
-
-                        $map = static::buildTimeDiscountRecipientsMap($orderId, $timeDiscountId);
-                        $entry = $map[$orderItemId] ?? null;
-                        $count = (int) data_get($entry, 'units', 0);
-                        $amount = (float) data_get($entry, 'amount', 0);
-
-                        if ($count <= 0) {
-                            return new HtmlString('<span style="color:#9ca3af;">—</span>');
-                        }
-
-                        $amountText = '- ' . number_format($amount, 2, ',', ' ');
-                        if ($count > 1) {
-                            $amountText .= ' ×' . $count;
-                        }
-
-                        return new HtmlString(
-                            '<span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;background:#FFF7ED;color:#C2410C;font-size:11px;font-weight:700;">'
-                            . e($amountText)
-                            . '</span>'
-                        );
                     }),
             ])
             ->required();
+    }
+
+    protected static function resolveCurrentItemDiscountValue(int $orderItemId): ?string
+    {
+        $item = OrderItem::query()
+            ->with(['order.adjustments'])
+            ->whereKey($orderItemId)
+            ->first();
+
+        if (! $item) {
+            return null;
+        }
+
+        $manualOverride = $item->order?->adjustments
+            ?->first(fn ($adj) => (string) $adj->type === 'manual_item_override' && (int) $adj->shop_order_item_id === $item->id);
+
+        if ($manualOverride) {
+            $manualAmount = abs((float) ($manualOverride->meta['amount'] ?? $manualOverride->amount ?? 0));
+
+            return $manualAmount > 0.004
+                ? number_format($manualAmount, 2, '.', '')
+                : null;
+        }
+
+        $discount = (float) ($item->discount_total ?? 0);
+
+        if (abs($discount) < 0.005) {
+            $orderId = (int) ($item->shop_order_id ?? 0);
+
+            if ($orderId > 0) {
+                $timeDiscountId = static::resolveSelectedTimeDiscountIdFromDatabase($orderId);
+                if ($timeDiscountId) {
+                    $map = static::buildTimeDiscountRecipientsMap($orderId, $timeDiscountId);
+                    $amount = (float) data_get($map, $item->id . '.amount', 0);
+
+                    if ($amount > 0.004) {
+                        return number_format($amount, 2, '.', '');
+                    }
+                }
+
+                $fixedDiscountId = static::resolveSelectedFixedDiscountIdFromDatabase($orderId);
+                if ($fixedDiscountId) {
+                    $map = static::buildFixedDiscountRecipientsMap($orderId, $fixedDiscountId);
+                    $amount = (float) data_get($map, $item->id, 0);
+
+                    if ($amount > 0.004) {
+                        return number_format($amount, 2, '.', '');
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        return number_format(abs($discount), 2, '.', '');
+    }
+
+    protected static function resolveSelectedTimeDiscountIdFromDatabase(int $orderId): ?int
+    {
+        $meta = DB::table('bs_shop_order_adjustments')
+            ->where('shop_order_id', $orderId)
+            ->whereNull('shop_order_item_id')
+            ->where('type', 'time')
+            ->orderByDesc('id')
+            ->value('meta');
+
+        $metaArr = is_string($meta) ? json_decode($meta, true) : (is_array($meta) ? $meta : []);
+        $id = (int) (data_get($metaArr, 'id') ?? data_get($metaArr, 'time_discount_id') ?? 0);
+
+        return $id > 0 ? $id : null;
+    }
+
+    protected static function resolveSelectedFixedDiscountIdFromDatabase(int $orderId): ?int
+    {
+        $meta = DB::table('bs_shop_order_adjustments')
+            ->where('shop_order_id', $orderId)
+            ->whereNull('shop_order_item_id')
+            ->where('type', 'fixed')
+            ->orderByDesc('id')
+            ->value('meta');
+
+        $metaArr = is_string($meta) ? json_decode($meta, true) : (is_array($meta) ? $meta : []);
+        $id = (int) (data_get($metaArr, 'id') ?? data_get($metaArr, 'fixed_discount_id') ?? 0);
+
+        return $id > 0 ? $id : null;
+    }
+
+    protected static function buildFixedDiscountRecipientsMap(int $orderId, int $discountId): array
+    {
+        static $cache = [];
+        $cacheKey = $orderId . ':' . $discountId;
+
+        if (isset($cache[$cacheKey])) {
+            return $cache[$cacheKey];
+        }
+
+        $discount = \App\Models\Shop\FixedDiscount::query()->find($discountId);
+        if (! $discount) {
+            return $cache[$cacheKey] = [];
+        }
+
+        $items = OrderItem::query()
+            ->where('shop_order_id', $orderId)
+            ->with(['product.parent'])
+            ->orderBy('id')
+            ->get()
+            ->filter(function (OrderItem $item) {
+                return $item->product && ! $item->product->excludedFromPromotions() && (float) $item->unit_price > 0 && (int) $item->qty > 0;
+            })
+            ->values();
+
+        if ($items->isEmpty()) {
+            return $cache[$cacheKey] = [];
+        }
+
+        $map = [];
+        $sum = (float) $items->sum(fn (OrderItem $item) => (float) $item->unit_price * (int) $item->qty);
+        if ($sum <= 0) {
+            return $cache[$cacheKey] = [];
+        }
+
+        $percent = (float) ($discount->percent ?? 0);
+        if ($percent > 0) {
+            foreach ($items as $item) {
+                $amount = round(((float) $item->unit_price * (int) $item->qty) * ($percent / 100), 2);
+                if ($amount > 0) {
+                    $map[$item->id] = $amount;
+                }
+            }
+
+            return $cache[$cacheKey] = $map;
+        }
+
+        $fixedAmount = min((float) ($discount->amount ?? 0), $sum);
+        if ($fixedAmount <= 0) {
+            return $cache[$cacheKey] = [];
+        }
+
+        $remaining = round($fixedAmount, 2);
+        $lastId = (int) $items->last()->id;
+
+        foreach ($items as $item) {
+            $itemSubtotal = (float) $item->unit_price * (int) $item->qty;
+            $amount = $item->id === $lastId
+                ? $remaining
+                : round($fixedAmount * ($itemSubtotal / $sum), 2);
+
+            $amount = min($amount, $remaining, $itemSubtotal);
+            $remaining = round($remaining - $amount, 2);
+
+            if ($amount > 0) {
+                $map[$item->id] = $amount;
+            }
+        }
+
+        return $cache[$cacheKey] = $map;
+    }
+
+    public static function buildItemsStateFromOrder(Order $order): array
+    {
+        $order->loadMissing(['items.product.parent']);
+
+        return $order->items
+            ->sortBy('id')
+            ->values()
+            ->map(function (OrderItem $item): array {
+                return [
+                    'id' => $item->id,
+                    'product_id' => $item->product_id,
+                    'qty' => (int) $item->qty,
+                    'unit_price' => (float) $item->unit_price,
+                    'kitchen_note' => $item->kitchen_note,
+                    'manual_discount_amount' => static::resolveCurrentItemDiscountValue($item->id),
+                ];
+            })
+            ->all();
     }
 
     protected static function resolveOrderIdByItemId(int $orderItemId): ?int
@@ -830,13 +998,17 @@ class OrderResource extends ShopOrderResource
 
         $items = OrderItem::query()
             ->where('shop_order_id', $orderId)
-            ->with(['product.categories', 'product.characteristicValues'])
+            ->with(['product.parent', 'product.categories', 'product.characteristicValues'])
             ->orderBy('id')
             ->get();
 
         foreach ($items as $item) {
             $product = $item->product;
             if (! $product) {
+                continue;
+            }
+
+            if ($product->excludedFromPromotions()) {
                 continue;
             }
 
@@ -1020,7 +1192,7 @@ class OrderResource extends ShopOrderResource
                     $spent = static::resolveSpentBonuses($record);
 
                     if ($spent <= 0) {
-                        return new HtmlString('<div class="text-sm text-gray-500">Бонуси не використовувались</div>');
+                        return new HtmlString('<div class="text-sm text-gray-500">' . e(__('callcenter.order.bonuses_not_used')) . '</div>');
                     }
 
                     return new HtmlString('<div class="text-lg font-semibold">' . number_format($spent, 2, ',', ' ') . ' грн</div>');
@@ -1079,7 +1251,7 @@ class OrderResource extends ShopOrderResource
         }
 
         $components[] = TextInput::make('cash_from')
-            ->label('Сдача с')
+            ->label(__('callcenter.order.change_from'))
             ->numeric()
             ->step(0.01)
             ->suffix('грн')
@@ -1160,16 +1332,16 @@ class OrderResource extends ShopOrderResource
                 $cashFrom = (float) str_replace(',', '.', $cashRaw);
 
                 if ($cashFrom <= 0) {
-                    return 'Сдача 0,00 грн';
+                    return __('callcenter.order.change_exact');
                 }
 
                 $change = $cashFrom - $finalAmount;
 
                 if ($change < 0) {
-                    return 'Недостатньо ' . number_format(abs($change), 2, ',', ' ') . ' грн';
+                    return __('callcenter.order.change_not_enough') . ' ' . number_format(abs($change), 2, ',', ' ') . ' ' . __('callcenter.order.currency_uah');
                 }
 
-                return 'Сдача ' . number_format($change, 2, ',', ' ') . ' грн';
+                return __('callcenter.order.change_due') . ' ' . number_format($change, 2, ',', ' ') . ' ' . __('callcenter.order.currency_uah');
             });
 
         $components[] = Placeholder::make('sidebar_receipt_buttons')
@@ -1178,9 +1350,9 @@ class OrderResource extends ShopOrderResource
             ->dehydrated(false)
             ->content(fn (): HtmlString => new HtmlString(
                 '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
-                .'<button type="button" wire:click="mountAction(\'print_client_receipt_sidebar\')" style="display:block;flex:1;padding:10px 12px;border:1px solid #2563eb;border-radius:8px;background:#eff6ff;color:#1d4ed8;font-weight:700;cursor:pointer;text-align:center;">Клиентский чек</button>'
-                .'<button type="button" wire:click="mountAction(\'print_logistic_receipt_sidebar\')" style="display:block;flex:1;padding:10px 12px;border:1px solid #b45309;border-radius:8px;background:#fffbeb;color:#b45309;font-weight:700;cursor:pointer;text-align:center;">Чек для логиста</button>'
-                .'<button type="button" wire:click="mountAction(\'print_client_and_logistic_receipts_sidebar\')" data-hotkey="cc-print-client-logistic" data-hotkey-label="Alt+P" style="display:block;flex:1;min-width:220px;padding:10px 12px;border:1px solid #166534;border-radius:8px;background:#ecfdf5;color:#166534;font-weight:700;cursor:pointer;text-align:center;">Клиентский + логиста чек</button>'
+                .'<button type="button" wire:click="mountAction(\'print_client_receipt_sidebar\')" style="display:block;flex:1;padding:10px 12px;border:1px solid #2563eb;border-radius:8px;background:#eff6ff;color:#1d4ed8;font-weight:700;cursor:pointer;text-align:center;">' . e(__('callcenter.order.print_client_receipt')) . '</button>'
+                .'<button type="button" wire:click="mountAction(\'print_logistic_receipt_sidebar\')" style="display:block;flex:1;padding:10px 12px;border:1px solid #b45309;border-radius:8px;background:#fffbeb;color:#b45309;font-weight:700;cursor:pointer;text-align:center;">' . e(__('callcenter.order.print_logistic_receipt')) . '</button>'
+                .'<button type="button" wire:click="mountAction(\'print_client_and_logistic_receipts_sidebar\')" data-hotkey="cc-print-client-logistic" data-hotkey-label="Alt+P" style="display:block;flex:1;min-width:220px;padding:10px 12px;border:1px solid #166534;border-radius:8px;background:#ecfdf5;color:#166534;font-weight:700;cursor:pointer;text-align:center;">' . e(__('callcenter.order.print_client_and_logistic_receipt')) . '</button>'
                 .'</div>'
             ))
             ->columnSpanFull()
@@ -1254,17 +1426,15 @@ class OrderResource extends ShopOrderResource
     protected static function getCallcenterHistorySchema(): array
     {
         return [
-            View::make('filament.callcenter.order-history-sidebar')
-                ->key(fn (Get $get, ?Order $record): string => 'cc-history-'
-                    . ($get('clients_id') ?? $record?->clients_id ?? 'none')
-                    . '-'
-                    . ($get('history_refresh') ?? '0'))
+            View::make('filament.callcenter.order-history-sidebar-panel')
+                ->dehydrated(false)
+                ->live()
                 ->viewData(function (Get $get, ?Order $record): array {
                     $clientId = (int) ($get('clients_id') ?? $record?->clients_id ?? 0);
                     $excludeOrderId = (int) ($record?->id ?? 0);
 
                     $orders = $clientId
-                        ? Order::query()
+                        ? \App\Models\Shop\Order::query()
                             ->where('clients_id', $clientId)
                             ->when($excludeOrderId > 0, fn ($q) => $q->whereKeyNot($excludeOrderId))
                             ->with(['clientAddress:id,street,house,apartment,city,intercom,floor,entrance,note,is_private_house,type,latitude,longitude,street_place_id,formatted_address'])
@@ -1273,8 +1443,14 @@ class OrderResource extends ShopOrderResource
                             ->get(['id', 'number', 'created_at', 'client_address_id'])
                         : collect();
 
-                    return ['orders' => $orders];
-                }),
+                    return [
+                        'orders' => $orders,
+                    ];
+                })
+                ->key(fn (Get $get, ?Order $record): string => 'cc-history-'
+                    . ($get('clients_id') ?? $record?->clients_id ?? 'none')
+                    . '-'
+                    . ($get('history_refresh') ?? '0')),
         ];
     }
 
@@ -1472,7 +1648,7 @@ class OrderResource extends ShopOrderResource
         return $trimmed;
     }
 
-    protected static function recalculateShippingFromCurrentForm(Get $get, Set $set): void
+    protected static function recalculateShippingFromCurrentForm(Get $get, Set $set, ?\App\Models\Shop\Order $record): void
     {
         $selfPickup = (bool) ($get('self_pickup') ?? false);
 
@@ -1490,7 +1666,11 @@ class OrderResource extends ShopOrderResource
             return;
         }
 
-        $orderTotal = (float) parent::calcBaseTotalFromGet($get);
+        if (! $record) {
+            $recordId = (int) ($get('id') ?? 0);
+            $record = $recordId > 0 ? Order::query()->find($recordId) : null;
+        }
+        $orderTotal = (float) parent::calcDeliveryBaseFromGet($get, $record);
 
         $tempOrder = new Order();
         $tempOrder->address = $address;
@@ -1571,6 +1751,91 @@ class OrderResource extends ShopOrderResource
 
         $livewire->record = $record->fresh();
         $livewire->record->recalculateTotalPrice();
+    }
+
+    protected static function persistOrderItemManualDiscount(Get $get, $state, $livewire): void
+    {
+        if (! isset($livewire->record) || ! $livewire->record?->exists) {
+            return;
+        }
+
+        $orderItemId = (int) ($get('id') ?? 0);
+
+        if ($orderItemId <= 0) {
+            return;
+        }
+
+        $item = OrderItem::query()->whereKey($orderItemId)->first();
+
+        if (! $item) {
+            return;
+        }
+
+        $raw = trim((string) $state);
+
+        $adjustment = OrderAdjustment::query()->firstOrNew([
+            'shop_order_id' => $item->shop_order_id,
+            'shop_order_item_id' => $item->id,
+            'type' => 'manual_item_override',
+        ]);
+
+        if ($raw === '') {
+            if ($adjustment->exists) {
+                $adjustment->delete();
+            }
+
+            $record = $livewire->record->fresh();
+
+            if ($record) {
+                app(\App\Services\OrderPricing::class)->recalc($record);
+                $livewire->record = $record->fresh();
+                $livewire->record?->recalculateTotalPrice();
+            }
+
+            return;
+        }
+
+        $requested = max(0, (float) str_replace(',', '.', $raw));
+        $subtotal = max(0, round((float) $item->unit_price * (float) $item->qty, 2));
+        $targetDiscount = min($requested, $subtotal);
+
+        if ($targetDiscount <= 0) {
+            if ($adjustment->exists) {
+                $adjustment->delete();
+            }
+
+            $record = $livewire->record->fresh();
+
+            if ($record) {
+                app(\App\Services\OrderPricing::class)->recalc($record);
+                $livewire->record = $record->fresh();
+                $livewire->record?->recalculateTotalPrice();
+            }
+
+            return;
+        }
+
+        $adjustment->fill([
+            'label' => 'Ручна знижка на товар',
+            'amount' => -1 * $targetDiscount,
+            'meta' => [
+                'amount' => $targetDiscount,
+                'mode' => 'override',
+                'source' => 'callcenter',
+            ],
+        ]);
+        $adjustment->save();
+
+        $record = $livewire->record->fresh();
+
+        if (! $record) {
+            return;
+        }
+
+        app(\App\Services\OrderPricing::class)->recalc($record);
+
+        $livewire->record = $record->fresh();
+        $livewire->record?->recalculateTotalPrice();
     }
 
     protected static function resolveDiscountMomentForOrder(Order $order): Carbon
