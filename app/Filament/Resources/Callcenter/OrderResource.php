@@ -9,6 +9,7 @@ use App\Filament\Resources\Callcenter\OrderResource\Widgets;
 use App\Filament\Resources\Shop\OrderResource as ShopOrderResource;
 use App\Services\PrintNode\KitchenDuplicatePrintService;
 use App\Models\Shop\Client;
+use App\Models\Shop\Product;
 use App\Models\Shop\OrderAdjustment;
 use App\Models\Shop\OrderItem;
 use App\Models\Shop\ProductCharacteristicValue;
@@ -728,6 +729,21 @@ class OrderResource extends ShopOrderResource
                     ])
                     ->rule('numeric')
                     ->inputMode('decimal')
+                    ->helperText(function (Get $get): ?HtmlString {
+                        $virtual = static::resolveVirtualItemDiscountMeta($get);
+
+                        if (! $virtual) {
+                            return null;
+                        }
+
+                        $amount = number_format((float) $virtual['amount'], 2, ',', ' ');
+
+                        return new HtmlString(
+                            '<span style="display:block;width:100%;text-align:right;color:#16a34a;font-size:11px;font-weight:700;line-height:1.2;">'
+                            . e($amount)
+                            . '</span>'
+                        );
+                    })
                     ->afterStateHydrated(function ($component, Get $get): void {
                         $orderItemId = (int) ($get('id') ?? 0);
 
@@ -805,6 +821,52 @@ class OrderResource extends ShopOrderResource
         }
 
         return number_format(abs($discount), 2, '.', '');
+    }
+
+    /**
+     * @return array{percent:float,amount:float}|null
+     */
+    protected static function resolveVirtualItemDiscountMeta(Get $get): ?array
+    {
+        $productId = (int) ($get('product_id') ?? 0);
+        $qty = max(0, (float) ($get('qty') ?? 0));
+        $unitPrice = max(0, (float) str_replace(',', '.', (string) ($get('unit_price') ?? 0)));
+
+        if ($productId <= 0 || $qty <= 0 || $unitPrice <= 0) {
+            return null;
+        }
+
+        $oldPrice = static::resolveProductOldPrice($productId);
+
+        if ($oldPrice <= $unitPrice) {
+            return null;
+        }
+
+        $delta = $oldPrice - $unitPrice;
+        $percent = round(($delta / $oldPrice) * 100, 2);
+        $amount = round($delta * $qty, 2);
+
+        if ($percent <= 0 || $amount <= 0) {
+            return null;
+        }
+
+        return [
+            'percent' => $percent,
+            'amount' => $amount,
+        ];
+    }
+
+    protected static function resolveProductOldPrice(int $productId): float
+    {
+        static $cache = [];
+
+        if (array_key_exists($productId, $cache)) {
+            return $cache[$productId];
+        }
+
+        $oldPrice = (float) (Product::query()->whereKey($productId)->value('old_price') ?? 0);
+
+        return $cache[$productId] = max(0, $oldPrice);
     }
 
     protected static function resolveSelectedTimeDiscountIdFromDatabase(int $orderId): ?int
