@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Callcenter\OrderResource\Concerns;
 use App\Models\Shop\Product;
 use App\Models\Shop\ProductCharacteristicValue;
 use App\Models\Shop\Order as ShopOrder;
+use App\Filament\Resources\Callcenter\OrderResource;
 use App\Services\OrderPricing;
 use App\Services\DeliveryCalculationService;
 use Illuminate\Support\Facades\Log;
@@ -193,7 +194,7 @@ trait HasMenuCatalogActions
 
         $recordId = (int) ($state['id'] ?? 0);
         $record = $recordId > 0 ? ShopOrder::query()->find($recordId) : null;
-        $baseTotal = static::calcDeliveryBaseFromStateArray($state, $record);
+        $baseTotal = OrderResource::calcDeliveryBaseForState($state, $record);
 
         $tempOrder = new ShopOrder();
         $tempOrder->address = $address;

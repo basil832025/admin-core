@@ -85,6 +85,11 @@ class OrderResource extends ShopOrderResource
         return static::canAccessModule();
     }
 
+    public static function calcDeliveryBaseForState(array $state, ?\App\Models\Shop\Order $record = null): float
+    {
+        return parent::calcDeliveryBaseFromStateArray($state, $record);
+    }
+
     public static function form(Form $form): Form
     {
         return $form

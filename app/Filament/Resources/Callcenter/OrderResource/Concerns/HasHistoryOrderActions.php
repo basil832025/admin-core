@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Callcenter\OrderResource\Concerns;
 
+use App\Filament\Resources\Callcenter\OrderResource;
 use App\Models\Shop\Order;
 use App\Models\Shop\OrderItem;
 use App\Models\Shop\ClientAddress;
@@ -14,6 +15,7 @@ use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\Log;
 
 trait HasHistoryOrderActions
 {
@@ -127,7 +129,7 @@ trait HasHistoryOrderActions
     public function useAddressFromHistory(int $historyOrderId, ?int $historyAddressId = null): void
     {
         try {
-            \Log::info('Callcenter history: useAddressFromHistory called', [
+            Log::info('Callcenter history: useAddressFromHistory called', [
                 'history_order_id' => $historyOrderId,
                 'history_address_id' => $historyAddressId,
                 'page' => static::class,
@@ -138,7 +140,7 @@ trait HasHistoryOrderActions
                 ->find($historyOrderId);
 
             if (! $source) {
-                \Log::warning('Callcenter history: source order not found', ['history_order_id' => $historyOrderId]);
+                Log::warning('Callcenter history: source order not found', ['history_order_id' => $historyOrderId]);
 
                 return;
             }
@@ -195,7 +197,7 @@ trait HasHistoryOrderActions
                     componentId: method_exists($this, 'getId') ? $this->getId() : null,
                 );
 
-                \Log::info('Callcenter history: address applied from saved address', [
+                Log::info('Callcenter history: address applied from saved address', [
                     'selected_address_id' => $selectedAddressId,
                     'shipping_price' => $shippingPrice,
                     'street' => $mergedAddress['street'] ?? null,
@@ -257,7 +259,7 @@ trait HasHistoryOrderActions
                 componentId: method_exists($this, 'getId') ? $this->getId() : null,
             );
 
-            \Log::info('Callcenter history: address applied as new', [
+            Log::info('Callcenter history: address applied as new', [
                 'shipping_price' => $shippingPrice,
                 'street' => $mergedAddress['street'] ?? null,
                 'house' => $mergedAddress['house'] ?? null,
@@ -265,7 +267,7 @@ trait HasHistoryOrderActions
 
             Notification::make()->success()->title('Адресу підставлено з історії')->send();
         } catch (\Throwable $e) {
-            \Log::error('Callcenter history: failed to apply address', [
+            Log::error('Callcenter history: failed to apply address', [
                 'history_order_id' => $historyOrderId,
                 'history_address_id' => $historyAddressId,
                 'error' => $e->getMessage(),
@@ -285,7 +287,7 @@ trait HasHistoryOrderActions
 
         $recordId = (int) ($state['id'] ?? 0);
         $record = $recordId > 0 ? Order::query()->find($recordId) : null;
-        $baseTotal = static::calcDeliveryBaseFromStateArray($state, $record);
+        $baseTotal = OrderResource::calcDeliveryBaseForState($state, $record);
 
         $lat = $address['latitude'] ?? null;
         $lng = $address['longitude'] ?? null;
