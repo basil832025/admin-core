@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\Shop\CashalotLogResource\Pages;
 
 use App\Filament\Resources\Shop\CashalotLogResource;
-use App\Filament\Resources\Shop\OrderResource;
+use App\Filament\Resources\Callcenter\OrderResource;
 use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Infolist;

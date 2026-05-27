@@ -17,6 +17,8 @@ class CashalotLog extends Model
         'error_message',
         'num_fiscal',
         'receipt_url',
+        'check_sum',
+        'payment_type',
         'consumer_service_type',
         'consumer_phone',
         'consumer_status',
@@ -33,6 +35,7 @@ class CashalotLog extends Model
         'request_payload' => 'array',
         'response_payload' => 'array',
         'consumer_response_payload' => 'array',
+        'check_sum' => 'decimal:2',
         'fiscalized_at' => 'datetime',
         'sent_to_consumer_at' => 'datetime',
     ];

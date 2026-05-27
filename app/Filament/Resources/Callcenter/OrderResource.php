@@ -19,6 +19,7 @@ use Awcodes\TableRepeater\Components\TableRepeater;
 use Awcodes\TableRepeater\Header;
 use Filament\Forms\Components\Actions\Action as FormAction;
 use Filament\Forms\Components\Actions;
+use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
@@ -390,6 +391,16 @@ class OrderResource extends ShopOrderResource
     protected static function normalizePhone(?string $phone): string
     {
         return preg_replace('/\D+/', '', (string) $phone) ?? '';
+    }
+
+    protected static function isCashalotFiscalPayment(mixed $payment): bool
+    {
+        $value = $payment instanceof PaymentMethodEnum ? $payment->value : (int) $payment;
+
+        return in_array($value, [
+            PaymentMethodEnum::CASH->value,
+            PaymentMethodEnum::POS->value,
+        ], true);
     }
 
     protected static function extractPhoneFromSuggestion(?string $value): string
@@ -1317,6 +1328,20 @@ class OrderResource extends ShopOrderResource
             });
         }
 
+        $components[] = Checkbox::make('fiscalize_in_cashalot')
+            ->label(__('callcenter.order.fiscalize_in_cashalot'))
+            ->helperText(__('callcenter.order.fiscalize_in_cashalot_help'))
+            ->live()
+            ->visible(fn (Get $get): bool => static::isCashalotFiscalPayment($get('payment')))
+            ->dehydrated(true)
+            ->dehydrateStateUsing(fn ($state, Get $get): bool => static::isCashalotFiscalPayment($get('payment')) && (bool) $state)
+            ->afterStateHydrated(function (Checkbox $component, $state, Get $get): void {
+                if (! static::isCashalotFiscalPayment($get('payment')) && (bool) $state) {
+                    $component->state(false);
+                }
+            })
+            ->columnSpanFull();
+
         $components[] = TextInput::make('cash_from')
             ->label(__('callcenter.order.change_from'))
             ->numeric()
@@ -1415,13 +1440,18 @@ class OrderResource extends ShopOrderResource
             ->label('')
             ->hiddenLabel()
             ->dehydrated(false)
-            ->content(fn (): HtmlString => new HtmlString(
-                '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
-                .'<button type="button" wire:click="mountAction(\'print_client_receipt_sidebar\')" style="display:block;flex:1;padding:10px 12px;border:1px solid #2563eb;border-radius:8px;background:#eff6ff;color:#1d4ed8;font-weight:700;cursor:pointer;text-align:center;">' . e(__('callcenter.order.print_client_receipt')) . '</button>'
-                .'<button type="button" wire:click="mountAction(\'print_logistic_receipt_sidebar\')" style="display:block;flex:1;padding:10px 12px;border:1px solid #b45309;border-radius:8px;background:#fffbeb;color:#b45309;font-weight:700;cursor:pointer;text-align:center;">' . e(__('callcenter.order.print_logistic_receipt')) . '</button>'
-                .'<button type="button" wire:click="mountAction(\'print_client_and_logistic_receipts_sidebar\')" data-hotkey="cc-print-client-logistic" data-hotkey-label="Alt+P" style="display:block;flex:1;min-width:220px;padding:10px 12px;border:1px solid #166534;border-radius:8px;background:#ecfdf5;color:#166534;font-weight:700;cursor:pointer;text-align:center;">' . e(__('callcenter.order.print_client_and_logistic_receipt')) . '</button>'
-                .'</div>'
-            ))
+            ->content(function (?Order $record, Get $get): HtmlString {
+                $html = '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+                    .'<button type="button" wire:click="mountAction(\'print_client_receipt_sidebar\')" style="display:block;flex:1;padding:10px 12px;border:1px solid #2563eb;border-radius:8px;background:#eff6ff;color:#1d4ed8;font-weight:700;cursor:pointer;text-align:center;">' . e(__('callcenter.order.print_client_receipt')) . '</button>'
+                    .'<button type="button" wire:click="mountAction(\'print_logistic_receipt_sidebar\')" style="display:block;flex:1;padding:10px 12px;border:1px solid #b45309;border-radius:8px;background:#fffbeb;color:#b45309;font-weight:700;cursor:pointer;text-align:center;">' . e(__('callcenter.order.print_logistic_receipt')) . '</button>'
+                    .'<button type="button" wire:click="mountAction(\'print_client_and_logistic_receipts_sidebar\')" data-hotkey="cc-print-client-logistic" data-hotkey-label="Alt+P" style="display:block;flex:1;min-width:220px;padding:10px 12px;border:1px solid #166534;border-radius:8px;background:#ecfdf5;color:#166534;font-weight:700;cursor:pointer;text-align:center;">' . e(__('callcenter.order.print_client_and_logistic_receipt')) . '</button>';
+
+                if ($record?->exists && static::isCashalotFiscalPayment($get('payment')) && (bool) ($get('fiscalize_in_cashalot') ?? false)) {
+                    $html .= '<button type="button" wire:click="mountAction(\'send_cashalot_receipt_sidebar\')" style="display:block;flex:1;min-width:220px;padding:10px 12px;border:1px solid #7c3aed;border-radius:8px;background:#f5f3ff;color:#6d28d9;font-weight:700;cursor:pointer;text-align:center;">' . e(__('callcenter.order.send_cashalot_receipt')) . '</button>';
+                }
+
+                return new HtmlString($html . '</div>');
+            })
             ->columnSpanFull()
             ->visible(fn (LivewireComponent $livewire): bool => method_exists($livewire, 'mountAction'));
 

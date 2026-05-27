@@ -6,11 +6,13 @@ use App\Filament\Resources\Callcenter\OrderResource;
 use App\Filament\Resources\Callcenter\OrderResource\Concerns\HasHistoryOrderActions;
 use App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions;
 use App\Filament\Resources\Callcenter\OrderResource\Concerns\HasPromotionsActions;
+use App\Enums\PaymentMethodEnum;
 use App\Enums\PrintOperationCode;
 use App\Models\Kitchen\KitchenTicket;
 use App\Models\Shop\ClientAddress;
 use App\Models\Shop\OrderItem;
 use App\Services\Callcenter\ExternalSyncService;
+use App\Services\CashalotFiscalService;
 use App\Services\OrderPricing;
 use App\Services\OrderZoneSyncService;
 use App\Services\PrintNode\KitchenDuplicatePrintService;
@@ -442,6 +444,15 @@ class EditOrder extends EditRecord
                         ->columnSpanFull(),
                 ]),
 
+            Action::make('send_cashalot_receipt_sidebar')
+                ->label(__('callcenter.order.send_cashalot_receipt'))
+                ->icon('heroicon-o-receipt-percent')
+                ->color('gray')
+                ->extraAttributes(['class' => 'hidden'])
+                ->action(function (): void {
+                    $this->sendCashalotReceiptFromSidebar();
+                }),
+
             $this->getSaveFormAction()
                 ->label(__('order.actions.save'))
                 ->extraAttributes([
@@ -598,6 +609,85 @@ class EditOrder extends EditRecord
         }
     }
 
+    public function sendCashalotReceiptFromSidebar(): void
+    {
+        if (! $this->record?->exists) {
+            return;
+        }
+
+        $payment = data_get($this->data, 'payment', $this->record->payment);
+        $fiscalizeInCashalot = (bool) data_get($this->data, 'fiscalize_in_cashalot', $this->record->fiscalize_in_cashalot);
+
+        if (! $this->isCashalotFiscalPayment($payment) || ! $fiscalizeInCashalot) {
+            Notification::make()
+                ->warning()
+                ->title('Cashalot: чек не відправлено')
+                ->body('Для відправки потрібна оплата готівкою або POS-терміналом і увімкнений прапорець фіскалізації.')
+                ->send();
+
+            return;
+        }
+
+        try {
+            $existingSuccess = $this->record->cashalotLogs()
+                ->where('status', 'success')
+                ->latest('id')
+                ->first();
+
+            if ($existingSuccess) {
+                Notification::make()
+                    ->info()
+                    ->title('Чек уже фіскалізовано')
+                    ->body('Фіскальний номер: ' . (string) ($existingSuccess->num_fiscal ?? '-'))
+                    ->send();
+
+                return;
+            }
+
+            $paymentValue = $payment instanceof PaymentMethodEnum ? $payment->value : (int) $payment;
+
+            $this->record->forceFill([
+                'payment' => $paymentValue,
+                'fiscalize_in_cashalot' => true,
+            ])->saveQuietly();
+
+            $this->record->refresh();
+            $log = app(CashalotFiscalService::class)->fiscalizeOfflinePaidOrder($this->record);
+
+            if ($log === null) {
+                Notification::make()
+                    ->warning()
+                    ->title('Cashalot вимкнено')
+                    ->body('Перевірте налаштування cashalot.enabled.')
+                    ->send();
+
+                return;
+            }
+
+            if ($log->status === 'success') {
+                Notification::make()
+                    ->success()
+                    ->title('Чек ПРРО відправлено')
+                    ->body('Фіскальний номер: ' . (string) ($log->num_fiscal ?? '-'))
+                    ->send();
+
+                return;
+            }
+
+            Notification::make()
+                ->danger()
+                ->title('Cashalot: помилка фіскалізації')
+                ->body(trim((string) ($log->error_message ?? $log->error_code ?? 'Невідома помилка')))
+                ->send();
+        } catch (\Throwable $exception) {
+            Notification::make()
+                ->danger()
+                ->title('Cashalot: exception')
+                ->body($exception->getMessage())
+                ->send();
+        }
+    }
+
     private function sendOperationReceiptFromSidebar(string $operationCode, string $successTitle, int $copies = 1): void
     {
         if (! $this->record?->exists) {
@@ -624,6 +714,10 @@ class EditOrder extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        if (! $this->isCashalotFiscalPayment($data['payment'] ?? null)) {
+            $data['fiscalize_in_cashalot'] = false;
+        }
+
         if (! (bool) data_get($this->data, 'date_order_manually_changed', false) && ! empty($data['dat'])) {
             $data['date_order'] = $data['dat'];
         }
@@ -639,6 +733,16 @@ class EditOrder extends EditRecord
         }
 
         return $this->syncAddressOnSave($data);
+    }
+
+    private function isCashalotFiscalPayment(mixed $payment): bool
+    {
+        $value = $payment instanceof PaymentMethodEnum ? $payment->value : (int) $payment;
+
+        return in_array($value, [
+            PaymentMethodEnum::CASH->value,
+            PaymentMethodEnum::POS->value,
+        ], true);
     }
 
     protected function mutateFormDataBeforeFill(array $data): array

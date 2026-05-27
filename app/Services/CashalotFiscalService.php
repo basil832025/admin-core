@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\PaymentMethodEnum;
 use App\Models\Shop\CashalotLog;
 use App\Models\Shop\Order;
 use Illuminate\Support\Str;
@@ -25,6 +26,8 @@ class CashalotFiscalService
                 'status' => 'skipped',
                 'error_code' => 'CONFIG_MISSING',
                 'error_message' => 'Cashalot config values are missing',
+                'check_sum' => $this->resolveCheckSum($order),
+                'payment_type' => $this->resolvePaymentTypeLabel($order),
             ]);
         }
 
@@ -47,6 +50,8 @@ class CashalotFiscalService
             'shop_order_id' => $order->id,
             'liqpay_log_id' => $lastLiqpayLogId,
             'status' => 'pending',
+            'check_sum' => (float) data_get($requestPayload, 'CHECKTOTAL.SUM', $this->resolveCheckSum($order)),
+            'payment_type' => $this->resolvePaymentTypeLabel($order, $liqpayPayload ?? []),
             'request_payload' => $requestPayload,
         ]);
 
@@ -83,6 +88,11 @@ class CashalotFiscalService
         }
 
         return $log;
+    }
+
+    public function fiscalizeOfflinePaidOrder(Order $order): ?CashalotLog
+    {
+        return $this->fiscalizePaidOrder($order, []);
     }
 
     protected function sendToConsumer(Order $order, CashalotLog $log, array $registerResponse, float $orderTotal): void
@@ -147,6 +157,25 @@ class CashalotFiscalService
             && trim((string) ($prro['password'] ?? '')) !== '';
     }
 
+    protected function resolveCheckSum(Order $order): float
+    {
+        return round(max(0, (float) ($order->grand_total ?? $order->total_price ?? 0)), 2);
+    }
+
+    protected function resolvePaymentTypeLabel(Order $order, array $liqpayPayload = []): string
+    {
+        $payment = $order->payment instanceof PaymentMethodEnum
+            ? $order->payment
+            : PaymentMethodEnum::tryFrom((int) $order->payment);
+
+        return match ($payment) {
+            PaymentMethodEnum::CASH => 'Готівка',
+            PaymentMethodEnum::POS => 'POS-термінал',
+            PaymentMethodEnum::LIQPAY => 'LiqPay',
+            default => $liqpayPayload !== [] ? 'LiqPay' : ($payment?->label('uk') ?? 'Невідомо'),
+        };
+    }
+
     protected function buildRequestPayload(Order $order, array $liqpayPayload): array
     {
         $total = (float) ($order->grand_total ?? $order->total_price ?? 0);
@@ -161,7 +190,7 @@ class CashalotFiscalService
 
             $price = (float) ($item->unit_price ?? 0);
             $cost = round($qty * $price, 2);
-            $name = trim((string) ($item->title ?? $item->product?->short_name ?? $item->product?->name ?? 'Товар'));
+            $name = $this->resolveItemName($item);
 
             $items[] = [
                 'NAME' => Str::limit($name, 180, ''),
@@ -220,6 +249,109 @@ class CashalotFiscalService
             $effectiveDiscount = round($effectiveDiscount + abs($delta), 2);
         }
 
+        return [
+            'CHECKHEAD' => [
+                'DOCTYPE' => 'SaleGoods',
+                'DOCSUBTYPE' => 'CheckGoods',
+                'TESTING' => $this->isTestingPayment($order, $liqpayPayload),
+            ],
+            'CHECKTOTAL' => [
+                'SUM' => $total,
+                'DISCOUNTSUM' => $effectiveDiscount,
+            ],
+            'CHECKPAY' => $this->buildCheckPay($order, $liqpayPayload, $total),
+            'CHECKBODY' => $items,
+        ];
+    }
+
+    protected function resolveItemName($item): string
+    {
+        $snapshotName = trim((string) data_get($item->product_snapshot, 'title'));
+        if ($snapshotName !== '') {
+            return $snapshotName;
+        }
+
+        $title = trim((string) ($item->title ?? ''));
+        if ($title !== '') {
+            return $title;
+        }
+
+        $product = $item->product;
+        if ($product) {
+            $displayName = trim((string) ($product->display_name ?? ''));
+            if ($displayName !== '' && $displayName !== '—') {
+                return $displayName;
+            }
+
+            if (method_exists($product, 'getTranslation')) {
+                $name = trim((string) $product->getTranslation('title', 'uk', false));
+                if ($name !== '') {
+                    return $name;
+                }
+            }
+
+            if ($product->parent && method_exists($product->parent, 'getTranslation')) {
+                $name = trim((string) $product->parent->getTranslation('title', 'uk', false));
+                if ($name !== '') {
+                    return $name;
+                }
+            }
+
+            $displayShort = trim((string) ($product->display_short ?? ''));
+            if ($displayShort !== '' && $displayShort !== '—') {
+                return $displayShort;
+            }
+
+            if (method_exists($product, 'adminBaseName')) {
+                $name = trim((string) $product->adminBaseName('uk'));
+                if ($name !== '') {
+                    return $name;
+                }
+            }
+
+            $slug = trim((string) ($product->slug ?? ''));
+            if ($slug !== '') {
+                return $slug;
+            }
+        }
+
+        return 'Товар';
+    }
+
+    protected function buildCheckPay(Order $order, array $liqpayPayload, float $total): array
+    {
+        $payment = $order->payment instanceof PaymentMethodEnum
+            ? $order->payment
+            : PaymentMethodEnum::tryFrom((int) $order->payment);
+
+        if ($payment === PaymentMethodEnum::CASH) {
+            return [
+                [
+                    'PAYFORMCD' => 0,
+                    'PAYFORMNM' => 'Готівка',
+                    'SUM' => $total,
+                ],
+            ];
+        }
+
+        if ($payment === PaymentMethodEnum::POS) {
+            return [
+                [
+                    'PAYFORMCD' => 1,
+                    'PAYFORMNM' => 'Банківська картка',
+                    'SUM' => $total,
+                    'PAYSYS' => [
+                        [
+                            'TAXNUM' => 'POS',
+                            'NAME' => 'POS-термінал',
+                            'SUM' => $total,
+                            'COMMISSION' => 0,
+                        ],
+                    ],
+                ],
+            ];
+        }
+
         $paytype = trim((string) ($liqpayPayload['paytype'] ?? ''));
         $paysysName = $paytype !== ''
             ? 'LiqPay (' . $paytype . ')'
@@ -230,43 +362,39 @@ class CashalotFiscalService
         }
 
         return [
-            'CHECKHEAD' => [
-                'DOCTYPE' => 'SaleGoods',
-                'DOCSUBTYPE' => 'CheckGoods',
-                'TESTING' => $this->isTestingPayment($liqpayPayload),
-            ],
-            'CHECKTOTAL' => [
+            [
+                'PAYFORMCD' => 1,
+                'PAYFORMNM' => 'Банківська картка',
                 'SUM' => $total,
-                'DISCOUNTSUM' => $effectiveDiscount,
-            ],
-            'CHECKPAY' => [
-                [
-                    'PAYFORMCD' => 1,
-                    'PAYFORMNM' => 'Банківська картка',
-                    'SUM' => $total,
-                    'PAYSYS' => [
-                        [
-                            'TAXNUM' => $taxNum,
-                            'NAME' => $paysysName,
-                            'SUM' => $total,
-                            'COMMISSION' => 0,
-                        ],
+                'PAYSYS' => [
+                    [
+                        'TAXNUM' => $taxNum,
+                        'NAME' => $paysysName,
+                        'SUM' => $total,
+                        'COMMISSION' => 0,
                     ],
                 ],
             ],
-            'CHECKBODY' => $items,
         ];
     }
 
-    protected function isTestingPayment(array $liqpayPayload): bool
+    protected function isTestingPayment(Order $order, array $liqpayPayload): bool
     {
+        $payment = $order->payment instanceof PaymentMethodEnum
+            ? $order->payment
+            : PaymentMethodEnum::tryFrom((int) $order->payment);
+
+        if (in_array($payment, [PaymentMethodEnum::CASH, PaymentMethodEnum::POS], true)) {
+            return false;
+        }
+
         $status = mb_strtolower(trim((string) ($liqpayPayload['status'] ?? '')));
 
         if ($status === 'sandbox') {
             return true;
         }
 
-        return (bool) config('liqpay.sandbox', false);
+        return $payment === PaymentMethodEnum::LIQPAY && (bool) config('liqpay.sandbox', false);
     }
 
     protected function normalizePhone(?string $phone): ?string

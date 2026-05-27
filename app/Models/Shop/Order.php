@@ -63,6 +63,7 @@ class Order extends Model
         'self_pickup',
         'as_soon_possible',
         'payment',
+        'fiscalize_in_cashalot',
         'cash_from',
         'reason_non_payment',
         'sale_prc',
@@ -82,6 +83,7 @@ class Order extends Model
 
     protected $casts = [
         'payment' => PaymentMethodEnum::class,
+        'fiscalize_in_cashalot' => 'boolean',
         'status'       => OrderStatus::class, // раз ты уже используешь enum
         'status_times' => 'array',
         'dat' => 'date',

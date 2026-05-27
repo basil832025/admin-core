@@ -71,13 +71,23 @@ class CashalotLogResource extends Resource
                 TextColumn::make('order.number')
                     ->label('Замовлення')
                     ->url(fn (CashalotLog $record) => $record->order
-                        ? OrderResource::getUrl('edit', ['record' => $record->order])
+                        ? \App\Filament\Resources\Callcenter\OrderResource::getUrl('edit', ['record' => $record->order])
                         : null)
                     ->openUrlInNewTab(),
 
                 TextColumn::make('num_fiscal')
                     ->label('Фіскальний №')
                     ->copyable(),
+
+                TextColumn::make('check_sum')
+                    ->label('Сума')
+                    ->money('UAH')
+                    ->sortable(),
+
+                TextColumn::make('payment_type')
+                    ->label('Оплата')
+                    ->badge()
+                    ->sortable(),
 
                 TextColumn::make('receipt_url')
                     ->label('Чек')
@@ -129,6 +139,15 @@ class CashalotLogResource extends Resource
                         'pending' => 'pending',
                         'failed' => 'failed',
                         'skipped' => 'skipped',
+                    ]),
+
+                SelectFilter::make('payment_type')
+                    ->label('Оплата')
+                    ->multiple()
+                    ->options([
+                        'Готівка' => 'Готівка',
+                        'POS-термінал' => 'POS-термінал',
+                        'LiqPay' => 'LiqPay',
                     ]),
 
                 SelectFilter::make('consumer_status')

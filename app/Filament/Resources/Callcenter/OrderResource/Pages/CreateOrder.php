@@ -6,6 +6,7 @@ use App\Filament\Resources\Callcenter\OrderResource\Concerns\HasHistoryOrderActi
 use App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions;
 use App\Filament\Resources\Callcenter\OrderResource\Concerns\HasPromotionsActions;
 use App\Filament\Resources\Callcenter\OrderResource;
+use App\Enums\PaymentMethodEnum;
 use App\Models\Shop\ClientAddress;
 use App\Services\OrderPricing;
 use Filament\Notifications\Notification;
@@ -155,6 +156,10 @@ class CreateOrder extends CreateRecord
     {
         $data['currency'] = (string) ($data['currency'] ?? 'UAH');
 
+        if (! $this->isCashalotFiscalPayment($data['payment'] ?? null)) {
+            $data['fiscalize_in_cashalot'] = false;
+        }
+
         if (! (bool) data_get($this->data, 'date_order_manually_changed', false) && ! empty($data['dat'])) {
             $data['date_order'] = $data['dat'];
         }
@@ -200,6 +205,16 @@ class CreateOrder extends CreateRecord
         unset($data['id'], $data['number']);
 
         return $data;
+    }
+
+    private function isCashalotFiscalPayment(mixed $payment): bool
+    {
+        $value = $payment instanceof PaymentMethodEnum ? $payment->value : (int) $payment;
+
+        return in_array($value, [
+            PaymentMethodEnum::CASH->value,
+            PaymentMethodEnum::POS->value,
+        ], true);
     }
 
     protected function normalizeAddressCoordinates(array $address): array
