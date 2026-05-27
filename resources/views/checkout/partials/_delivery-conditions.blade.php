@@ -29,10 +29,25 @@
     </div>
 
     <div class="flex flex-col md:flex-row md:items-center gap-4 mb-4">
-        <label class="inline-flex items-center gap-2 cursor-pointer">
+        <label
+            class="inline-flex items-start gap-2 transition"
+            :class="asapEnabled ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
+        >
             <input type="radio" value="asap"  x-model="mode" :disabled="!asapEnabled" class="tp-radio" @checked($deliveryMode === 'asap')>
-            <span class="text-[16px] leading-[22px] text-[#272828]">
-                {{ st('cart.delivery.mode.asap', 'Якнайшвидше') }}
+            <span>
+                <span
+                    class="block text-[16px] leading-[22px]"
+                    :class="asapEnabled ? 'text-[#272828]' : 'text-[#9CA3AF]'"
+                >
+                    {{ st('cart.delivery.mode.asap', 'Якнайшвидше') }}
+                </span>
+                <span
+                    x-show="!asapEnabled"
+                    x-cloak
+                    class="mt-1 block text-[12px] leading-[16px] text-[#9CA3AF]"
+                >
+                    {{ st('cart.delivery.mode.asap_unavailable', 'Недоступно у неробочий час') }}
+                </span>
             </span>
         </label>
 
