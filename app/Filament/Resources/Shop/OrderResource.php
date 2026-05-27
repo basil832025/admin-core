@@ -2746,7 +2746,22 @@ class OrderResource extends Resource
 
                             return $state->label();
                         }
-                    ),
+                    )
+                    ->description(function (Order $record): ?HtmlString {
+                        if (static::class !== \App\Filament\Resources\Callcenter\OrderResource::class) {
+                            return null;
+                        }
+
+                        $isFiscalized = $record->cashalotLogs()
+                            ->where('status', 'success')
+                            ->exists();
+
+                        if (! $isFiscalized) {
+                            return null;
+                        }
+
+                        return new HtmlString('<span style="display:inline-block;margin-top:3px;border-radius:999px;background:#fee2e2;color:#b91c1c;padding:2px 7px;font-size:11px;font-weight:700;line-height:1.2;">фіскалізовано</span>');
+                    }),
                 // ⬇️ НОВАЯ КОЛОНКА L i q P a y
                 BadgeColumn::make('liqpay_status')
                     ->label(__('order.columns.liqpay'))
@@ -2834,6 +2849,15 @@ class OrderResource extends Resource
                     ->options(static::paymentOptionsAdmin())
                     ->multiple()
                     ->preload()
+                    ->columnSpan(1),
+
+                Filter::make('cashalot_fiscalized')
+                    ->label('Фіскальні тільки')
+                    ->visible(fn (): bool => static::class === \App\Filament\Resources\Callcenter\OrderResource::class)
+                    ->query(fn (Builder $query): Builder => $query->whereHas(
+                        'cashalotLogs',
+                        fn (Builder $cashalotLogs): Builder => $cashalotLogs->where('status', 'success')
+                    ))
                     ->columnSpan(1),
 
                 TrashedFilter::make()
