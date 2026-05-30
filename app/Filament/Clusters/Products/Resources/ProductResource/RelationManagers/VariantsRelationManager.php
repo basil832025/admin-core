@@ -162,7 +162,11 @@ class VariantsRelationManager extends RelationManager
                         TextInput::make('sku')
                             ->label('Артикул')
                             ->maxLength(64)
-                            ->unique(ignoreRecord: true)
+                            ->default(fn (string $operation): ?int => $operation === 'create' ? \App\Filament\Clusters\Products\Resources\ProductResource::nextAvailableSku() : null)
+                            ->helperText(fn (): string => 'Следующий свободный артикул: ' . \App\Filament\Clusters\Products\Resources\ProductResource::nextAvailableSku())
+                            ->rules([
+                                fn (?Product $record): \Closure => \App\Filament\Clusters\Products\Resources\ProductResource::uniqueSkuRule($record),
+                            ])
                             ->columnSpan(3),
                          TextInput::make('quantity')
                              ->label('Кол-во')

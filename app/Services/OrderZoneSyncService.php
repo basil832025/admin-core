@@ -101,14 +101,6 @@ class OrderZoneSyncService
             return ['lat' => $lat, 'lng' => $lng];
         }
 
-        $orderAddress = (array) ($order->address ?? []);
-        $lat = (float) ($orderAddress['latitude'] ?? 0);
-        $lng = (float) ($orderAddress['longitude'] ?? 0);
-
-        if ($lat !== 0.0 && $lng !== 0.0) {
-            return ['lat' => $lat, 'lng' => $lng];
-        }
-
         return null;
     }
 

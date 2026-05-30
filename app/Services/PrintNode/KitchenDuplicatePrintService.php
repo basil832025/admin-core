@@ -881,13 +881,11 @@ class KitchenDuplicatePrintService
 
     private function resolveAddressLine(Order $order): string
     {
-        $address = (array) ($order->address ?? []);
-
         $parts = array_filter([
-            trim((string) ($address['street'] ?? $order->clientAddress?->street ?? '')),
-            trim((string) ($address['house'] ?? $order->clientAddress?->house ?? '')),
-            trim((string) ($address['apartment'] ?? $order->clientAddress?->apartment ?? '')),
-            trim((string) ($address['city'] ?? $order->clientAddress?->city ?? '')),
+            trim((string) ($order->clientAddress?->street ?? '')),
+            trim((string) ($order->clientAddress?->house ?? '')),
+            trim((string) ($order->clientAddress?->apartment ?? '')),
+            trim((string) ($order->clientAddress?->city ?? '')),
         ], fn ($value) => $value !== '');
 
         return implode(', ', $parts);

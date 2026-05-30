@@ -91,6 +91,42 @@ class ProductResource extends Resource
     {
         return __('product.nav.plural_model_label');
     }
+
+    public static function nextAvailableSku(): int
+    {
+        $maxSku = Product::query()
+            ->whereNotNull('sku')
+            ->whereRaw("sku REGEXP '^[0-9]+$'")
+            ->selectRaw('MAX(CAST(sku AS UNSIGNED)) as max_sku')
+            ->value('max_sku');
+
+        return ((int) $maxSku) + 1;
+    }
+
+    public static function uniqueSkuRule(?Product $record = null): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail) use ($record): void {
+            $sku = trim((string) $value);
+
+            if ($sku === '') {
+                return;
+            }
+
+            $exists = Product::query()
+                ->where('sku', $sku)
+                ->when($record?->getKey(), fn (Builder $query, int $id) => $query->whereKeyNot($id))
+                ->exists();
+
+            if ($exists) {
+                $fail(sprintf(
+                    'Артикул "%s" уже используется. Можно ввести следующий свободный артикул: %s.',
+                    $sku,
+                    static::nextAvailableSku(),
+                ));
+            }
+        };
+    }
+
     public static function form(Form $form): Form
     {
         $defaultLocale = Setting::value('default_language_code') ?: config('app.locale');
@@ -191,7 +227,14 @@ class ProductResource extends Resource
                         ]) ->columns(4),
                     Section::make(__('product.sections.stock'))
                         ->schema([
-                            TextInput::make('sku')->label(__('product.fields.sku')),
+                            TextInput::make('sku')
+                                ->label(__('product.fields.sku'))
+                                ->maxLength(64)
+                                ->default(fn (string $operation): ?int => $operation === 'create' ? static::nextAvailableSku() : null)
+                                ->helperText(fn (): string => 'Следующий свободный артикул: ' . static::nextAvailableSku())
+                                ->rules([
+                                    fn (?Product $record): \Closure => static::uniqueSkuRule($record),
+                                ]),
                             TextInput::make('quantity')->label(__('product.fields.quantity'))->numeric()->default(0),
                         ])->columns(2),
                     Section::make(__('product.sections.extra'))

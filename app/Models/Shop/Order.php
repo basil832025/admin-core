@@ -97,7 +97,6 @@ class Order extends Model
         'cash_from' => 'decimal:2',
         'sale_sum' => 'decimal:2',
         'total_price_sale' => 'decimal:2',
-        'address'     => 'array',
         'source_id' => 'integer',
         'has_unmatched_items' => 'boolean',
         'synced_at' => 'datetime',

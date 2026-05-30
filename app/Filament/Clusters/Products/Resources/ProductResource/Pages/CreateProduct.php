@@ -30,6 +30,10 @@ class CreateProduct extends CreateRecord
       /*  $data['characteristics'] = $data['characteristics_payload'] ?? [];
         unset($data['characteristics_payload']);
 */
+        if (blank($data['sku'] ?? null)) {
+            $data['sku'] = ProductResource::nextAvailableSku();
+        }
+
         return $data;
     }
     protected function beforeValidate(): void

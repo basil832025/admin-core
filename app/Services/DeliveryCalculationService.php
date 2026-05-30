@@ -27,24 +27,17 @@ class DeliveryCalculationService
         }
 
         // Получаем адрес заказа
-        $address = $order->address ?? [];
-        $latitude = $address['latitude'] ?? null;
-        $longitude = $address['longitude'] ?? null;
+        $order->loadMissing('clientAddress');
 
-        // Если нет координат, пытаемся получить из clientAddress
+        $latitude = $order->clientAddress?->latitude;
+        $longitude = $order->clientAddress?->longitude;
+
         if (!$latitude || !$longitude) {
-            if ($order->clientAddress) {
-                $latitude = $order->clientAddress->latitude;
-                $longitude = $order->clientAddress->longitude;
-            }
-
-            if (! $latitude || ! $longitude) {
-                return [
-                    'price' => 0,
-                    'zone' => null,
-                    'is_free' => false,
-                ];
-            }
+            return [
+                'price' => 0,
+                'zone' => null,
+                'is_free' => false,
+            ];
         }
 
         // Определяем зону доставки по координатам

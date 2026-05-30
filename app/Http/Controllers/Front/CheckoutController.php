@@ -521,20 +521,6 @@ public function saveFormData(Request $request)
                 } else {
                     // новый адрес — сохранённого id нет
                     $order->client_address_id = null;
-                    $order->address = [
-                        'street' => $mergedData['addr_street'] ?? null,
-                        'house' => $mergedData['addr_house'] ?? null,
-                        'apartment' => $mergedData['addr_apartment'] ?? null,
-                        'intercom' => $mergedData['addr_intercom'] ?? null,
-                        'floor' => $mergedData['addr_floor'] ?? null,
-                        'entrance' => $mergedData['addr_porch'] ?? null,
-                        'note' => $mergedData['addr_comment'] ?? null,
-                        'is_private_house' => ! empty($mergedData['addr_is_private_house']),
-                        'type' => $mergedData['addr_type'] ?? null,
-                        'city' => 'Київ',
-                        'latitude' => filled($mergedData['addr_lat'] ?? null) ? (float) $mergedData['addr_lat'] : null,
-                        'longitude' => filled($mergedData['addr_lng'] ?? null) ? (float) $mergedData['addr_lng'] : null,
-                    ];
                 }
             }
 
@@ -666,19 +652,7 @@ public function updatePromo(Request $request)
     $order->self_pickup = $shippingMethod === 'pickup';
 
     $selectedAddressId = (int) ($sessionData['selected_address_id'] ?? 0);
-    if (!empty($sessionData['use_new_address'])) {
-        $lat = (float) ($sessionData['addr_lat'] ?? 0);
-        $lng = (float) ($sessionData['addr_lng'] ?? 0);
-
-        if ($lat && $lng) {
-            $order->address = array_merge((array) ($order->address ?? []), [
-                'latitude' => $lat,
-                'longitude' => $lng,
-                'street' => (string) ($sessionData['addr_street'] ?? ''),
-                'house' => (string) ($sessionData['addr_house'] ?? ''),
-            ]);
-        }
-    } elseif ($selectedAddressId > 0) {
+    if (empty($sessionData['use_new_address']) && $selectedAddressId > 0) {
         $order->client_address_id = $selectedAddressId;
     }
 
@@ -888,8 +862,6 @@ public function submit(Request $request)
     // 2. Адрес: существующий или новый (только для доставки)
     $useNew = false;
     $addressId = null;
-    $addressSnapshot = null;
-
     if ($shippingMethod === 'delivery') {
         $useNew = $request->boolean('use_new_address')
             || ! $client
@@ -929,7 +901,6 @@ public function submit(Request $request)
 
             $address   = ClientAddress::create($addrData);
             $addressId = $address->id;
-            $addressSnapshot = $addrData;
         } else {
             $addressId = $request->input('selected_address_id');
 
@@ -948,11 +919,6 @@ public function submit(Request $request)
             }
 
             $addressId       = $address->id;
-            $addressSnapshot = $address->only([
-                'street', 'house', 'apartment', 'intercom', 'floor',
-                'entrance', 'comment', 'is_private_house', 'type', 'city',
-                'latitude', 'longitude',
-            ]);
         }
     }
 
@@ -1056,8 +1022,6 @@ public function submit(Request $request)
     $order->fill([
         'short_name'        => $validated['contact_name'],
         'client_address_id' => $addressId,
-        'address'           => $addressSnapshot,
-
         'shipping_method'   => $shippingMethod,
         'self_pickup'       => $shippingMethod === 'pickup',
         'as_soon_possible'  => $deliveryMode === 'asap',
