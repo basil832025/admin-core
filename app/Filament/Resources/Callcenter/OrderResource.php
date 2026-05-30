@@ -19,7 +19,6 @@ use Awcodes\TableRepeater\Components\TableRepeater;
 use Awcodes\TableRepeater\Header;
 use Filament\Forms\Components\Actions\Action as FormAction;
 use Filament\Forms\Components\Actions;
-use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
@@ -27,6 +26,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\Group;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Tabs;
@@ -1328,14 +1328,14 @@ class OrderResource extends ShopOrderResource
             });
         }
 
-        $components[] = Checkbox::make('fiscalize_in_cashalot')
+        $components[] = Toggle::make('fiscalize_in_cashalot')
             ->label(__('callcenter.order.fiscalize_in_cashalot'))
             ->helperText(__('callcenter.order.fiscalize_in_cashalot_help'))
             ->live()
             ->visible(fn (Get $get): bool => static::isCashalotFiscalPayment($get('payment')))
             ->dehydrated(true)
             ->dehydrateStateUsing(fn ($state, Get $get): bool => static::isCashalotFiscalPayment($get('payment')) && (bool) $state)
-            ->afterStateHydrated(function (Checkbox $component, $state, Get $get): void {
+            ->afterStateHydrated(function (Toggle $component, $state, Get $get): void {
                 if (! static::isCashalotFiscalPayment($get('payment')) && (bool) $state) {
                     $component->state(false);
                 }
