@@ -57,7 +57,6 @@ use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
-use Illuminate\Support\HtmlString;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Enums\FiltersLayout;
@@ -125,6 +124,102 @@ class ProductResource extends Resource
                 ));
             }
         };
+    }
+
+    public static function normalizeDecimal(mixed $value): float
+    {
+        return (float) str_replace(',', '.', (string) ($value ?? 0));
+    }
+
+    public static function calculatedDiscountPercent(mixed $oldPrice, mixed $price): ?float
+    {
+        $oldPrice = static::normalizeDecimal($oldPrice);
+        $price = static::normalizeDecimal($price);
+
+        if ($oldPrice <= 0 || $price <= 0 || $oldPrice <= $price) {
+            return null;
+        }
+
+        return round((($oldPrice - $price) / $oldPrice) * 100, 2);
+    }
+
+    public static function syncDiscountPercentField(Set $set, Get $get): void
+    {
+        $set('manual_discount_percent', static::calculatedDiscountPercent($get('old_price'), $get('price')));
+    }
+
+    public static function applyDiscountPercentToPrices(Set $set, Get $get, mixed $state): void
+    {
+        $discountPercent = static::normalizeDecimal($state);
+
+        if ($discountPercent <= 0) {
+            $existingOldPrice = static::normalizeDecimal($get('old_price'));
+
+            if ($existingOldPrice > 0) {
+                $set('price', round($existingOldPrice));
+            }
+
+            $set('old_price', null);
+            $set('manual_discount_percent', null);
+
+            return;
+        }
+
+        $currentPrice = static::normalizeDecimal($get('price'));
+        $existingOldPrice = static::normalizeDecimal($get('old_price'));
+        $hasExistingOldPrice = $existingOldPrice > 0 && $existingOldPrice > $currentPrice;
+        $basePrice = $hasExistingOldPrice ? $existingOldPrice : $currentPrice;
+
+        if ($basePrice <= 0) {
+            return;
+        }
+
+        if (! $hasExistingOldPrice) {
+            $set('old_price', round($basePrice));
+        }
+
+        $set('manual_discount_percent', round($discountPercent, 2));
+        $set('price', round($basePrice * (1 - ($discountPercent / 100))));
+    }
+
+    public static function applyDiscountPercentToData(array $data): array
+    {
+        if (! array_key_exists('manual_discount_percent', $data)) {
+            return $data;
+        }
+
+        $discountPercent = static::normalizeDecimal($data['manual_discount_percent']);
+
+        if ($discountPercent <= 0) {
+            $existingOldPrice = static::normalizeDecimal($data['old_price'] ?? null);
+
+            if ($existingOldPrice > 0) {
+                $data['price'] = round($existingOldPrice);
+            }
+
+            $data['old_price'] = null;
+            $data['manual_discount_percent'] = null;
+
+            return $data;
+        }
+
+        $currentPrice = static::normalizeDecimal($data['price'] ?? null);
+        $existingOldPrice = static::normalizeDecimal($data['old_price'] ?? null);
+        $hasExistingOldPrice = $existingOldPrice > 0 && $existingOldPrice > $currentPrice;
+        $basePrice = $hasExistingOldPrice ? $existingOldPrice : $currentPrice;
+
+        if ($basePrice <= 0) {
+            return $data;
+        }
+
+        if (! $hasExistingOldPrice) {
+            $data['old_price'] = round($basePrice);
+        }
+
+        $data['manual_discount_percent'] = round($discountPercent, 2);
+        $data['price'] = round($basePrice * (1 - ($discountPercent / 100)));
+
+        return $data;
     }
 
     public static function form(Form $form): Form
@@ -198,32 +293,35 @@ class ProductResource extends Resource
                                 ->label(__('product.fields.price'))
                                 ->numeric()
                                 ->required()
-                                ->reactive(),
+                                ->live(onBlur: true)
+                                ->afterStateUpdated(fn ($state, Set $set, Get $get) => static::syncDiscountPercentField($set, $get)),
                             TextInput::make('old_price')
                                 ->label(__('product.fields.old_price'))
                                 ->numeric()
                                 ->nullable()
-                                ->reactive(),
+                                ->live(onBlur: true)
+                                ->afterStateUpdated(fn ($state, Set $set, Get $get) => static::syncDiscountPercentField($set, $get)),
                             TextInput::make('variant_display_sort')
                                 ->label('Сортування варіанта в картці')
                                 ->numeric()
                                 ->helperText('Окремо від загального сортування товарів у каталозі.')
                                 ->visible(fn (?Product $record): bool => $record?->parent_id === null)
                                 ->nullable(),
-                            Placeholder::make('discount_percent')
+                            TextInput::make('manual_discount_percent')
                                 ->label('Скидка %')
-                                ->content(function (Get $get) {
-                                    $oldPrice = (float)($get('old_price') ?? 0);
-                                    $price = (float)($get('price') ?? 0);
-
-                                    if (!$oldPrice || $oldPrice <= 0 || $price <= 0 || $oldPrice <= $price) {
-                                        return new HtmlString('<span class="text-gray-500">0%</span>');
+                                ->numeric()
+                                ->minValue(0)
+                                ->maxValue(99.99)
+                                ->step(0.01)
+                                ->live(onBlur: true)
+                                ->afterStateHydrated(function (TextInput $component, $state, ?Product $record): void {
+                                    if ($state !== null && $state !== '') {
+                                        return;
                                     }
 
-                                    $discount = round((($oldPrice - $price) / $oldPrice) * 100);
-                                    return new HtmlString('<span class="text-danger font-semibold">–' . $discount . '%</span>');
+                                    $component->state(static::calculatedDiscountPercent($record?->old_price, $record?->price));
                                 })
-                                ->reactive(),
+                                ->afterStateUpdated(fn ($state, Set $set, Get $get) => static::applyDiscountPercentToPrices($set, $get, $state)),
                         ]) ->columns(4),
                     Section::make(__('product.sections.stock'))
                         ->schema([

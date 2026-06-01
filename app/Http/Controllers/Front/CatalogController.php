@@ -18,6 +18,7 @@ use App\Models\Shop\Characteristic;
 class CatalogController extends Controller
 {
     use HasCatalogFilters;
+
     public function show(string $slug)
     {
         $locale = app()->getLocale();
@@ -326,9 +327,9 @@ class CatalogController extends Controller
 
             case 'popular':
             default:
-                // Сначала товары с флагом "популярний", затем базовый порядок
-                $query->orderByDesc('is_hit')
-                    ->orderBy('sort', 'asc');
+                // Базовый порядок каталога соответствует сортировке в админке.
+                $query->orderBy('sort', 'asc')
+                    ->orderBy('id', 'asc');
                 break;
         }
 

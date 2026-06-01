@@ -268,9 +268,9 @@ trait HasCatalogFilters
 
             case 'popular':
             default:
-                // Сначала товары с флагом "популярний", затем базовый порядок
-                $query->orderByDesc('is_hit')
-                    ->orderBy('sort', 'asc');
+                // Базовый порядок каталога соответствует сортировке в админке.
+                $query->orderBy('sort', 'asc')
+                    ->orderBy('id', 'asc');
                 break;
         }
 

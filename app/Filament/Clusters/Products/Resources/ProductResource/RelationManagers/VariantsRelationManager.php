@@ -118,11 +118,31 @@ class VariantsRelationManager extends RelationManager
                         TextInput::make('price')
                             ->label('Цена')
                             ->numeric()->inputMode('decimal')->step('any')
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(fn ($state, Set $set, Get $get) => \App\Filament\Clusters\Products\Resources\ProductResource::syncDiscountPercentField($set, $get))
                             ->required(),
 
                         TextInput::make('old_price')
                             ->label('Старая цена')
-                            ->numeric()->inputMode('decimal')->step('any'),
+                            ->numeric()->inputMode('decimal')->step('any')
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(fn ($state, Set $set, Get $get) => \App\Filament\Clusters\Products\Resources\ProductResource::syncDiscountPercentField($set, $get)),
+
+                        TextInput::make('manual_discount_percent')
+                            ->label('Скидка %')
+                            ->numeric()
+                            ->minValue(0)
+                            ->maxValue(99.99)
+                            ->step(0.01)
+                            ->live(onBlur: true)
+                            ->afterStateHydrated(function (TextInput $component, $state, ?Product $record): void {
+                                if ($state !== null && $state !== '') {
+                                    return;
+                                }
+
+                                $component->state(\App\Filament\Clusters\Products\Resources\ProductResource::calculatedDiscountPercent($record?->old_price, $record?->price));
+                            })
+                            ->afterStateUpdated(fn ($state, Set $set, Get $get) => \App\Filament\Clusters\Products\Resources\ProductResource::applyDiscountPercentToPrices($set, $get, $state)),
 
                         TextInput::make('variant_display_sort')
                             ->label('Сортування в картці')
@@ -224,11 +244,18 @@ class VariantsRelationManager extends RelationManager
 
         $locales = static::getActiveLocales();
         return $table
-            ->modifyQueryUsing(function ($query) {
+            ->query(function () {
                 $owner = $this->getOwnerRecord();
 
+                return Product::query()
+                    ->where(function ($query) use ($owner): void {
+                        $query
+                            ->whereKey($owner->getKey())
+                            ->orWhere('parent_id', $owner->getKey());
+                    });
+            })
+            ->modifyQueryUsing(function ($query) {
                 return $query
-                    ->orWhere($query->getModel()->getQualifiedKeyName(), $owner->getKey())
                     ->orderByRaw('CASE WHEN variant_display_sort IS NULL THEN 1 ELSE 0 END asc')
                     ->orderBy('variant_display_sort')
                     ->orderBy('sort')
@@ -270,41 +297,109 @@ class VariantsRelationManager extends RelationManager
                     }),
                // Tables\Columns\TextColumn::make('price')->label('Цена')->numeric(2),
                 TextInputColumn::make('price')
-                    ->type('number')   // HTML5 number
+                    ->type('number')
                     ->step('1')
-                    ->rules(['numeric','min:0']) // валидация на сохранение
+                    ->rules(['numeric','min:0'])
                     ->alignRight()
                     ->label(__('product.columns.price'))
+                    ->updateStateUsing(function (Product $record, $state, $livewire): float {
+                        $record->price = (float) $state;
+                        $record->manual_discount_percent = null;
+                        $record->save();
+
+                        if (is_object($livewire) && method_exists($livewire, 'dispatch')) {
+                            $livewire->dispatch('$refresh');
+                        }
+
+                        return (float) $record->price;
+                    })
                     ->sortable(),
                 TextInputColumn::make('old_price')
-                    ->type('number')   // HTML5 number
+                    ->type('number')
                     ->step('1')
-                    ->rules(['numeric','min:0']) // валидация на сохранение
+                    ->rules(['nullable', 'numeric', 'min:0'])
                     ->alignRight()
                     ->label('Старая цена')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('discount_percent')
-                    ->label('Скидка %')
-                    ->getStateUsing(function (\App\Models\Shop\Product $record) {
-                        $oldPrice = $record->old_price ?? null;
-                        $price = $record->price ?? 0;
-                        
-                        if (!$oldPrice || $oldPrice <= 0 || $price <= 0 || $oldPrice <= $price) {
-                            return 0;
+                    ->updateStateUsing(function (Product $record, $state, $livewire): ?float {
+                        $record->old_price = $state === null || $state === '' ? null : (float) $state;
+                        $record->manual_discount_percent = null;
+                        $record->save();
+
+                        if (is_object($livewire) && method_exists($livewire, 'dispatch')) {
+                            $livewire->dispatch('$refresh');
                         }
-                        
-                        return round((($oldPrice - $price) / $oldPrice) * 100);
+
+                        return $record->old_price !== null ? (float) $record->old_price : null;
                     })
-                    ->formatStateUsing(fn ($state) => $state > 0 ? "–{$state}%" : '0%')
-                    ->color(fn ($state) => $state > 0 ? 'danger' : 'gray')
+                    ->sortable(),
+                TextInputColumn::make('discount_percent')
+                    ->type('number')
+                    ->step('1')
+                    ->rules(['nullable', 'numeric', 'min:0', 'max:99.99'])
+                    ->label('Скидка %')
+                    ->getStateUsing(function (Product $record): ?float {
+                        if ($record->manual_discount_percent !== null) {
+                            return round((float) $record->manual_discount_percent, 2);
+                        }
+
+                        return \App\Filament\Clusters\Products\Resources\ProductResource::calculatedDiscountPercent($record->old_price, $record->price);
+                    })
+                    ->updateStateUsing(function (Product $record, $state, $livewire): ?float {
+                        $discountPercent = \App\Filament\Clusters\Products\Resources\ProductResource::normalizeDecimal($state);
+
+                        if ($discountPercent <= 0) {
+                            $existingOldPrice = (float) ($record->old_price ?? 0);
+
+                            if ($existingOldPrice > 0) {
+                                $record->price = round($existingOldPrice);
+                            }
+
+                            $record->old_price = null;
+                            $record->manual_discount_percent = null;
+                            $record->save();
+
+                            app(\App\Services\CatalogCacheService::class)->bump();
+
+                            if (is_object($livewire) && method_exists($livewire, 'dispatch')) {
+                                $livewire->dispatch('$refresh');
+                            }
+
+                            return null;
+                        }
+
+                        $currentPrice = (float) ($record->price ?? 0);
+                        $existingOldPrice = (float) ($record->old_price ?? 0);
+                        $hasExistingOldPrice = $existingOldPrice > 0 && $existingOldPrice > $currentPrice;
+                        $basePrice = $hasExistingOldPrice ? $existingOldPrice : $currentPrice;
+
+                        if ($basePrice <= 0) {
+                            return null;
+                        }
+
+                        if (! $hasExistingOldPrice) {
+                            $record->old_price = round($basePrice);
+                        }
+
+                        $record->manual_discount_percent = round($discountPercent, 2);
+                        $record->price = round($basePrice * (1 - ($discountPercent / 100)));
+                        $record->save();
+
+                        app(\App\Services\CatalogCacheService::class)->bump();
+
+                        if (is_object($livewire) && method_exists($livewire, 'dispatch')) {
+                            $livewire->dispatch('$refresh');
+                        }
+
+                        return round((float) $record->manual_discount_percent, 2);
+                    })
                     ->alignRight()
                     ->sortable(query: function ($query, string $direction) {
-                        // Сортировка по вычисленному проценту скидки
                         return $query->orderByRaw("
-                            CASE 
-                                WHEN old_price > 0 AND price > 0 AND old_price > price 
+                            CASE
+                                WHEN manual_discount_percent IS NOT NULL THEN manual_discount_percent
+                                WHEN old_price > 0 AND price > 0 AND old_price > price
                                 THEN ROUND(((old_price - price) / old_price) * 100)
-                                ELSE 0 
+                                ELSE 0
                             END {$direction}
                         ");
                     }),
@@ -323,6 +418,8 @@ class VariantsRelationManager extends RelationManager
                 CreateAction::make()
                     ->label('Добавить вариант')
                     ->mutateFormDataUsing(function (array $data): array {
+                        $data = \App\Filament\Clusters\Products\Resources\ProductResource::applyDiscountPercentToData($data);
+
                         // забираем характеристики из формы
                         $this->charsPayload = [
                             'values' => $data['characteristics'] ?? [],
@@ -360,6 +457,8 @@ class VariantsRelationManager extends RelationManager
             ->actions([
                 // в v4 — используем Actions\EditAction
                 EditAction::make() ->mutateFormDataUsing(function (array $data): array {
+                    $data = \App\Filament\Clusters\Products\Resources\ProductResource::applyDiscountPercentToData($data);
+
                     $this->charsPayload = [
                         'values' => $data['characteristics'] ?? [],
                         'prices' => $data['characteristics_price'] ?? [],
