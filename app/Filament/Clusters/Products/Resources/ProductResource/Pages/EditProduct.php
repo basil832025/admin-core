@@ -18,8 +18,7 @@ class EditProduct extends EditRecord
             $this->getCancelFormAction()
                 ->label(__('product.actions.cancel'))
                 ->color('warning')
-                // можно задать куда вести, по умолчанию вернёт на index-роту
-                ->url($this->getResource()::getUrl('index')),
+                ->url(fn (): string => $this->getProductsIndexUrl()),
 
             $this->getSaveFormAction()
                 ->label(__('product.actions.save'))
@@ -74,7 +73,18 @@ class EditProduct extends EditRecord
     }
     protected function getRedirectUrl(): string
     {
-        return $this->getResource()::getUrl('index');
+        return $this->getProductsIndexUrl();
+    }
+
+    protected function getProductsIndexUrl(): string
+    {
+        $indexUrl = $this->getResource()::getUrl('index');
+        $indexPath = parse_url($indexUrl, PHP_URL_PATH);
+        $previousPath = $this->previousUrl ? parse_url($this->previousUrl, PHP_URL_PATH) : null;
+
+        return $previousPath === $indexPath
+            ? $this->previousUrl
+            : $indexUrl;
     }
     protected function mutateFormDataBeforeFill(array $data): array
     {
