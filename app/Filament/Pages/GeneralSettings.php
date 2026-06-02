@@ -324,6 +324,22 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
                 ])
                 ->compact(),
 
+            Section::make('Товары в заказе')
+                ->description('Вид списка товаров в заказе коллцентра.')
+                ->schema([
+                    Select::make('callcenter.order_items_view')
+                        ->label('Вид по умолчанию')
+                        ->options([
+                            'compact' => 'Товары в заказе компактным списком',
+                            'photo' => 'Товары с фото',
+                        ])
+                        ->default('compact')
+                        ->native(false)
+                        ->required(),
+                ])
+                ->statePath('admin_settings')
+                ->compact(),
+
             Section::make('Бонусна програма')
                 ->description('Оберіть, від якої суми нараховувати бонуси клієнту.')
                 ->schema([

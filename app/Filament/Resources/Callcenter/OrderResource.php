@@ -7,6 +7,7 @@ use App\Enums\PaymentMethodEnum;
 use App\Filament\Resources\Callcenter\OrderResource\Pages;
 use App\Filament\Resources\Callcenter\OrderResource\Widgets;
 use App\Filament\Resources\Shop\OrderResource as ShopOrderResource;
+use App\Models\Setting;
 use App\Services\PrintNode\KitchenDuplicatePrintService;
 use App\Models\Shop\Client;
 use App\Models\Shop\Product;
@@ -460,12 +461,13 @@ class OrderResource extends ShopOrderResource
     public static function getItemsRepeater(): Repeater
     {
         $defaultLocale = config('app.locale', 'uk');
+        $itemsView = static::getOrderItemsView();
 
         return TableRepeater::make('items')
             ->relationship()
             ->label('')
             ->extraAttributes([
-                'class' => 'callcenter-items-table',
+                'class' => 'callcenter-items-table callcenter-items-table--' . $itemsView,
             ])
             ->afterStateUpdated(function (Set $set, Get $get): void {
                 static::recalculateShippingFromCurrentForm($get, $set, null);
@@ -476,14 +478,17 @@ class OrderResource extends ShopOrderResource
                     ->label('')
                     ->align('center')
                     ->width('4%'),
+                Header::make('product_card')
+                    ->label('Товар')
+                    ->width($itemsView === 'photo' ? '62%' : '0%'),
                 Header::make('product_id')
                     ->label(__('order.fields.product'))
-                    ->width('44%')
+                    ->width($itemsView === 'photo' ? '0%' : '44%')
                     ->markAsRequired(),
                 Header::make('unit')
                     ->label(__('callcenter.order.unit_short'))
                     ->align('center')
-                    ->width('8%'),
+                    ->width($itemsView === 'photo' ? '0%' : '8%'),
                 Header::make('qty')
                     ->label(__('callcenter.order.qty_short'))
                     ->align('center')
@@ -492,22 +497,16 @@ class OrderResource extends ShopOrderResource
                 Header::make('unit_price')
                     ->label(__('order.fields.price'))
                     ->align('center')
-                    ->width('10%')
+                    ->width($itemsView === 'photo' ? '9%' : '10%')
                     ->markAsRequired(),
                 Header::make('item_total')
                     ->label(__('order.fields.sum'))
                     ->align('center')
-                    ->width('10%'),
+                    ->width($itemsView === 'photo' ? '9%' : '10%'),
                 Header::make('time_discount_marker')
                     ->label(__('order.columns.discount'))
                     ->align('center')
-                    ->width('16%'),
-                Header::make('id')
-                    ->label('')
-                    ->width('0%'),
-                Header::make('kitchen_note')
-                    ->label('')
-                    ->width('0%'),
+                    ->width($itemsView === 'photo' ? '12%' : '16%'),
             ])
             ->streamlined()
             ->showLabels(false)
@@ -547,8 +546,6 @@ class OrderResource extends ShopOrderResource
             }))
             ->defaultItems(0)
             ->schema([
-                Hidden::make('id')->dehydrated(false),
-
                 Placeholder::make('kitchen_note_action')
                     ->label('')
                     ->hiddenLabel()
@@ -577,16 +574,14 @@ class OrderResource extends ShopOrderResource
                         );
                     }),
 
-                Hidden::make('kitchen_note')
-                    ->live(debounce: 400)
-                    ->afterStateUpdated(function ($state, Get $get, $livewire): void {
-                        $note = trim((string) $state);
-
-                        static::persistOrderItemInlineChanges(
-                            $get,
-                            ['kitchen_note' => $note !== '' ? $note : null],
-                            $livewire
-                        );
+                Placeholder::make('product_card')
+                    ->label('')
+                    ->hiddenLabel()
+                    ->extraAttributes([
+                        'class' => 'callcenter-product-card-cell',
+                    ])
+                    ->content(function (Get $get) use ($defaultLocale): HtmlString {
+                        return static::renderOrderItemProductCard((int) ($get('product_id') ?? 0), $defaultLocale);
                     }),
 
                 Select::make('product_id')
@@ -774,6 +769,20 @@ class OrderResource extends ShopOrderResource
                         if ($orderItemId > 0) {
                             $set('manual_discount_amount', static::resolveCurrentItemDiscountValue($orderItemId));
                         }
+                    }),
+
+                Hidden::make('id')->dehydrated(false),
+
+                Hidden::make('kitchen_note')
+                    ->live(debounce: 400)
+                    ->afterStateUpdated(function ($state, Get $get, $livewire): void {
+                        $note = trim((string) $state);
+
+                        static::persistOrderItemInlineChanges(
+                            $get,
+                            ['kitchen_note' => $note !== '' ? $note : null],
+                            $livewire
+                        );
                     }),
             ])
             ->required();
@@ -1575,6 +1584,123 @@ class OrderResource extends ShopOrderResource
     public static function getRelations(): array
     {
         return [];
+    }
+
+    protected static function getOrderItemsView(): string
+    {
+        $view = (string) Setting::admin('callcenter.order_items_view', 'compact');
+
+        return in_array($view, ['compact', 'photo'], true) ? $view : 'compact';
+    }
+
+    protected static function renderOrderItemProductCard(int $productId, string $locale): HtmlString
+    {
+        if ($productId <= 0) {
+            return new HtmlString(
+                '<div class="callcenter-product-card">'
+                . '<div class="callcenter-product-card-image is-empty"></div>'
+                . '<div class="callcenter-product-card-info">'
+                . '<div class="callcenter-product-card-title">Товар не выбран</div>'
+                . '<div class="callcenter-product-card-meta">Товар не выбран</div>'
+                . '</div>'
+                . '</div>'
+            );
+        }
+
+        $product = Product::query()
+            ->select(['id', 'title', 'short_name', 'parent_id', 'sku', 'code2', 'main_image', 'main_image_small'])
+            ->with([
+                'parent:id,title,short_name,sku,code2,main_image,main_image_small',
+                'productCharacteristicValues.characteristic:id,slug,svg_image_id',
+                'productCharacteristicValues.characteristic.svgImage',
+                'productCharacteristicValues.characteristicValue:id,characteristic_id,value',
+            ])
+            ->find($productId);
+
+        if (! $product) {
+            return new HtmlString('<div class="callcenter-product-card"><div class="callcenter-product-card-title">Товар не найден</div></div>');
+        }
+
+        $title = static::productLabel($product, $locale);
+        $article = trim((string) ($product->sku ?: $product->code2 ?: $product->parent?->sku ?: $product->parent?->code2 ?: ''));
+        $image = static::resolveProductImageUrl($product);
+        $chars = static::resolveProductCardCharacteristics($product);
+
+        $meta = [];
+        if ($article !== '') {
+            $meta[] = '<span class="callcenter-product-card-article">Артикул: ' . e($article) . '</span>';
+        }
+
+        foreach ($chars as $char) {
+            $icon = $char['svg'] !== ''
+                ? '<img src="' . e($char['svg']) . '" alt="" class="callcenter-product-card-char-icon">'
+                : '';
+            $meta[] = '<span class="callcenter-product-card-char">' . $icon . '<span>' . e($char['value']) . '</span></span>';
+        }
+
+        return new HtmlString(
+            '<div class="callcenter-product-card">'
+            . '<img src="' . e($image) . '" alt="" class="callcenter-product-card-image">'
+            . '<div class="callcenter-product-card-info">'
+            . '<div class="callcenter-product-card-title">' . e($title) . '</div>'
+            . '<div class="callcenter-product-card-meta">' . implode('', $meta) . '</div>'
+            . '</div>'
+            . '</div>'
+        );
+    }
+
+    protected static function resolveProductImageUrl(Product $product): string
+    {
+        $path = trim((string) ($product->main_image_small ?: $product->main_image ?: $product->parent?->main_image_small ?: $product->parent?->main_image ?: ''));
+
+        if ($path === '') {
+            return asset('images/no-image.svg');
+        }
+
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            return $path;
+        }
+
+        return asset('storage/' . ltrim($path, '/'));
+    }
+
+    protected static function resolveProductCardCharacteristics(Product $product): array
+    {
+        $keep = ['rozmir-pirogiv', 'rozmiri-insi', 'vaga-grami', 'vaga-setiv', 'vaga'];
+        $rows = $product->productCharacteristicValues ?? collect();
+
+        if ($rows->isEmpty() && $product->parent) {
+            $product->parent->loadMissing([
+                'productCharacteristicValues.characteristic:id,slug,svg_image_id',
+                'productCharacteristicValues.characteristic.svgImage',
+                'productCharacteristicValues.characteristicValue:id,characteristic_id,value',
+            ]);
+            $rows = $product->parent->productCharacteristicValues ?? collect();
+        }
+
+        return $rows
+            ->map(function (ProductCharacteristicValue $row) use ($keep): ?array {
+                $slug = (string) ($row->characteristic?->slug ?? $row->characteristicValue?->characteristic?->slug ?? '');
+
+                if ($slug === '' || ! in_array($slug, $keep, true)) {
+                    return null;
+                }
+
+                $value = static::resolveUnitValueFromRow($row);
+
+                if ($value === '') {
+                    return null;
+                }
+
+                return [
+                    'value' => $value,
+                    'svg' => (string) ($row->characteristic?->svgImage?->url ?? ''),
+                ];
+            })
+            ->filter()
+            ->values()
+            ->take(2)
+            ->all();
     }
 
     protected static function getProductUnitLabel(int $productId): string

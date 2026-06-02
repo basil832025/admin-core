@@ -1,0 +1,111 @@
+Plan integracii API "Oplata chastinami" dlya saita MyAdmin
+
+1. Chto uzhe est v proekte
+- Na saite uzhe est scenarii onlain-oplaty cherez LiqPay.
+- V zakaze sposob oplaty hranitsya cherez PaymentMethodEnum.
+- Checkout uzhe umeet:
+  - sozdat zakaz,
+  - perevesti na stranicu oplaty,
+  - prinyat callback,
+  - otmetit zakaz oplachennym,
+  - otpravit uvedomleniya i fiskalizirovat.
+
+2. Rekomenduemaya arhitektura
+- Ne vstraivat "Oplatu chastinami" priamo v CheckoutController cherez uslovnye if mono.
+- Sdelat novyi shluz, naprimer:
+  - MonoInstallmentsService
+  - MonoInstallmentsController
+  - novyi enum sposoba oplaty, naprimer MONO_PARTS
+- Eshe luchshe srazu vvesti obshii kontrakt:
+  - PaymentGatewayInterface
+  - realizacii: LiqPayGateway, MonoInstallmentsGateway
+
+3. Predlagaemyi user flow
+1) Polzovatel na checkout vybiraet "Oplata chastinami".
+2) Zakaz sozdaiotsya v statuse "ozhidaet oplaty".
+3) Servis Mono sozdaet payment/session/application cherez ih API.
+4) Polzovatel redirektitsya na stranicu oplaty Mono ili na lokalnyi route tipa /checkout/{order}/pay/mono-parts.
+5) Mono posylaet webhook/callback.
+6) My:
+   - validiruem podpis,
+   - pishem log,
+   - obnovliaem status zakaza,
+   - sohraniaem vneshnii payment_id/application_id,
+   - zapuskaem te zhe post-payment processy, chto i dlya LiqPay.
+
+4. Chto nuzhno dobavit v kod
+- Novyi sposob oplaty v PaymentMethodEnum.
+- Novyi servis: app/Services/MonoInstallmentsService.php
+- Novyi controller: app/Http/Controllers/Front/MonoInstallmentsController.php
+- Novye routes dlya:
+  - start/redirect na oplatu,
+  - webhook,
+  - pri neobhodimosti return/success.
+- Novyi config: config/mono_installments.php
+  - base_url
+  - merchant_id
+  - secret
+  - webhook_secret
+  - sandbox/prod flag
+
+5. Hranenie dannyh i logi
+- Dobavit tablicu logov po analogii s liqpay_logs, naprimer mono_payment_logs.
+- Predpochtitelno hranit:
+  - provider
+  - provider_payment_id
+  - provider_status
+  - redirect_url
+  - payload
+  - confirmed_at
+- Esli u "oplaty chastinami" est statusy created / approved / rejected / canceled, ih luchshe hranit otdelno ot samogo zakaza.
+
+6. Integraciya v tekuschii checkout
+- V CheckoutController:
+  - dobavit novyi payment_method v validaciyu,
+  - zamappit ego v novyi enum,
+  - posle sozdaniya zakaza otpravliat ne v LiqPay, a v route dlya mono parts.
+- V admin / order view zhelatelno pokazyvat:
+  - tip rassrochki,
+  - vneshnii status Mono,
+  - vneshnii ID zaiavki/platezha.
+
+7. Chto vazhno produmat
+- Idempotentnost webhook:
+  povtornyi callback ne dolzhen duplirovat pisma i fiskalizaciyu.
+- Sverka summy:
+  summa iz callback dolzhna sovpadat s order->grand_total.
+- Srok zhizni platezhnoi sessii.
+- Otkaz / timeout / cancel / reject scenarii.
+- Vozmozhnost povtorno otkryt ssylku oplaty dlya zakaza.
+- Polnye logi dlya podderzhki.
+- Razdelenie sandbox i production.
+
+8. UX rekomendacii
+- Na checkout pokazat:
+  - "Oplata chastinami Monobank"
+  - dostupnye sroki 3 / 6 / 10 i t.p., esli eto podderzhivaetsya API.
+- Pered sozdaniem zakaza sohranyat:
+  - chislo platezhei,
+  - tip programmy.
+
+9. Prakticheskii plan vnedreniya
+1) Podtverdit tochnyi Mono-produkt i sandbox credentials.
+2) Opisat state machine statusov.
+3) Sdelat novyi payment method v checkout.
+4) Realizovat service + controller + webhook.
+5) Dobavit payment logs.
+6) Privyazat post-payment obrabotku kak u LiqPay.
+7) Protestirovat sandbox scenarii:
+   - success
+   - reject
+   - duplicate webhook
+   - timeout
+   - povtornaya popytka oplaty
+
+10. Rekomendaciya po etapam
+- Etap 1: bystro sdelat otdelnyi shluz MonoInstallments po analogii s LiqPay.
+- Etap 2: potom vynesti LiqPay i Mono v edinyi payment abstraction layer.
+
+11. Klyuchevoi vopros pered startom
+- Nuzhna imenno bankovskaya "Oplata chastinami Monobank", ili obychnaya online-oplata Mono, gde rassrochka predlagaetsya na storone banka?
+- Eto nado utochnit do nachala razrabotki, potomu chto arhitektura, polya formy i callback flow mogut silno otlichatsya.

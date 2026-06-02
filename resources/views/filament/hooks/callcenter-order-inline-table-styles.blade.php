@@ -117,6 +117,123 @@
             line-height: 1.25rem;
         }
 
+        .callcenter-items-table--compact .callcenter-product-card-cell,
+        .callcenter-items-table--compact .table-repeater-container table th:nth-child(2),
+        .callcenter-items-table--compact .table-repeater-container table td:nth-child(2) {
+            display: none !important;
+        }
+
+        .callcenter-items-table--photo .table-repeater-container table {
+            border-spacing: 6px 6px !important;
+        }
+
+        .callcenter-items-table--photo .table-repeater-container tbody tr {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        }
+
+        .callcenter-items-table--photo .table-repeater-container table td {
+            vertical-align: middle !important;
+            padding-top: 6px !important;
+            padding-bottom: 6px !important;
+        }
+
+        .callcenter-items-table--photo .table-repeater-container table th:nth-child(3),
+        .callcenter-items-table--photo .table-repeater-container table td:nth-child(3),
+        .callcenter-items-table--photo .table-repeater-container table th:nth-child(4),
+        .callcenter-items-table--photo .table-repeater-container table td:nth-child(4) {
+            display: none !important;
+        }
+
+        .callcenter-items-table--photo .callcenter-inline-select,
+        .callcenter-items-table--photo .callcenter-inline-select-display,
+        .callcenter-items-table--photo .callcenter-unit-text {
+            display: none !important;
+        }
+
+        .callcenter-items-table--photo .table-repeater-column:has(.callcenter-inline-select),
+        .callcenter-items-table--photo .table-repeater-column:has(.callcenter-unit-text) {
+            display: none !important;
+        }
+
+        .callcenter-product-card {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 220px;
+        }
+
+        .callcenter-items-table--photo .callcenter-product-card {
+            gap: 8px;
+            min-width: 0;
+        }
+
+        .callcenter-product-card-image {
+            width: 58px;
+            height: 48px;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+            background: #f8fafc;
+            object-fit: cover;
+            flex: 0 0 auto;
+        }
+
+        .callcenter-items-table--photo .callcenter-product-card-image {
+            width: 48px;
+            height: 40px;
+        }
+
+        .callcenter-product-card-image.is-empty {
+            display: block;
+        }
+
+        .callcenter-product-card-info {
+            min-width: 0;
+        }
+
+        .callcenter-product-card-title {
+            color: #111827;
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1.2;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .callcenter-product-card-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 4px 8px;
+            margin-top: 4px;
+            color: #64748b;
+            font-size: 11px;
+            line-height: 1.2;
+        }
+
+        .callcenter-product-card-article {
+            color: #c2410c;
+            font-weight: 600;
+        }
+
+        .callcenter-product-card-char {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            white-space: nowrap;
+        }
+
+        .callcenter-product-card-char-icon {
+            width: 14px;
+            height: 14px;
+            object-fit: contain;
+            opacity: 0.65;
+        }
+
         .callcenter-items-table .table-repeater-container table th,
         .callcenter-items-table .table-repeater-container table td,
         .callcenter-items-table .callcenter-inline-display,
@@ -367,6 +484,28 @@
 
         .callcenter-items-table .callcenter-inline-editable-wrapper .fi-input-wrp {
             display: none !important;
+        }
+
+        .callcenter-items-table--photo .callcenter-inline-qty-wrapper .fi-input-wrp {
+            display: flex !important;
+            align-items: center !important;
+            min-height: 32px !important;
+            box-shadow: none !important;
+            border: 1px solid #d1d5db !important;
+            background: #ffffff !important;
+        }
+
+        .callcenter-items-table--photo .callcenter-inline-qty-wrapper .callcenter-inline-hidden {
+            display: flex !important;
+        }
+
+        .callcenter-items-table--photo .callcenter-inline-qty-wrapper .callcenter-inline-input-display {
+            display: none !important;
+        }
+
+        .callcenter-items-table--photo .callcenter-inline-input-qty {
+            min-height: 30px !important;
+            text-align: center !important;
         }
 
         .callcenter-items-table .callcenter-inline-editable-wrapper.is-editing .fi-input-wrp {
@@ -739,7 +878,7 @@
                     }
                 };
 
-                display.addEventListener(isDiscountInput ? 'dblclick' : 'click', openEditor);
+                display.addEventListener(isQtyInput ? 'click' : 'dblclick', openEditor);
 
                 input.addEventListener('input', updateDisplay);
                 input.addEventListener('change', updateDisplay);
