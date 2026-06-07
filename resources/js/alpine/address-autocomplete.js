@@ -105,6 +105,66 @@ function isAddressSelectionMatch(currentValue, selectedValue) {
         selectedNorm.includes(currentNorm);
 }
 
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function getAddressComponent(place, types) {
+    const components = place?.address_components || [];
+
+    for (const type of types) {
+        const component = components.find((item) => item.types?.includes(type));
+        if (component?.long_name) {
+            return component.long_name;
+        }
+    }
+
+    return '';
+}
+
+function uniqueAddressParts(parts) {
+    const used = new Set();
+
+    return parts.filter((part) => {
+        const value = String(part || '').trim();
+        const key = normalizeAddressValue(value);
+
+        if (!key || key === 'ukraine' || key === 'украина' || key === 'україна' || used.has(key)) {
+            return false;
+        }
+
+        used.add(key);
+        return true;
+    });
+}
+
+function buildAddressHint(prediction, place) {
+    const secondary = prediction?.structured_formatting?.secondary_text || '';
+    const district = getAddressComponent(place, [
+        'sublocality_level_1',
+        'sublocality',
+        'neighborhood',
+        'administrative_area_level_3',
+    ]);
+    const locality = getAddressComponent(place, ['locality', 'postal_town']);
+    const adminArea = getAddressComponent(place, ['administrative_area_level_1']);
+    const highlightedParts = uniqueAddressParts([district, locality, adminArea]);
+    const secondaryNorm = normalizeAddressValue(secondary);
+    const highlighted = highlightedParts
+        .filter((part) => !secondaryNorm.includes(normalizeAddressValue(part)))
+        .join(', ');
+
+    return {
+        highlighted,
+        secondary: secondary || place?.formatted_address || '',
+    };
+}
+
 /**
  * Загружает зависимости для фильтрации по зонам доставки (Google Maps API, jQuery, map-cart.js)
  * @param {Function} callback - Функция, которая будет вызвана после загрузки всех зависимостей
@@ -958,6 +1018,10 @@ function initAddressAutocomplete(options = {}) {
 
                             filtered.forEach((item) => {
                                 const prediction = item.prediction;
+                                const hint = buildAddressHint(prediction, item.place);
+                                const mainText = escapeHtml(prediction.structured_formatting?.main_text || prediction.description || '');
+                                const highlightedHint = escapeHtml(hint.highlighted);
+                                const secondaryHint = escapeHtml(hint.secondary);
                                 const element = document.createElement('div');
                                 element.className = 'pac-item';
                                 element.style.cssText = 'padding: 12px 16px; margin: 2px 8px; cursor: pointer; font-size: 15px; line-height: 20px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; border-radius: 8px; transition: background-color 0.2s ease, box-shadow 0.2s ease; min-height: 44px; display: flex; align-items: center;';
@@ -970,8 +1034,9 @@ function initAddressAutocomplete(options = {}) {
                                         </svg>
                                     </span>
                                     <span class="pac-item-query" style="color: #111827; flex: 1; min-width: 0;">
-                                        <span class="pac-matched" style="font-weight: 500; display: block; margin-bottom: 2px;">${prediction.structured_formatting.main_text}</span>
-                                        <span class="pac-item-query" style="color: #6b7280; font-size: 13px; display: block;">${prediction.structured_formatting.secondary_text || ''}</span>
+                                        <span class="pac-matched" style="font-weight: 500; display: block; margin-bottom: 2px;">${mainText}</span>
+                                        ${highlightedHint ? `<span style="color: #ea580c; font-size: 13px; font-weight: 600; display: block; margin-bottom: 1px;">${highlightedHint}</span>` : ''}
+                                        <span class="pac-item-query" style="color: #6b7280; font-size: 13px; display: block;">${secondaryHint}</span>
                                     </span>
                                 `;
 
