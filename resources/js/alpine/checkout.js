@@ -1536,7 +1536,9 @@ function initCheckoutAutocomplete() {
         typeof window !== 'undefined' &&
         ('ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0);
 
-    if (isTouchDevice) {
+    const useNativeMobileAutocomplete = false;
+
+    if (useNativeMobileAutocomplete && isTouchDevice) {
         loadGoogleMapsOnce((ok) => {
             if (!ok || !window.google?.maps?.places) return;
 
