@@ -865,10 +865,14 @@ function initAddressAutocomplete(options = {}) {
             const inputRect = streetInput.getBoundingClientRect();
             const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
             const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+            const viewportWidth = window.innerWidth || document.documentElement.clientWidth || inputRect.width;
+            const preferredWidth = Math.max(inputRect.width, 420);
+            const availableWidth = Math.max(inputRect.width, viewportWidth - inputRect.left - 16);
+            const dropdownWidth = Math.min(preferredWidth, availableWidth);
 
             customDropdown.style.top = (inputRect.bottom + scrollTop) + 'px';
             customDropdown.style.left = (inputRect.left + scrollLeft) + 'px';
-            customDropdown.style.width = inputRect.width + 'px';
+            customDropdown.style.width = dropdownWidth + 'px';
             customDropdown.style.display = 'block';
         }
 
@@ -1024,7 +1028,7 @@ function initAddressAutocomplete(options = {}) {
                                 const secondaryHint = escapeHtml(hint.secondary);
                                 const element = document.createElement('div');
                                 element.className = 'pac-item';
-                                element.style.cssText = 'padding: 12px 16px; margin: 2px 8px; cursor: pointer; font-size: 15px; line-height: 20px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; border-radius: 8px; transition: background-color 0.2s ease, box-shadow 0.2s ease; min-height: 44px; display: flex; align-items: center;';
+                                element.style.cssText = 'padding: 12px 16px; margin: 2px 8px; cursor: pointer; font-size: 15px; line-height: 20px; overflow: visible; white-space: normal; border-radius: 8px; transition: background-color 0.2s ease, box-shadow 0.2s ease; min-height: 44px; display: flex; align-items: flex-start;';
 
                                 element.innerHTML = `
                                     <span class="pac-icon pac-icon-marker" style="width: 18px; height: 18px; margin-right: 12px; display: inline-block; vertical-align: middle; flex-shrink: 0; color: #6b7280;">
@@ -1033,10 +1037,10 @@ function initAddressAutocomplete(options = {}) {
                                             <circle cx="12" cy="10" r="3"></circle>
                                         </svg>
                                     </span>
-                                    <span class="pac-item-query" style="color: #111827; flex: 1; min-width: 0;">
-                                        <span class="pac-matched" style="font-weight: 500; display: block; margin-bottom: 2px;">${mainText}</span>
-                                        ${highlightedHint ? `<span style="color: #ea580c; font-size: 13px; font-weight: 600; display: block; margin-bottom: 1px;">${highlightedHint}</span>` : ''}
-                                        <span class="pac-item-query" style="color: #6b7280; font-size: 13px; display: block;">${secondaryHint}</span>
+                                    <span class="pac-item-query" style="color: #111827; flex: 1; min-width: 0; overflow-wrap: anywhere;">
+                                        <span class="pac-matched" style="font-weight: 500; display: block; margin-bottom: 2px; white-space: normal;">${mainText}</span>
+                                        ${highlightedHint ? `<span style="color: #ea580c; font-size: 13px; font-weight: 600; display: block; margin-bottom: 1px; white-space: normal;">${highlightedHint}</span>` : ''}
+                                        <span class="pac-item-query" style="color: #6b7280; font-size: 13px; display: block; white-space: normal;">${secondaryHint}</span>
                                     </span>
                                 `;
 
