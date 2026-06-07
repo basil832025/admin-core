@@ -234,6 +234,8 @@
                                 >
                                     {{ st('auth.change_phone', 'Изменить номер телефона') }}
                                 </button>
+
+                                @include('components.auth.sms-code-help-card')
                             </div>
                         </div>
                     </div>
