@@ -94,7 +94,7 @@
                              $logoutUrl = route('localized.logout', ['locale' => $localeSegment]);
                          }
                      @endphp
-                     <form action="{{ $logoutUrl }}" method="POST" class="block">
+                     <form action="{{ $logoutUrl }}" method="POST" class="block" data-refresh-csrf-before-submit="1">
                          @csrf
                          <button type="submit"
                                  class="group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors

@@ -13,9 +13,9 @@
             return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
         };
 
-        window.ensureCsrfToken = async function() {
+        window.ensureCsrfToken = async function(forceRefresh = false) {
             const currentToken = window.getCsrfToken();
-            if (currentToken) {
+            if (currentToken && !forceRefresh) {
                 return currentToken;
             }
 
@@ -60,6 +60,33 @@
                     input.value = newToken;
                 });
             }
+
+            document.querySelectorAll('form[data-refresh-csrf-before-submit="1"]').forEach(form => {
+                form.addEventListener('submit', function(event) {
+                    if (form.dataset.csrfRefreshed === '1') {
+                        return;
+                    }
+
+                    event.preventDefault();
+
+                    window.ensureCsrfToken(true)
+                        .then(token => {
+                            if (token) {
+                                const tokenInput = form.querySelector('input[name="_token"]');
+                                if (tokenInput) {
+                                    tokenInput.value = token;
+                                }
+                            }
+
+                            form.dataset.csrfRefreshed = '1';
+                            HTMLFormElement.prototype.submit.call(form);
+                        })
+                        .catch(() => {
+                            form.dataset.csrfRefreshed = '1';
+                            HTMLFormElement.prototype.submit.call(form);
+                        });
+                });
+            });
         });
 
         // Периодически обновляем CSRF токен (каждые 30 минут)
@@ -68,7 +95,7 @@
                 return;
             }
 
-            window.ensureCsrfToken().catch(() => {
+            window.ensureCsrfToken(true).catch(() => {
                 // Игнорируем ошибки при обновлении токена
             });
         }, 30 * 60 * 1000); // 30 минут

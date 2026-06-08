@@ -197,6 +197,10 @@ Route::middleware(['web'])->group(function () {
     Route::post('/auth/logout', [ClientAuthController::class, 'logout'])
         ->middleware('auth')
         ->name('logout');
+
+    Route::get('/auth/logout', [ClientAuthController::class, 'logout'])
+        ->middleware('auth')
+        ->name('logout.get');
 });
 
 Route::get('/feedbacks', [ReviewController::class, 'index'])->name('reviews.index');
