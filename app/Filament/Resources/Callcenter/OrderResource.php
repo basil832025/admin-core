@@ -589,7 +589,7 @@ class OrderResource extends ShopOrderResource
                         'class' => 'callcenter-inline-select',
                     ])
                     ->searchable()
-                    ->preload()
+                    ->preload(false)
                     ->optionsLimit(50)
                     ->getSearchResultsUsing(function (string $search) use ($defaultLocale) {
                         $search = trim($search);
@@ -601,17 +601,18 @@ class OrderResource extends ShopOrderResource
                         if ($search !== '') {
                             $like = "%{$search}%";
 
-                            $query->where(function ($w) use ($like, $defaultLocale) {
-                                $w->whereRaw("JSON_VALID(title) AND JSON_UNQUOTE(JSON_EXTRACT(title, ?)) LIKE ?", ["$.{$defaultLocale}", $like])
-                                    ->orWhereRaw("NOT JSON_VALID(title) AND title LIKE ?", [$like]);
+                            $query->where(function ($searchQuery) use ($like, $defaultLocale) {
+                                $searchQuery
+                                    ->where(function ($w) use ($like, $defaultLocale) {
+                                        $w->whereRaw("JSON_VALID(title) AND JSON_UNQUOTE(JSON_EXTRACT(title, ?)) LIKE ?", ["$.{$defaultLocale}", $like])
+                                            ->orWhereRaw("NOT JSON_VALID(title) AND title LIKE ?", [$like]);
+                                    })
+                                    ->orWhere(function ($w) use ($like, $defaultLocale) {
+                                        $w->whereRaw("JSON_VALID(short_name) AND JSON_UNQUOTE(JSON_EXTRACT(short_name, ?)) LIKE ?", ["$.{$defaultLocale}", $like])
+                                            ->orWhereRaw("NOT JSON_VALID(short_name) AND short_name LIKE ?", [$like]);
+                                    })
+                                    ->orWhere('sku', 'like', $like);
                             });
-
-                            $query->orWhere(function ($w) use ($like, $defaultLocale) {
-                                $w->whereRaw("JSON_VALID(short_name) AND JSON_UNQUOTE(JSON_EXTRACT(short_name, ?)) LIKE ?", ["$.{$defaultLocale}", $like])
-                                    ->orWhereRaw("NOT JSON_VALID(short_name) AND short_name LIKE ?", [$like]);
-                            });
-
-                            $query->orWhere('sku', 'like', $like);
                         }
 
                         $query->orderByRaw("COALESCE(parent_id, id) ASC")
