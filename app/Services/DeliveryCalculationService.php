@@ -32,6 +32,15 @@ class DeliveryCalculationService
         $latitude = $order->clientAddress?->latitude;
         $longitude = $order->clientAddress?->longitude;
 
+        if (! $latitude || ! $longitude) {
+            $formAddress = $order->getAttribute('address');
+
+            if (is_array($formAddress)) {
+                $latitude = $formAddress['latitude'] ?? $latitude;
+                $longitude = $formAddress['longitude'] ?? $longitude;
+            }
+        }
+
         if (!$latitude || !$longitude) {
             return [
                 'price' => 0,

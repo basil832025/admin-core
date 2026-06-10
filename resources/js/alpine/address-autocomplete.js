@@ -130,11 +130,20 @@ function getAddressComponent(place, types) {
 function uniqueAddressParts(parts) {
     const used = new Set();
 
-    return parts.filter((part) => {
+    return parts.flatMap((part) => String(part || '').split(',')).map((part) => {
+        const value = String(part || '').trim();
+        const normalized = normalizeAddressValue(value);
+
+        if (/^(місто\s+)?київ$|^(город\s+)?киев$|^kyiv$/iu.test(normalized)) {
+            return 'Київ';
+        }
+
+        return value;
+    }).filter((part) => {
         const value = String(part || '').trim();
         const key = normalizeAddressValue(value);
 
-        if (!key || key === 'ukraine' || key === 'украина' || key === 'україна' || used.has(key)) {
+        if (!key || /^(ukraine|украина|україна)$/iu.test(key) || used.has(key)) {
             return false;
         }
 
@@ -570,7 +579,7 @@ function initAddressAutocomplete(options = {}) {
                 let fullStreetValue = street;
                 if (cityValue && cityValue !== 'Київ') {
                     // Если город не Киев, добавляем его к адресу улицы
-                    fullStreetValue = street + (street ? ', ' : '') + cityValue;
+                    fullStreetValue = fullStreetValue + (fullStreetValue ? ', ' : '') + cityValue;
                 }
 
                 // Заполняем поле улицы (полный адрес, если не Киев)
@@ -1113,10 +1122,19 @@ function initAddressAutocomplete(options = {}) {
                                         }
 
                                         // Формируем полный адрес для поля улицы
-                                        let fullStreetValue = street;
+                                        const predictionMain = prediction?.structured_formatting?.main_text || '';
+                                        const predictionParts = uniqueAddressParts([
+                                            street || predictionMain,
+                                            hint.highlighted,
+                                            hint.secondary,
+                                        ]);
+                                        let fullStreetValue = predictionParts.join(', ') || prediction?.description || '';
                                         if (cityValue && cityValue !== 'Київ') {
                                             // Если город не Киев, добавляем его к адресу улицы
-                                            fullStreetValue = street + (street ? ', ' : '') + cityValue;
+                                            const fullStreetNorm = normalizeAddressValue(fullStreetValue);
+                                            if (!fullStreetNorm.includes(normalizeAddressValue(cityValue))) {
+                                                fullStreetValue = fullStreetValue + (fullStreetValue ? ', ' : '') + cityValue;
+                                            }
                                         }
 
                                         // Устанавливаем флаги ПЕРЕД заполнением полей

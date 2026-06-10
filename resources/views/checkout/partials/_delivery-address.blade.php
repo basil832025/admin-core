@@ -237,6 +237,16 @@ x-cloak
                name="addr[city]"
                value="{{ old('addr.city', $sessionData['addr_city'] ?? '') }}"
         >
+        <input type="hidden"
+               id="checkout-address-formatted"
+               name="addr[formatted_address]"
+               value="{{ old('addr.formatted_address', $sessionData['addr_formatted_address'] ?? '') }}"
+        >
+        <input type="hidden"
+               id="checkout-address-place-id"
+               name="addr[street_place_id]"
+               value="{{ old('addr.street_place_id', $sessionData['addr_street_place_id'] ?? '') }}"
+        >
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div class="input-required"

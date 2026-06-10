@@ -1052,6 +1052,8 @@ function bindCheckoutAutosave() {
             addr_type: form.querySelector('[name="addr[type]"]')?.value || '',
             addr_lat: document.getElementById('checkout-addr-lat')?.value || '',
             addr_lng: document.getElementById('checkout-addr-lng')?.value || '',
+            addr_formatted_address: document.getElementById('checkout-address-formatted')?.value || '',
+            addr_street_place_id: document.getElementById('checkout-address-place-id')?.value || '',
 
             use_bonus: form.querySelector('[name="use_bonus"]')?.checked ? '1' : '0',
             bonus_amount: form.querySelector('[name="bonus_amount"]')?.value || '0',
@@ -1525,6 +1527,8 @@ function initCheckoutAutocomplete() {
     const latEl  = document.getElementById('checkout-addr-lat');
     const lngEl  = document.getElementById('checkout-addr-lng');
     const cityEl = document.querySelector('#checkout-address-city');
+    const formattedEl = document.getElementById('checkout-address-formatted');
+    const placeIdEl = document.getElementById('checkout-address-place-id');
 
     if (!latEl || !lngEl) {
         if (CHECKOUT_DEBUG) console.warn('[checkout] lat/lng hidden inputs not found:', { latEl, lngEl });
@@ -1840,6 +1844,25 @@ function initCheckoutAutocomplete() {
                     lngEl.dispatchEvent(new Event('input', { bubbles: true }));
                     lngEl.dispatchEvent(new Event('change', { bubbles: true }));
                 }
+
+                const selectedAddress = (data?.street || place?.formatted_address || '').trim();
+                if (selectedAddress && data?.streetInput) {
+                    data.streetInput.value = selectedAddress;
+                    data.streetInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    data.streetInput.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+
+                if (formattedEl) {
+                    formattedEl.value = (place?.formatted_address || selectedAddress).trim();
+                    formattedEl.dispatchEvent(new Event('input', { bubbles: true }));
+                    formattedEl.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+
+                if (placeIdEl) {
+                    placeIdEl.value = place?.place_id || '';
+                    placeIdEl.dispatchEvent(new Event('input', { bubbles: true }));
+                    placeIdEl.dispatchEvent(new Event('change', { bubbles: true }));
+                }
             } catch (e) {
                 console.error('[checkout] onPlaceSelected error', e);
             }
@@ -1859,7 +1882,8 @@ window.resetNewAddress = function(btn){
 
     [
         'addr[street]','addr[house]','addr[apartment]','addr[porch]',
-        'addr[intercom]','addr[floor]','addr[comment]'
+        'addr[intercom]','addr[floor]','addr[comment]',
+        'addr[formatted_address]','addr[street_place_id]'
     ].forEach((name) => {
         const el = form.querySelector('[name="'+name+'"]');
         if (el) {

@@ -373,6 +373,12 @@ public function saveFormData(Request $request)
     if ($request->has('addr_lng')) {
         $data['addr_lng'] = $request->input('addr_lng');
     }
+    if ($request->has('addr_formatted_address')) {
+        $data['addr_formatted_address'] = $request->input('addr_formatted_address');
+    }
+    if ($request->has('addr_street_place_id')) {
+        $data['addr_street_place_id'] = $request->input('addr_street_place_id');
+    }
     if ($request->has('delivery_zone')) {
         $data['delivery_zone'] = $request->input('delivery_zone');
     }
@@ -880,11 +886,19 @@ public function submit(Request $request)
                 'addr.type'             => 'nullable|string|in:home,work,friends',
                 'addr.lat'              => 'nullable|numeric',
                 'addr.lng'              => 'nullable|numeric',
+                'addr.formatted_address'=> 'nullable|string|max:255',
+                'addr.street_place_id'   => 'nullable|string|max:255',
             ]);
+
+            $formattedAddress = trim((string) ($addr['addr']['formatted_address'] ?? ''));
+            $streetValue = trim((string) $addr['addr']['street']);
+            if ($streetValue === '') {
+                $streetValue = $formattedAddress;
+            }
 
             $addrData = [
                 'client_id'        => $client?->id,
-                'street'           => $addr['addr']['street'],
+                'street'           => $streetValue,
                 'house'            => $addr['addr']['house'],
                 'apartment'        => $addr['addr']['apartment'] ?? null,
                 'intercom'         => $addr['addr']['intercom'] ?? null,
@@ -897,6 +911,8 @@ public function submit(Request $request)
                 // координаты из формы checkout (заполняются Google Autocomplete)
                 'latitude'         => $addr['addr']['lat'] ?? null,
                 'longitude'        => $addr['addr']['lng'] ?? null,
+                'formatted_address'=> $formattedAddress !== '' ? $formattedAddress : null,
+                'street_place_id'   => $addr['addr']['street_place_id'] ?? null,
             ];
 
             $address   = ClientAddress::create($addrData);
