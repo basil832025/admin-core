@@ -28,6 +28,38 @@
         $deliveryAddress = implode(', ', $addrParts);
     }
 
+    $mailLocale = 'ru';
+    $fallbackLocales = [$mailLocale, 'uk', 'en'];
+    $localizedValue = static function (mixed $value, ?string $fallback = null) use ($fallbackLocales): ?string {
+        if (is_array($value)) {
+            $translations = $value;
+        } elseif (is_string($value) && trim($value) !== '') {
+            $decoded = json_decode($value, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                $translations = $decoded;
+            } else {
+                return trim($value);
+            }
+        } else {
+            return $fallback;
+        }
+
+        foreach ($fallbackLocales as $locale) {
+            $candidate = trim((string) ($translations[$locale] ?? ''));
+            if ($candidate !== '') {
+                return $candidate;
+            }
+        }
+
+        foreach ($translations as $candidate) {
+            if (is_scalar($candidate) && trim((string) $candidate) !== '') {
+                return trim((string) $candidate);
+            }
+        }
+
+        return $fallback;
+    };
+
     if ($order->payment) {
         if ($order->payment === \App\Enums\PaymentMethodEnum::LIQPAY || $order->payment->value === 11) {
             $paymentLabel = st('cart.payment.liqpay', 'Онлайн-оплата картой');
@@ -43,6 +75,10 @@
     } else {
         $paymentLabel = st('cart.payment.card_on_delivery', 'Оплата через POS-терминал при получении');
     }
+
+    $paymentLabel = $order->payment
+        ? (string) $order->payment->label($mailLocale)
+        : (string) \App\Enums\PaymentMethodEnum::CARD->label($mailLocale);
 
     $items = $order->items;
     $itemsTotal = (float) ($order->total_price ?? 0);
@@ -144,13 +180,25 @@
 @php
     $product = $item->product;
     $snapshot = $item->product_snapshot ?? [];
-    $name = $snapshot['name'] ?? $snapshot['title'] ?? null;
+    $name = $localizedValue($snapshot['name'] ?? null)
+        ?? $localizedValue($snapshot['title'] ?? null);
 
     if (!$name && $product) {
         $parent = $product->parent ?? $product;
         $name = $parent->display_name ?? $parent->displayName ?? $parent->title ?? 'Товар';
     }
     $name = $name ?? 'Товар';
+
+    if ($product) {
+        $parent = $product->parent ?? $product;
+        $localizedName = $localizedValue($parent->getRawOriginal('title'))
+            ?? $localizedValue($parent->getRawOriginal('short_name'))
+            ?? $localizedValue($parent->title)
+            ?? $localizedValue($parent->short_name);
+        if ($localizedName) {
+            $name = $localizedName;
+        }
+    }
 
     $productChars = [];
     $personSlug = 'persons';
@@ -166,7 +214,8 @@
         foreach ($charValues as $cv) {
             $char = $cv->characteristic;
             if (!$char) continue;
-            $value = $cv->value_text ?? ($cv->characteristicValue->value ?? null);
+            $value = $localizedValue($cv->value_text ?? null)
+                ?? $localizedValue($cv->characteristicValue->value ?? null);
             if ($value) {
                 $productChars[] = $value;
             }
@@ -184,7 +233,8 @@
         foreach ($charValues as $cv) {
             $char = $cv->characteristic;
             if (!$char) continue;
-            $value = $cv->value_text ?? ($cv->characteristicValue->value ?? null);
+            $value = $localizedValue($cv->value_text ?? null)
+                ?? $localizedValue($cv->characteristicValue->value ?? null);
             if ($value) {
                 $productChars[] = $value;
             }
@@ -200,7 +250,8 @@
                     if ($charSlug === 'persons' || $charSlug === 'osoby') {
                         continue;
                     }
-                    $charValue = $char['value'] ?? $char['text'] ?? null;
+                    $charValue = $localizedValue($char['value'] ?? null)
+                        ?? $localizedValue($char['text'] ?? null);
                     if ($charValue) {
                         $productChars[] = $charValue;
                     }

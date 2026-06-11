@@ -1265,6 +1265,9 @@ function bindDeliveryRecalc() {
     // new address (if hidden lat/lng fields exist)
     const latEl = document.getElementById('checkout-addr-lat');
     const lngEl = document.getElementById('checkout-addr-lng');
+    const streetEl = document.getElementById('checkout-address-street');
+    const houseEl = document.getElementById('checkout-address-house');
+    const cityEl = document.getElementById('checkout-address-city');
 
     const triggerNew = () => {
         const useNew = document.querySelector('[name="use_new_address"]')?.value === '1';
@@ -1284,6 +1287,20 @@ function bindDeliveryRecalc() {
         latEl.addEventListener('change', triggerNew);
         lngEl.addEventListener('change', triggerNew);
     }
+
+    [streetEl, houseEl, cityEl].forEach((el) => {
+        if (!el) return;
+        el.addEventListener('input', () => {
+            const useNew = document.querySelector('[name="use_new_address"]')?.value === '1';
+            const method = getShippingMethodValue(document) === 'delivery';
+            if (useNew && method) queueUnifiedDeliveryRecalc('new-address-text-input');
+        });
+        el.addEventListener('change', () => {
+            const useNew = document.querySelector('[name="use_new_address"]')?.value === '1';
+            const method = getShippingMethodValue(document) === 'delivery';
+            if (useNew && method) queueUnifiedDeliveryRecalc('new-address-text-change');
+        });
+    });
 
     document.addEventListener('input', (e) => {
         const t = e.target;
@@ -1438,6 +1455,156 @@ function handleSavedAddressChange(radio, token = null) {
     );
 }
 
+function getNewAddressDeliveryParts() {
+    const street = document.getElementById('checkout-address-street')?.value?.trim() || '';
+    const house = document.getElementById('checkout-address-house')?.value?.trim() || '';
+    const city = document.getElementById('checkout-address-city')?.value?.trim() || 'Kyiv';
+    const streetParts = street.split(',').map((part) => part.trim()).filter(Boolean);
+    const streetName = streetParts.shift() || street;
+    const normalizedParts = [];
+
+    [streetName && [streetName, house].filter(Boolean).join(' '), ...streetParts, city].forEach((part) => {
+        const normalized = String(part || '').toLowerCase().replace(/\s+/g, ' ').trim();
+        if (!normalized) return;
+        if (normalizedParts.some((item) => item.normalized === normalized)) return;
+        normalizedParts.push({ value: part, normalized });
+    });
+
+    return {
+        street,
+        house,
+        city,
+        query: normalizedParts.map((item) => item.value).join(', '),
+    };
+}
+
+function applyNewAddressGeocodeResult(result) {
+    const loc = result?.geometry?.location;
+    if (!loc) return null;
+
+    const latVal = typeof loc.lat === 'function' ? loc.lat() : loc.lat;
+    const lngVal = typeof loc.lng === 'function' ? loc.lng() : loc.lng;
+
+    if (latVal == null || lngVal == null) return null;
+
+    const lat = String(latVal);
+    const lng = String(lngVal);
+    const latEl = document.getElementById('checkout-addr-lat');
+    const lngEl = document.getElementById('checkout-addr-lng');
+    const formattedEl = document.getElementById('checkout-address-formatted');
+    const placeIdEl = document.getElementById('checkout-address-place-id');
+
+    if (latEl) {
+        latEl.value = lat;
+        latEl.dispatchEvent(new Event('input', { bubbles: true }));
+        latEl.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    if (lngEl) {
+        lngEl.value = lng;
+        lngEl.dispatchEvent(new Event('input', { bubbles: true }));
+        lngEl.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    if (formattedEl && result.formatted_address) {
+        formattedEl.value = result.formatted_address;
+    }
+
+    if (placeIdEl && result.place_id) {
+        placeIdEl.value = result.place_id;
+    }
+
+    return { lat, lng };
+}
+
+function calcShippingForExistingNewAddressCoords(token) {
+    const lat = document.getElementById('checkout-addr-lat')?.value;
+    const lng = document.getElementById('checkout-addr-lng')?.value;
+
+    if (!lat || !lng) {
+        applyShippingResult({ shipping: 0, zone: '' }, token);
+        return;
+    }
+
+    calcShippingByCoords(lat, lng).then((res) => applyShippingResult(res, token));
+}
+
+function geocodeNewAddressForDelivery(token) {
+    const { street, house, query } = getNewAddressDeliveryParts();
+
+    if (!street || !house || !query) return false;
+
+    window.__checkoutNewAddressGeocode = window.__checkoutNewAddressGeocode || {
+        query: '',
+        lat: '',
+        lng: '',
+    };
+
+    const cached = window.__checkoutNewAddressGeocode;
+    const currentLat = document.getElementById('checkout-addr-lat')?.value || '';
+    const currentLng = document.getElementById('checkout-addr-lng')?.value || '';
+
+    if (cached.query === query && currentLat && currentLng && cached.lat === currentLat && cached.lng === currentLng) {
+        calcShippingByCoords(currentLat, currentLng).then((res) => applyShippingResult(res, token));
+        return true;
+    }
+
+    if (!window.google || !window.google.maps || !google.maps.places || !google.maps.places.PlacesService) {
+        if (typeof loadGoogleMapsOnce === 'function') {
+            loadGoogleMapsOnce((ok) => {
+                if (ok) {
+                    geocodeNewAddressForDelivery(token);
+                } else {
+                    calcShippingForExistingNewAddressCoords(token);
+                }
+            });
+            return true;
+        }
+
+        return false;
+    }
+
+    const service =
+        window.__checkoutPlacesService ||
+        (window.__checkoutPlacesService = new google.maps.places.PlacesService(document.createElement('div')));
+
+    service.findPlaceFromQuery(
+        {
+            query,
+            fields: ['geometry', 'formatted_address', 'place_id'],
+            language: 'uk',
+        },
+        (results, status) => {
+            if (
+                status !== google.maps.places.PlacesServiceStatus.OK ||
+                !results ||
+                !results.length ||
+                !results[0].geometry ||
+                !results[0].geometry.location
+            ) {
+                calcShippingForExistingNewAddressCoords(token);
+                return;
+            }
+
+            const coords = applyNewAddressGeocodeResult(results[0]);
+            if (!coords) {
+                calcShippingForExistingNewAddressCoords(token);
+                return;
+            }
+
+            window.__checkoutNewAddressGeocode = {
+                query,
+                lat: coords.lat,
+                lng: coords.lng,
+            };
+
+            calcShippingByCoords(coords.lat, coords.lng).then((res) => applyShippingResult(res, token));
+        }
+    );
+
+    return true;
+}
+
 function applyShippingResult({ shipping, zone }, token = null) {
     if (token !== null && token !== undefined) {
         if (token !== window.__deliveryRecalcToken) return;
@@ -1480,6 +1647,10 @@ window.recalculateCheckoutDelivery = function () {
     const useNew = document.querySelector('[name="use_new_address"]')?.value === '1';
     const lat = document.getElementById('checkout-addr-lat')?.value;
     const lng = document.getElementById('checkout-addr-lng')?.value;
+
+    if (useNew && geocodeNewAddressForDelivery(token)) {
+        return;
+    }
 
     if (useNew && lat && lng) {
         calcShippingByCoords(lat, lng).then((res) => applyShippingResult(res, token));
