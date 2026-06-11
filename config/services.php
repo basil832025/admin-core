@@ -38,6 +38,18 @@ return [
         'kitchen_address' => env('GOOGLE_MAPS_KITCHEN_ADDRESS'),
     ],
 
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI'),
+    ],
+
+    'facebook' => [
+        'client_id' => env('FACEBOOK_CLIENT_ID'),
+        'client_secret' => env('FACEBOOK_CLIENT_SECRET'),
+        'redirect' => env('FACEBOOK_REDIRECT_URI'),
+    ],
+
     'turnstile' => [
         'enabled' => (bool) env('TURNSTILE_ENABLED', false),
         'site_key' => env('TURNSTILE_SITE_KEY'),

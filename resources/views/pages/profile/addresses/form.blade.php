@@ -7,9 +7,11 @@
         $locale = app()->getLocale();
         $isLocalized = in_array($locale, ['ru', 'en'], true);
         $storeUrl = $isLocalized ? route('localized.profile.addresses.store', ['locale' => $locale]) : route('profile.addresses.store');
-        $updateUrl = $isLocalized
-            ? route('localized.profile.addresses.update', ['locale' => $locale, 'address' => $address])
-            : route('profile.addresses.update', ['address' => $address]);
+        $formUrl = $address->exists
+            ? ($isLocalized
+                ? route('localized.profile.addresses.update', ['locale' => $locale, 'address' => $address])
+                : route('profile.addresses.update', ['address' => $address]))
+            : $storeUrl;
         $cancelUrl = $isLocalized ? route('localized.profile.addresses.index', ['locale' => $locale]) : route('profile.addresses.index');
     @endphp
     <div class="mx-auto desk:w-[1200px] px-4 md:px-6 desk:px-0">
@@ -26,7 +28,7 @@
             {{-- Контент --}}
             <main>
                 <div class="bg-white rounded-[6px] ring-1 ring-black/10 p-4 md:p-6">
-                    <form action="{{ $address->exists ? $updateUrl : $storeUrl }}"
+                    <form action="{{ $formUrl }}"
                           method="POST">
                         @csrf
                         @if($address->exists)
@@ -427,4 +429,3 @@
     </script>
     @endpush
 @endsection
-

@@ -2345,6 +2345,8 @@ class OrderResource extends Resource
                         ])
                 )
             )
+            ->defaultPaginationPageOption(10)
+            ->paginationPageOptions([10, 25, 50])
             ->columns(array_filter([
                 TextColumn::make('number')
                     ->label('')

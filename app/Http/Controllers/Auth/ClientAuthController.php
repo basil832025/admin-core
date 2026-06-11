@@ -71,12 +71,16 @@ class ClientAuthController extends Controller
     // === Socialite ===
     public function redirect(string $provider)
     {
+        abort_unless($this->isSocialiteProviderConfigured($provider), 404);
+
         $scopes = $provider === 'facebook' ? ['email'] : [];
         return Socialite::driver($provider)->scopes($scopes)->redirect();
     }
 
     public function callback(string $provider, Request $request)
     {
+        abort_unless($this->isSocialiteProviderConfigured($provider), 404);
+
         $social = Socialite::driver($provider)->user();
 
         $providerId = (string) $social->getId();
@@ -116,6 +120,19 @@ class ClientAuthController extends Controller
 
         $redirectUrl = $this->getRedirectUrl($request);
         return redirect($redirectUrl);
+    }
+
+    private function isSocialiteProviderConfigured(string $provider): bool
+    {
+        if (! in_array($provider, ['google', 'facebook'], true)) {
+            return false;
+        }
+
+        $config = (array) config("services.{$provider}", []);
+
+        return filled($config['client_id'] ?? null)
+            && filled($config['client_secret'] ?? null)
+            && filled($config['redirect'] ?? null);
     }
 
     // === Реєстрація з підтвердженням телефону ===

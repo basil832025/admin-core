@@ -16,14 +16,19 @@ class ExpireLoyaltyBonuses extends Command
     {
         $result = $loyalty->expireBonuses();
 
-        Log::info('Loyalty bonuses expired', [
-            'expired_count' => (int) ($result['expired_count'] ?? 0),
-            'expired_amount' => (float) ($result['expired_amount'] ?? 0),
-            'command' => $this->getName(),
-        ]);
+        $expiredCount = (int) ($result['expired_count'] ?? 0);
+        $expiredAmount = (float) ($result['expired_amount'] ?? 0);
 
-        $this->info('Expired accruals: ' . (int) ($result['expired_count'] ?? 0));
-        $this->info('Expired amount: ' . number_format((float) ($result['expired_amount'] ?? 0), 2, '.', ' '));
+        if ($expiredCount > 0 || $expiredAmount > 0) {
+            Log::info('Loyalty bonuses expired', [
+                'expired_count' => $expiredCount,
+                'expired_amount' => $expiredAmount,
+                'command' => $this->getName(),
+            ]);
+        }
+
+        $this->info('Expired accruals: ' . $expiredCount);
+        $this->info('Expired amount: ' . number_format($expiredAmount, 2, '.', ' '));
 
         return self::SUCCESS;
     }
