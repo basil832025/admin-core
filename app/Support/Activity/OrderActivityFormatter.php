@@ -240,6 +240,19 @@ class OrderActivityFormatter
             $parts[] = __('order.journal.labels.note') . ': ' . self::arrow($fn, $tn);
         }
 
+        foreach ((array) Arr::get($p, 'attributes', []) as $key => $new) {
+            if (in_array((string) $key, ['status', 'notes'], true)) {
+                continue;
+            }
+
+            $old = Arr::get($p, "old.$key");
+            if (self::shouldSkipOrderDiff((string) $key, $old, $new)) {
+                continue;
+            }
+
+            $parts[] = self::formatOrderDiff((string) $key, $old, $new);
+        }
+
         return $parts ? implode(' • ', $parts) : null;
     }
 
@@ -391,9 +404,13 @@ class OrderActivityFormatter
             $diffs = [];
             foreach ((array) Arr::get($p, 'attributes', []) as $key => $new) {
                 $old = Arr::get($p, "old.$key");
+                if (self::shouldSkipOrderDiff((string) $key, $old, $new)) {
+                    continue;
+                }
+
                 $diffs[] = self::formatOrderDiff((string) $key, $old, $new);
             }
-            $diff = $diffs ? implode(' • ', $diffs) : '';
+            $diff = $diffs ? implode(' • ', $diffs) : 'Технічне оновлення';
             if ($action === 'manual_discount_changed') {
                 return $diff;
             }
@@ -446,5 +463,40 @@ class OrderActivityFormatter
             : self::arrowText(self::v($old), self::v($new));
 
         return $label . ': ' . $value;
+    }
+
+    private static function shouldSkipOrderDiff(string $key, mixed $old, mixed $new): bool
+    {
+        $technicalZeroFields = [
+            'sale_prc',
+            'sale_sum',
+            'total_price_sale',
+            'tax_total',
+            'has_unmatched_items',
+            'kitchen_print_count',
+        ];
+
+        return in_array($key, $technicalZeroFields, true)
+            && self::isEmptyTechnicalValue($old)
+            && self::isEmptyTechnicalValue($new);
+    }
+
+    private static function isEmptyTechnicalValue(mixed $value): bool
+    {
+        if ($value === null || $value === '' || $value === false) {
+            return true;
+        }
+
+        if (is_string($value)) {
+            $normalized = trim(str_replace(',', '.', $value));
+
+            return $normalized === ''
+                || $normalized === '0'
+                || $normalized === '0.0'
+                || $normalized === '0.00'
+                || strtolower($normalized) === 'false';
+        }
+
+        return is_numeric($value) && abs((float) $value) < 0.0001;
     }
 }

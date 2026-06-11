@@ -6,6 +6,7 @@ use App\Filament\Resources\Callcenter\OrderResource\Concerns\HasHistoryOrderActi
 use App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions;
 use App\Filament\Resources\Callcenter\OrderResource\Concerns\HasPromotionsActions;
 use App\Filament\Resources\Callcenter\OrderResource;
+use App\Enums\OrderStatus;
 use App\Enums\PaymentMethodEnum;
 use App\Models\Shop\ClientAddress;
 use App\Services\OrderPricing;
@@ -155,6 +156,7 @@ class CreateOrder extends CreateRecord
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $data['currency'] = (string) ($data['currency'] ?? 'UAH');
+        $data['status'] = OrderStatus::New;
 
         if (! $this->isCashalotFiscalPayment($data['payment'] ?? null)) {
             $data['fiscalize_in_cashalot'] = false;
