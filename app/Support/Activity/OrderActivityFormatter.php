@@ -387,16 +387,64 @@ class OrderActivityFormatter
     protected static function formatGeneric(array $p): string
     {
         $action = Arr::get($p, 'action');
-        if ($action && Arr::hasAny($p, ['old','attributes'])) {
+        if (Arr::hasAny($p, ['old','attributes'])) {
             $diffs = [];
             foreach ((array) Arr::get($p, 'attributes', []) as $key => $new) {
                 $old = Arr::get($p, "old.$key");
-                $diffs[] = "$key: " . self::arrow($old, $new);
+                $diffs[] = self::formatOrderDiff((string) $key, $old, $new);
             }
-            $diff = $diffs ? implode(', ', $diffs) : '';
+            $diff = $diffs ? implode(' • ', $diffs) : '';
+            if ($action === 'manual_discount_changed') {
+                return $diff;
+            }
+
             return ($action ? ucfirst(str_replace('_', ' ', $action)) . ': ' : '') . $diff;
         }
 
         return json_encode($p, JSON_UNESCAPED_UNICODE);
+    }
+
+    private static function formatOrderDiff(string $key, mixed $old, mixed $new): string
+    {
+        $moneyFields = [
+            'subtotal',
+            'discount_total',
+            'shipping_total',
+            'shipping_price',
+            'tax_total',
+            'grand_total',
+            'total_price',
+        ];
+
+        $labels = [
+            'subtotal' => 'Сума товарів',
+            'discount_total' => 'Знижка',
+            'shipping_total' => 'Доставка',
+            'shipping_price' => 'Доставка',
+            'tax_total' => 'Податок',
+            'grand_total' => 'Разом до сплати',
+            'total_price' => 'Сума товарів',
+            'payment' => 'Оплата',
+            'manual_discount_percent' => 'Ручна знижка, %',
+            'manual_discount_amount' => 'Ручна знижка, грн',
+            'status' => __('order.journal.labels.status'),
+            'notes' => __('order.journal.labels.note'),
+        ];
+
+        $label = $labels[$key] ?? str_replace('_', ' ', $key);
+
+        if ($key === 'manual_discount_percent') {
+            return $label . ': ' . self::arrowMoney($old, $new) . '%';
+        }
+
+        if ($key === 'manual_discount_amount') {
+            return $label . ': ' . self::arrowMoney($old, $new) . ' грн';
+        }
+
+        $value = in_array($key, $moneyFields, true)
+            ? self::arrowMoney($old, $new) . ' грн'
+            : self::arrowText(self::v($old), self::v($new));
+
+        return $label . ': ' . $value;
     }
 }

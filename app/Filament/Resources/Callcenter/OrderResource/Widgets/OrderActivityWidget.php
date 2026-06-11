@@ -38,10 +38,10 @@ class OrderActivityWidget extends BaseWidget
 
                 TextColumn::make('log_name')
                     ->label(__('order.journal.columns.source'))
-                    ->formatStateUsing(fn ($state) => match ($state) {
-                        'order'       => __('order.journal.sources.order'),
-                        'order.items' => __('order.journal.sources.order.items'),
-                        default       => (string) $state,
+                    ->formatStateUsing(function ($state): string {
+                        $sources = __('order.journal.sources');
+
+                        return is_array($sources) ? ($sources[(string) $state] ?? (string) $state) : (string) $state;
                     })
                     ->badge(),
 
@@ -55,7 +55,6 @@ class OrderActivityWidget extends BaseWidget
                     ->tooltip(fn (Activity $r) => OrderActivityFormatter::tooltip($r))
                     ->wrap()
                     ->grow()
-                    ->limit(120)
 
                     ->toggleable(),
 

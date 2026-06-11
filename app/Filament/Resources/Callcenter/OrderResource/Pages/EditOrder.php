@@ -453,6 +453,20 @@ class EditOrder extends EditRecord
                     $this->sendCashalotReceiptFromSidebar();
                 }),
 
+            Action::make('open_order_journal_sidebar')
+                ->label(__('order.tabs.journal'))
+                ->icon('heroicon-o-clock')
+                ->color('gray')
+                ->extraAttributes(['class' => 'hidden'])
+                ->slideOver()
+                ->modalWidth('7xl')
+                ->modalHeading(__('order.journal.heading'))
+                ->modalSubmitAction(false)
+                ->modalCancelActionLabel(__('order.actions.cancel'))
+                ->modalContent(fn () => view('filament.callcenter.order-journal-slide-over', [
+                    'record' => $this->record,
+                ])),
+
             $this->getSaveFormAction()
                 ->label(__('order.actions.save'))
                 ->extraAttributes([

@@ -460,6 +460,8 @@ class OrderResource extends Resource
                     TextInput::make('ui_manual_percent')
                         ->label(__('order.fields.manual_discount_percent'))
                         ->numeric()
+                        ->minValue(0)
+                        ->maxValue(100)
                         ->dehydrated(false)
                         ->reactive()
                         ->afterStateHydrated(function (TextInput $component, ?Order $record) {
@@ -475,7 +477,8 @@ class OrderResource extends Resource
                         ->afterStateUpdated(function ($state, Set $set, Get $get, ?Order $record) {
                             if (! $record) return;
 
-                            $val = (float) $state;
+                            $val = min(100, max(0, (float) $state));
+                            $set('ui_manual_percent', $val > 0 ? $val : null);
 
                             if ($val > 0) {
                                 $set('ui_fixed_discount_id', null);
@@ -492,6 +495,8 @@ class OrderResource extends Resource
                     TextInput::make('ui_manual_fixed')
                         ->label(__('order.fields.manual_discount_amount'))
                         ->numeric()
+                        ->minValue(0)
+                        ->maxValue(fn (Get $get) => max(0, round(static::calcBaseTotalFromGet($get), 2)))
                         ->dehydrated(false)
                         ->reactive()
                         ->afterStateHydrated(function (TextInput $component, ?Order $record) {
@@ -510,7 +515,10 @@ class OrderResource extends Resource
                         })
                         ->afterStateUpdated(function ($state, $set, $get, ?Order $record) {
                             if (! $record) return;
-                            app(\App\Services\OrderPricing::class)->applyManualFixed($record, (float)$state);
+                            $baseTotal = max(0, round(static::calcBaseTotalFromGet($get), 2));
+                            $amount = min($baseTotal, max(0, (float) $state));
+                            $set('ui_manual_fixed', $amount > 0 ? $amount : null);
+                            app(\App\Services\OrderPricing::class)->applyManualFixed($record, $amount);
                             app(\App\Services\OrderPricing::class)->recalc($record);
                             $set('delivery_price_auto', 'discount_manual_fixed_' . microtime(true));
                         }),
@@ -2330,6 +2338,7 @@ class OrderResource extends Resource
                         // Important: addSelect() on a query with no explicit columns replaces "*".
                         // Force selecting all order columns so summarizers and actions keep working.
                         ->select('bs_shop_orders.*')
+                        ->where('bs_shop_orders.created_at', '>=', '2026-05-01 00:00:00')
                         ->addSelect(DB::raw(
                         'GREATEST('
                         . 'bs_shop_orders.created_at, '

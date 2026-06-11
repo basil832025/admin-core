@@ -16,12 +16,14 @@ class OrderPricing
     // Ручная % — хранит только percent в meta; сумма считается в recalc()
     public function applyManualPercent(Order $order, float $percent): void
     {
-        $percent = max(0, $percent);
+        $percent = min(100, max(0, $percent));
 
         $adj = $order->adjustments()->firstOrNew([
             'type'               => 'manual_percent',
             'shop_order_item_id' => null,
         ]);
+
+        $oldPercent = $adj->exists ? (float) ($adj->meta['percent'] ?? 0) : 0.0;
 
         $adj->label = 'Ручна знижка, %';
         $meta = $adj->meta ?? [];
@@ -29,6 +31,8 @@ class OrderPricing
         $adj->meta = $meta;
         $adj->amount = 0; // пересчитывается в recalc()
         $adj->save();
+
+        $this->logManualDiscountChange($order, 'manual_discount_percent', $oldPercent, $percent);
     }
 
     // Ручная фикс (грн) — хранит желаемую сумму в meta['amount']; итог считается в recalc()
@@ -41,12 +45,33 @@ class OrderPricing
             'shop_order_item_id' => null,
         ]);
 
+        $oldAmount = $adj->exists ? (float) ($adj->meta['amount'] ?? abs((float) $adj->amount)) : 0.0;
+
         $adj->label = 'Ручна знижка, грн';
         $meta = $adj->meta ?? [];
         $meta['amount'] = $amountUah; // положительное желание
         $adj->meta = $meta;
         $adj->amount = 0; // пересчитывается в recalc()
         $adj->save();
+
+        $this->logManualDiscountChange($order, 'manual_discount_amount', $oldAmount, $amountUah);
+    }
+
+    private function logManualDiscountChange(Order $order, string $field, float $old, float $new): void
+    {
+        if (abs($old - $new) < 0.0001) {
+            return;
+        }
+
+        activity('order')
+            ->performedOn($order)
+            ->causedBy(auth('admin')->user())
+            ->withProperties([
+                'action' => 'manual_discount_changed',
+                'old' => [$field => round($old, 2)],
+                'attributes' => [$field => round($new, 2)],
+            ])
+            ->log('manual_discount_changed');
     }
 
     /* ============ ПРОГРАММНЫЕ СКИДКИ: EXCLUSIVE (max|single) ============ */
@@ -133,10 +158,16 @@ class OrderPricing
     /** Ручная % с эксклюзией */
     public function applyManualPercentExclusive(Order $order, float $percent): void
     {
-        $percent = max(0, $percent);
+        $percent = min(100, max(0, $percent));
 
         if ($percent <= 0) {
+            $oldPercent = (float) ($order->adjustments()
+                ->where('type', 'manual_percent')
+                ->whereNull('shop_order_item_id')
+                ->value('meta->percent') ?? 0);
+
             $order->adjustments()->where('type', 'manual_percent')->delete();
+            $this->logManualDiscountChange($order, 'manual_discount_percent', $oldPercent, 0.0);
             $this->recalc($order);
             return;
         }
@@ -594,11 +625,20 @@ class OrderPricing
         $manualPercent = $order->adjustments()->where('type', 'manual_percent')->first();
         $manualPercentAmount = 0.0;
         if ($manualPercent) {
-            $p = (float) ($manualPercent->meta['percent'] ?? 0);
+            $rawPercent = (float) ($manualPercent->meta['percent'] ?? 0);
+            $p = min(100, max(0, $rawPercent));
+            $manualPercentChanged = false;
+
+            if ($rawPercent !== $p) {
+                $manualPercent->meta = array_merge((array) ($manualPercent->meta ?? []), [
+                    'percent' => $p,
+                ]);
+                $manualPercentChanged = true;
+            }
             if ($p > 0) {
                 $manualPercentAmount = round(-1 * $subtotalEligible * ($p / 100), 2);
             }
-            if ((float) $manualPercent->amount !== (float) $manualPercentAmount) {
+            if ((float) $manualPercent->amount !== (float) $manualPercentAmount || $manualPercentChanged) {
                 $manualPercent->amount = $manualPercentAmount;
                 $manualPercent->save();
             }
@@ -620,10 +660,21 @@ class OrderPricing
         $manualFixedAmount = 0.0;
         if ($manualFixed) {
             $want = (float) ($manualFixed->meta['amount'] ?? 0);
-            if ($want > 0) {
-                $manualFixedAmount = -1 * min($want, max(0, $interimEligible));
+            $maxManualFixed = max(0, $interimEligible);
+            $manualFixedChanged = false;
+
+            if ($want > $maxManualFixed) {
+                $want = $maxManualFixed;
+                $manualFixed->meta = array_merge((array) ($manualFixed->meta ?? []), [
+                    'amount' => $want,
+                ]);
+                $manualFixedChanged = true;
             }
-            if ((float) $manualFixed->amount !== (float) $manualFixedAmount) {
+
+            if ($want > 0) {
+                $manualFixedAmount = -1 * min($want, $maxManualFixed);
+            }
+            if ((float) $manualFixed->amount !== (float) $manualFixedAmount || $manualFixedChanged) {
                 $manualFixed->amount = $manualFixedAmount;
                 $manualFixed->save();
             }
