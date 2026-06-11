@@ -2339,6 +2339,10 @@ class OrderResource extends Resource
                         . ')'
                         . ') AS order_dt'
                     ))
+                        ->withExists([
+                            'cashalotLogs as has_success_cashalot_log' => fn (Builder $q) => $q
+                                ->where('status', 'success'),
+                        ])
                 )
             )
             ->columns(array_filter([
@@ -2752,9 +2756,7 @@ class OrderResource extends Resource
                             return null;
                         }
 
-                        $isFiscalized = $record->cashalotLogs()
-                            ->where('status', 'success')
-                            ->exists();
+                        $isFiscalized = (bool) ($record->has_success_cashalot_log ?? false);
 
                         if (! $isFiscalized) {
                             return null;
