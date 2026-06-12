@@ -516,18 +516,10 @@ public function saveFormData(Request $request)
                 // самовывоз — адрес не нужен, доставка 0
                 $order->client_address_id = null;
                 $order->shipping_price = 0;
-            } else {
-                if (! $useNew) {
-                    // выбран сохранённый адрес
-                    $addrId = $mergedData['selected_address_id'] ?? null;
-                    $order->client_address_id = $addrId ? (int) $addrId : null;
-
-                    // (необязательно, но полезно) сохранить "снимок" адреса в order->address, если такое поле есть
-
-                } else {
-                    // новый адрес — сохранённого id нет
-                    $order->client_address_id = null;
-                }
+            } elseif (! $useNew) {
+                // Новый адрес создаёт submit(); автосохранение не должно стереть его запоздавшим запросом.
+                $addrId = $mergedData['selected_address_id'] ?? null;
+                $order->client_address_id = $addrId ? (int) $addrId : null;
             }
 
             if ($shippingMethod !== 'pickup' && ! $useNew && empty($mergedData['selected_address_id'])) {
