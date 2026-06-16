@@ -64,8 +64,8 @@ class ClientOrdersRelationManager extends RelationManager
                 TextColumn::make('payment')->label('Оплата')
                     ->formatStateUsing(fn ($state) =>
                     $state instanceof PaymentMethodEnum
-                        ? $state->label()
-                        : (optional($state, fn ($v) => PaymentMethodEnum::from((int) $v)->label()) ?? '—')
+                        ? $state->label('ru')
+                        : (optional($state, fn ($v) => PaymentMethodEnum::from((int) $v)->label('ru')) ?? '—')
                     ),
 
                 TextColumn::make('created_at')->label('Дата заказа')->date(),

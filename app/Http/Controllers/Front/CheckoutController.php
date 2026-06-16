@@ -1335,8 +1335,12 @@ public function success($localeOrOrder, ?Order $order = null)
  */
 public function sendOrderToEmail(Request $request, string|Order $localeOrOrder, ?Order $order = null)
 {
+    $mailLocale = app()->getLocale();
+
     if ($localeOrOrder instanceof Order) {
         $order = $localeOrOrder;
+    } elseif (in_array($localeOrOrder, ['uk', 'ru', 'en'], true)) {
+        $mailLocale = $localeOrOrder;
     }
 
     if (! $order instanceof Order) {
@@ -1371,10 +1375,10 @@ public function sendOrderToEmail(Request $request, string|Order $localeOrOrder, 
         ], 400);
     }
 
+    $originalLocale = app()->getLocale();
+
     try {
-        // Устанавливаем украинскую локаль для email клиенту
-        $originalLocale = app()->getLocale();
-        app()->setLocale('uk');
+        app()->setLocale($mailLocale);
 
         \Log::info('Sending order email to client', [
             'order_id' => $order->id,
@@ -1383,9 +1387,8 @@ public function sendOrderToEmail(Request $request, string|Order $localeOrOrder, 
             'mail_driver' => config('mail.default'),
         ]);
 
-        Mail::to($clientEmail)->send(new OrderClientMail($order));
+        Mail::to($clientEmail)->send(new OrderClientMail($order, $mailLocale));
 
-        // Восстанавливаем исходную локаль
         app()->setLocale($originalLocale);
 
         \Log::info('Order email sent to client successfully', [
@@ -1398,6 +1401,8 @@ public function sendOrderToEmail(Request $request, string|Order $localeOrOrder, 
             'message' => st('order.email.sent_success', 'Замовлення відправлено на email'),
         ]);
     } catch (\Throwable $e) {
+        app()->setLocale($originalLocale);
+
         \Log::error('Failed to send order email to client: ' . $e->getMessage(), [
             'order_id' => $order->id,
             'email' => $clientEmail,

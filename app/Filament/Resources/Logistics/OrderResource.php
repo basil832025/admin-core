@@ -320,7 +320,7 @@ class OrderResource extends CallcenterOrderResource
                             return static::invoiceLabel();
                         }
 
-                        return $state->label();
+                        return $state->label('ru');
                     }),
 
                 BadgeColumn::make('liqpay_status')

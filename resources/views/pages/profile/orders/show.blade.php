@@ -456,21 +456,7 @@
                                         {{ st('profile.orders.payment_method', 'Способ оплаты') }}
                                     </span>
                                     <span class="text-[14px] text-gray-500">
-                                        @if($order->payment)
-                                            @if($order->payment === \App\Enums\PaymentMethodEnum::CARD || $order->payment->value === 1)
-                                                {{ st('profile.orders.payment.card', 'Оплата через POS-термінал при отриманні') }}
-                                            @elseif($order->payment === \App\Enums\PaymentMethodEnum::CASH || $order->payment->value === 2)
-                                                {{ st('profile.orders.payment.cash', 'Готівкою при отриманні') }}
-                                            @elseif($order->payment === \App\Enums\PaymentMethodEnum::LIQPAY || $order->payment->value === 11)
-                                                {{ st('profile.orders.payment.online', 'Онлайн-оплата карткою') }}
-                                            @elseif($order->payment === \App\Enums\PaymentMethodEnum::INVOICE || $order->payment->value === 10)
-                                                {{ st('cart.payment.invoice', 'Безготівковий розрахунок за рахунком для юридичних осіб') }}
-                                            @else
-                                                {{ $order->payment->label() }}
-                                            @endif
-                                        @else
-                                            {{ st('profile.orders.payment.card', 'Оплата через POS-термінал при отриманні') }}
-                                        @endif
+                                        {{ $order->payment?->label(app()->getLocale()) ?? \App\Enums\PaymentMethodEnum::CARD->label(app()->getLocale()) }}
                                     </span>
                                 </div>
 

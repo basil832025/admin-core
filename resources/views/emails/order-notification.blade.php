@@ -60,22 +60,6 @@
         return $fallback;
     };
 
-    if ($order->payment) {
-        if ($order->payment === \App\Enums\PaymentMethodEnum::LIQPAY || $order->payment->value === 11) {
-            $paymentLabel = st('cart.payment.liqpay', 'Онлайн-оплата картой');
-        } elseif ($order->payment === \App\Enums\PaymentMethodEnum::CARD || $order->payment->value === 1) {
-            $paymentLabel = st('cart.payment.card_on_delivery', 'Оплата через POS-терминал при получении');
-        } elseif ($order->payment === \App\Enums\PaymentMethodEnum::CASH || $order->payment->value === 2) {
-            $paymentLabel = st('cart.payment.cash', 'Наличными при получении');
-        } elseif ($order->payment === \App\Enums\PaymentMethodEnum::INVOICE || $order->payment->value === 10) {
-            $paymentLabel = st('cart.payment.invoice', 'Безналичный расчет по счету для юридических лиц');
-        } else {
-            $paymentLabel = (string) $order->payment->label('ru');
-        }
-    } else {
-        $paymentLabel = st('cart.payment.card_on_delivery', 'Оплата через POS-терминал при получении');
-    }
-
     $paymentLabel = $order->payment
         ? (string) $order->payment->label($mailLocale)
         : (string) \App\Enums\PaymentMethodEnum::CARD->label($mailLocale);

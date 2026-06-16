@@ -2759,7 +2759,7 @@ class OrderResource extends Resource
                                 return static::invoiceLabel();
                             }
 
-                            return $state->label();
+                            return $state->label('ru');
                         }
                     )
                     ->description(function (Order $record): ?HtmlString {
@@ -3328,16 +3328,12 @@ class OrderResource extends Resource
 
     protected static function invoiceLabel(): string
     {
-        return match (app()->getLocale()) {
-            'ru' => 'Счет-фактура',
-            'uk' => 'Рахунок-фактура',
-            default => 'Invoice',
-        };
+        return PaymentMethodEnum::INVOICE->label('ru');
     }
 
     protected static function paymentOptionsAdmin(): array
     {
-        $labels = PaymentMethodEnum::options();
+        $labels = PaymentMethodEnum::options('ru');
         $labels[PaymentMethodEnum::INVOICE->value] = static::invoiceLabel();
 
         $order = [
@@ -3352,7 +3348,7 @@ class OrderResource extends Resource
         ];
 
         return collect($order)
-            ->mapWithKeys(fn (PaymentMethodEnum $method) => [$method->value => $labels[$method->value] ?? $method->label()])
+            ->mapWithKeys(fn (PaymentMethodEnum $method) => [$method->value => $labels[$method->value] ?? $method->label('ru')])
             ->toArray();
     }
     protected static function calcBaseTotalFromGet(Get $get): float
