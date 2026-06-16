@@ -58,8 +58,12 @@ class Blog extends Model
         static::saving(function (Blog $post) {
 
             // проверяем, что slug ещё пустой и есть title
-            if ($post->slug) {
-                return;
+            if (filled($post->slug)) {
+                $post->slug = Str::slug((string) $post->slug);
+
+                if ($post->slug !== '') {
+                    return;
+                }
             }
 
             // сравниваем с дефолтной локалью
@@ -71,15 +75,50 @@ class Blog extends Model
             }*/
 
             // выбираем строку из массива по локали
-            $locale = $defaultLocale;
-            $titleForSlug = is_array($post->title)
-                ? ($post->title[$locale] ?? reset($post->title))
-                : $post->title;
+            $titleForSlug = static::titleForSlug($post, $defaultLocale);
+            $slug = Str::slug($titleForSlug ?: 'blog-' . Str::random(8));
 
-            if ($titleForSlug) {
-                $post->slug = Str::slug($titleForSlug);
+            if ($slug === '') {
+                $slug = 'blog-' . Str::lower(Str::random(8));
             }
+
+            $post->slug = static::uniqueSlug($slug, $post->getKey());
         });
+    }
+
+    private static function titleForSlug(Blog $post, string $preferredLocale): ?string
+    {
+        $translations = $post->getTranslations('title');
+        $preferred = $translations[$preferredLocale] ?? null;
+
+        if (is_string($preferred) && trim($preferred) !== '') {
+            return $preferred;
+        }
+
+        foreach ($translations as $translation) {
+            if (is_string($translation) && trim($translation) !== '') {
+                return $translation;
+            }
+        }
+
+        $title = $post->getAttribute('title');
+
+        return is_string($title) && trim($title) !== '' ? $title : null;
+    }
+
+    private static function uniqueSlug(string $baseSlug, ?int $ignoreId = null): string
+    {
+        $slug = $baseSlug;
+        $counter = 2;
+
+        while (static::query()
+            ->when($ignoreId, fn ($query) => $query->whereKeyNot($ignoreId))
+            ->where('slug', $slug)
+            ->exists()) {
+            $slug = $baseSlug . '-' . $counter++;
+        }
+
+        return $slug;
     }
     // Удобные геттеры с фолбеком на дефолт:
     public function previewImage(?string $locale = null): ?string
