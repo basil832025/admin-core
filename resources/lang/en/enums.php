@@ -2,13 +2,13 @@
 
 return [
     'payment_method' => [
-        'CARD' => 'Payment via POS terminal upon receipt',
-        'CASH' => 'Cash upon receipt',
+        'CARD' => 'By card transfer',
+        'CASH' => 'Cash',
         'CLUB' => 'Club card (deposit/credit)',
-        'ORG_TRANSFER' => 'Bank transfer by invoice for legal entities',
+        'ORG_TRANSFER' => 'Business transfer details',
         'FREE' => 'No payment',
-        'POS' => 'Payment via POS terminal upon receipt',
-        'INVOICE' => 'Bank transfer by invoice for legal entities',
-        'LIQPAY' => 'Online card payment',
+        'POS' => 'POS terminal',
+        'INVOICE' => 'Invoice',
+        'LIQPAY' => 'LiqPay',
     ],
 ];
