@@ -60,9 +60,18 @@
         return $fallback;
     };
 
-    $paymentLabel = $order->payment
-        ? (string) $order->payment->label($mailLocale)
-        : (string) \App\Enums\PaymentMethodEnum::CARD->label($mailLocale);
+    $paymentMethod = $order->payment instanceof \App\Enums\PaymentMethodEnum
+        ? $order->payment
+        : \App\Enums\PaymentMethodEnum::tryFrom((int) ($order->payment ?? 0));
+
+    $paymentLabel = match ($paymentMethod) {
+        \App\Enums\PaymentMethodEnum::LIQPAY => st('cart.payment.liqpay', 'Онлайн-оплата карткою'),
+        \App\Enums\PaymentMethodEnum::CARD => st('cart.payment.card_on_delivery', 'Оплата через POS-термінал при отриманні'),
+        \App\Enums\PaymentMethodEnum::CASH => st('cart.payment.cash', 'Готівкою при отриманні'),
+        \App\Enums\PaymentMethodEnum::ORG_TRANSFER,
+        \App\Enums\PaymentMethodEnum::INVOICE => st('cart.payment.invoice', 'Безготівковий розрахунок за рахунком для юридичних осіб'),
+        default => $paymentMethod?->label($mailLocale) ?? \App\Enums\PaymentMethodEnum::CARD->label($mailLocale),
+    };
 
     $items = $order->items;
     $itemsTotal = (float) ($order->total_price ?? 0);

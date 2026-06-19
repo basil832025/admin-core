@@ -1387,7 +1387,9 @@ public function sendOrderToEmail(Request $request, string|Order $localeOrOrder, 
             'mail_driver' => config('mail.default'),
         ]);
 
-        Mail::to($clientEmail)->send(new OrderClientMail($order, $mailLocale));
+        Mail::to($clientEmail)
+            ->locale($mailLocale)
+            ->send(new OrderClientMail($order, $mailLocale));
 
         app()->setLocale($originalLocale);
 

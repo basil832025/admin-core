@@ -130,7 +130,9 @@ class LiqPayController extends Controller
                                 'order_id' => $order->id,
                                 'emails'   => $notificationEmails,
                             ]);
-                            Mail::to($notificationEmails)->send(new OrderNotificationMail($order));
+                            Mail::to($notificationEmails)
+                                ->locale('ru')
+                                ->send(new OrderNotificationMail($order));
                         } else {
                             Log::warning('LiqPay callback: order notification email not configured', [
                                 'order_id' => $order->id,
