@@ -220,33 +220,79 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
     $categoryIdRaw = trim((string) $request->query('category_id', ''));
     $localCategoryId = (int) $categoryIdRaw;
     $sourceIdRaw = (string) $request->query('source_id', $request->query('order_source_id', '0'));
-    $selectedSourceId = is_numeric($sourceIdRaw) ? (int) $sourceIdRaw : 0;
+    $menuSourceMode = (string) config('services.callcenter.order_menu_source', 'main');
+    $menuSourceMode = in_array($menuSourceMode, ['main', \App\Services\Callcenter\TimeshopCatalogService::SOURCE_ID], true)
+        ? $menuSourceMode
+        : 'main';
+    $timeshopEnabled = $menuSourceMode === \App\Services\Callcenter\TimeshopCatalogService::SOURCE_ID;
+    $isTimeshopSource = $timeshopEnabled;
+    $selectedSourceId = (! $isTimeshopSource && is_numeric($sourceIdRaw)) ? (int) $sourceIdRaw : 0;
+    $timeshopCatalog = app(\App\Services\Callcenter\TimeshopCatalogService::class);
     $locales = \App\Models\Setting::getActiveLocales();
 
     if (empty($locales)) {
         $locales = ['uk', 'ru', 'en'];
     }
 
-    $mainSiteName = (string) (\App\Models\Setting::value('site_name') ?: 'Основной сайт');
-    $sources = collect([
-        [
-            'id' => 0,
-            'name' => $mainSiteName,
-        ],
-    ])->merge(
-        \App\Models\Callcenter\Source::query()
-            ->where('is_active', true)
-            ->where('sync_enabled', true)
-            ->orderBy('name')
-            ->get(['id', 'name'])
-            ->map(fn (\App\Models\Callcenter\Source $source) => [
-                'id' => (int) $source->id,
-                'name' => (string) $source->name,
-            ])
-    )->values();
+    if ($timeshopEnabled) {
+        $sources = collect([$timeshopCatalog->source()]);
+    } else {
+        $mainSiteName = (string) (\App\Models\Setting::value('site_name') ?: 'Основной сайт');
+        $sources = collect([
+            [
+                'id' => 0,
+                'name' => $mainSiteName,
+            ],
+        ])->merge(
+            \App\Models\Callcenter\Source::query()
+                ->where('is_active', true)
+                ->where('sync_enabled', true)
+                ->orderBy('name')
+                ->get(['id', 'name'])
+                ->map(fn (\App\Models\Callcenter\Source $source) => [
+                    'id' => (int) $source->id,
+                    'name' => (string) $source->name,
+                ])
+        )->values();
+    }
 
-    if (! $sources->contains(fn (array $source): bool => (int) $source['id'] === $selectedSourceId)) {
+    if ($isTimeshopSource) {
         $selectedSourceId = 0;
+    } elseif (! $sources->contains(fn (array $source): bool => (string) $source['id'] === (string) $selectedSourceId)) {
+        $selectedSourceId = 0;
+    }
+
+    if ($isTimeshopSource) {
+        try {
+            $timeshopProducts = $timeshopCatalog->products($search, $categoryIdRaw, $sort, $page, $perPage);
+            $timeshopCategories = $timeshopCatalog->categories()->values()->all();
+
+            return response()->json([
+                'sources' => $sources->values()->all(),
+                'selected_source_id' => \App\Services\Callcenter\TimeshopCatalogService::SOURCE_ID,
+                'categories' => $timeshopCategories,
+                'categories_count' => count($timeshopCategories),
+                'products' => $timeshopProducts['products'],
+                'page' => $page,
+                'per_page' => $perPage,
+                'has_more' => $timeshopProducts['has_more'],
+            ]);
+        } catch (\Throwable $exception) {
+            \Illuminate\Support\Facades\Log::warning('Timeshop menu catalog failed', [
+                'message' => $exception->getMessage(),
+            ]);
+
+            return response()->json([
+                'sources' => $sources,
+                'selected_source_id' => \App\Services\Callcenter\TimeshopCatalogService::SOURCE_ID,
+                'categories' => [],
+                'products' => [],
+                'page' => $page,
+                'per_page' => $perPage,
+                'has_more' => false,
+                'error' => 'Timeshop catalog is unavailable.',
+            ], 200);
+        }
     }
 
     $applySourceFilter = function (\Illuminate\Database\Eloquent\Builder $query) use ($selectedSourceId): void {

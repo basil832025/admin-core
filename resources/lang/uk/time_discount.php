@@ -2,7 +2,7 @@
 
 return [
     'nav' => [
-        'navigation_group'   => 'Настройки',
+        'navigation_group'   => __('admin.nav.groups.settings'),
         'navigation_label'   => 'Знижки за часом',
         'model_label'        => 'Знижка за часом',
         'plural_model_label' => 'Знижки за часом',

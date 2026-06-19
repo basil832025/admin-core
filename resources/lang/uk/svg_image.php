@@ -2,7 +2,7 @@
 
 return [
     'nav' => [
-        'navigation_group'   => 'Настройки',
+        'navigation_group'   => __('admin.nav.groups.settings'),
         'navigation_label'   => 'SVG Зображення',
         'model_label'        => 'SVG зображення',
         'plural_model_label' => 'SVG зображення',

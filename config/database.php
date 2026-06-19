@@ -82,6 +82,25 @@ return [
             ]) : [],
         ],
 
+        'timeshop' => [
+            'driver' => 'mysql',
+            'host' => env('TIMESHOP_DB_HOST', env('DB_HOST', '127.0.0.1')),
+            'port' => env('TIMESHOP_DB_PORT', env('DB_PORT', '3306')),
+            'database' => env('TIMESHOP_DB_DATABASE', 'timeshop'),
+            'username' => env('TIMESHOP_DB_USERNAME', env('DB_USERNAME', 'root')),
+            'password' => env('TIMESHOP_DB_PASSWORD', env('DB_PASSWORD', '')),
+            'unix_socket' => env('TIMESHOP_DB_SOCKET', env('DB_SOCKET', '')),
+            'charset' => env('TIMESHOP_DB_CHARSET', 'utf8mb4'),
+            'collation' => env('TIMESHOP_DB_COLLATION', 'utf8mb4_unicode_ci'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => false,
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                PDO::MYSQL_ATTR_SSL_CA => env('TIMESHOP_MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
+
         'pgsql' => [
             'driver' => 'pgsql',
             'url' => env('DB_URL'),

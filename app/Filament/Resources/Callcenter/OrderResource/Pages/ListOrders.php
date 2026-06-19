@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Callcenter\OrderResource\Pages;
 
 use App\Enums\OrderStatus;
 use App\Filament\Resources\Callcenter\OrderResource;
+use App\Models\Setting;
 use App\Services\Callcenter\ExternalSyncService;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
@@ -75,47 +76,40 @@ class ListOrders extends ListRecords
 
     public function getTabs(): array
     {
-        return [
+        $tabs = [
             null => Tab::make(__('order.tabs.all'))
                 ->query(fn ($query) =>
                     $query->where('status', '!=', OrderStatus::Cart->value)
                 ),
-
-            'new' => Tab::make(OrderStatus::New->getLabel())
-                ->query(fn ($query) => $query->where('status', 'new')),
-
-            'processing' => Tab::make(OrderStatus::Processing->getLabel())
-                ->query(fn ($query) => $query->where('status', 'processing')),
-
-            'on_hold' => Tab::make(OrderStatus::OnHold->getLabel())
-                ->query(fn ($query) => $query->where('status', 'on_hold')),
-
-            'filling' => Tab::make(OrderStatus::Filling->getLabel())
-                ->query(fn ($query) => $query->where('status', 'filling')),
-
-            'molding' => Tab::make(OrderStatus::Molding->getLabel())
-                ->query(fn ($query) => $query->where('status', 'molding')),
-
-            'baking' => Tab::make(OrderStatus::Baking->getLabel())
-                ->query(fn ($query) => $query->where('status', 'baking')),
-
-            'prepared' => Tab::make(OrderStatus::Prepared->getLabel())
-                ->query(fn ($query) => $query->where('status', 'prepared')),
-
-            'assembled' => Tab::make(OrderStatus::Assembled->getLabel())
-                ->query(fn ($query) => $query->where('status', 'assembled')),
-
-            'shipped' => Tab::make(OrderStatus::Shipped->getLabel())
-                ->query(fn ($query) => $query->where('status', 'shipped')),
-
-            'delivered' => Tab::make(OrderStatus::Delivered->getLabel())
-                ->query(fn ($query) => $query->where('status', 'delivered')),
-
-            'cancelled' => Tab::make(OrderStatus::Cancelled->getLabel())
-                ->query(fn ($query) => $query->where('status', 'cancelled')),
-
-            'cart' => Tab::make(OrderStatus::Cart->getLabel())
-                ->query(fn ($query) => $query->where('status', OrderStatus::Cart->value)),
         ];
+
+        $visibleStatusValues = Setting::admin('callcenter.order_status_tabs', []);
+        $orderedStatuses = collect(OrderStatus::sorted())
+            ->reject(fn (OrderStatus $status): bool => $status === OrderStatus::Cart)
+            ->push(OrderStatus::Cart)
+            ->all();
+
+        $allStatusValues = collect($orderedStatuses)
+            ->map(fn (OrderStatus $status): string => $status->value)
+            ->all();
+
+        if (! is_array($visibleStatusValues) || $visibleStatusValues === []) {
+            $visibleStatusValues = $allStatusValues;
+        }
+
+        $visibleStatusValues = array_values(array_intersect($visibleStatusValues, $allStatusValues));
+
+        foreach ($orderedStatuses as $status) {
+            if (! in_array($status->value, $visibleStatusValues, true)) {
+                continue;
+            }
+
+            $statusValue = $status->value;
+
+            $tabs[$statusValue] = Tab::make($status->getLabel())
+                ->query(fn ($query) => $query->where('status', $statusValue));
+        }
+
+        return $tabs;
     }
 }

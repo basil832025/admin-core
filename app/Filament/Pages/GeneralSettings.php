@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Enums\OrderStatus;
 use App\Models\Callcenter\Source as CallcenterSource;
 use App\Models\Setting;
 use Filament\Forms;
@@ -26,6 +27,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
@@ -340,6 +342,25 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
                 ->statePath('admin_settings')
                 ->compact(),
 
+            Section::make('Фільтри статусів колцентру')
+                ->description('Оберіть, які вкладки статусів показувати на сторінці замовлень колцентру. Вкладка «Всі» показується завжди.')
+                ->schema([
+                    CheckboxList::make('callcenter.order_status_tabs')
+                        ->label('Вкладки статусів')
+                        ->options(fn (): array => collect(OrderStatus::sorted())
+                            ->mapWithKeys(fn (OrderStatus $status): array => [
+                                $status->value => $status->getLabel(),
+                            ])
+                            ->all())
+                        ->default(fn (): array => collect(OrderStatus::sorted())
+                            ->map(fn (OrderStatus $status): string => $status->value)
+                            ->all())
+                        ->columns(3)
+                        ->bulkToggleable(),
+                ])
+                ->statePath('admin_settings')
+                ->compact(),
+
             Section::make('Бонусна програма')
                 ->description('Оберіть, від якої суми нараховувати бонуси клієнту.')
                 ->schema([
@@ -647,7 +668,7 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
 
     public function mount(): void
     {
-        $settings = Setting::first() ?? Setting::create([]);
+        $settings = Setting::current();
 
         // гарантируем массив для JSON
         $this->admin_settings = $settings->admin_settings ?? [];
@@ -666,7 +687,7 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
         // на всякий случай
         $data['admin_settings'] = $data['admin_settings'] ?? $this->admin_settings ?? [];
 
-        $settings = Setting::first() ?? Setting::create([]);
+        $settings = Setting::current();
         $settings->update($data);
 
         $fresh = $settings->fresh();

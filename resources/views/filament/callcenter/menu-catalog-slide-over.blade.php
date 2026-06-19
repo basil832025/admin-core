@@ -116,7 +116,7 @@
             const cmp = window.Livewire.find(this.componentId);
             if (!cmp) return;
 
-            await cmp.call('addMenuProductToOrder', Number(productId), Number(this.source || 0));
+            await cmp.call('addMenuProductToOrder', productId, this.source || '0');
         },
 
         openDescription(product) {
@@ -255,7 +255,7 @@
         <div class="shrink-0 self-center text-xs text-gray-500" x-show="loading">Завантаження...</div>
     </div>
 
-    <div class="flex flex-wrap gap-2">
+    <div class="flex flex-wrap gap-2" x-show="sources.length > 1">
         <template x-for="site in sources" :key="site.id">
             <button
                 type="button"
@@ -269,7 +269,7 @@
         </template>
     </div>
 
-    <div class="flex flex-wrap gap-2">
+    <div class="flex gap-2 overflow-x-auto pb-1">
         <button
             type="button"
             class="rounded-lg border px-3 py-1.5 text-xs"

@@ -110,6 +110,7 @@ class LanguageResource extends Resource
                     })
 
                     ->searchable()
+                    ->optionsLimit(300)
                     ->required(),
                 TextInput::make('position')
                     ->label(__('language.fields.position'))

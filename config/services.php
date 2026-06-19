@@ -94,6 +94,15 @@ return [
         'orders_endpoint' => env('CALLCENTER_PIE_ORDERS_ENDPOINT', '/api/get-last-orders'),
     ],
 
+    'timeshop' => [
+        'menu_label' => env('TIMESHOP_MENU_LABEL', 'Timeshop'),
+        'asset_url' => env('TIMESHOP_ASSET_URL', 'https://timeshop.com.ua'),
+    ],
+
+    'callcenter' => [
+        'order_menu_source' => env('CALLCENTER_ORDER_MENU_SOURCE', 'main'),
+    ],
+
     'postmark' => [
         'token' => env('POSTMARK_TOKEN'),
     ],

@@ -2,7 +2,7 @@
 
 return [
     'nav' => [
-        'navigation_group'   => 'Настройки',
+        'navigation_group'   => __('admin.nav.groups.settings'),
         'navigation_label'   => 'Фіксовані знижки',
         'model_label'        => 'Фіксована знижка',
         'plural_model_label' => 'Фіксовані знижки',

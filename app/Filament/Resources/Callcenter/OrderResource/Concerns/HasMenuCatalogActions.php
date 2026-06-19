@@ -8,7 +8,9 @@ use App\Models\Shop\Order as ShopOrder;
 use App\Filament\Resources\Callcenter\OrderResource;
 use App\Services\OrderPricing;
 use App\Services\DeliveryCalculationService;
+use App\Services\Callcenter\TimeshopCatalogService;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 
@@ -31,15 +33,37 @@ trait HasMenuCatalogActions
             ->modalContent(fn () => view('filament.callcenter.menu-catalog-slide-over', [
                 'componentId' => method_exists($this, 'getId') ? $this->getId() : null,
                 'fetchUrl' => route('admin.callcenter.menu-catalog', absolute: false),
-                'defaultSourceId' => (string) ((isset($this->record) && $this->record?->exists)
-                    ? ((int) ($this->record->source_id ?? 0))
-                    : ((int) data_get($this->getCurrentFormStateForMenu(), 'source_id', 0))),
+                'defaultSourceId' => $this->resolveDefaultMenuSourceId(),
             ]));
     }
 
-    public function addMenuProductToOrder(int $productId, int $sourceId = 0): void
+    protected function resolveDefaultMenuSourceId(): string
     {
-        $product = Product::query()->select(['id', 'price', 'in_stock'])->find($productId);
+        if ((string) config('services.callcenter.order_menu_source', 'main') === TimeshopCatalogService::SOURCE_ID) {
+            return TimeshopCatalogService::SOURCE_ID;
+        }
+
+        $currentSourceId = (isset($this->record) && $this->record?->exists)
+            ? (int) ($this->record->source_id ?? 0)
+            : (int) data_get($this->getCurrentFormStateForMenu(), 'source_id', 0);
+
+        if ($currentSourceId > 0) {
+            return (string) $currentSourceId;
+        }
+
+        return '0';
+    }
+
+    public function addMenuProductToOrder(string|int $productId, string|int $sourceId = 0): void
+    {
+        $sourceIdValue = is_numeric($sourceId) ? (int) $sourceId : 0;
+
+        if (is_string($productId) && str_starts_with($productId, TimeshopCatalogService::SOURCE_ID . ':')) {
+            $timeshopProductId = Str::after($productId, TimeshopCatalogService::SOURCE_ID . ':');
+            $product = app(TimeshopCatalogService::class)->ensureLocalProduct($timeshopProductId);
+        } else {
+            $product = Product::query()->select(['id', 'price', 'in_stock'])->find((int) $productId);
+        }
 
         if (! $product || ! $product->in_stock) {
             Notification::make()->warning()->title('Товар недоступний')->send();
@@ -146,8 +170,8 @@ trait HasMenuCatalogActions
 
         $state['items'] = $items->all();
 
-        if ($sourceId > 0) {
-            $state['source_id'] = $sourceId;
+        if ($sourceIdValue > 0) {
+            $state['source_id'] = $sourceIdValue;
         }
 
         $shippingPrice = $this->calculateShippingForMenuState($state);
