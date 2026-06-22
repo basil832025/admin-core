@@ -3347,6 +3347,7 @@ class OrderResource extends Resource
             PaymentMethodEnum::POS,
             PaymentMethodEnum::CASH,
             PaymentMethodEnum::INVOICE,
+            PaymentMethodEnum::FREE,
             // PaymentMethodEnum::CLUB,
         ];
 
