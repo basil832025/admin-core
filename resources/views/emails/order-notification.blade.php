@@ -70,6 +70,7 @@
         \App\Enums\PaymentMethodEnum::CASH => st('cart.payment.cash', 'Готівкою при отриманні'),
         \App\Enums\PaymentMethodEnum::ORG_TRANSFER,
         \App\Enums\PaymentMethodEnum::INVOICE => st('cart.payment.invoice', 'Безготівковий розрахунок за рахунком для юридичних осіб'),
+        \App\Enums\PaymentMethodEnum::PAYPARTS => $paymentMethod?->label($mailLocale) ?? \App\Enums\PaymentMethodEnum::PAYPARTS->label($mailLocale),
         default => $paymentMethod?->label($mailLocale) ?? \App\Enums\PaymentMethodEnum::CARD->label($mailLocale),
     };
 

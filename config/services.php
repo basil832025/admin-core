@@ -31,6 +31,15 @@ return [
         'private_key' => env('LIQPAY_PRIVATE_KEY'),
     ],
 
+    'payparts' => [
+        'privatbank' => [
+            'base_url' => env('PRIVATBANK_PAYPARTS_BASE_URL', 'https://payparts2.privatbank.ua'),
+            'public_url' => env('PRIVATBANK_PAYPARTS_PUBLIC_URL'),
+            'create_path' => env('PRIVATBANK_PAYPARTS_CREATE_PATH', '/ipp/v2/payment/create'),
+            'payment_path' => env('PRIVATBANK_PAYPARTS_PAYMENT_PATH', '/ipp/v2/payment'),
+        ],
+    ],
+
     'google_maps' => [
         'key' => env('GOOGLE_MAPS_API_KEY'),
         'kitchen_lat' => env('GOOGLE_MAPS_KITCHEN_LAT'),

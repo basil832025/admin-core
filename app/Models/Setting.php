@@ -52,6 +52,18 @@ class Setting extends Model
         $row->admin_settings = $data;
         $row->save();
     }
+
+    public static function payparts(?string $key = null, mixed $default = null): mixed
+    {
+        $settings = static::admin('payparts', []);
+
+        if ($settings === [] || $settings === null) {
+            $settings = static::admin('admin_settings.payparts', []);
+        }
+
+        return $key === null ? $settings : data_get($settings, $key, $default);
+    }
+
     public static function getActiveLocales(): array
     {
         return Language::where('active', true)

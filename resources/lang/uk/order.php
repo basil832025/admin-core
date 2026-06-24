@@ -8,10 +8,11 @@ return [
     ],
 
     'tabs' => [
-        'all'       => 'Всі',
-        'info'      => 'Інфо по замовленню',
-        'products'  => 'Товари',
-        'journal'   => 'Журнал',
+        'all'              => 'Всі',
+        'awaiting_payment' => 'Чекає оплату',
+        'info'             => 'Інфо по замовленню',
+        'products'         => 'Товари',
+        'journal'          => 'Журнал',
     ],
 
     'sections' => [

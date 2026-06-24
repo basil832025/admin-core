@@ -13,6 +13,7 @@ use App\Http\Controllers\Front\FavoriteController;
 use App\Http\Controllers\Front\FeedController;
 use App\Http\Controllers\Front\HomeController;
 use App\Http\Controllers\Front\LiqPayController;
+use App\Http\Controllers\Front\PaypartsController;
 use App\Http\Controllers\Front\PageController;
 use App\Http\Controllers\Front\ProductController;
 use App\Http\Controllers\Front\ProductReviewController;
@@ -50,10 +51,17 @@ Route::post('/checkout/check-promo-conditions', [CheckoutController::class, 'che
 Route::get('/checkout/{order}/pay/liqpay', [CheckoutController::class, 'payLiqPay'])->name('checkout.pay.liqpay');
 Route::post('/checkout/{order}/pay/liqpay/email', [CheckoutController::class, 'saveLiqPayEmail'])
     ->name('checkout.pay.liqpay.email');
+Route::get('/checkout/{order}/pay/payparts', [CheckoutController::class, 'payPayparts'])->name('checkout.pay.payparts');
+Route::get('/checkout/{order}/pay/payparts/status', [CheckoutController::class, 'payPaypartsStatus'])->name('checkout.pay.payparts.status');
 Route::get('/filter', [CatalogController::class, 'filter'])->name('catalog.filter');
 Route::post('/liqpay/callback', [LiqPayController::class, 'callback'])
     ->name('liqpay.callback')
     ->withoutMiddleware([VerifyCsrfToken::class]);
+Route::post('/payparts/response', [PaypartsController::class, 'response'])
+    ->name('payparts.response')
+    ->withoutMiddleware([VerifyCsrfToken::class]);
+Route::get('/payparts/redirect', [PaypartsController::class, 'redirect'])
+    ->name('payparts.redirect');
 
 Route::post('/integrations/binotel/call-settings', [BinotelWebhookController::class, 'callSettings'])
     ->name('integrations.binotel.call-settings')

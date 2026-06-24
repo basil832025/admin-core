@@ -8,10 +8,11 @@ return [
     ],
 
     'tabs' => [
-        'all'       => 'All',
-        'info'      => 'Order info',
-        'products'  => 'Products',
-        'journal'   => 'Journal',
+        'all'              => 'All',
+        'awaiting_payment' => 'Awaiting payment',
+        'info'             => 'Order info',
+        'products'         => 'Products',
+        'journal'          => 'Journal',
     ],
 
     'sections' => [

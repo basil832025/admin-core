@@ -10,5 +10,6 @@ return [
         'POS' => 'POS terminal',
         'INVOICE' => 'Invoice',
         'LIQPAY' => 'LiqPay',
+        'PAYPARTS' => 'Installment payment',
     ],
 ];

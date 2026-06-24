@@ -10,5 +10,6 @@ return [
         'POS'         => 'POS-терминал',
         'INVOICE'     => 'Счет фактура',
         'LIQPAY'      => 'LiqPay',
+        'PAYPARTS'    => 'Оплата частями',
     ],
 ];

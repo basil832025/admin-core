@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Services\CartService;
 use App\Services\LoyaltyService;
 use App\Models\Shop\Order;
+use App\Models\Shop\Client;
 use App\Models\Shop\ClientAddress;
+use App\Models\Shop\PaypartsBank;
 use App\Enums\OrderStatus;
 use App\Models\Location;
 use App\Enums\PaymentMethodEnum;
@@ -20,9 +22,11 @@ use App\Models\Shop\OrderItem;
 use App\Models\Shop\Product;
 //use App\Models\Shop\FixedDiscount;
 use App\Models\Shop\TimeDiscount;
+use App\Models\Setting;
 use App\Services\DeliveryCalculationService;
 use App\Services\ScheduleV2Service;
 use App\Services\LiqPayService;
+use App\Services\PrivatBankPaypartsService;
 use App\Mail\OrderNotificationMail;
 use App\Mail\OrderClientMail;
 use Illuminate\Support\Facades\Mail;
@@ -58,7 +62,6 @@ public function index()
 
         return redirect()->route($routeName, $routeParams);
     }
-
     // Загружаем сохраненные данные из сессии
     $sessionData = session('checkout.form_data', []);
 
@@ -192,6 +195,12 @@ public function index()
                 ];
             })
         );
+
+    $paypartsAllowed = $this->isPaypartsEnabledForClient($client);
+    $paypartsBanks = $paypartsAllowed
+        ? $this->availablePaypartsBanksForCheckout($client, (float) $totals['grand_total'])
+        : collect();
+    $paypartsEnabled = $paypartsAllowed && $paypartsBanks->isNotEmpty();
     return view('checkout.index', [
         'items'     => $items,
         'totals'    => $totals,
@@ -200,6 +209,8 @@ public function index()
         'sessionData' => $sessionData,
         'timeIntervals' => $timeIntervals,
         'scheduleV2' => $scheduleV2Payload,
+        'paypartsBanks' => $paypartsBanks,
+        'paypartsEnabled' => $paypartsEnabled,
     ]);
 }
 
@@ -399,6 +410,15 @@ public function saveFormData(Request $request)
     // Способ оплаты
     if ($request->has('payment_method')) {
         $data['payment_method'] = $request->input('payment_method');
+    }
+    if ($request->has('payparts_bank_id')) {
+        $data['payparts_bank_id'] = (int) $request->input('payparts_bank_id');
+    }
+    if ($request->has('payparts_plan_key')) {
+        $data['payparts_plan_key'] = (string) $request->input('payparts_plan_key');
+    }
+    if ($request->has('payparts_financial_phone')) {
+        $data['payparts_financial_phone'] = (string) $request->input('payparts_financial_phone');
     }
     if ($request->has('selected_promo')) {
         $data['selected_promo'] = (string) $request->input('selected_promo', 'none');
@@ -834,13 +854,24 @@ public function submit(Request $request)
         'delivery_mode'    => 'required|in:asap,fixed',
         'delivery_time'    => 'nullable|string|max:20',
 
-        'payment_method'   => 'required|in:liqpay,card_on_delivery,cash,invoice',
+        'payment_method'   => 'required|in:liqpay,card_on_delivery,cash,invoice,payparts',
 
         'agree'            => 'accepted',
     ]);
 
     if ($request->input('payment_method') === 'liqpay') {
         $validated['contact_email'] = trim((string) ($request->input('contact_email') ?? ''));
+    }
+
+    if ($request->input('payment_method') === 'payparts') {
+        $request->validate([
+            'payparts_bank_id' => 'required|integer|exists:bs_payparts_banks,id',
+            'payparts_plan_key' => 'required|string|max:80',
+            'payparts_financial_phone' => ['required', 'string', 'regex:/^380\d{9}$/'],
+        ], [
+            'payparts_financial_phone.required' => st('cart.payment.payparts_financial_phone_required', 'Поле обовʼязкове'),
+            'payparts_financial_phone.regex' => st('cart.payment.payparts_financial_phone_invalid', 'Введіть повний номер телефону'),
+        ]);
     }
 
     $shippingMethod = $validated['shipping_method'];
@@ -951,6 +982,7 @@ public function submit(Request $request)
         'card_on_delivery'=> PaymentMethodEnum::CARD,
         'cash'            => PaymentMethodEnum::CASH,
         'invoice'         => PaymentMethodEnum::INVOICE,
+        'payparts'        => PaymentMethodEnum::PAYPARTS,
         default           => PaymentMethodEnum::CASH,
     };
 
@@ -1035,6 +1067,9 @@ public function submit(Request $request)
         'as_soon_possible'  => $deliveryMode === 'asap',
 
         'payment'           => $paymentEnum,
+        'payparts_bank_id'  => $paymentEnum === PaymentMethodEnum::PAYPARTS
+            ? (int) $request->input('payparts_bank_id')
+            : null,
 
         'notes'             => $notesFromCourier,
         'kitchen_note'      => $commentKitchen !== '' ? $commentKitchen : null,
@@ -1090,7 +1125,7 @@ public function submit(Request $request)
         }
     }
 
-    if ($paymentEnum === PaymentMethodEnum::LIQPAY) {
+    if (in_array($paymentEnum, [PaymentMethodEnum::LIQPAY, PaymentMethodEnum::PAYPARTS], true)) {
         // можно оставить Cart как статус ожидания оплаты,
         // либо сделать отдельное значение в enum (например, AwaitingPayment)
         $order->status = OrderStatus::Cart;
@@ -1207,7 +1242,7 @@ public function submit(Request $request)
     // 10. Отправляем уведомление на почту:
     //     - для LiqPay письмо уходит ТОЛЬКО после успешного callback'а
     //     - для остальных способов оплаты шлём сразу после оформления.
-    if ($paymentEnum !== PaymentMethodEnum::LIQPAY) {
+    if (! in_array($paymentEnum, [PaymentMethodEnum::LIQPAY, PaymentMethodEnum::PAYPARTS], true)) {
         try {
             $order->load([
                 'items.product.parent.productCharacteristicValues.characteristic.svgImage',
@@ -1257,6 +1292,55 @@ public function submit(Request $request)
         $routeName = in_array($locale, ['ru', 'en'], true)
             ? 'localized.checkout.pay.liqpay'
             : 'checkout.pay.liqpay';
+        $routeParams = in_array($locale, ['ru', 'en'], true)
+            ? ['locale' => $locale, 'order' => $order]
+            : ['order' => $order];
+
+        return redirect()->route($routeName, $routeParams);
+    }
+
+    if ($paymentEnum === PaymentMethodEnum::PAYPARTS) {
+        $bank = PaypartsBank::query()
+            ->active()
+            ->visibleForClient($client)
+            ->find((int) $request->input('payparts_bank_id'));
+
+        if (! $bank) {
+            $order->payparts_status = 'payment_failed';
+            $order->save();
+
+            return back()
+                ->withInput()
+                ->with('error', st('cart.payment.payparts_bank_unavailable', 'Обраний банк зараз недоступний.'));
+        }
+
+        $plans = collect($bank->plansForAmount((float) $order->grand_total));
+        $plan = $plans->firstWhere('key', (string) $request->input('payparts_plan_key'));
+
+        if (! $plan) {
+            $order->payparts_status = 'payment_failed';
+            $order->save();
+
+            return back()
+                ->withInput()
+                ->with('error', st('cart.payment.payparts_plan_unavailable', 'Обрані умови оплати частинами недоступні для цієї суми.'));
+        }
+
+        $order->payparts_status = 'pending_payment';
+        $order->save();
+
+        session([
+            'checkout.payparts.' . $order->id => [
+                'plan_key' => (string) $request->input('payparts_plan_key'),
+                'contact_phone' => (string) $request->input('payparts_financial_phone', $validated['contact_phone']),
+                'contact_email' => (string) ($validated['contact_email'] ?? ''),
+            ],
+        ]);
+
+        $locale = app()->getLocale();
+        $routeName = in_array($locale, ['ru', 'en'], true)
+            ? 'localized.checkout.pay.payparts'
+            : 'checkout.pay.payparts';
         $routeParams = in_array($locale, ['ru', 'en'], true)
             ? ['locale' => $locale, 'order' => $order]
             : ['order' => $order];
@@ -1548,6 +1632,146 @@ public function payLiqPay($localeOrOrder, ?Order $order = null)
     ]);
 }
 
+public function payPayparts($localeOrOrder, ?Order $order = null)
+{
+    $locale = null;
+    if ($localeOrOrder instanceof Order) {
+        $order = $localeOrOrder;
+    } else {
+        $locale = is_string($localeOrOrder) ? $localeOrOrder : null;
+    }
+
+    if (! $order instanceof Order) {
+        abort(404);
+    }
+
+    if ($order->clients_id) {
+        $orderClientId = (int) $order->clients_id;
+        $currentUserId = auth()->check() ? (int) auth()->id() : null;
+
+        if (! $currentUserId || $currentUserId !== $orderClientId) {
+            abort(403);
+        }
+    }
+
+    if ($order->payment !== PaymentMethodEnum::PAYPARTS) {
+        abort(404);
+    }
+
+    $order->loadMissing(['clients', 'paypartsBank', 'lastPaypartsTransaction']);
+
+    $expectedGrandTotal = $this->calculatePayableTotal($order);
+    if (round((float) $order->grand_total, 2) !== $expectedGrandTotal) {
+        $order->grand_total = $expectedGrandTotal;
+        $order->save();
+        $order->refresh();
+        $order->loadMissing(['clients', 'paypartsBank', 'lastPaypartsTransaction']);
+    }
+
+    $bank = $order->paypartsBank;
+    $transaction = $order->lastPaypartsTransaction;
+    $paymentUrl = $transaction?->token
+        ? PrivatBankPaypartsService::make()->paymentUrl((string) $transaction->token)
+        : null;
+    $error = null;
+
+    if (! $bank || ! $bank->is_active) {
+        $error = st('cart.payment.payparts_bank_unavailable', 'Обраний банк зараз недоступний.');
+    }
+
+    if (! $paymentUrl && ! $error) {
+        $sessionKey = 'checkout.payparts.' . $order->id;
+        $paypartsSession = (array) session($sessionKey, []);
+        $planKey = (string) ($paypartsSession['plan_key'] ?? '');
+        $plans = collect($bank->plansForAmount((float) $order->grand_total));
+        $plan = $plans->firstWhere('key', $planKey);
+
+        if (! $plan) {
+            $order->payparts_status = 'payment_failed';
+            $order->save();
+            $error = st('cart.payment.payparts_plan_unavailable', 'Обрані умови оплати частинами недоступні для цієї суми.');
+        } else {
+            try {
+                $transaction = PrivatBankPaypartsService::make()->createPayment(
+                    order: $order,
+                    bank: $bank,
+                    merchantType: (string) ($plan['merchant_type'] ?? ''),
+                    partsCount: (int) ($plan['parts_count'] ?? 0),
+                    customerPhone: (string) ($paypartsSession['contact_phone'] ?? $order->clients?->phone ?? ''),
+                    customerEmail: (string) ($paypartsSession['contact_email'] ?? $order->clients?->email ?? ''),
+                    locale: $locale ?: app()->getLocale(),
+                );
+
+                $order->payparts_status = 'payment_redirected';
+                $order->save();
+
+                $paymentUrl = PrivatBankPaypartsService::make()->paymentUrl((string) $transaction->token);
+            } catch (\Throwable $e) {
+                \Log::error('PrivatBank payparts create payment failed', [
+                    'order_id' => $order->id,
+                    'bank_id' => $bank->id,
+                    'plan_key' => $planKey,
+                    'error' => $e->getMessage(),
+                ]);
+
+                $order->payparts_status = 'payment_failed';
+                $order->save();
+                $error = st('cart.payment.payparts_create_failed', 'Не вдалося перейти до оплати частинами. Спробуйте ще раз або оберіть інший спосіб оплати.');
+            }
+        }
+    }
+
+    return view('checkout.payparts', [
+        'order' => $order,
+        'bank' => $bank,
+        'transaction' => $transaction,
+        'paymentUrl' => $paymentUrl,
+        'error' => $error,
+    ]);
+}
+
+public function payPaypartsStatus($localeOrOrder, ?Order $order = null)
+{
+    $locale = null;
+    if ($localeOrOrder instanceof Order) {
+        $order = $localeOrOrder;
+    } else {
+        $locale = is_string($localeOrOrder) ? $localeOrOrder : null;
+    }
+
+    if (! $order instanceof Order) {
+        abort(404);
+    }
+
+    if ($order->clients_id) {
+        $orderClientId = (int) $order->clients_id;
+        $currentUserId = auth()->check() ? (int) auth()->id() : null;
+
+        if (! $currentUserId || $currentUserId !== $orderClientId) {
+            abort(403);
+        }
+    }
+
+    if ($order->payment !== PaymentMethodEnum::PAYPARTS) {
+        abort(404);
+    }
+
+    $order->refresh();
+
+    $locale ??= app()->getLocale();
+    $successRoute = in_array($locale, ['ru', 'en'], true)
+        ? route('localized.checkout.success', ['locale' => $locale, 'order' => $order])
+        : route('checkout.success', ['order' => $order]);
+
+    return response()->json([
+        'order_status' => $order->status?->value ?? (string) $order->status,
+        'payparts_status' => $order->payparts_status,
+        'success' => $order->payparts_status === 'payment_success',
+        'failed' => $order->payparts_status === 'payment_failed',
+        'success_url' => $successRoute,
+    ]);
+}
+
 public function saveLiqPayEmail(Request $request, $localeOrOrder, ?Order $order = null)
 {
     // Support both routes:
@@ -1604,6 +1828,99 @@ public function saveLiqPayEmail(Request $request, $localeOrOrder, ?Order $order 
         ->with('success', st('checkout.liqpay.email_saved', 'Email збережено. Тепер можна перейти до оплати.'));
 }
 
+private function isPaypartsEnabledForClient(?Client $client): bool
+{
+    if (! (bool) Setting::payparts('enabled', false)) {
+        return false;
+    }
+
+    $audience = (string) Setting::payparts('button_audience', 'all');
+    if ($audience !== 'specific') {
+        return true;
+    }
+
+    if (! $client) {
+        return false;
+    }
+
+    $allowedValues = array_values(array_filter((array) Setting::payparts('button_client_ids', []), fn ($value): bool => (string) $value !== ''));
+
+    if ($allowedValues === []) {
+        return false;
+    }
+
+    $allowedIds = array_values(array_filter(array_map('intval', $allowedValues)));
+
+    if (in_array((int) $client->id, $allowedIds, true)) {
+        return true;
+    }
+
+    $clientPhone = $this->normalizePaypartsAudiencePhone((string) ($client->phone ?? ''));
+
+    if ($clientPhone === '') {
+        return false;
+    }
+
+    $allowedPhones = collect($allowedValues)
+        ->map(fn ($value): string => $this->normalizePaypartsAudiencePhone((string) $value))
+        ->filter()
+        ->merge(
+            Client::query()
+                ->whereIn('id', $allowedIds)
+                ->pluck('phone')
+                ->map(fn ($phone): string => $this->normalizePaypartsAudiencePhone((string) $phone))
+                ->filter()
+        )
+        ->unique()
+        ->values();
+
+    return $allowedPhones->contains($clientPhone);
+}
+
+private function normalizePaypartsAudiencePhone(string $phone): string
+{
+    $digits = preg_replace('/\D+/', '', $phone) ?: '';
+
+    if (str_starts_with($digits, '380')) {
+        return $digits;
+    }
+
+    if (str_starts_with($digits, '80')) {
+        return '3' . $digits;
+    }
+
+    if (str_starts_with($digits, '0')) {
+        return '38' . $digits;
+    }
+
+    if (strlen($digits) === 9) {
+        return '380' . $digits;
+    }
+
+    return $digits;
+}
+
+private function availablePaypartsBanksForCheckout(?Client $client, float $amount)
+{
+    return PaypartsBank::query()
+        ->active()
+        ->visibleForClient($client)
+        ->orderBy('id')
+        ->get()
+        ->map(function (PaypartsBank $bank) use ($amount): array {
+            return [
+                'id' => $bank->id,
+                'bank_type' => $bank->bank_type,
+                'bank_label' => $bank->bankType()?->label() ?? $bank->bank_type,
+                'name' => $bank->localizedText('name', app()->getLocale(), $bank->bankType()?->label()) ?? $bank->bankType()?->label() ?? $bank->bank_type,
+                'description' => $bank->localizedText('description', app()->getLocale()),
+                'terms' => $bank->localizedText('terms', app()->getLocale()),
+                'rules' => $bank->plansForAmount($amount),
+            ];
+        })
+        ->values();
+}
+
 private function calculatePayableTotal(Order $order): float
 {
     $itemsTotal = (float) ($order->total_price ?? 0);
@@ -1652,7 +1969,15 @@ private function syncCheckoutStateWithCart(array $items, array $sessionData): ar
             'checkout.promo_discount' => 0,
         ]);
 
-        unset($sessionData['use_bonus'], $sessionData['bonus_amount'], $sessionData['selected_promo']);
+        unset(
+            $sessionData['use_bonus'],
+            $sessionData['bonus_amount'],
+            $sessionData['selected_promo'],
+            $sessionData['payment_method'],
+            $sessionData['payparts_bank_id'],
+            $sessionData['payparts_plan_key'],
+            $sessionData['payparts_financial_phone']
+        );
         session(['checkout.form_data' => $sessionData]);
     }
 

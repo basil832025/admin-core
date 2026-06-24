@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Enums\OrderStatus;
 use App\Models\Callcenter\Source as CallcenterSource;
+use App\Models\Shop\Client;
 use App\Models\Setting;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -374,6 +375,69 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
                 ])
                 ->statePath('admin_settings')
                 ->compact(),
+
+            Section::make('Оплата частинами')
+                ->description('Увімкніть метод на сайті та оберіть, кому показувати кнопку у кошику.')
+                ->schema([
+                    Grid::make(12)
+                        ->schema([
+                            Toggle::make('payparts.enabled')
+                                ->label('Увімкнути оплату частинами')
+                                ->default(false)
+                                ->columnSpan(4),
+
+                            Select::make('payparts.button_audience')
+                                ->label('Кому показувати кнопку')
+                                ->options([
+                                    'all' => 'Всім',
+                                    'specific' => 'Конкретним клієнтам',
+                                ])
+                                ->default('all')
+                                ->live()
+                                ->afterStateUpdated(function (Set $set): void {
+                                    $set('payparts.button_client_ids', []);
+                                })
+                                ->native(false)
+                                ->columnSpan(4),
+
+                            Select::make('payparts.button_client_ids')
+                                ->label('Тестові клієнти')
+                                ->multiple()
+                                ->searchable()
+                                ->visible(fn (Get $get): bool => ($get('payparts.button_audience') ?? 'all') === 'specific')
+                                ->getSearchResultsUsing(function (string $search): array {
+                                    $digits = preg_replace('/\D+/', '', $search);
+
+                                    return Client::query()
+                                        ->select('id', 'name', 'phone')
+                                        ->when($search !== '', function ($query) use ($search): void {
+                                            $query->where('name', 'like', "%{$search}%")
+                                                ->orWhere('email', 'like', "%{$search}%");
+                                        })
+                                        ->when($digits !== '', function ($query) use ($digits): void {
+                                            $query->orWhereRaw("REGEXP_REPLACE(phone, '[^0-9]', '') LIKE ?", ["%{$digits}%"]);
+                                        })
+                                        ->limit(50)
+                                        ->get()
+                                        ->mapWithKeys(fn (Client $client): array => [
+                                            $client->id => $client->name . ' · ' . $client->phone_pretty,
+                                        ])
+                                        ->all();
+                                })
+                                ->getOptionLabelUsing(function ($value): ?string {
+                                    if (! $value) {
+                                        return null;
+                                    }
+
+                                    $client = Client::query()->select('id', 'name', 'phone')->find($value);
+
+                                    return $client ? ($client->name . ' · ' . $client->phone_pretty) : null;
+                                })
+                                ->columnSpan(4),
+                        ]),
+                ])
+                ->statePath('admin_settings')
+                ->compact(),
         ]);
     }
 
@@ -671,7 +735,7 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
         $settings = Setting::current();
 
         // гарантируем массив для JSON
-        $this->admin_settings = $settings->admin_settings ?? [];
+        $this->admin_settings = $this->normalizeAdminSettings($settings->admin_settings ?? []);
 
         // можно просто отдать все данные + подставить admin_settings
         $data = $settings->toArray();
@@ -685,7 +749,7 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
         $data = $this->form->getState();
 
         // на всякий случай
-        $data['admin_settings'] = $data['admin_settings'] ?? $this->admin_settings ?? [];
+        $data['admin_settings'] = $this->normalizeAdminSettings($data['admin_settings'] ?? $this->admin_settings ?? []);
 
         $settings = Setting::current();
         $settings->update($data);
@@ -693,7 +757,7 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
         $fresh = $settings->fresh();
         if ($fresh) {
             $formData = $fresh->toArray();
-            $formData['admin_settings'] = $fresh->admin_settings ?? [];
+            $formData['admin_settings'] = $this->normalizeAdminSettings($fresh->admin_settings ?? []);
             $this->form->fill($formData);
         }
 
@@ -702,6 +766,23 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
             ->success()
             ->body('Настройки сохранены')
             ->send();
+    }
+
+    private function normalizeAdminSettings(array $adminSettings): array
+    {
+        $nestedPayparts = data_get($adminSettings, 'admin_settings.payparts');
+
+        if (! data_get($adminSettings, 'payparts') && is_array($nestedPayparts)) {
+            data_set($adminSettings, 'payparts', $nestedPayparts);
+        }
+
+        data_forget($adminSettings, 'admin_settings.payparts');
+
+        if (data_get($adminSettings, 'admin_settings') === []) {
+            data_forget($adminSettings, 'admin_settings');
+        }
+
+        return $adminSettings;
     }
 
     public function sendPrintNodeTest(): void

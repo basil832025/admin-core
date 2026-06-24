@@ -38,7 +38,11 @@
     }
     $shippingMethod = old('shipping_method', $sessionData['shipping_method'] ?? 'delivery');
     $deliveryMode = old('delivery_mode', $sessionData['delivery_mode'] ?? 'asap');
-    $paymentMethod = old('payment_method', $sessionData['payment_method'] ?? 'liqpay');
+    $paymentMethod = old('payment_method', 'liqpay');
+    $defaultPaypartsBank = collect($paypartsBanks ?? [])->first();
+    $defaultPaypartsPlan = data_get($defaultPaypartsBank, 'rules.0', []);
+    $selectedPaypartsBankId = old('payparts_bank_id', $sessionData['payparts_bank_id'] ?? data_get($defaultPaypartsBank, 'id'));
+    $selectedPaypartsPlanKey = old('payparts_plan_key', $sessionData['payparts_plan_key'] ?? data_get($defaultPaypartsPlan, 'key'));
 @endphp
 
 @section('content')
@@ -53,7 +57,42 @@ document.addEventListener('alpine:init', () => {
         useNew: @json($useNewInitial),
         deliveryMode: @json($deliveryMode),
         paymentMethod: @json($paymentMethod),
+        paypartsBankId: @json((string) ($selectedPaypartsBankId ?? '')),
+        paypartsPlanKey: @json((string) ($selectedPaypartsPlanKey ?? '')),
+        showPaypartsTerms: false,
+        paypartsTermsTitle: '',
+        paypartsTermsDescription: '',
+        paypartsTermsHtml: '',
+        closePaypartsTerms() {
+            this.showPaypartsTerms = false;
+            this.paypartsTermsTitle = '';
+            this.paypartsTermsDescription = '';
+            this.paypartsTermsHtml = '';
+        },
+        decodePaypartsText(value) {
+            value = value || '';
+            try {
+                return decodeURIComponent(escape(value));
+            } catch (e) {
+                return value;
+            }
+        },
+        syncPaypartsBankCards() {
+            document.querySelectorAll('[data-payparts-bank-card]').forEach((card) => {
+                const isActive = String(card.dataset.paypartsBankCard || '') === String(this.paypartsBankId || '');
+                card.style.borderColor = isActive ? '#ff7500' : '#d8d8d8';
+                card.style.boxShadow = isActive ? '0 0 0 1px rgba(255,117,0,.18)' : 'none';
+            });
+        },
         init() {
+            window.addEventListener('open-payparts-terms', (event) => {
+                const detail = event?.detail || {};
+                this.paypartsTermsTitle = this.decodePaypartsText(detail.title || '');
+                this.paypartsTermsDescription = this.decodePaypartsText(detail.description || '');
+                this.paypartsTermsHtml = this.decodePaypartsText(detail.html || '');
+                this.showPaypartsTerms = true;
+            });
+
             // Загружаем данные из сессии при инициализации после небольшой задержки
             this.$nextTick(() => {
                 const sessionData = @json($sessionData ?? []);
@@ -67,17 +106,23 @@ document.addEventListener('alpine:init', () => {
                         if (sessionData.delivery_mode) {
                             this.deliveryMode = sessionData.delivery_mode;
                         }
-                        // Обновляем способ оплаты
-                        if (sessionData.payment_method) {
-                            this.paymentMethod = sessionData.payment_method;
-                            const paymentValue = String(sessionData.payment_method || '').split('"').join('&quot;');
-                            const radio = document.querySelector('[name="payment_method"][value="' + paymentValue + '"]');
-                            if (radio) radio.checked = true;
+                        if (sessionData.payparts_bank_id) {
+                            this.paypartsBankId = String(sessionData.payparts_bank_id);
+                        }
+                        if (sessionData.payparts_plan_key) {
+                            this.paypartsPlanKey = String(sessionData.payparts_plan_key);
                         }
                     } catch (e) {
                         console.error('Error loading session data:', e);
                     }
                 }
+
+                if (this.paypartsBankId) {
+                    const bankRadio = document.querySelector('[name="payparts_bank_id"][value="' + String(this.paypartsBankId).replace(/"/g, '&quot;') + '"]');
+                    if (bankRadio) bankRadio.checked = true;
+                }
+
+                this.syncPaypartsBankCards();
             });
         }
     }));
@@ -178,12 +223,50 @@ document.addEventListener('alpine:init', () => {
 
                 </div>
 
-            </div>
-        </form>
-        <style>
-            [x-cloak] { display: none !important; }
-        </style>
+                <style>
+                    [x-cloak] { display: none !important; }
+                </style>
 
+                <div
+                    x-cloak
+                    x-show="showPaypartsTerms"
+                    x-transition.opacity
+                    class="fixed inset-0 z-[10000] flex items-start justify-center overflow-y-auto bg-black/50 px-4 pt-[180px] pb-12 md:pt-[170px]"
+                    @keydown.escape.window="closePaypartsTerms()"
+                    @click.self="closePaypartsTerms()"
+                >
+                    <div class="relative w-full max-w-[720px] max-h-[calc(100vh-14rem)] overflow-y-auto rounded-lg bg-white px-6 py-6 shadow-xl md:max-h-[calc(100vh-13rem)]">
+                        <button type="button" class="absolute right-4 top-4 flex h-12 w-12 items-center justify-center rounded-full hover:bg-gray-100" @click="closePaypartsTerms()">
+                            <span class="sr-only">Закрити</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-700" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <path d="M6 6L18 18M18 6L6 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                            </svg>
+                        </button>
+
+                        <div class="pr-10">
+                            <div class="text-lg font-semibold text-[#272828]" x-text="paypartsTermsTitle"></div>
+                        </div>
+
+                        <div class="mt-5 space-y-5 text-sm text-gray-700">
+                            <template x-if="paypartsTermsDescription">
+                                <div>
+                                    <div class="mb-2 text-base font-semibold text-[#272828]">????? ???????</div>
+                                    <div class="leading-6" x-text="paypartsTermsDescription"></div>
+                                </div>
+                            </template>
+                            <template x-if="paypartsTermsHtml">
+                                <div>
+                                    <div class="mb-2 text-base font-semibold text-[#272828]">Умови кредиту</div>
+                                    <div class="prose max-w-none leading-6" x-html="paypartsTermsHtml"></div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </form>
         <div x-data="{ showAuthModal: false, authMessage: '' }"
              x-cloak
              x-show="showAuthModal"

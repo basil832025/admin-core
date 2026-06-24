@@ -63,6 +63,8 @@ class Order extends Model
         'self_pickup',
         'as_soon_possible',
         'payment',
+        'payparts_bank_id',
+        'payparts_status',
         'fiscalize_in_cashalot',
         'cash_from',
         'reason_non_payment',
@@ -83,6 +85,8 @@ class Order extends Model
 
     protected $casts = [
         'payment' => PaymentMethodEnum::class,
+        'payparts_bank_id' => 'integer',
+        'payparts_status' => 'string',
         'fiscalize_in_cashalot' => 'boolean',
         'status'       => OrderStatus::class, // раз ты уже используешь enum
         'status_times' => 'array',
@@ -139,6 +143,18 @@ class Order extends Model
     public function paymentLogs()
     {
         return $this->hasMany(\App\Models\Shop\LiqPayLog::class, 'shop_order_id');
+    }
+    public function paypartsTransactions(): HasMany
+    {
+        return $this->hasMany(PaypartsTransaction::class, 'shop_order_id');
+    }
+    public function lastPaypartsTransaction(): HasOne
+    {
+        return $this->hasOne(PaypartsTransaction::class, 'shop_order_id')->latestOfMany();
+    }
+    public function paypartsBank(): BelongsTo
+    {
+        return $this->belongsTo(PaypartsBank::class, 'payparts_bank_id');
     }
     public function loyaltyTransactions(): HasMany
     {

@@ -3342,6 +3342,7 @@ class OrderResource extends Resource
 
         $order = [
             PaymentMethodEnum::LIQPAY,
+            PaymentMethodEnum::PAYPARTS,
             PaymentMethodEnum::ORG_TRANSFER,
             PaymentMethodEnum::CARD,
             PaymentMethodEnum::POS,

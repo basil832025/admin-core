@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Callcenter\OrderResource\Pages;
 
 use App\Enums\OrderStatus;
+use App\Enums\PaymentMethodEnum;
 use App\Filament\Resources\Callcenter\OrderResource;
 use App\Models\Setting;
 use App\Services\Callcenter\ExternalSyncService;
@@ -14,6 +15,11 @@ use Filament\Resources\Pages\ListRecords\Tab;
 
 class ListOrders extends ListRecords
 {
+    private const AWAITING_PAYPARTS_STATUSES = [
+        'pending_payment',
+        'payment_redirected',
+    ];
+
     protected static string $resource = OrderResource::class;
 
     protected function getHeaderActions(): array
@@ -106,10 +112,59 @@ class ListOrders extends ListRecords
 
             $statusValue = $status->value;
 
+            if ($status === OrderStatus::Cart) {
+                $tabs['awaiting_payment'] = Tab::make(__('order.tabs.awaiting_payment'))
+                    ->query(fn ($query) => $this->applyAwaitingPaymentFilter($query));
+            }
+
             $tabs[$statusValue] = Tab::make($status->getLabel())
-                ->query(fn ($query) => $query->where('status', $statusValue));
+                ->query(function ($query) use ($status, $statusValue) {
+                    $query->where('status', $statusValue);
+
+                    if ($status === OrderStatus::Cart) {
+                        $this->excludeAwaitingPaymentFilter($query);
+                    }
+
+                    return $query;
+                });
         }
 
         return $tabs;
+    }
+
+    private function applyAwaitingPaymentFilter($query)
+    {
+        return $query
+            ->where('status', OrderStatus::Cart->value)
+            ->where(function ($query): void {
+                $query
+                    ->where('payment', PaymentMethodEnum::LIQPAY->value)
+                    ->orWhere(function ($query): void {
+                        $query
+                            ->where('payment', PaymentMethodEnum::PAYPARTS->value)
+                            ->whereIn('payparts_status', self::AWAITING_PAYPARTS_STATUSES);
+                    });
+            });
+    }
+
+    private function excludeAwaitingPaymentFilter($query)
+    {
+        return $query->where(function ($query): void {
+            $query
+                ->whereNull('payment')
+                ->orWhereNotIn('payment', [
+                    PaymentMethodEnum::LIQPAY->value,
+                    PaymentMethodEnum::PAYPARTS->value,
+                ])
+                ->orWhere(function ($query): void {
+                    $query
+                        ->where('payment', PaymentMethodEnum::PAYPARTS->value)
+                        ->where(function ($query): void {
+                            $query
+                                ->whereNull('payparts_status')
+                                ->orWhereNotIn('payparts_status', self::AWAITING_PAYPARTS_STATUSES);
+                        });
+                });
+        });
     }
 }
