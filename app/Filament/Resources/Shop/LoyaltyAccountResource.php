@@ -79,10 +79,12 @@ class LoyaltyAccountResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('id')
                     ->label(__('loyalty_account.columns.id'))
+                    ->searchable()
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('client_id')
                     ->label(__('loyalty_account.columns.client_id'))
+                    ->searchable()
                     ->sortable()
                     ->toggleable(),
 
@@ -92,9 +94,39 @@ class LoyaltyAccountResource extends Resource
                 //     ->sortable()
                 //     ->toggleable(),
 
+                Tables\Columns\TextColumn::make('client.name')
+                    ->label(__('loyalty_account.columns.client'))
+                    ->searchable()
+                    ->sortable()
+                    ->placeholder('-'),
+
+                Tables\Columns\TextColumn::make('client.phone')
+                    ->label(__('loyalty_account.columns.phone'))
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 Tables\Columns\TextColumn::make('phone')
                     ->label(__('loyalty_account.columns.phone'))
-                    ->searchable(),
+                    ->searchable(query: function (Builder $query, string $search): Builder {
+                        $digits = preg_replace('/\D+/', '', $search);
+                        $searchLike = "%{$search}%";
+                        $digitsLike = $digits !== '' ? "%{$digits}%" : $searchLike;
+
+                        return $query->where(function (Builder $query) use ($searchLike, $digitsLike): void {
+                            $query
+                                ->where('id', 'like', $searchLike)
+                                ->orWhere('client_id', 'like', $searchLike)
+                                ->orWhere('phone', 'like', $searchLike)
+                                ->orWhere('phone', 'like', $digitsLike)
+                                ->orWhereHas('client', function (Builder $query) use ($searchLike, $digitsLike): void {
+                                    $query
+                                        ->where('name', 'like', $searchLike)
+                                        ->orWhere('email', 'like', $searchLike)
+                                        ->orWhere('phone', 'like', $searchLike)
+                                        ->orWhere('phone', 'like', $digitsLike);
+                                });
+                        });
+                    }),
 
                 Tables\Columns\TextColumn::make('balance')
                     ->label(__('loyalty_account.columns.balance'))

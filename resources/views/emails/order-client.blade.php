@@ -126,7 +126,9 @@
     }
 
     $shipping = (float)($order->shipping_price ?? 0);
-    $bonusesSpent = max(0, (float)($order->sale_sum ?? 0));
+    $bonusesSpent = method_exists($order, 'resolveSpentBonuses')
+        ? $order->resolveSpentBonuses()
+        : max(0, (float)($order->sale_sum ?? 0));
     
     // Итоговая сумма с учетом скидок, бонусов и доставки
     $total = $order->grand_total ?? ($itemsTotal - $discountTotal - $bonusesSpent + $shipping);

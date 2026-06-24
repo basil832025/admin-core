@@ -92,7 +92,9 @@
         }
     }
 
-    $bonusesSpent = max(0, (float) ($order->sale_sum ?? 0));
+    $bonusesSpent = method_exists($order, 'resolveSpentBonuses')
+        ? $order->resolveSpentBonuses()
+        : max(0, (float) ($order->sale_sum ?? 0));
     $bonusesEarned = 0;
     if (method_exists($order, 'loyaltyTransactions')) {
         $bonusesEarned = (float) $order->loyaltyTransactions()

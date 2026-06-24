@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Shop\LoyaltyAccountResource\RelationManagers;
 
+use App\Filament\Resources\Callcenter\OrderResource as CallcenterOrderResource;
 use App\Models\Shop\LoyaltyTransaction;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -114,10 +115,20 @@ class TransactionsRelationManager extends RelationManager
                     ->sortable()
                     ->toggleable(),
 
+                Tables\Columns\TextColumn::make('order.number')
+                    ->label(__('loyalty_account.transactions.columns.order_id'))
+                    ->searchable()
+                    ->formatStateUsing(fn (?string $state, LoyaltyTransaction $record): string => $state ?: (string) $record->order_id)
+                    ->url(fn (LoyaltyTransaction $record): ?string => $record->order_id
+                        ? CallcenterOrderResource::getUrl('edit', ['record' => $record->order_id])
+                        : null)
+                    ->openUrlInNewTab()
+                    ->sortable(),
+
                 Tables\Columns\TextColumn::make('order_id')
                     ->label(__('loyalty_account.transactions.columns.order_id'))
                     ->sortable()
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('created_at')
                     ->label(__('loyalty_account.transactions.columns.created_at'))

@@ -60,17 +60,17 @@ class LoyaltyService
     /**
      * Специально для корзины: сумма после скидок.
      */
-    public function previewEarnForCart(float $itemsTotal, float $discount = 0.0): float
+    public function previewEarnForCart(float $itemsTotal, float $discount = 0.0, float $bonusSpent = 0.0): float
     {
-        $base = $this->resolveEarnBaseForCart($itemsTotal, $discount);
+        $base = $this->resolveEarnBaseForCart($itemsTotal, $discount, $bonusSpent);
 
         return $this->previewEarnForSum($base);
     }
 
-    public function resolveEarnBaseForCart(float $itemsTotal, float $discount = 0.0): float
+    public function resolveEarnBaseForCart(float $itemsTotal, float $discount = 0.0, float $bonusSpent = 0.0): float
     {
         return match ($this->earnBaseMode()) {
-            self::EARN_BASE_NET_AFTER_DISCOUNTS => max($itemsTotal - $discount, 0),
+            self::EARN_BASE_NET_AFTER_DISCOUNTS => max($itemsTotal - $discount - $bonusSpent, 0),
             default => max($itemsTotal, 0),
         };
     }
@@ -238,8 +238,10 @@ class LoyaltyService
             $subtotal = (float) ($order->total_price ?? $order->grand_total ?? 0);
         }
 
+        $bonusSpent = $order->resolveSpentBonuses();
+
         return match ($this->earnBaseMode()) {
-            self::EARN_BASE_NET_AFTER_DISCOUNTS => max($subtotal + $discountTotal, 0),
+            self::EARN_BASE_NET_AFTER_DISCOUNTS => max($subtotal + $discountTotal - $bonusSpent, 0),
             default => max($subtotal, 0),
         };
     }
@@ -340,6 +342,16 @@ class LoyaltyService
         $requestedAmount = max(0, round($requestedAmount, 2));
         if ($requestedAmount <= 0) {
             return 0.0;
+        }
+
+        $alreadySpent = (float) abs(LoyaltyTransaction::query()
+            ->where('order_id', $order->id)
+            ->where('type', LoyaltyTransaction::TYPE_SPEND)
+            ->where('source', 'order')
+            ->sum('amount'));
+
+        if ($alreadySpent > 0) {
+            return round($alreadySpent, 2);
         }
 
         $clientId = $order->clients_id ?? null;

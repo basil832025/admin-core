@@ -106,7 +106,7 @@ public function index()
     $limit   = $this->loyalty->getBonusLimitForOrder($itemsTotal, $discount, $balance);
     $bonusUsed = max(0, min($bonusUsedFromSession, $limit));
     // 👇 база для начисления и теоретические бонусы
-    $bonusEarn = $this->loyalty->previewEarnForCart($itemsTotal, $discount);
+    $bonusEarn = $this->loyalty->previewEarnForCart($itemsTotal, $discount, $bonusUsed);
 
     $totals = [
         'qty'          => (int)($info['qty'] ?? 0),
@@ -688,7 +688,7 @@ public function updatePromo(Request $request)
 
     $total = (float) ($order->grand_total ?? 0);
     $itemsTotal = (float) ($order->total_price ?? 0);
-    $bonusEarn = $this->loyalty->previewEarnForCart($itemsTotal, $discount);
+    $bonusEarn = $this->loyalty->previewEarnForCart($itemsTotal, $discount, (float) ($order->sale_sum ?? 0));
     $shipping = (float) ($order->shipping_total ?? $order->shipping_price ?? 0);
 
     session(['checkout.promo_discount' => $discount]);
@@ -1228,7 +1228,9 @@ public function submit(Request $request)
         $used = $this->loyalty->spendOnOrder($order, $requestedBonus);
     }
 
-    $order->sale_sum = max(0, round($used, 2));
+    $spentBonuses = $used > 0 ? $used : $order->resolveSpentBonuses();
+
+    $order->sale_sum = max(0, round($spentBonuses, 2));
     $order->total_price_sale = max(0, round((float) $order->total_price - (float) $order->sale_sum, 2));
     $this->recalculateOrderShipping($order);
     $order->save();
