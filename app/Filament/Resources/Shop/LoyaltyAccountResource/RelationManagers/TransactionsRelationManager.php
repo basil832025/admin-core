@@ -125,6 +125,14 @@ class TransactionsRelationManager extends RelationManager
                     ->openUrlInNewTab()
                     ->sortable(),
 
+                Tables\Columns\TextColumn::make('order.created_at')
+                    ->label(__('loyalty_account.transactions.columns.order_date'))
+                    ->state(fn (LoyaltyTransaction $record): ?\DateTimeInterface => $record->order
+                        ? ($record->order->placedAt() ?? $record->order->created_at)
+                        : null)
+                    ->dateTime('d.m.Y H:i')
+                    ->sortable(),
+
                 Tables\Columns\TextColumn::make('order_id')
                     ->label(__('loyalty_account.transactions.columns.order_id'))
                     ->sortable()

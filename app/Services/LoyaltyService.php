@@ -213,7 +213,16 @@ class LoyaltyService
             $tx->amount           = $bonusAmount;
             $tx->remaining_amount = $bonusAmount;
             $tx->expires_at       = $expiresAt;
-            $tx->meta             = ['percent' => $rule->earn_percent];
+            $tx->meta             = [
+                'percent' => $rule->earn_percent,
+                'earn_base' => $bonusAmount > 0 && (int) $rule->earn_percent > 0
+                    ? round($bonusAmount * 100 / (int) $rule->earn_percent, 2)
+                    : null,
+                'earn_base_mode' => $this->earnBaseMode(),
+                'subtotal' => (float) ($order->subtotal ?? $order->total_price ?? 0),
+                'discount_total' => (float) $order->resolveDiscountAmount(),
+                'bonus_spent' => $order->resolveSpentBonuses(),
+            ];
             $tx->balance_after    = $account->balance + $bonusAmount;
             $tx->save();
 
@@ -248,11 +257,11 @@ class LoyaltyService
 
     public function earnBaseMode(): string
     {
-        $mode = (string) Setting::admin('loyalty.earn_base_mode', self::EARN_BASE_GROSS);
+        $mode = (string) Setting::admin('loyalty.earn_base_mode', self::EARN_BASE_NET_AFTER_DISCOUNTS);
 
         return in_array($mode, [self::EARN_BASE_GROSS, self::EARN_BASE_NET_AFTER_DISCOUNTS], true)
             ? $mode
-            : self::EARN_BASE_GROSS;
+            : self::EARN_BASE_NET_AFTER_DISCOUNTS;
     }
 
     public static function earnBaseModeOptions(): array

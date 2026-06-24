@@ -59,6 +59,7 @@ return [
             'remaining_amount'  => 'Залишок',
             'expires_at'        => 'Закінчується',
             'order_id'          => 'ID замовлення',
+            'order_date'        => 'Дата замовлення',
             'created_at'        => 'Створено',
         ],
         'actions' => [

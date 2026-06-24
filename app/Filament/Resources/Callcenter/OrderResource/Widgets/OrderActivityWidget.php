@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Callcenter\OrderResource\Widgets;
 
 use App\Models\Callcenter\Order;
+use App\Models\Shop\Order as ShopOrder;
 use App\Support\Activity\OrderActivityFormatter;
 use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
@@ -67,7 +68,7 @@ class OrderActivityWidget extends BaseWidget
         return Activity::query()
             ->when($this->record, fn ($q) =>
                 $q->where(fn ($q2) => $q2
-                    ->where('subject_type', Order::class)
+                    ->whereIn('subject_type', [Order::class, ShopOrder::class])
                     ->where('subject_id', $this->record->id)
                 )
                     ->orWhere('properties->order_id', $this->record->id)

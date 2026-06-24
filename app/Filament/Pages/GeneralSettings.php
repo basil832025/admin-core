@@ -368,7 +368,7 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
                     Select::make('loyalty.earn_base_mode')
                         ->label('База для нарахування бонусів')
                         ->options(LoyaltyService::earnBaseModeOptions())
-                        ->default(LoyaltyService::EARN_BASE_GROSS)
+                        ->default(LoyaltyService::EARN_BASE_NET_AFTER_DISCOUNTS)
                         ->native(false)
                         ->required()
                         ->helperText('Поточний вибір впливає і на розрахунок у кошику, і на фактичне нарахування бонусів після оплати замовлення.'),

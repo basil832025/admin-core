@@ -3,7 +3,7 @@
     $loyaltyAccount = \App\Models\Shop\LoyaltyAccount::where('client_id', $user->id)->first();
     $balance = $loyaltyAccount ? $loyaltyAccount->balance : 0;
     $transactions = $loyaltyAccount 
-        ? $loyaltyAccount->transactions()->orderByDesc('created_at')->get() 
+        ? $loyaltyAccount->transactions()->with('order')->orderByDesc('created_at')->get() 
         : collect();
 @endphp
 
@@ -64,7 +64,9 @@
                                     $amount = $transaction->amount;
                                     $isPositive = $amount > 0;
                                     $amountFormatted = ($isPositive ? '+' : '') . number_format($amount, 0, '.', ' ');
-                                    $date = $transaction->created_at;
+                                    $date = $transaction->order
+                                        ? ($transaction->order->placedAt() ?? $transaction->order->created_at ?? $transaction->created_at)
+                                        : $transaction->created_at;
                                     // Форматируем дату: день месяц, день недели
                                     $day = $date->format('d');
                                     $monthNames = [

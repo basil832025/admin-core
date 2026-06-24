@@ -59,6 +59,7 @@ return [
             'remaining_amount'  => 'Remaining',
             'expires_at'        => 'Expires',
             'order_id'          => 'Order ID',
+            'order_date'        => 'Order date',
             'created_at'        => 'Created',
         ],
         'actions' => [
