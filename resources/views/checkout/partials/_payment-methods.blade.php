@@ -13,6 +13,10 @@
             ->flatMap(fn ($bank) => collect(data_get($bank, 'rules', []))->pluck('key'))
             ->map(fn ($key) => (string) $key)
             ->values();
+        $availablePaypartsBankIds = $paypartsBanks
+            ->pluck('id')
+            ->map(fn ($id) => (string) $id)
+            ->values();
 
         if ($availablePaypartsPlanKeys->isNotEmpty() && ! $availablePaypartsPlanKeys->contains((string) $selectedPaypartsPlanKey)) {
             $selectedPaypartsPlanKey = (string) data_get($defaultPaypartsPlan, 'key', '');
@@ -111,7 +115,14 @@
                 x-cloak
                 data-default-payparts-bank-id="{{ (string) $selectedPaypartsBankId }}"
                 data-default-payparts-plan-key="{{ (string) $selectedPaypartsPlanKey }}"
-                x-init="$nextTick(() => { if (!paypartsBankId) paypartsBankId = $el.dataset.defaultPaypartsBankId || ''; if (!paypartsPlanKey) paypartsPlanKey = $el.dataset.defaultPaypartsPlanKey || ''; })"
+                data-available-payparts-bank-ids='@json($availablePaypartsBankIds)'
+                data-available-payparts-plan-keys='@json($availablePaypartsPlanKeys)'
+                x-init="$nextTick(() => {
+                    const bankIds = JSON.parse($el.dataset.availablePaypartsBankIds || '[]');
+                    const planKeys = JSON.parse($el.dataset.availablePaypartsPlanKeys || '[]');
+                    if (!paypartsBankId || (bankIds.length && !bankIds.includes(String(paypartsBankId)))) paypartsBankId = $el.dataset.defaultPaypartsBankId || '';
+                    if (!paypartsPlanKey || !planKeys.includes(String(paypartsPlanKey))) paypartsPlanKey = $el.dataset.defaultPaypartsPlanKey || '';
+                })"
                 class="pl-8 space-y-3"
             >
                 @if($paypartsBanks->isEmpty())
@@ -176,10 +187,7 @@
                                                 style="color: #4ba3df;"
                                                 onmouseenter="this.style.color = '#2384c6'"
                                                 onmouseleave="this.style.color = '#4ba3df'"
-                                                data-payparts-title="{{ e($bank['name'] ?? $bank['bank_label'] ?? $bank['bank_type']) }}"
-                                                data-payparts-description="{{ e((string) ($bank['description'] ?? '')) }}"
-                                                data-payparts-html="{{ base64_encode((string) ($bank['terms'] ?? '')) }}"
-                                                onclick="window.dispatchEvent(new CustomEvent('open-payparts-terms', { detail: { title: this.dataset.paypartsTitle, description: this.dataset.paypartsDescription, html: atob(this.dataset.paypartsHtml || '') } })); return false;"
+                                                onclick="window.dispatchEvent(new CustomEvent('open-payparts-terms', { detail: { title: @js($bank['name'] ?? $bank['bank_label'] ?? $bank['bank_type']), html: @js((string) ($bank['terms'] ?? '')) } })); return false;"
                                             >
                                                 {{ st('cart.payment.read_terms', 'Читати умови') }}
                                             </button>
@@ -408,7 +416,7 @@
                                                          x-ref="paypartsFinancialPhoneInput"
                                                          type="tel"
                                                          value="{{ $paypartsFinancialPhoneDisplay }}"
-                                                         class="h-10 w-full rounded-r border border-[#dadada] bg-white px-3 text-[14px] leading-[18px] text-black transition-colors focus:border-[#FF7500] focus:outline-none disabled:bg-gray-100 disabled:text-gray-500"
+                                                          class="h-10 w-full rounded-r border border-[#dadada] bg-white px-3 text-[16px] leading-[18px] text-black transition-colors focus:border-[#FF7500] focus:outline-none disabled:bg-gray-100 disabled:text-gray-500"
                                                          placeholder="__ ___ __ __"
                                                          inputmode="numeric"
                                                          dir="ltr"

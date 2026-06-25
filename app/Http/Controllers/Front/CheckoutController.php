@@ -142,6 +142,13 @@ public function index()
     $deliveryMode = $sessionData['delivery_mode'] ?? 'asap';
     $deliveryDate = $sessionData['delivery_date'] ?? null;
     $deliveryTime = $sessionData['delivery_time'] ?? null;
+    $paypartsCheckoutTotal = $this->calculateCheckoutPaypartsTotal(
+        $itemsTotal,
+        $discount,
+        $bonusUsed,
+        (string) $shippingMethod,
+        (float) ($sessionData['shipping_price'] ?? 0)
+    );
 
     // Получаем продукты с характеристиками для проверки диаметров
     $products = Product::with('characteristicValues')
@@ -198,7 +205,7 @@ public function index()
 
     $paypartsAllowed = $this->isPaypartsEnabledForClient($client);
     $paypartsBanks = $paypartsAllowed
-        ? $this->availablePaypartsBanksForCheckout($client, (float) $totals['grand_total'])
+        ? $this->availablePaypartsBanksForCheckout($client, $paypartsCheckoutTotal)
         : collect();
     $paypartsEnabled = $paypartsAllowed && $paypartsBanks->isNotEmpty();
     return view('checkout.index', [
@@ -211,6 +218,33 @@ public function index()
         'scheduleV2' => $scheduleV2Payload,
         'paypartsBanks' => $paypartsBanks,
         'paypartsEnabled' => $paypartsEnabled,
+    ]);
+}
+
+public function paypartsOptions(Request $request)
+{
+    $client = Auth::user();
+    $amount = max(0, round((float) $request->input('amount', 0), 2));
+    $paypartsAllowed = $this->isPaypartsEnabledForClient($client);
+    $paypartsBanks = $paypartsAllowed
+        ? $this->availablePaypartsBanksForCheckout($client, $amount)
+        : collect();
+
+    $sessionData = array_merge(session('checkout.form_data', []), array_filter([
+        'payment_method' => $request->input('payment_method'),
+        'payparts_bank_id' => $request->input('payparts_bank_id'),
+        'payparts_plan_key' => $request->input('payparts_plan_key'),
+        'payparts_financial_phone' => $request->input('payparts_financial_phone'),
+    ], static fn ($value): bool => $value !== null && $value !== ''));
+
+    return response()->json([
+        'ok' => true,
+        'html' => view('checkout.partials._payment-methods', [
+            'sessionData' => $sessionData,
+            'paymentMethod' => $request->input('payment_method', $sessionData['payment_method'] ?? 'liqpay'),
+            'paypartsBanks' => $paypartsBanks,
+            'paypartsEnabled' => $paypartsAllowed && $paypartsBanks->isNotEmpty(),
+        ])->render(),
     ]);
 }
 
@@ -1910,6 +1944,8 @@ private function availablePaypartsBanksForCheckout(?Client $client, float $amoun
         ->orderBy('id')
         ->get()
         ->map(function (PaypartsBank $bank) use ($amount): array {
+            $rules = $bank->plansForAmount($amount);
+
             return [
                 'id' => $bank->id,
                 'bank_type' => $bank->bank_type,
@@ -1917,7 +1953,7 @@ private function availablePaypartsBanksForCheckout(?Client $client, float $amoun
                 'name' => $bank->localizedText('name', app()->getLocale(), $bank->bankType()?->label()) ?? $bank->bankType()?->label() ?? $bank->bank_type,
                 'description' => $bank->localizedText('description', app()->getLocale()),
                 'terms' => $bank->localizedText('terms', app()->getLocale()),
-                'rules' => $bank->plansForAmount($amount),
+                'rules' => $rules,
             ];
         })
         ->values();
@@ -1931,6 +1967,19 @@ private function calculatePayableTotal(Order $order): float
     $shipping = (float) ($order->shipping_price ?? 0);
 
     $goodsTotal = max(0, round($itemsTotal + $adjustmentsTotal - $bonusTotal, 2));
+
+    return max(0, round($goodsTotal + $shipping, 2));
+}
+
+private function calculateCheckoutPaypartsTotal(
+    float $itemsTotal,
+    float $discount,
+    float $bonusUsed,
+    string $shippingMethod,
+    float $shippingPrice
+): float {
+    $goodsTotal = max(0, round($itemsTotal - max(0, $discount) - max(0, $bonusUsed), 2));
+    $shipping = $shippingMethod === 'pickup' ? 0.0 : max(0, $shippingPrice);
 
     return max(0, round($goodsTotal + $shipping, 2));
 }

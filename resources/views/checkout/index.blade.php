@@ -13,6 +13,7 @@
     $checkoutSubmitUrl = route($routePrefix . 'checkout.submit', $routeParams);
     $checkPromoUrl = route($routePrefix . 'checkout.check-promo-conditions', $routeParams);
     $saveFormUrl = route($routePrefix . 'checkout.save-form-data', $routeParams, false);
+    $paypartsOptionsUrl = route($routePrefix . 'checkout.payparts-options', $routeParams, false);
     $client    = auth()->user();
     // Показываем все сохранённые адреса; если координат нет, они будут дозапрошены и сохранены при выборе
     $addresses = $client ? $client->addresses()->orderByDesc('id')->get() : collect();
@@ -61,21 +62,11 @@ document.addEventListener('alpine:init', () => {
         paypartsPlanKey: @json((string) ($selectedPaypartsPlanKey ?? '')),
         showPaypartsTerms: false,
         paypartsTermsTitle: '',
-        paypartsTermsDescription: '',
         paypartsTermsHtml: '',
         closePaypartsTerms() {
             this.showPaypartsTerms = false;
             this.paypartsTermsTitle = '';
-            this.paypartsTermsDescription = '';
             this.paypartsTermsHtml = '';
-        },
-        decodePaypartsText(value) {
-            value = value || '';
-            try {
-                return decodeURIComponent(escape(value));
-            } catch (e) {
-                return value;
-            }
         },
         syncPaypartsBankCards() {
             document.querySelectorAll('[data-payparts-bank-card]').forEach((card) => {
@@ -87,9 +78,8 @@ document.addEventListener('alpine:init', () => {
         init() {
             window.addEventListener('open-payparts-terms', (event) => {
                 const detail = event?.detail || {};
-                this.paypartsTermsTitle = this.decodePaypartsText(detail.title || '');
-                this.paypartsTermsDescription = this.decodePaypartsText(detail.description || '');
-                this.paypartsTermsHtml = this.decodePaypartsText(detail.html || '');
+                this.paypartsTermsTitle = detail.title || '';
+                this.paypartsTermsHtml = detail.html || '';
                 this.showPaypartsTerms = true;
             });
 
@@ -132,7 +122,8 @@ document.addEventListener('alpine:init', () => {
 
         <form action="{{ $checkoutSubmitUrl }}"
               method="POST" class="space-y-6" data-checkout-form novalidate
-              data-check-promo-url="{{ $checkPromoUrl }}">
+              data-check-promo-url="{{ $checkPromoUrl }}"
+              data-payparts-options-url="{{ $paypartsOptionsUrl }}">
             @csrf
 
             <div
@@ -248,15 +239,9 @@ document.addEventListener('alpine:init', () => {
                         </div>
 
                         <div class="mt-5 space-y-5 text-sm text-gray-700">
-                            <template x-if="paypartsTermsDescription">
-                                <div>
-                                    <div class="mb-2 text-base font-semibold text-[#272828]">????? ???????</div>
-                                    <div class="leading-6" x-text="paypartsTermsDescription"></div>
-                                </div>
-                            </template>
                             <template x-if="paypartsTermsHtml">
                                 <div>
-                                    <div class="mb-2 text-base font-semibold text-[#272828]">Умови кредиту</div>
+                                    <div class="mb-2 text-base font-semibold text-[#272828]">{{ html_entity_decode(st('cart.payment.credit_terms', '&#1059;&#1084;&#1086;&#1074;&#1080; &#1082;&#1088;&#1077;&#1076;&#1080;&#1090;&#1091;&#1074;&#1072;&#1085;&#1085;&#1103;'), ENT_QUOTES, 'UTF-8') }}</div>
                                     <div class="prose max-w-none leading-6" x-html="paypartsTermsHtml"></div>
                                 </div>
                             </template>

@@ -65,6 +65,54 @@ function debounce(fn, wait) {
     };
 }
 
+window.checkoutPayparts = {
+    lastAmount: null,
+
+    scheduleUpdate: debounce(function (amount) {
+        const form = document.querySelector('[data-checkout-form]');
+        const payBlock = document.getElementById('blk-pay');
+        const url = form?.dataset?.paypartsOptionsUrl;
+
+        if (!form || !payBlock || !url) return;
+
+        const roundedAmount = Math.round(Number(amount || 0) * 100) / 100;
+        if (window.checkoutPayparts.lastAmount === roundedAmount) return;
+        window.checkoutPayparts.lastAmount = roundedAmount;
+
+        const activeFinancialPhone = form.querySelector('[name="payparts_financial_phone"]:not(:disabled)');
+        const anyFinancialPhone = form.querySelector('[name="payparts_financial_phone"]');
+        const activePlan = form.querySelector('[name="payparts_plan_key"]:not(:disabled)');
+        const anyPlan = form.querySelector('[name="payparts_plan_key"]');
+        const activeBank = form.querySelector('[name="payparts_bank_id"]:checked')
+            || form.querySelector('[name="payparts_bank_id"]');
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': form.querySelector('input[name="_token"]')?.value || '',
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({
+                amount: roundedAmount,
+                payment_method: form.querySelector('[name="payment_method"]:checked')?.value || '',
+                payparts_bank_id: activeBank?.value || '',
+                payparts_plan_key: activePlan?.value || anyPlan?.value || '',
+                payparts_financial_phone: activeFinancialPhone?.value || anyFinancialPhone?.value || '',
+            }),
+        })
+            .then((response) => response.ok ? response.json() : null)
+            .then((data) => {
+                if (!data?.ok || typeof data.html !== 'string') return;
+                payBlock.innerHTML = data.html;
+                if (window.Alpine && typeof window.Alpine.initTree === 'function') {
+                    window.Alpine.initTree(payBlock);
+                }
+            })
+            .catch(() => {});
+    }, 250),
+};
+
 function getShippingMethodValue(root = document) {
     const checked = root.querySelector('input[name="shipping_method"]:checked');
     if (checked && checked.value) return String(checked.value).trim();
@@ -926,6 +974,7 @@ window.checkoutTotals = {
         if (shipInput) shipInput.value = String(this.shipping || 0);
 
         const total = this.getDeliveryBase() + (this.shipping || 0);
+        window.checkoutPayparts?.scheduleUpdate?.(total);
 
         const uah = Math.floor(total);
         let kop = Math.round((total - uah) * 100);

@@ -46,6 +46,7 @@ Route::post('/checkout', [CheckoutController::class, 'submit'])->name('checkout.
 Route::post('/checkout/save-form-data', [CheckoutController::class, 'saveFormData'])->name('checkout.save-form-data');
 Route::post('/checkout/apply-coupon', [CheckoutController::class, 'applyCoupon'])->name('checkout.apply-coupon');
 Route::post('/checkout/promo', [CheckoutController::class, 'updatePromo'])->name('checkout.promo');
+Route::post('/checkout/payparts-options', [CheckoutController::class, 'paypartsOptions'])->name('checkout.payparts-options');
 Route::post('/checkout/check-promo-conditions', [CheckoutController::class, 'checkPromoConditionsAjax'])
     ->name('checkout.check-promo-conditions');
 Route::get('/checkout/{order}/pay/liqpay', [CheckoutController::class, 'payLiqPay'])->name('checkout.pay.liqpay');
