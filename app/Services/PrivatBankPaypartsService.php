@@ -44,7 +44,7 @@ class PrivatBankPaypartsService
         $responseUrl = self::callbackUrl('payparts.response');
         $redirectUrl = self::callbackUrl('payparts.redirect');
 
-        $orderNumber = 'order_' . $order->id;
+        $orderNumber = $this->buildOrderId($order);
         $amount = (float) round((float) $order->grand_total, 2);
         $products = $this->buildProductsPayload($order);
         $password = (string) $bank->account_password;
@@ -140,7 +140,7 @@ class PrivatBankPaypartsService
             (string) $bank->account_password
             . (string) ($payload['storeId'] ?? $payload['storeIdentifier'] ?? '')
             . (string) ($payload['orderId'] ?? '')
-            . (string) ($payload['paymentState'] ?? '')
+            . (string) ($payload['paymentState'] ?? $payload['state'] ?? $payload['status'] ?? '')
             . $message
             . (string) $bank->account_password,
             true
@@ -213,6 +213,16 @@ class PrivatBankPaypartsService
         }
 
         return $products;
+    }
+
+    protected function buildOrderId(Order $order): string
+    {
+        return sprintf(
+            'order_%d_%s_%03d',
+            (int) $order->id,
+            now()->format('YmdHis'),
+            random_int(100, 999)
+        );
     }
 
     protected function productsSignatureString(array $products): string

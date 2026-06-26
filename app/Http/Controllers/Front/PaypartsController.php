@@ -37,7 +37,7 @@ class PaypartsController extends Controller
         }
 
         $orderIdRaw = (string) ($payload['orderId'] ?? '');
-        $shopOrderId = (int) preg_replace('/\D+/', '', $orderIdRaw);
+        $shopOrderId = $this->extractShopOrderId($orderIdRaw);
 
         $transaction = PaypartsTransaction::where('order_id', $orderIdRaw)->latest('id')->first();
         $bank = $transaction?->bank ?? PaypartsBank::find($transaction?->payparts_bank_id);
@@ -64,7 +64,7 @@ class PaypartsController extends Controller
             return response('error', 400);
         }
 
-        $state = strtolower((string) ($decoded['paymentState'] ?? $decoded['status'] ?? 'payment_failed'));
+        $state = strtolower((string) ($decoded['paymentState'] ?? $decoded['state'] ?? $decoded['status'] ?? 'payment_failed'));
         $internalStatus = in_array($state, ['payment_success', 'success', 'sandbox', 'paid', 'locked'], true)
             ? 'payment_success'
             : (in_array($state, ['payment_failed', 'failure', 'declined', 'decline', 'error'], true)
@@ -146,15 +146,20 @@ class PaypartsController extends Controller
     public function redirect(Request $request)
     {
         $orderIdRaw = (string) $request->input('orderId', $request->query('orderId', ''));
-        $shopOrderId = (int) preg_replace('/\D+/', '', $orderIdRaw);
-        $transaction = $orderIdRaw !== ''
-            ? PaypartsTransaction::where('order_id', $orderIdRaw)->latest('id')->first()
-            : PaypartsTransaction::latest('id')->first();
-
-        $state = strtolower((string) ($request->input('paymentState', $request->query('paymentState', '')) ?: ($transaction?->status ?? '')));
+        $token = (string) $request->input('token', $request->query('token', ''));
+        $shopOrderId = $this->extractShopOrderId($orderIdRaw);
+        $transaction = $this->findTransaction($orderIdRaw, $token);
         $order = $shopOrderId ? Order::find($shopOrderId) : $transaction?->order;
 
-        if ($order && in_array($state, ['payment_success', 'success', 'paid'], true)) {
+        $state = strtolower((string) (
+            $request->input('paymentState', $request->query('paymentState', ''))
+            ?: $request->input('state', $request->query('state', ''))
+            ?: $request->input('status', $request->query('status', ''))
+            ?: ($order?->payparts_status ?? '')
+            ?: ($transaction?->status ?? '')
+        ));
+
+        if ($order && in_array($state, ['payment_success', 'success', 'paid', 'locked'], true)) {
             try {
                 $cart = app(CartService::class);
                 if (method_exists($cart, 'clearAfterCheckout')) {
@@ -181,5 +186,27 @@ class PaypartsController extends Controller
         }
 
         return redirect()->route('checkout')->with('error', 'Оплата частинами не була завершена.');
+    }
+
+    private function extractShopOrderId(string $orderId): int
+    {
+        if (preg_match('/^order_(\d+)/', $orderId, $matches)) {
+            return (int) $matches[1];
+        }
+
+        return (int) preg_replace('/\D+/', '', $orderId);
+    }
+
+    private function findTransaction(string $orderId, string $token): ?PaypartsTransaction
+    {
+        if ($orderId !== '') {
+            return PaypartsTransaction::where('order_id', $orderId)->latest('id')->first();
+        }
+
+        if ($token !== '') {
+            return PaypartsTransaction::where('token', $token)->latest('id')->first();
+        }
+
+        return null;
     }
 }
