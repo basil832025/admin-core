@@ -20,16 +20,22 @@ class PrivatBankPaypartsService
         );
     }
 
-    public static function callbackUrl(string $routeName): string
+    public static function callbackUrl(string $routeName, array $query = []): string
     {
         $path = parse_url(route($routeName, [], false), PHP_URL_PATH) ?: route($routeName, [], false);
         $publicUrl = trim((string) config('services.payparts.privatbank.public_url', ''));
 
         if ($publicUrl !== '') {
-            return rtrim($publicUrl, '/') . '/' . ltrim($path, '/');
+            $url = rtrim($publicUrl, '/') . '/' . ltrim($path, '/');
+        } else {
+            $url = route($routeName, [], true);
         }
 
-        return route($routeName, [], true);
+        if ($query !== []) {
+            $url .= (str_contains($url, '?') ? '&' : '?') . http_build_query($query);
+        }
+
+        return $url;
     }
 
     public function createPayment(
@@ -41,10 +47,10 @@ class PrivatBankPaypartsService
         ?string $customerEmail = null,
         ?string $locale = null,
     ): PaypartsTransaction {
-        $responseUrl = self::callbackUrl('payparts.response');
-        $redirectUrl = self::callbackUrl('payparts.redirect');
-
         $orderNumber = $this->buildOrderId($order);
+        $responseUrl = self::callbackUrl('payparts.response', ['orderId' => $orderNumber]);
+        $redirectUrl = self::callbackUrl('payparts.redirect', ['orderId' => $orderNumber]);
+
         $amount = (float) round((float) $order->grand_total, 2);
         $products = $this->buildProductsPayload($order);
         $password = (string) $bank->account_password;
