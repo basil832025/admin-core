@@ -1945,6 +1945,11 @@ private function availablePaypartsBanksForCheckout(?Client $client, float $amoun
         ->get()
         ->map(function (PaypartsBank $bank) use ($amount): array {
             $rules = $bank->plansForAmount($amount);
+            $minAmount = collect($bank->rules ?? [])
+                ->filter(fn ($rule): bool => (bool) ($rule['is_active'] ?? true))
+                ->map(fn ($rule): float => (float) ($rule['min_amount'] ?? 0))
+                ->filter(fn (float $value): bool => $value > 0)
+                ->min();
 
             return [
                 'id' => $bank->id,
@@ -1954,6 +1959,7 @@ private function availablePaypartsBanksForCheckout(?Client $client, float $amoun
                 'description' => $bank->localizedText('description', app()->getLocale()),
                 'terms' => $bank->localizedText('terms', app()->getLocale()),
                 'rules' => $rules,
+                'min_amount' => $minAmount,
             ];
         })
         ->values();

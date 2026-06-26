@@ -42,6 +42,16 @@ class PaypartsTranslationsSeeder extends Seeder
             ],
             [
                 'group' => 'cart',
+                'slug' => 'cart.payment.payparts_min_amount_hint',
+                'value' => [
+                    'uk' => 'Мінімальна сума для оплати частинами',
+                    'ru' => 'Минимальная сумма для оплаты частями',
+                    'en' => 'Minimum amount for payment in parts',
+                ],
+                'description' => 'Checkout Payparts: minimum amount hint',
+            ],
+            [
+                'group' => 'cart',
                 'slug' => 'cart.payment.credit_type',
                 'value' => [
                     'uk' => 'Умова кредиту',

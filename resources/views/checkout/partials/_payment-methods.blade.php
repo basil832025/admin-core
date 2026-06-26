@@ -199,6 +199,11 @@
                                     @if($bankPlans->isEmpty())
                                         <p class="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-[14px] leading-[20px] text-amber-700">
                                             {{ st('cart.payment.payparts_no_rules', 'Для цієї суми немає доступних умов кредитування.') }}
+                                            @if(!empty($bank['min_amount']))
+                                                <br>
+                                                {{ st('cart.payment.payparts_min_amount_hint', 'Мінімальна сума для оплати частинами') }}:
+                                                <strong>{{ number_format((float) $bank['min_amount'], 0, ',', ' ') }} {{ st('cart.summary.currency_short', 'грн') }}</strong>
+                                            @endif
                                         </p>
                                     @else
                                         <div>
