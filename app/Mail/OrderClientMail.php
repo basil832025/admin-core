@@ -19,13 +19,13 @@ class OrderClientMail extends Mailable
      */
     public function __construct(
         public Order $order,
-        public string $locale = 'uk',
+        public string $mailLocale = 'uk',
     ) {
-        $this->locale = in_array($this->locale, ['uk', 'ru', 'en'], true)
-            ? $this->locale
+        $this->mailLocale = in_array($this->mailLocale, ['uk', 'ru', 'en'], true)
+            ? $this->mailLocale
             : 'uk';
 
-        app()->setLocale($this->locale);
+        app()->setLocale($this->mailLocale);
     }
 
     /**
@@ -33,9 +33,9 @@ class OrderClientMail extends Mailable
      */
     public function envelope(): Envelope
     {
-        app()->setLocale($this->locale);
+        app()->setLocale($this->mailLocale);
 
-        $subjectPrefix = match ($this->locale) {
+        $subjectPrefix = match ($this->mailLocale) {
             'ru' => 'Ваш заказ №',
             'en' => 'Your order #',
             default => 'Ваше замовлення №',
@@ -53,7 +53,7 @@ class OrderClientMail extends Mailable
      */
     public function content(): Content
     {
-        app()->setLocale($this->locale);
+        app()->setLocale($this->mailLocale);
 
         return new Content(
             markdown: 'emails.order-client',
