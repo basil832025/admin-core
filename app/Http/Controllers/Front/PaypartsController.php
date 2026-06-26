@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers\Front;
 
-use App\Http\Controllers\Controller;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethodEnum;
+use App\Http\Controllers\Controller;
 use App\Mail\OrderClientMail;
 use App\Mail\OrderNotificationMail;
 use App\Models\Shop\Order;
@@ -21,6 +21,10 @@ class PaypartsController extends Controller
 {
     public function response(Request $request)
     {
+        Log::info('Payparts response received', [
+            'payload' => $request->all(),
+        ]);
+
         $data = $request->input('data');
         $signature = (string) $request->input('signature', '');
 
@@ -37,9 +41,9 @@ class PaypartsController extends Controller
         }
 
         $orderIdRaw = (string) ($payload['orderId'] ?? '');
+        $token = (string) ($payload['token'] ?? '');
         $shopOrderId = $this->extractShopOrderId($orderIdRaw);
-
-        $transaction = PaypartsTransaction::where('order_id', $orderIdRaw)->latest('id')->first();
+        $transaction = $this->findTransaction($orderIdRaw, $token);
         $bank = $transaction?->bank ?? PaypartsBank::find($transaction?->payparts_bank_id);
 
         if (! $bank) {
@@ -65,11 +69,7 @@ class PaypartsController extends Controller
         }
 
         $state = strtolower((string) ($decoded['paymentState'] ?? $decoded['state'] ?? $decoded['status'] ?? 'payment_failed'));
-        $internalStatus = in_array($state, ['payment_success', 'success', 'sandbox', 'paid', 'locked'], true)
-            ? 'payment_success'
-            : (in_array($state, ['payment_failed', 'failure', 'declined', 'decline', 'error'], true)
-                ? 'payment_failed'
-                : (in_array($state, ['payment_redirected', 'redirected'], true) ? 'payment_redirected' : 'pending_payment'));
+        $internalStatus = $this->normalizeStatus($state);
 
         $transaction?->update([
             'status' => $internalStatus,
@@ -77,66 +77,13 @@ class PaypartsController extends Controller
             'response_message' => $decoded['message'] ?? $transaction?->response_message,
         ]);
 
-        $order = $shopOrderId ? Order::find($shopOrderId) : null;
+        $order = $shopOrderId ? Order::find($shopOrderId) : $transaction?->order;
 
         if ($order) {
-            $isSuccess = $internalStatus === 'payment_success';
+            $this->applyOrderPaypartsStatus($order, $transaction, $internalStatus);
 
-            $order->status = $isSuccess ? OrderStatus::New : OrderStatus::Cart;
-            $order->payment = PaymentMethodEnum::PAYPARTS;
-            if ($order->isFillable('payparts_status')) {
-                $order->payparts_status = $internalStatus;
-            }
-            if ($order->isFillable('paid_at') && $isSuccess && empty($order->paid_at)) {
-                $order->paid_at = now();
-            }
-            $order->save();
-
-            if ($isSuccess) {
-                try {
-                    $order->load([
-                        'items.product.parent.productCharacteristicValues.characteristic.svgImage',
-                        'items.product.productCharacteristicValues.characteristic.svgImage',
-                        'items.product.productCharacteristicValues.characteristicValue',
-                        'adjustments',
-                        'clientAddress',
-                        'clients',
-                    ]);
-
-                    $notificationEmails = config('notifications.order_notification_email', []);
-                    if (is_string($notificationEmails)) {
-                        $notificationEmails = array_filter(array_map('trim', explode(',', $notificationEmails)));
-                    }
-                    if (empty($notificationEmails)) {
-                        $notificationEmails = ['info@3piroga.ua'];
-                    }
-
-                    if (! empty($notificationEmails)) {
-                        Mail::to($notificationEmails)
-                            ->locale('ru')
-                            ->send(new OrderNotificationMail($order));
-                    }
-
-                    $clientEmail = trim((string) ($order->clients?->email ?? ''));
-                    $mailLocale = in_array((string) ($transaction?->customer_locale ?? app()->getLocale()), ['uk', 'ru', 'en'], true)
-                        ? (string) ($transaction?->customer_locale ?? app()->getLocale())
-                        : app()->getLocale();
-
-                    if ($clientEmail !== '' && filter_var($clientEmail, FILTER_VALIDATE_EMAIL)) {
-                        $mailKey = 'payparts_client_mail_sent:' . $order->id;
-
-                        if (Cache::add($mailKey, true, now()->addDays(30))) {
-                            Mail::to($clientEmail)
-                                ->locale($mailLocale)
-                                ->send(new OrderClientMail($order, $mailLocale));
-                        }
-                    }
-                } catch (\Throwable $e) {
-                    Log::error('Payparts response: failed to send order notification email', [
-                        'order_id' => $order->id,
-                        'error' => $e->getMessage(),
-                    ]);
-                }
+            if ($internalStatus === 'payment_success') {
+                $this->sendSuccessNotifications($order, $transaction);
             }
         }
 
@@ -145,47 +92,55 @@ class PaypartsController extends Controller
 
     public function redirect(Request $request)
     {
+        Log::info('Payparts redirect received', [
+            'payload' => $request->all(),
+        ]);
+
         $orderIdRaw = (string) $request->input('orderId', $request->query('orderId', ''));
         $token = (string) $request->input('token', $request->query('token', ''));
         $shopOrderId = $this->extractShopOrderId($orderIdRaw);
         $transaction = $this->findTransaction($orderIdRaw, $token);
         $order = $shopOrderId ? Order::find($shopOrderId) : $transaction?->order;
 
-        $state = strtolower((string) (
+        $explicitState = (string) (
             $request->input('paymentState', $request->query('paymentState', ''))
             ?: $request->input('state', $request->query('state', ''))
             ?: $request->input('status', $request->query('status', ''))
-            ?: ($order?->payparts_status ?? '')
-            ?: ($transaction?->status ?? '')
-        ));
+        );
 
-        if ($order && in_array($state, ['payment_success', 'success', 'paid', 'locked'], true)) {
-            try {
-                $cart = app(CartService::class);
-                if (method_exists($cart, 'clearAfterCheckout')) {
-                    $cart->clearAfterCheckout();
-                }
-                session()->forget('checkout.selected_promo');
-                session()->forget('checkout.promo_discount');
-                session()->forget('checkout.cart_signature');
-                session()->forget('checkout.form_data');
-            } catch (\Throwable $e) {
-                Log::warning('Payparts redirect: failed to clear checkout session', [
-                    'order_id' => $order->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
+        $state = strtolower($explicitState !== ''
+            ? $explicitState
+            : (string) (($order?->payparts_status ?? '') ?: ($transaction?->status ?? '')));
 
-            $locale = app()->getLocale();
-            $routeName = in_array($locale, ['ru', 'en'], true) ? 'localized.checkout.success' : 'checkout.success';
-            $routeParams = in_array($locale, ['ru', 'en'], true)
-                ? ['locale' => $locale, 'order' => $order]
-                : ['order' => $order];
-
-            return redirect()->route($routeName, $routeParams);
+        if (
+            $order
+            && $transaction
+            && $explicitState === ''
+            && $token !== ''
+            && $transaction->token === $token
+            && ! $this->isFailedStatus($state)
+        ) {
+            $state = 'payment_success';
         }
 
-        return redirect()->route('checkout')->with('error', 'Оплата частинами не була завершена.');
+        if ($order && $this->isFailedStatus($state)) {
+            $this->applyOrderPaypartsStatus($order, $transaction, 'payment_failed');
+            return $this->redirectToPaypartsOrder($order);
+        }
+
+        if ($order && $this->isSuccessStatus($state)) {
+            $this->applyOrderPaypartsStatus($order, $transaction, 'payment_success');
+            $this->sendSuccessNotifications($order, $transaction);
+            $this->clearCheckoutSession($order);
+
+            return $this->redirectToSuccess($order);
+        }
+
+        if ($order) {
+            return $this->redirectToPaypartsOrder($order);
+        }
+
+        return redirect()->route('checkout')->with('error', 'Payparts payment was not completed.');
     }
 
     private function extractShopOrderId(string $orderId): int
@@ -208,5 +163,144 @@ class PaypartsController extends Controller
         }
 
         return null;
+    }
+
+    private function normalizeStatus(string $state): string
+    {
+        if ($this->isSuccessStatus($state)) {
+            return 'payment_success';
+        }
+
+        if ($this->isFailedStatus($state)) {
+            return 'payment_failed';
+        }
+
+        if (in_array($state, ['payment_redirected', 'redirected'], true)) {
+            return 'payment_redirected';
+        }
+
+        return 'pending_payment';
+    }
+
+    private function isSuccessStatus(string $state): bool
+    {
+        return in_array(strtolower($state), ['payment_success', 'success', 'sandbox', 'paid', 'locked'], true);
+    }
+
+    private function isFailedStatus(string $state): bool
+    {
+        return in_array(strtolower($state), ['payment_failed', 'failure', 'failed', 'declined', 'decline', 'error'], true);
+    }
+
+    private function applyOrderPaypartsStatus(Order $order, ?PaypartsTransaction $transaction, string $status): void
+    {
+        $isSuccess = $status === 'payment_success';
+
+        if ($transaction && $transaction->status !== $status) {
+            $transaction->update(['status' => $status]);
+        }
+
+        $order->status = $isSuccess ? OrderStatus::New : OrderStatus::Cart;
+        $order->payment = PaymentMethodEnum::PAYPARTS;
+
+        if ($order->isFillable('payparts_status')) {
+            $order->payparts_status = $status;
+        }
+
+        if ($order->isFillable('paid_at') && $isSuccess && empty($order->paid_at)) {
+            $order->paid_at = now();
+        }
+
+        $order->save();
+    }
+
+    private function sendSuccessNotifications(Order $order, ?PaypartsTransaction $transaction): void
+    {
+        try {
+            $order->load([
+                'items.product.parent.productCharacteristicValues.characteristic.svgImage',
+                'items.product.productCharacteristicValues.characteristic.svgImage',
+                'items.product.productCharacteristicValues.characteristicValue',
+                'adjustments',
+                'clientAddress',
+                'clients',
+            ]);
+
+            $notificationEmails = config('notifications.order_notification_email', []);
+            if (is_string($notificationEmails)) {
+                $notificationEmails = array_filter(array_map('trim', explode(',', $notificationEmails)));
+            }
+            if (empty($notificationEmails)) {
+                $notificationEmails = ['info@3piroga.ua'];
+            }
+
+            $adminMailKey = 'payparts_admin_mail_sent:' . $order->id;
+            if (! empty($notificationEmails) && Cache::add($adminMailKey, true, now()->addDays(30))) {
+                Mail::to($notificationEmails)
+                    ->locale('ru')
+                    ->send(new OrderNotificationMail($order));
+            }
+
+            $clientEmail = trim((string) ($order->clients?->email ?? ''));
+            $mailLocale = in_array((string) ($transaction?->customer_locale ?? app()->getLocale()), ['uk', 'ru', 'en'], true)
+                ? (string) ($transaction?->customer_locale ?? app()->getLocale())
+                : app()->getLocale();
+
+            if ($clientEmail !== '' && filter_var($clientEmail, FILTER_VALIDATE_EMAIL)) {
+                $mailKey = 'payparts_client_mail_sent:' . $order->id;
+
+                if (Cache::add($mailKey, true, now()->addDays(30))) {
+                    Mail::to($clientEmail)
+                        ->locale($mailLocale)
+                        ->send(new OrderClientMail($order, $mailLocale));
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::error('Payparts: failed to send order notification email', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function clearCheckoutSession(Order $order): void
+    {
+        try {
+            $cart = app(CartService::class);
+            if (method_exists($cart, 'clearAfterCheckout')) {
+                $cart->clearAfterCheckout();
+            }
+            session()->forget('checkout.selected_promo');
+            session()->forget('checkout.promo_discount');
+            session()->forget('checkout.cart_signature');
+            session()->forget('checkout.form_data');
+        } catch (\Throwable $e) {
+            Log::warning('Payparts redirect: failed to clear checkout session', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function redirectToSuccess(Order $order)
+    {
+        $locale = app()->getLocale();
+        $routeName = in_array($locale, ['ru', 'en'], true) ? 'localized.checkout.success' : 'checkout.success';
+        $routeParams = in_array($locale, ['ru', 'en'], true)
+            ? ['locale' => $locale, 'order' => $order]
+            : ['order' => $order];
+
+        return redirect()->route($routeName, $routeParams);
+    }
+
+    private function redirectToPaypartsOrder(Order $order)
+    {
+        $locale = app()->getLocale();
+        $routeName = in_array($locale, ['ru', 'en'], true) ? 'localized.checkout.pay.payparts' : 'checkout.pay.payparts';
+        $routeParams = in_array($locale, ['ru', 'en'], true)
+            ? ['locale' => $locale, 'order' => $order]
+            : ['order' => $order];
+
+        return redirect()->route($routeName, $routeParams);
     }
 }

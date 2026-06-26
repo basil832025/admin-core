@@ -58,7 +58,7 @@ Route::get('/filter', [CatalogController::class, 'filter'])->name('catalog.filte
 Route::post('/liqpay/callback', [LiqPayController::class, 'callback'])
     ->name('liqpay.callback')
     ->withoutMiddleware([VerifyCsrfToken::class]);
-Route::post('/payparts/response', [PaypartsController::class, 'response'])
+Route::match(['get', 'post'], '/payparts/response', [PaypartsController::class, 'response'])
     ->name('payparts.response')
     ->withoutMiddleware([VerifyCsrfToken::class]);
 Route::get('/payparts/redirect', [PaypartsController::class, 'redirect'])
