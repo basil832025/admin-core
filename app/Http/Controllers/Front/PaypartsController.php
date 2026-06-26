@@ -116,8 +116,10 @@ class PaypartsController extends Controller
             $order
             && $transaction
             && $explicitState === ''
-            && $token !== ''
-            && $transaction->token === $token
+            && (
+                ($token !== '' && $transaction->token === $token)
+                || ($orderIdRaw !== '' && $transaction->order_id === $orderIdRaw)
+            )
             && ! $this->isFailedStatus($state)
         ) {
             $state = 'payment_success';
