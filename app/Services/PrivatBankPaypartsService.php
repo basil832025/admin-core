@@ -48,7 +48,7 @@ class PrivatBankPaypartsService
         ?string $locale = null,
     ): PaypartsTransaction {
         $orderNumber = $this->buildOrderId($order);
-        $responseUrl = self::callbackUrl('payparts.response', ['orderId' => $orderNumber]);
+        $responseUrl = self::callbackUrl('payparts.response');
         $redirectUrl = self::callbackUrl('payparts.redirect', ['orderId' => $orderNumber]);
 
         $amount = (float) round((float) $order->grand_total, 2);
