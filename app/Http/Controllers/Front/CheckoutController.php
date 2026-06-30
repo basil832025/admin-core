@@ -1855,8 +1855,14 @@ public function payPaypartsStatus($localeOrOrder, ?Order $order = null)
             try {
                 $sync = PrivatBankPaypartsService::make()->fetchPaymentState($transaction);
                 $remote = $sync['response_payload'] ?? [];
-                $state = strtolower((string) ($remote['paymentState'] ?? $remote['state'] ?? $remote['status'] ?? 'payment_failed'));
-                $internalStatus = $this->normalizeStatus($state);
+                                $state = strtolower((string) ($remote['paymentState'] ?? $remote['state'] ?? $remote['status'] ?? 'payment_failed'));
+                $internalStatus = in_array($state, ['payment_success', 'success', 'sandbox', 'paid', 'locked'], true)
+                    ? 'payment_success'
+                    : (in_array($state, ['payment_failed', 'failure', 'failed', 'declined', 'decline', 'error'], true)
+                        ? 'payment_failed'
+                        : (in_array($state, ['payment_redirected', 'redirected'], true)
+                            ? 'payment_redirected'
+                            : 'pending_payment'));
 
                 $transaction->update([
                     'status' => $internalStatus,
