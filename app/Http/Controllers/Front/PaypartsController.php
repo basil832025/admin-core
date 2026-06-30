@@ -23,12 +23,12 @@ class PaypartsController extends Controller
 {
     public function response(Request $request)
     {
-        Log::info('Payparts response received', [
+        Log::info('Payparts raw callback before validation', [
             'method' => $request->method(),
             'full_url' => $request->fullUrl(),
             'query' => $request->query(),
-            'payload' => $request->all(),
             'raw_body' => $request->getContent(),
+            'payload' => $request->all(),
             'headers' => [
                 'content-type' => $request->header('content-type'),
                 'user-agent' => $request->header('user-agent'),
@@ -36,6 +36,7 @@ class PaypartsController extends Controller
                 'x-real-ip' => $request->header('x-real-ip'),
                 'host' => $request->header('host'),
             ],
+            'ip' => $request->ip(),
         ]);
 
         $data = $request->input('data');
@@ -56,7 +57,8 @@ class PaypartsController extends Controller
                 'payload' => $request->all(),
                 'raw_body' => $request->getContent(),
             ]);
-            return response('error', 400);
+
+            return response('ok');
         }
 
         $orderIdRaw = (string) ($payload['orderId'] ?? '');
@@ -66,8 +68,15 @@ class PaypartsController extends Controller
         $bank = $transaction?->bank ?? PaypartsBank::find($transaction?->payparts_bank_id);
 
         if (! $bank) {
-            Log::warning('Payparts response without bank', ['payload' => $payload]);
-            return response('error', 404);
+            Log::warning('Payparts response without bank', [
+                'method' => $request->method(),
+                'full_url' => $request->fullUrl(),
+                'query' => $request->query(),
+                'payload' => $payload,
+                'raw_body' => $request->getContent(),
+            ]);
+
+            return response('ok');
         }
 
         try {
@@ -88,7 +97,8 @@ class PaypartsController extends Controller
                 'payload' => $payload,
                 'raw_body' => $request->getContent(),
             ]);
-            return response('error', 400);
+
+            return response('ok');
         }
 
         $state = strtolower((string) ($decoded['paymentState'] ?? $decoded['state'] ?? $decoded['status'] ?? 'payment_failed'));
