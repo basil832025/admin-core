@@ -102,37 +102,15 @@ class PaypartsController extends Controller
         $transaction = $this->findTransaction($orderIdRaw, $token);
         $order = $shopOrderId ? Order::find($shopOrderId) : $transaction?->order;
 
-        $explicitState = (string) (
-            $request->input('paymentState', $request->query('paymentState', ''))
-            ?: $request->input('state', $request->query('state', ''))
-            ?: $request->input('status', $request->query('status', ''))
-        );
-
-        $state = strtolower($explicitState !== ''
-            ? $explicitState
-            : (string) (($order?->payparts_status ?? '') ?: ($transaction?->status ?? '')));
-
-        if (
-            $order
-            && $transaction
-            && $explicitState === ''
-            && (
-                ($token !== '' && $transaction->token === $token)
-                || ($orderIdRaw !== '' && $transaction->order_id === $orderIdRaw)
-            )
-            && ! $this->isFailedStatus($state)
-        ) {
-            $state = 'payment_success';
-        }
+        // A browser redirect is not proof of payment. Only the signed server
+        // callback handled by response() may persist payment_success.
+        $state = strtolower((string) ($order?->payparts_status ?? ''));
 
         if ($order && $this->isFailedStatus($state)) {
-            $this->applyOrderPaypartsStatus($order, $transaction, 'payment_failed');
             return $this->redirectToPaypartsOrder($order);
         }
 
         if ($order && $this->isSuccessStatus($state)) {
-            $this->applyOrderPaypartsStatus($order, $transaction, 'payment_success');
-            $this->sendSuccessNotifications($order, $transaction);
             $this->clearCheckoutSession($order);
 
             return $this->redirectToSuccess($order);
