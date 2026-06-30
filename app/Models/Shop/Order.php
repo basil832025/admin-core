@@ -152,6 +152,10 @@ class Order extends Model
     {
         return $this->hasOne(PaypartsTransaction::class, 'shop_order_id')->latestOfMany();
     }
+    public function paypartsRefunds(): HasMany
+    {
+        return $this->hasMany(PaypartsRefund::class, 'shop_order_id');
+    }
     public function paypartsBank(): BelongsTo
     {
         return $this->belongsTo(PaypartsBank::class, 'payparts_bank_id');

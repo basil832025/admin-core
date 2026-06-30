@@ -95,6 +95,77 @@ class CashalotFiscalService
         return $this->fiscalizePaidOrder($order, []);
     }
 
+    public function fiscalizeReturnCheck(Order $order, CashalotLog $sourceLog, ?int $userId = null): ?CashalotLog
+    {
+        if (! (bool) config('cashalot.enabled', false)) {
+            return null;
+        }
+
+        if (! $this->hasRequiredConfig()) {
+            return CashalotLog::create([
+                'shop_order_id' => $order->id,
+                'liqpay_log_id' => $sourceLog->liqpay_log_id,
+                'status' => 'skipped',
+                'error_code' => 'CONFIG_MISSING',
+                'error_message' => 'Cashalot config values are missing',
+                'check_sum' => $this->resolveCheckSum($order),
+                'payment_type' => 'Cashalot return',
+            ]);
+        }
+
+        $existingSuccess = CashalotLog::query()
+            ->where('shop_order_id', $order->id)
+            ->where('status', 'success')
+            ->where('payment_type', 'Cashalot return')
+            ->latest('id')
+            ->first();
+
+        if ($existingSuccess) {
+            return $existingSuccess;
+        }
+
+        $originalPayload = is_array($sourceLog->request_payload) ? $sourceLog->request_payload : [];
+        $check = $this->buildReturnCheckPayload($order, $sourceLog, $originalPayload);
+
+        $log = CashalotLog::create([
+            'shop_order_id' => $order->id,
+            'liqpay_log_id' => $sourceLog->liqpay_log_id,
+            'status' => 'pending',
+            'check_sum' => (float) data_get($check, 'CHECKTOTAL.SUM', $this->resolveCheckSum($order)),
+            'payment_type' => 'Cashalot return',
+            'request_payload' => array_merge($check, [
+                'StornedCheck' => $originalPayload,
+            ]),
+        ]);
+
+        try {
+            $response = app(CashalotApiClient::class)->registerCheck($check, [
+                'storned_check' => $originalPayload,
+            ]);
+
+            $errorCode = (string) ($response['ErrorCode'] ?? '');
+            $isSuccess = mb_strtolower($errorCode) === 'ok' || ! empty($response['NumFiscal']);
+
+            $log->fill([
+                'status' => $isSuccess ? 'success' : 'failed',
+                'error_code' => $response['ErrorCode'] ?? null,
+                'error_message' => $response['ErrorMessage'] ?? null,
+                'num_fiscal' => isset($response['NumFiscal']) ? (string) $response['NumFiscal'] : null,
+                'receipt_url' => isset($response['Url']) ? (string) $response['Url'] : null,
+                'response_payload' => $response,
+                'fiscalized_at' => $isSuccess ? now() : null,
+            ])->save();
+        } catch (\Throwable $e) {
+            $log->fill([
+                'status' => 'failed',
+                'error_code' => 'EXCEPTION',
+                'error_message' => $e->getMessage(),
+            ])->save();
+        }
+
+        return $log;
+    }
+
     protected function sendToConsumer(Order $order, CashalotLog $log, array $registerResponse, float $orderTotal): void
     {
         if (! (bool) config('cashalot.send_to_consumer', true)) {
@@ -172,6 +243,7 @@ class CashalotFiscalService
             PaymentMethodEnum::CASH => 'Готівка',
             PaymentMethodEnum::POS => 'POS-термінал',
             PaymentMethodEnum::LIQPAY => 'LiqPay',
+            PaymentMethodEnum::PAYPARTS => 'Оплата частинами PrivatBank',
             default => $liqpayPayload !== [] ? 'LiqPay' : ($payment?->label('uk') ?? 'Невідомо'),
         };
     }
@@ -378,6 +450,31 @@ class CashalotFiscalService
         ];
     }
 
+    protected function buildReturnCheckPayload(Order $order, CashalotLog $sourceLog, array $originalPayload): array
+    {
+        $payload = $originalPayload !== []
+            ? $originalPayload
+            : $this->buildRequestPayload($order, []);
+
+        $payload['CHECKHEAD'] = array_merge(
+            (array) ($payload['CHECKHEAD'] ?? []),
+            [
+                'DOCTYPE' => 'SaleGoods',
+                'DOCSUBTYPE' => 'CheckStorno',
+                'TESTING' => (bool) data_get($originalPayload, 'CHECKHEAD.TESTING', false),
+            ]
+        );
+
+        $payload['CHECKTOTAL'] = array_merge(
+            (array) ($payload['CHECKTOTAL'] ?? []),
+            [
+                'SUM' => $this->resolveCheckSum($order),
+            ]
+        );
+
+        return $payload;
+    }
+
     protected function isTestingPayment(Order $order, array $liqpayPayload): bool
     {
         $payment = $order->payment instanceof PaymentMethodEnum
@@ -385,6 +482,10 @@ class CashalotFiscalService
             : PaymentMethodEnum::tryFrom((int) $order->payment);
 
         if (in_array($payment, [PaymentMethodEnum::CASH, PaymentMethodEnum::POS], true)) {
+            return false;
+        }
+
+        if ($payment === PaymentMethodEnum::PAYPARTS) {
             return false;
         }
 

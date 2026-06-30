@@ -53,6 +53,7 @@ class RoleResource extends Resource implements HasShieldPermissions
             'access_logistics_orders',
             'set_order_status*',   // все статусы
             'order_status_downgrade',
+            'refund_payparts_payment',
             'page_*',
         ];
 
@@ -74,6 +75,7 @@ class RoleResource extends Resource implements HasShieldPermissions
             'set_order_status_processing' => 'Статус: На кухне',
             'set_order_status_shipped' => 'Статус: Отправлен',
             'order_status_downgrade' => 'Статус: Возврат статуса назад',
+            'refund_payparts_payment' => 'Оплата частями: полный возврат',
             'page_cashalotshiftcontrol' => 'Сторінка: Cashalot зміна',
             'page_characteristics' => 'Сторінка: Характеристики',
             'page_generalsettings' => 'Сторінка: Загальні налаштування',

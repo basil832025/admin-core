@@ -118,6 +118,98 @@ class EditOrder extends EditRecord
 
             $this->openPromotionsAction(),
 
+            Action::make('cashalot_return')
+                ->label('Отменить фискальный чек')
+                ->icon('heroicon-o-receipt-refund')
+                ->color('warning')
+                ->visible(function (): bool {
+                    $record = $this->record;
+                    if (! $record) {
+                        return false;
+                    }
+
+                    $user = auth('admin')->user();
+                    $allowed = $user instanceof \App\Models\User
+                        && ((method_exists($user, 'hasRole') && $user->hasRole(config('shield.super_admin.name', 'super_admin')))
+                            || $user->can('refund_payparts_payment'));
+
+                    $hasSaleCashalot = $record->cashalotLogs()
+                        ->where('status', 'success')
+                        ->where(function ($query) {
+                            $query->whereNull('payment_type')
+                                ->orWhere('payment_type', '!=', 'Cashalot return');
+                        })
+                        ->exists();
+
+                    $hasReturnCashalot = $record->cashalotLogs()
+                        ->where('status', 'success')
+                        ->where('payment_type', 'Cashalot return')
+                        ->exists();
+
+                    return $allowed && $hasSaleCashalot && ! $hasReturnCashalot;
+                })
+                ->requiresConfirmation()
+                ->modalHeading(fn (): string => 'Отмена фискального чека по заказу №' . ($this->record?->number ?: $this->record?->id))
+                ->modalDescription(fn (): string => sprintf(
+                    'Отменить фискальный чек на %.2f грн? После подтверждения будет сформирован сторно-чек Cashalot. Повторно запускать операцию нельзя, пока возврат не завершен.',
+                    (float) ($this->record?->grand_total ?? 0)
+                ))
+                ->modalSubmitActionLabel('Отменить чек')
+                ->action(function (): void {
+                    $record = $this->record;
+                    $user = auth('admin')->user();
+
+                    try {
+                        if (! $record) {
+                            throw new \RuntimeException('Заказ не найден.');
+                        }
+
+                        $allowed = $user instanceof \App\Models\User
+                            && ((method_exists($user, 'hasRole') && $user->hasRole(config('shield.super_admin.name', 'super_admin')))
+                                || $user->can('refund_payparts_payment'));
+
+                        if (! $allowed) {
+                            throw new \RuntimeException('Недостаточно прав для отмены фискального чека.');
+                        }
+
+                        $cashalotLog = $record->cashalotLogs()
+                            ->where('status', 'success')
+                            ->where(function ($query) {
+                                $query->whereNull('payment_type')
+                                    ->orWhere('payment_type', '!=', 'Cashalot return');
+                            })
+                            ->latest('id')
+                            ->first();
+
+                        if (! $cashalotLog) {
+                            throw new \RuntimeException('Не найден успешный фискальный чек для сторно.');
+                        }
+
+                        $returnLog = app(CashalotFiscalService::class)
+                            ->fiscalizeReturnCheck($record, $cashalotLog, $user?->id);
+
+                        Notification::make()
+                            ->title($returnLog?->status === 'success'
+                                ? 'Фискальный чек отменен'
+                                : 'Сторно чека принято и ожидает обработки')
+                            ->{$returnLog?->status === 'success' ? 'success' : 'warning'}()
+                            ->send();
+                    } catch (\Throwable $e) {
+                        Log::error('Cashalot return failed', [
+                            'order_id' => $record?->id,
+                            'user_id' => $user?->id,
+                            'error' => $e->getMessage(),
+                        ]);
+
+                        Notification::make()
+                            ->danger()
+                            ->title('Отмена фискального чека не выполнена')
+                            ->body($e->getMessage())
+                            ->persistent()
+                            ->send();
+                    }
+                }),
+
             Action::make('print_kitchen')
                 ->label(function (): string {
                     $count = (int) ($this->record?->kitchen_print_count ?? 0);

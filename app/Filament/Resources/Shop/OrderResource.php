@@ -61,9 +61,12 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\HtmlString;
 use App\Models\Shop\LoyaltyTransaction;
 use App\Models\Shop\Client;
+use App\Models\Shop\CashalotLog;
 use App\Filament\Resources\ClientResource;
 use Filament\Support\Enums\VerticalAlignment;
 use App\Enums\PaymentMethodEnum;
+use App\Services\PrivatBankPaypartsRefundService;
+use App\Services\CashalotFiscalService;
 use Filament\Tables\Columns\BadgeColumn;
 class OrderResource extends Resource
 {
@@ -3015,6 +3018,174 @@ class OrderResource extends Resource
                             ->success()
                             ->title($newRank < $oldRank ? 'Статус откатан' : 'Статус обновлён')
                             ->send();
+                    }),
+
+                Action::make('refund_payparts')
+                    ->label('Полный возврат')
+                    ->icon('heroicon-o-arrow-uturn-left')
+                    ->color('danger')
+                    ->visible(function (Order $record): bool {
+                        $user = auth('admin')->user();
+                        $allowed = $user instanceof \App\Models\User
+                            && ((method_exists($user, 'hasRole') && $user->hasRole(config('shield.super_admin.name', 'super_admin')))
+                                || $user->can('refund_payparts_payment'));
+                        $payment = $record->payment instanceof PaymentMethodEnum
+                            ? $record->payment
+                            : PaymentMethodEnum::tryFrom((int) $record->payment);
+
+                        return $allowed
+                            && $payment === PaymentMethodEnum::PAYPARTS
+                            && in_array($record->payparts_status, ['payment_success', 'refund_failed'], true);
+                    })
+                    ->requiresConfirmation()
+                    ->modalHeading(fn (Order $record): string => 'Полный возврат по заказу №' . ($record->number ?: $record->id))
+                    ->modalDescription(fn (Order $record): string => sprintf(
+                        'Вернуть %.2f грн через ПриватБанк? Операцию нельзя запускать повторно, пока банк обрабатывает возврат. Возвратный чек Cashalot оформляется отдельно.',
+                        (float) $record->grand_total
+                    ))
+                    ->modalSubmitActionLabel('Выполнить возврат')
+                    ->action(function (Order $record): void {
+                        $user = auth('admin')->user();
+
+                        try {
+                            $allowed = $user instanceof \App\Models\User
+                                && ((method_exists($user, 'hasRole') && $user->hasRole(config('shield.super_admin.name', 'super_admin')))
+                                    || $user->can('refund_payparts_payment'));
+                            if (! $allowed) {
+                                throw new \RuntimeException('Недостаточно прав для возврата платежа.');
+                            }
+
+                            $refund = PrivatBankPaypartsRefundService::make()
+                                ->initiateFullRefund($record, $user?->id);
+
+                            activity('order')
+                                ->performedOn($record)
+                                ->causedBy($user)
+                                ->event('payparts_refund_requested')
+                                ->withProperties([
+                                    'refund_id' => $refund->id,
+                                    'amount' => $refund->amount,
+                                    'status' => $refund->status,
+                                ])
+                                ->log('Запрошен полный возврат «Оплаты частями»');
+
+                            Notification::make()
+                                ->title($refund->status === 'refunded'
+                                    ? 'Возврат успешно выполнен'
+                                    : 'Возврат принят и ожидает подтверждения банка')
+                                ->{$refund->status === 'refunded' ? 'success' : 'warning'}()
+                                ->send();
+                        } catch (\Throwable $e) {
+                            Log::error('Payparts refund failed', [
+                                'order_id' => $record->id,
+                                'user_id' => $user?->id,
+                                'error' => $e->getMessage(),
+                            ]);
+
+                            Notification::make()
+                                ->danger()
+                                ->title('Возврат не выполнен')
+                                ->body($e->getMessage())
+                                ->persistent()
+                                ->send();
+                        }
+                    }),
+
+                Action::make('cashalot_return')
+                    ->label('Отменить фискальный чек')
+                    ->icon('heroicon-o-receipt-refund')
+                    ->color('warning')
+                    ->visible(function (Order $record): bool {
+                        if (static::class === \App\Filament\Resources\Callcenter\OrderResource::class) {
+                            return false;
+                        }
+
+                        $user = auth('admin')->user();
+                        $allowed = $user instanceof \App\Models\User
+                            && ((method_exists($user, 'hasRole') && $user->hasRole(config('shield.super_admin.name', 'super_admin')))
+                                || $user->can('refund_payparts_payment'));
+
+                        $hasSaleCashalot = $record->cashalotLogs()
+                            ->where('status', 'success')
+                            ->where(function ($query) {
+                                $query->whereNull('payment_type')
+                                    ->orWhere('payment_type', '!=', 'Cashalot return');
+                            })
+                            ->exists();
+
+                        $hasReturnCashalot = $record->cashalotLogs()
+                            ->where('status', 'success')
+                            ->where('payment_type', 'Cashalot return')
+                            ->exists();
+
+                        return $allowed && $hasSaleCashalot && ! $hasReturnCashalot;
+                    })
+                    ->requiresConfirmation()
+                    ->modalHeading(fn (Order $record): string => 'Отмена фискального чека по заказу №' . ($record->number ?: $record->id))
+                    ->modalDescription(fn (Order $record): string => sprintf(
+                        'Отменить фискальный чек на %.2f грн? После подтверждения будет сформирован сторно-чек Cashalot. Повторно запускать операцию нельзя, пока возврат не завершен.',
+                        (float) $record->grand_total
+                    ))
+                    ->modalSubmitActionLabel('Отменить чек')
+                    ->action(function (Order $record): void {
+                        $user = auth('admin')->user();
+
+                        try {
+                            $allowed = $user instanceof \App\Models\User
+                                && ((method_exists($user, 'hasRole') && $user->hasRole(config('shield.super_admin.name', 'super_admin')))
+                                    || $user->can('refund_payparts_payment'));
+
+                            if (! $allowed) {
+                                throw new \RuntimeException('Недостаточно прав для отмены фискального чека.');
+                            }
+
+                            $cashalotLog = $record->cashalotLogs()
+                                ->where('status', 'success')
+                                ->where(function ($query) {
+                                    $query->whereNull('payment_type')
+                                        ->orWhere('payment_type', '!=', 'Cashalot return');
+                                })
+                                ->latest('id')
+                                ->first();
+
+                            if (! $cashalotLog) {
+                                throw new \RuntimeException('Не найден успешный фискальный чек для сторно.');
+                            }
+
+                            $returnLog = app(CashalotFiscalService::class)
+                                ->fiscalizeReturnCheck($record, $cashalotLog, $user?->id);
+
+                            activity('order')
+                                ->performedOn($record)
+                                ->causedBy($user)
+                                ->event('cashalot_return_requested')
+                                ->withProperties([
+                                    'cashalot_log_id' => $cashalotLog->id,
+                                    'return_log_id' => $returnLog?->id,
+                                    'status' => $returnLog?->status,
+                                ])
+                                ->log('Запрошена отмена фискального чека');
+
+                            Notification::make()
+                                ->title($returnLog?->status === 'success'
+                                    ? 'Фискальный чек отменен'
+                                    : 'Сторно чека принято и ожидает обработки')
+                                ->{$returnLog?->status === 'success' ? 'success' : 'warning'}()
+                                ->send();
+                        } catch (\Throwable $e) {
+                            Log::error('Cashalot return failed', [
+                                'order_id' => $record->id,
+                                'user_id' => $user?->id,
+                                'error' => $e->getMessage(),
+                            ]);
+
+                            Notification::make()
+                                ->danger()
+                                ->title('Отмена фискального чека не выполнена')
+                                ->body($e->getMessage())
+                                ->persistent()
+                                ->send();
+                        }
                     }),
 
                 EditAction::make(),

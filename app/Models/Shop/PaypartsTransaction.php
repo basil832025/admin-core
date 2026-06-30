@@ -4,6 +4,7 @@ namespace App\Models\Shop;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PaypartsTransaction extends Model
 {
@@ -45,5 +46,10 @@ class PaypartsTransaction extends Model
     public function bank(): BelongsTo
     {
         return $this->belongsTo(PaypartsBank::class, 'payparts_bank_id');
+    }
+
+    public function refunds(): HasMany
+    {
+        return $this->hasMany(PaypartsRefund::class, 'payparts_transaction_id');
     }
 }

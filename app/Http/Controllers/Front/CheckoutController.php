@@ -1706,6 +1706,10 @@ public function payPayparts($localeOrOrder, ?Order $order = null)
 
     $bank = $order->paypartsBank;
     $transaction = $order->lastPaypartsTransaction;
+    $sessionKey = 'checkout.payparts.' . $order->id;
+    $paypartsSession = (array) session($sessionKey, []);
+    $clientEmail = trim((string) ($order->clients?->email ?: ($paypartsSession['contact_email'] ?? '')));
+    $emailRequired = $clientEmail === '' || ! filter_var($clientEmail, FILTER_VALIDATE_EMAIL);
     $paymentUrl = $transaction?->token
         ? PrivatBankPaypartsService::make()->paymentUrl((string) $transaction->token)
         : null;
@@ -1715,9 +1719,7 @@ public function payPayparts($localeOrOrder, ?Order $order = null)
         $error = st('cart.payment.payparts_bank_unavailable', 'Обраний банк зараз недоступний.');
     }
 
-    if (! $paymentUrl && ! $error) {
-        $sessionKey = 'checkout.payparts.' . $order->id;
-        $paypartsSession = (array) session($sessionKey, []);
+    if (! $emailRequired && ! $paymentUrl && ! $error) {
         $planKey = (string) ($paypartsSession['plan_key'] ?? '');
         $plans = collect($bank->plansForAmount((float) $order->grand_total));
         $plan = $plans->firstWhere('key', $planKey);
@@ -1763,7 +1765,41 @@ public function payPayparts($localeOrOrder, ?Order $order = null)
         'transaction' => $transaction,
         'paymentUrl' => $paymentUrl,
         'error' => $error,
+        'clientEmail' => $clientEmail,
+        'emailRequired' => $emailRequired,
     ]);
+}
+
+public function savePaypartsEmail(Request $request, $localeOrOrder, ?Order $order = null)
+{
+    $locale = null;
+    if ($localeOrOrder instanceof Order) {
+        $order = $localeOrOrder;
+    } else {
+        $locale = is_string($localeOrOrder) ? $localeOrOrder : null;
+    }
+    if (! $order instanceof Order || $order->payment !== PaymentMethodEnum::PAYPARTS) {
+        abort(404);
+    }
+    if ($order->clients_id) {
+        $currentUserId = auth()->check() ? (int) auth()->id() : null;
+        if (! $currentUserId || $currentUserId !== (int) $order->clients_id) {
+            abort(403);
+        }
+    }
+    $validated = $request->validate(['contact_email' => 'required|email|max:255']);
+    $email = trim((string) $validated['contact_email']);
+    $order->loadMissing('clients');
+    if ($order->clients) {
+        $order->clients->forceFill(['email' => $email])->save();
+    }
+    $sessionKey = 'checkout.payparts.' . $order->id;
+    $paypartsSession = (array) session($sessionKey, []);
+    $paypartsSession['contact_email'] = $email;
+    session([$sessionKey => $paypartsSession]);
+    $routeName = in_array($locale, ['ru', 'en'], true) ? 'localized.checkout.pay.payparts' : 'checkout.pay.payparts';
+    $routeParams = in_array($locale, ['ru', 'en'], true) ? ['locale' => $locale, 'order' => $order] : ['order' => $order];
+    return redirect()->route($routeName, $routeParams)->with('success', st('checkout.liqpay.email_saved', 'Email збережено.'));
 }
 
 public function payPaypartsStatus($localeOrOrder, ?Order $order = null)

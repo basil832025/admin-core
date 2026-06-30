@@ -37,6 +37,8 @@ return [
             'public_url' => env('PRIVATBANK_PAYPARTS_PUBLIC_URL'),
             'create_path' => env('PRIVATBANK_PAYPARTS_CREATE_PATH', '/ipp/v2/payment/create'),
             'payment_path' => env('PRIVATBANK_PAYPARTS_PAYMENT_PATH', '/ipp/v2/payment'),
+            'decline_path' => env('PRIVATBANK_PAYPARTS_DECLINE_PATH', '/ipp/v2/payment/decline'),
+            'state_path' => env('PRIVATBANK_PAYPARTS_STATE_PATH', '/ipp/v2/payment/state'),
         ],
     ],
 

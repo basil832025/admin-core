@@ -7,11 +7,13 @@ use App\Enums\PaymentMethodEnum;
 use App\Http\Controllers\Controller;
 use App\Mail\OrderClientMail;
 use App\Mail\OrderNotificationMail;
+use App\Mail\CashalotReceiptMail;
 use App\Models\Shop\Order;
 use App\Models\Shop\PaypartsBank;
 use App\Models\Shop\PaypartsTransaction;
 use App\Services\CartService;
 use App\Services\PrivatBankPaypartsService;
+use App\Services\CashalotFiscalService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -84,6 +86,7 @@ class PaypartsController extends Controller
 
             if ($internalStatus === 'payment_success') {
                 $this->sendSuccessNotifications($order, $transaction);
+                $this->fiscalizePaidOrder($order, $transaction);
             }
         }
 
@@ -240,6 +243,31 @@ class PaypartsController extends Controller
                 'order_id' => $order->id,
                 'error' => $e->getMessage(),
             ]);
+        }
+    }
+
+    private function fiscalizePaidOrder(Order $order, ?PaypartsTransaction $transaction): void
+    {
+        try {
+            $cashalotLog = app(CashalotFiscalService::class)->fiscalizePaidOrder($order, [
+                'payment_id' => (string) ($transaction?->order_id ?? $transaction?->token ?? ''),
+                'paytype' => 'payparts',
+                'status' => (string) ($transaction?->status ?? 'success'),
+            ]);
+            if (! $cashalotLog || $cashalotLog->status !== 'success') {
+                return;
+            }
+            $order->loadMissing('clients');
+            $clientEmail = trim((string) ($order->clients?->email ?? ''));
+            if ($clientEmail === '' || ! filter_var($clientEmail, FILTER_VALIDATE_EMAIL)) {
+                return;
+            }
+            $mailKey = 'cashalot_receipt_mail_sent:' . $cashalotLog->id;
+            if (Cache::add($mailKey, true, now()->addDays(30))) {
+                Mail::to($clientEmail)->send(new CashalotReceiptMail($order, $cashalotLog));
+            }
+        } catch (\Throwable $e) {
+            Log::error('Payparts callback: Cashalot fiscalization failed', ['order_id' => $order->id, 'error' => $e->getMessage()]);
         }
     }
 

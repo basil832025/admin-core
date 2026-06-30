@@ -53,6 +53,7 @@ Route::get('/checkout/{order}/pay/liqpay', [CheckoutController::class, 'payLiqPa
 Route::post('/checkout/{order}/pay/liqpay/email', [CheckoutController::class, 'saveLiqPayEmail'])
     ->name('checkout.pay.liqpay.email');
 Route::get('/checkout/{order}/pay/payparts', [CheckoutController::class, 'payPayparts'])->name('checkout.pay.payparts');
+Route::post('/checkout/{order}/pay/payparts/email', [CheckoutController::class, 'savePaypartsEmail'])->name('checkout.pay.payparts.email');
 Route::get('/checkout/{order}/pay/payparts/status', [CheckoutController::class, 'payPaypartsStatus'])->name('checkout.pay.payparts.status');
 Route::get('/filter', [CatalogController::class, 'filter'])->name('catalog.filter');
 Route::post('/liqpay/callback', [LiqPayController::class, 'callback'])
