@@ -1855,7 +1855,7 @@ public function payPaypartsStatus($localeOrOrder, ?Order $order = null)
             try {
                 $sync = PrivatBankPaypartsService::make()->fetchPaymentState($transaction);
                 $remote = $sync['response_payload'] ?? [];
-                                $state = strtolower((string) ($remote['paymentState'] ?? $remote['state'] ?? $remote['status'] ?? 'payment_failed'));
+                $state = strtolower((string) ($remote['paymentState'] ?? $remote['state'] ?? $remote['status'] ?? 'payment_failed'));
                 $internalStatus = in_array($state, ['payment_success', 'success', 'sandbox', 'paid', 'locked'], true)
                     ? 'payment_success'
                     : (in_array($state, ['payment_failed', 'failure', 'failed', 'declined', 'decline', 'error'], true)
@@ -1871,12 +1871,12 @@ public function payPaypartsStatus($localeOrOrder, ?Order $order = null)
                 ]);
 
                 if (in_array($internalStatus, ['payment_success', 'payment_failed'], true)) {
-                    $this->applyOrderPaypartsStatus($order, $transaction, $internalStatus);
-
-                    if ($internalStatus === 'payment_success') {
-                        $this->sendSuccessNotifications($order, $transaction);
-                        $this->fiscalizePaidOrder($order, $transaction);
-                    }
+                    $order->forceFill([
+                        'payparts_status' => $internalStatus,
+                        'status' => $internalStatus === 'payment_success' ? OrderStatus::New : OrderStatus::Cart,
+                        'payment' => PaymentMethodEnum::PAYPARTS,
+                        'paid_at' => $internalStatus === 'payment_success' && empty($order->paid_at) ? now() : $order->paid_at,
+                    ])->save();
                 }
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::info('Payparts status sync skipped', [
