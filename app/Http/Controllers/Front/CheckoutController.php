@@ -27,8 +27,10 @@ use App\Services\DeliveryCalculationService;
 use App\Services\ScheduleV2Service;
 use App\Services\LiqPayService;
 use App\Services\PrivatBankPaypartsService;
+use App\Services\CashalotFiscalService;
 use App\Mail\OrderNotificationMail;
 use App\Mail\OrderClientMail;
+use App\Mail\CashalotReceiptMail;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -1666,11 +1668,12 @@ public function payLiqPay($localeOrOrder, ?Order $order = null)
         'order'     => $order,
         'clientEmail' => $clientEmail,
         'emailRequired' => $emailRequired,
+        'editEmail' => $editEmail,
         'liqpayForm'=> $liqpayForm,
     ]);
 }
 
-public function payPayparts($localeOrOrder, ?Order $order = null)
+public function payPayparts(Request $request, $localeOrOrder, ?Order $order = null)
 {
     $locale = null;
     if ($localeOrOrder instanceof Order) {
@@ -1711,7 +1714,8 @@ public function payPayparts($localeOrOrder, ?Order $order = null)
     $sessionKey = 'checkout.payparts.' . $order->id;
     $paypartsSession = (array) session($sessionKey, []);
     $clientEmail = trim((string) ($order->clients?->email ?: ($paypartsSession['contact_email'] ?? '')));
-    $emailRequired = $clientEmail === '' || ! filter_var($clientEmail, FILTER_VALIDATE_EMAIL);
+    $editEmail = $request->boolean('edit_email');
+    $emailRequired = $editEmail || $clientEmail === '' || ! filter_var($clientEmail, FILTER_VALIDATE_EMAIL);
     $paymentUrl = $transaction?->token
         ? PrivatBankPaypartsService::make()->paymentUrl((string) $transaction->token)
         : null;
@@ -1784,8 +1788,45 @@ public function payPayparts($localeOrOrder, ?Order $order = null)
         'error' => $error,
         'clientEmail' => $clientEmail,
         'emailRequired' => $emailRequired,
+        'editEmail' => $editEmail,
     ]);
 }
+private function fiscalizePaypartsPaidOrder(Order $order, ?\App\Models\Shop\PaypartsTransaction $transaction): void
+{
+    try {
+        $fiscalKey = 'payparts_fiscalized_order:' . $order->id;
+        if (! \Illuminate\Support\Facades\Cache::add($fiscalKey, true, now()->addDays(30))) {
+            return;
+        }
+
+        $cashalotLog = app(CashalotFiscalService::class)->fiscalizePaidOrder($order, [
+            'payment_id' => (string) ($transaction?->order_id ?? $transaction?->token ?? ''),
+            'paytype' => 'payparts',
+            'status' => (string) ($transaction?->status ?? 'success'),
+        ]);
+
+        if (! $cashalotLog || $cashalotLog->status !== 'success') {
+            return;
+        }
+
+        $order->loadMissing('clients');
+        $clientEmail = trim((string) ($order->clients?->email ?? ''));
+        if ($clientEmail === '' || ! filter_var($clientEmail, FILTER_VALIDATE_EMAIL)) {
+            return;
+        }
+
+        $mailKey = 'cashalot_receipt_mail_sent:' . $cashalotLog->id;
+        if (\Illuminate\Support\Facades\Cache::add($mailKey, true, now()->addDays(30))) {
+            Mail::to($clientEmail)->send(new CashalotReceiptMail($order, $cashalotLog));
+        }
+    } catch (\Throwable $e) {
+        Log::error('Payparts fallback: Cashalot fiscalization failed', [
+            'order_id' => $order->id,
+            'error' => $e->getMessage(),
+        ]);
+    }
+}
+
 
 public function savePaypartsEmail(Request $request, $localeOrOrder, ?Order $order = null)
 {
@@ -1877,6 +1918,10 @@ public function payPaypartsStatus($localeOrOrder, ?Order $order = null)
                         'payment' => PaymentMethodEnum::PAYPARTS,
                         'paid_at' => $internalStatus === 'payment_success' && empty($order->paid_at) ? now() : $order->paid_at,
                     ])->save();
+
+                    if ($internalStatus === 'payment_success') {
+                        $this->fiscalizePaypartsPaidOrder($order, $transaction);
+                    }
                 }
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::info('Payparts status sync skipped', [

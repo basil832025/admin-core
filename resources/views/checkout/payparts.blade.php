@@ -16,6 +16,9 @@
             $saveEmailAction = in_array($locale, ['ru', 'en'], true)
                 ? route('localized.checkout.pay.payparts.email', ['locale' => $locale, 'order' => $order])
                 : route('checkout.pay.payparts.email', ['order' => $order]);
+            $editEmailUrl = in_array($locale, ['ru', 'en'], true)
+                ? route('localized.checkout.pay.payparts', ['locale' => $locale, 'order' => $order, 'edit_email' => 1])
+                : route('checkout.pay.payparts', ['order' => $order, 'edit_email' => 1]);
         @endphp
 
         <h1 class="mb-4 text-2xl font-semibold">
@@ -85,6 +88,17 @@
                     </button>
                 </form>
             @elseif ($paymentUrl)
+                @if (! $emailRequired && $clientEmail !== '')
+                    <div class="mb-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800">
+                        <div class="mb-1 font-medium text-[#272828]">{{ st('checkout.liqpay.email_notice', 'На цей email буде надіслано фіскальний чек.') }}</div>
+                        <div class="flex flex-wrap items-center gap-3">
+                            <div class="font-semibold text-[#272828]">{{ $clientEmail }}</div>
+                            <a href="{{ $editEmailUrl }}" class="text-sm font-semibold text-[#FF7500] hover:underline">
+                                {{ st('checkout.liqpay.change_email', 'Змінити email') }}
+                            </a>
+                        </div>
+                    </div>
+                @endif
                 <p class="mb-3 text-sm text-[#6B7280]">
                     {{ st('checkout.payparts.redirect_hint', 'Р’С–РґРєСЂРёР№С‚Рµ СЃС‚РѕСЂС–РЅРєСѓ РџСЂРёРІР°С‚Р‘Р°РЅРєСѓ РІ РЅРѕРІС–Р№ РІРєР»Р°РґС†С– С‚Р° РїС–РґС‚РІРµСЂРґСЊС‚Рµ РѕРїР»Р°С‚Сѓ С‡Р°СЃС‚РёРЅР°РјРё. Р¦СЋ СЃС‚РѕСЂС–РЅРєСѓ РЅРµ Р·Р°РєСЂРёРІР°Р№С‚Рµ: РјРё РѕС‡С–РєСѓС”РјРѕ РїС–РґС‚РІРµСЂРґР¶РµРЅРЅСЏ РІС–Рґ Р±Р°РЅРєСѓ.') }}
                 </p>
