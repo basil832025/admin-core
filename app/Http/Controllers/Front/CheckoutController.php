@@ -31,6 +31,7 @@ use App\Mail\OrderNotificationMail;
 use App\Mail\OrderClientMail;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 
 class CheckoutController extends Controller
