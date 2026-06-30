@@ -139,6 +139,13 @@ class CashalotFiscalService
         ]);
 
         try {
+            \Illuminate\Support\Facades\Log::info('Cashalot return request', [
+                'order_id' => $order->id,
+                'source_log_id' => $sourceLog->id,
+                'source_num_fiscal' => $sourceLog->num_fiscal ?? data_get($sourceLog->response_payload, 'NumFiscal'),
+                'request_payload' => $check,
+            ]);
+
             $response = app(CashalotApiClient::class)->registerCheck($check, [
                 'storned_check' => $originalPayload,
             ]);
@@ -455,6 +462,17 @@ class CashalotFiscalService
         $payload = $originalPayload !== []
             ? $originalPayload
             : $this->buildRequestPayload($order, []);
+
+        $originalFiscalNo = trim((string) ($sourceLog->num_fiscal ?? data_get($sourceLog->response_payload, 'NumFiscal') ?? ''));
+        if ($originalFiscalNo !== '') {
+            $payload['NUMFISCAL'] = $originalFiscalNo;
+            $payload['CHECKHEAD'] = array_merge(
+                (array) ($payload['CHECKHEAD'] ?? []),
+                [
+                    'NUMFISCAL' => $originalFiscalNo,
+                ]
+            );
+        }
 
         $payload['CHECKHEAD'] = array_merge(
             (array) ($payload['CHECKHEAD'] ?? []),
