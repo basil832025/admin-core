@@ -420,6 +420,24 @@ input.tp-input:-webkit-autofill:focus {
     background-position: center;
     background-repeat: no-repeat;
 }
+.tp-check-radio{
+    appearance: none;
+    @apply inline-block h-7 w-7 rounded border-2 border-[#D1D5DB] bg-white align-middle;
+    flex-shrink: 0;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 18px 18px;
+    transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
+}
+.tp-check-radio:checked{
+    border-color: #FF7500;
+    background-color: #FF7500;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2.5' d='m4 10 4 4 8-9'/%3E%3C/svg%3E");
+}
+.tp-check-radio:focus-visible{
+    outline: 2px solid rgba(255, 117, 0, .35);
+    outline-offset: 2px;
+}
 /* красная звездочка у обязательных */
 .tp-label.tp-required::after{
     content: " *";

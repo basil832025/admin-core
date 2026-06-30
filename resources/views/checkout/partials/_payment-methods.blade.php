@@ -101,12 +101,10 @@
                 <input type="radio" name="payment_method" value="payparts" class="tp-radio" x-model="paymentMethod" @checked($paymentMethod === 'payparts')>
                 <span class="flex items-center gap-3 text-[16px] leading-[22px] text-[#272828]">
                     <span class="text-[#FF7500]" aria-hidden="true">
-                        <svg width="21" height="19" viewBox="0 0 21 19" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M2 3H19V16H2V3Z" stroke="#FF7500" stroke-width="2"/>
-                            <path d="M2 7H19" stroke="#FF7500" stroke-width="2"/>
-                        </svg>
+                        <img src="{{ asset('images/svg/pie_icon_from_image.svg') }}?v=3" width="25" height="25" class="block bg-transparent" alt="">
                     </span>
                     {{ st('cart.payment.payparts_type_pp', 'Оплата частинами') }}
+                    <img src="{{ asset('images/payments/payparts-badge.png') }}" width="46" height="25" class="block shrink-0" alt="" aria-hidden="true">
                 </span>
             </label>
 
@@ -154,7 +152,7 @@
                                         type="radio"
                                         name="payparts_bank_id"
                                         value="{{ $bank['id'] }}"
-                                        class="mx-auto mb-3 block h-7 w-7 cursor-pointer accent-[#ff7500]"
+                                        class="tp-check-radio absolute left-1/2 top-0 z-10 block -translate-x-1/2 -translate-y-1/2 cursor-pointer"
                                         x-model="paypartsBankId"
                                         @change="paypartsBankId = '{{ $bank['id'] }}'; if (!@js($bankPlanKeys->all()).includes(paypartsPlanKey)) paypartsPlanKey = @js($defaultBankPlanKey); syncPaypartsBankCards()"
                                         @checked((string) $selectedPaypartsBankId === (string) $bank['id'])
