@@ -127,6 +127,49 @@ class PrivatBankPaypartsService
         return $this->baseUrl . (string) config('services.payparts.privatbank.payment_path', '/ipp/v2/payment') . '?token=' . urlencode($token);
     }
 
+    public function fetchPaymentState(PaypartsTransaction $transaction): array
+    {
+        $transaction->loadMissing('bank');
+        $bank = $transaction->bank;
+
+        if (! $bank) {
+            throw new \RuntimeException('Payparts bank is missing for status sync');
+        }
+
+        $storeId = (string) $bank->store_id;
+        $password = (string) $bank->account_password;
+        $orderId = (string) $transaction->order_id;
+        $payload = [
+            'storeId' => $storeId,
+            'orderId' => $orderId,
+            'showRefund' => true,
+            'showAmount' => true,
+            'signature' => base64_encode(sha1($password . $storeId . $orderId . $password, true)),
+        ];
+
+        $response = Http::acceptJson()
+            ->asJson()
+            ->timeout(20)
+            ->retry(2, 500, throw: false)
+            ->post($this->baseUrl . (string) config('services.payparts.privatbank.state_path', '/ipp/v2/payment/state'), $payload);
+
+        $responsePayload = $response->json();
+        $responsePayload = is_array($responsePayload) ? $responsePayload : [];
+
+        if (! $response->successful()) {
+            throw new \RuntimeException('PrivatBank payparts state request failed with HTTP ' . $response->status());
+        }
+
+        if (! $this->verifyResponseSignature($bank, $responsePayload, true)) {
+            throw new \RuntimeException('Invalid PrivatBank payparts state response signature');
+        }
+
+        return [
+            'request_payload' => $payload,
+            'response_payload' => $responsePayload,
+        ];
+    }
+
     public function decodeCallback(PaypartsBank $bank, string $data, string $signature): array
     {
         $expected = base64_encode(sha1((string) $bank->account_password . $data . (string) $bank->account_password, true));

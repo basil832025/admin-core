@@ -1715,6 +1715,21 @@ public function payPayparts($localeOrOrder, ?Order $order = null)
         : null;
     $error = null;
 
+    if ($paymentUrl && $transaction) {
+        $logKey = 'payparts_checkout_payload_logged:' . $transaction->id;
+        if (Cache::add($logKey, true, now()->addMinutes(30))) {
+            Log::info('Payparts checkout page payload', [
+                'order_id' => $order->id,
+                'transaction_id' => $transaction->id,
+                'bank_id' => $bank?->id,
+                'order_token' => $transaction->token,
+                'request_payload' => $transaction->request_payload,
+                'response_payload' => $transaction->response_payload,
+                'payment_url' => $paymentUrl,
+            ]);
+        }
+    }
+
     if (! $bank || ! $bank->is_active) {
         $error = st('cart.payment.payparts_bank_unavailable', 'Обраний банк зараз недоступний.');
     }
@@ -1826,6 +1841,43 @@ public function payPaypartsStatus($localeOrOrder, ?Order $order = null)
 
     if ($order->payment !== PaymentMethodEnum::PAYPARTS) {
         abort(404);
+    }
+
+    $order->loadMissing(['paypartsBank', 'lastPaypartsTransaction']);
+    $transaction = $order->lastPaypartsTransaction;
+    $bank = $order->paypartsBank;
+
+    if ($transaction && $bank && in_array((string) $order->payparts_status, ['payment_redirected', 'pending_payment'], true)) {
+        $syncKey = 'payparts_status_sync:' . $transaction->id;
+        if (Cache::add($syncKey, now()->timestamp, 8)) {
+            try {
+                $sync = PrivatBankPaypartsService::make()->fetchPaymentState($transaction);
+                $remote = $sync['response_payload'] ?? [];
+                $state = strtolower((string) ($remote['paymentState'] ?? $remote['state'] ?? $remote['status'] ?? 'payment_failed'));
+                $internalStatus = $this->normalizeStatus($state);
+
+                $transaction->update([
+                    'status' => $internalStatus,
+                    'response_payload' => $remote,
+                    'response_message' => $remote['message'] ?? $transaction->response_message,
+                ]);
+
+                if (in_array($internalStatus, ['payment_success', 'payment_failed'], true)) {
+                    $this->applyOrderPaypartsStatus($order, $transaction, $internalStatus);
+
+                    if ($internalStatus === 'payment_success') {
+                        $this->sendSuccessNotifications($order, $transaction);
+                        $this->fiscalizePaidOrder($order, $transaction);
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::info('Payparts status sync skipped', [
+                    'order_id' => $order->id,
+                    'transaction_id' => $transaction->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
     }
 
     $order->refresh();
