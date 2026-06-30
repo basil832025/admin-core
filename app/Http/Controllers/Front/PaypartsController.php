@@ -24,7 +24,18 @@ class PaypartsController extends Controller
     public function response(Request $request)
     {
         Log::info('Payparts response received', [
+            'method' => $request->method(),
+            'full_url' => $request->fullUrl(),
+            'query' => $request->query(),
             'payload' => $request->all(),
+            'raw_body' => $request->getContent(),
+            'headers' => [
+                'content-type' => $request->header('content-type'),
+                'user-agent' => $request->header('user-agent'),
+                'x-forwarded-for' => $request->header('x-forwarded-for'),
+                'x-real-ip' => $request->header('x-real-ip'),
+                'host' => $request->header('host'),
+            ],
         ]);
 
         $data = $request->input('data');
@@ -38,7 +49,13 @@ class PaypartsController extends Controller
         }
 
         if ($payload === [] || $signature === '') {
-            Log::warning('Payparts response empty payload', ['payload' => $request->all()]);
+            Log::warning('Payparts response empty payload', [
+                'method' => $request->method(),
+                'full_url' => $request->fullUrl(),
+                'query' => $request->query(),
+                'payload' => $request->all(),
+                'raw_body' => $request->getContent(),
+            ]);
             return response('error', 400);
         }
 
@@ -65,7 +82,11 @@ class PaypartsController extends Controller
             Log::warning('Payparts response invalid signature', [
                 'order_id' => $orderIdRaw,
                 'error' => $e->getMessage(),
+                'method' => $request->method(),
+                'full_url' => $request->fullUrl(),
+                'query' => $request->query(),
                 'payload' => $payload,
+                'raw_body' => $request->getContent(),
             ]);
             return response('error', 400);
         }
