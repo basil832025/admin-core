@@ -467,10 +467,12 @@ class CashalotFiscalService
 
         $originalFiscalNo = trim((string) ($sourceLog->num_fiscal ?? data_get($sourceLog->response_payload, 'NumFiscal') ?? ''));
         if ($originalFiscalNo !== '') {
+            $payload['NumFiscal'] = $originalFiscalNo;
             $payload['NUMFISCAL'] = $originalFiscalNo;
             $payload['CHECKHEAD'] = array_merge(
                 (array) ($payload['CHECKHEAD'] ?? []),
                 [
+                    'NumFiscal' => $originalFiscalNo,
                     'NUMFISCAL' => $originalFiscalNo,
                 ]
             );
@@ -501,10 +503,12 @@ class CashalotFiscalService
         $originalFiscalNo = trim((string) ($sourceLog->num_fiscal ?? data_get($sourceLog->response_payload, 'NumFiscal') ?? ''));
 
         if ($originalFiscalNo !== '') {
+            $storned['NumFiscal'] = $originalFiscalNo;
             $storned['NUMFISCAL'] = $originalFiscalNo;
             $storned['CHECKHEAD'] = array_merge(
                 (array) ($storned['CHECKHEAD'] ?? []),
                 [
+                    'NumFiscal' => $originalFiscalNo,
                     'NUMFISCAL' => $originalFiscalNo,
                 ]
             );
