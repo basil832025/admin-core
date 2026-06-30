@@ -160,7 +160,7 @@ class PrivatBankPaypartsService
             throw new \RuntimeException('PrivatBank payparts state request failed with HTTP ' . $response->status());
         }
 
-        if (! $this->verifyResponseSignature($bank, $responsePayload, true)) {
+        if (! $this->verifyStateResponseSignature($bank, $responsePayload)) {
             throw new \RuntimeException('Invalid PrivatBank payparts state response signature');
         }
 
@@ -196,6 +196,28 @@ class PrivatBankPaypartsService
         ));
 
         return $signature !== '' && hash_equals($expected, $signature);
+    }
+
+    private function verifyStateResponseSignature(PaypartsBank $bank, array $payload): bool
+    {
+        $signature = (string) ($payload['signature'] ?? '');
+        if ($signature === '') {
+            return false;
+        }
+
+        $message = (string) ($payload['message'] ?? '');
+        $expected = base64_encode(sha1(
+            (string) $bank->account_password
+            . (string) ($payload['state'] ?? '')
+            . (string) ($payload['storeId'] ?? $payload['storeIdentifier'] ?? '')
+            . (string) ($payload['orderId'] ?? '')
+            . (string) ($payload['paymentState'] ?? '')
+            . $message
+            . (string) $bank->account_password,
+            true
+        ));
+
+        return hash_equals($expected, $signature);
     }
 
     public function signRequest(

@@ -1719,8 +1719,8 @@ public function payPayparts($localeOrOrder, ?Order $order = null)
 
     if ($paymentUrl && $transaction) {
         $logKey = 'payparts_checkout_payload_logged:' . $transaction->id;
-        if (Cache::add($logKey, true, now()->addMinutes(30))) {
-            Log::info('Payparts checkout page payload', [
+        if (\Illuminate\Support\Facades\Cache::add($logKey, true, now()->addMinutes(30))) {
+            \Illuminate\Support\Facades\Log::info('Payparts checkout page payload', [
                 'order_id' => $order->id,
                 'transaction_id' => $transaction->id,
                 'bank_id' => $bank?->id,
@@ -1851,7 +1851,7 @@ public function payPaypartsStatus($localeOrOrder, ?Order $order = null)
 
     if ($transaction && $bank && in_array((string) $order->payparts_status, ['payment_redirected', 'pending_payment'], true)) {
         $syncKey = 'payparts_status_sync:' . $transaction->id;
-        if (Cache::add($syncKey, now()->timestamp, 8)) {
+        if (\Illuminate\Support\Facades\Cache::add($syncKey, now()->timestamp, 8)) {
             try {
                 $sync = PrivatBankPaypartsService::make()->fetchPaymentState($transaction);
                 $remote = $sync['response_payload'] ?? [];
@@ -1873,7 +1873,7 @@ public function payPaypartsStatus($localeOrOrder, ?Order $order = null)
                     }
                 }
             } catch (\Throwable $e) {
-                Log::info('Payparts status sync skipped', [
+                \Illuminate\Support\Facades\Log::info('Payparts status sync skipped', [
                     'order_id' => $order->id,
                     'transaction_id' => $transaction->id,
                     'error' => $e->getMessage(),
