@@ -126,6 +126,7 @@ class CashalotFiscalService
 
         $originalPayload = is_array($sourceLog->request_payload) ? $sourceLog->request_payload : [];
         $check = $this->buildReturnCheckPayload($order, $sourceLog, $originalPayload);
+        $stornedCheck = $this->buildStornedCheckPayload($sourceLog, $originalPayload);
 
         $log = CashalotLog::create([
             'shop_order_id' => $order->id,
@@ -144,10 +145,11 @@ class CashalotFiscalService
                 'source_log_id' => $sourceLog->id,
                 'source_num_fiscal' => $sourceLog->num_fiscal ?? data_get($sourceLog->response_payload, 'NumFiscal'),
                 'request_payload' => $check,
+                'storned_check' => $stornedCheck,
             ]);
 
             $response = app(CashalotApiClient::class)->registerCheck($check, [
-                'storned_check' => $originalPayload,
+                'storned_check' => $stornedCheck,
             ]);
 
             $errorCode = (string) ($response['ErrorCode'] ?? '');
@@ -491,6 +493,24 @@ class CashalotFiscalService
         );
 
         return $payload;
+    }
+
+    protected function buildStornedCheckPayload(CashalotLog $sourceLog, array $originalPayload): array
+    {
+        $storned = $originalPayload;
+        $originalFiscalNo = trim((string) ($sourceLog->num_fiscal ?? data_get($sourceLog->response_payload, 'NumFiscal') ?? ''));
+
+        if ($originalFiscalNo !== '') {
+            $storned['NUMFISCAL'] = $originalFiscalNo;
+            $storned['CHECKHEAD'] = array_merge(
+                (array) ($storned['CHECKHEAD'] ?? []),
+                [
+                    'NUMFISCAL' => $originalFiscalNo,
+                ]
+            );
+        }
+
+        return $storned;
     }
 
     protected function isTestingPayment(Order $order, array $liqpayPayload): bool
