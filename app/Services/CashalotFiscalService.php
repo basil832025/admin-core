@@ -125,33 +125,28 @@ class CashalotFiscalService
         }
 
         $originalPayload = is_array($sourceLog->request_payload) ? $sourceLog->request_payload : [];
-        $originalFiscalNo = trim((string) ($sourceLog->num_fiscal ?? data_get($sourceLog->response_payload, 'NumFiscal') ?? ''));
+        $successfulResponse = is_array($sourceLog->response_payload) ? $sourceLog->response_payload : [];
+        $originalFiscalNo = trim((string) ($sourceLog->num_fiscal ?? data_get($successfulResponse, 'NumFiscal') ?? data_get($successfulResponse, 'FiscalNumber') ?? ''));
         $check = $this->buildReturnCheckPayload($order, $sourceLog, $originalPayload);
-        $stornedCheck = $this->buildStornedCheckPayload($sourceLog, $originalPayload);
 
         $log = CashalotLog::create([
             'shop_order_id' => $order->id,
             'liqpay_log_id' => $sourceLog->liqpay_log_id,
             'status' => 'pending',
-            'check_sum' => (float) data_get($check, 'CHECKTOTAL.SUM', $this->resolveCheckSum($order)),
+            'check_sum' => (float) data_get($check, 'Payments.0.Sum', $this->resolveCheckSum($order)),
             'payment_type' => 'Cashalot return',
-            'request_payload' => array_merge($check, [
-                'StornedCheck' => $stornedCheck,
-            ]),
+            'request_payload' => $check,
         ]);
 
         try {
             \Illuminate\Support\Facades\Log::info('Cashalot return request', [
                 'order_id' => $order->id,
                 'source_log_id' => $sourceLog->id,
-                'source_num_fiscal' => $sourceLog->num_fiscal ?? data_get($sourceLog->response_payload, 'NumFiscal'),
+                'source_num_fiscal' => $originalFiscalNo,
                 'request_payload' => $check,
-                'storned_check' => $stornedCheck,
             ]);
 
-            $response = app(CashalotApiClient::class)->registerCheck($check, [
-                'storned_check' => $stornedCheck,
-            ]);
+            $response = app(CashalotApiClient::class)->registerCheck($check);
 
             $errorCode = (string) ($response['ErrorCode'] ?? '');
             $isSuccess = mb_strtolower($errorCode) === 'ok' || ! empty($response['NumFiscal']);
@@ -462,55 +457,46 @@ class CashalotFiscalService
 
     protected function buildReturnCheckPayload(Order $order, CashalotLog $sourceLog, array $originalPayload): array
     {
-        $payload = $originalPayload !== []
-            ? $originalPayload
-            : $this->buildRequestPayload($order, []);
+        $sourceFiscalNo = trim((string) ($sourceLog->num_fiscal ?? data_get($sourceLog->response_payload, 'NumFiscal') ?? data_get($sourceLog->response_payload, 'FiscalNumber') ?? ''));
+        $positions = $this->buildReturnPositions($order);
+        $total = $this->resolveCheckSum($order);
 
-        $originalFiscalNo = trim((string) ($sourceLog->num_fiscal ?? data_get($sourceLog->response_payload, 'NumFiscal') ?? ''));
-        if ($originalFiscalNo !== '') {
-            $payload['CHECKHEAD'] = array_merge(
-                (array) ($payload['CHECKHEAD'] ?? []),
+        return [
+            'CheckDocumentSubType' => 1,
+            'SourceCheckFiscalNumber' => $sourceFiscalNo,
+            'Positions' => $positions,
+            'Payments' => [
                 [
-                    'NumFiscal' => $originalFiscalNo,
-                ]
-            );
-        }
-
-        $payload['CHECKHEAD'] = array_merge(
-            (array) ($payload['CHECKHEAD'] ?? []),
-            [
-                'DOCTYPE' => 'SaleGoods',
-                'DOCSUBTYPE' => 'CheckStorno',
-                'TESTING' => (bool) data_get($originalPayload, 'CHECKHEAD.TESTING', false),
-            ]
-        );
-
-        $payload['CHECKTOTAL'] = array_merge(
-            (array) ($payload['CHECKTOTAL'] ?? []),
-            [
-                'SUM' => $this->resolveCheckSum($order),
-            ]
-        );
-
-        return $payload;
+                    'PaymentType' => 1,
+                    'Sum' => $total,
+                    'CardInvoiceNumber' => '',
+                ],
+            ],
+        ];
     }
 
-    protected function buildStornedCheckPayload(CashalotLog $sourceLog, array $originalPayload): array
+    protected function buildReturnPositions(Order $order): array
     {
-        $storned = $originalPayload;
-        $originalFiscalNo = trim((string) ($sourceLog->num_fiscal ?? data_get($sourceLog->response_payload, 'NumFiscal') ?? ''));
+        $order->loadMissing('items.product');
 
-        if ($originalFiscalNo !== '') {
-            $storned['NumFiscal'] = $originalFiscalNo;
-            $storned['CHECKHEAD'] = array_merge(
-                (array) ($storned['CHECKHEAD'] ?? []),
-                [
-                    'NumFiscal' => $originalFiscalNo,
-                ]
-            );
-        }
+        return $order->items
+            ->map(function ($item): array {
+                $qty = (float) ($item->qty ?? 0);
+                $price = round((float) ($item->unit_price ?? 0), 2);
+                $sum = round($qty * $price, 2);
 
-        return $storned;
+                return [
+                    'Code' => (string) ($item->sku ?? $item->product_id ?? $item->id),
+                    'Name' => Str::limit($this->resolveItemName($item), 180, ''),
+                    'Quantity' => round($qty, 3),
+                    'Price' => $price,
+                    'Sum' => $sum,
+                    'TaxRateIndex' => 1,
+                ];
+            })
+            ->filter(fn (array $row): bool => (float) ($row['Quantity'] ?? 0) > 0)
+            ->values()
+            ->all();
     }
 
     protected function isTestingPayment(Order $order, array $liqpayPayload): bool
