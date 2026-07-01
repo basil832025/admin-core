@@ -126,7 +126,6 @@ class CashalotFiscalService
 
         $originalPayload = is_array($sourceLog->request_payload) ? $sourceLog->request_payload : [];
         $originalFiscalNo = trim((string) ($sourceLog->num_fiscal ?? data_get($sourceLog->response_payload, 'NumFiscal') ?? ''));
-        $stornedCheckToConvert = $originalFiscalNo !== '' ? $originalFiscalNo : null;
         $check = $this->buildReturnCheckPayload($order, $sourceLog, $originalPayload);
         $stornedCheck = $this->buildStornedCheckPayload($sourceLog, $originalPayload);
 
@@ -152,8 +151,6 @@ class CashalotFiscalService
 
             $response = app(CashalotApiClient::class)->registerCheck($check, [
                 'storned_check' => $stornedCheck,
-                'storned_check_to_convert' => $stornedCheckToConvert,
-                'check_to_convert' => $stornedCheckToConvert,
             ]);
 
             $errorCode = (string) ($response['ErrorCode'] ?? '');
@@ -471,13 +468,10 @@ class CashalotFiscalService
 
         $originalFiscalNo = trim((string) ($sourceLog->num_fiscal ?? data_get($sourceLog->response_payload, 'NumFiscal') ?? ''));
         if ($originalFiscalNo !== '') {
-            $payload['NumFiscal'] = $originalFiscalNo;
-            $payload['NUMFISCAL'] = $originalFiscalNo;
             $payload['CHECKHEAD'] = array_merge(
                 (array) ($payload['CHECKHEAD'] ?? []),
                 [
                     'NumFiscal' => $originalFiscalNo,
-                    'NUMFISCAL' => $originalFiscalNo,
                 ]
             );
         }
@@ -507,13 +501,10 @@ class CashalotFiscalService
         $originalFiscalNo = trim((string) ($sourceLog->num_fiscal ?? data_get($sourceLog->response_payload, 'NumFiscal') ?? ''));
 
         if ($originalFiscalNo !== '') {
-            $storned['NumFiscal'] = $originalFiscalNo;
-            $storned['NUMFISCAL'] = $originalFiscalNo;
             $storned['CHECKHEAD'] = array_merge(
                 (array) ($storned['CHECKHEAD'] ?? []),
                 [
                     'NumFiscal' => $originalFiscalNo,
-                    'NUMFISCAL' => $originalFiscalNo,
                 ]
             );
         }
