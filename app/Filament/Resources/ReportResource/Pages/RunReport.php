@@ -174,7 +174,7 @@ class RunReport extends Page implements Forms\Contracts\HasForms
             if ($type === 'date') {
                 $fields[] = DatePicker::make($fieldPath)
                     ->label($label !== '' ? $label : $key)
-                    ->default(is_scalar($default) ? (string) $default : null)
+                    ->default(now()->toDateString())
                     ->required($required)
                     ->native(false)
                     ->columnSpan(3);
@@ -263,7 +263,11 @@ class RunReport extends Page implements Forms\Contracts\HasForms
                 continue;
             }
 
-            $params[$key] = $item['default'] ?? null;
+            $type = mb_strtolower(trim((string) ($item['type'] ?? 'text')));
+
+            $params[$key] = $type === 'date'
+                ? now()->toDateString()
+                : ($item['default'] ?? null);
         }
 
         return $params;
