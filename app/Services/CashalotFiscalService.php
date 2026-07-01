@@ -501,6 +501,7 @@ class CashalotFiscalService
         $originalFiscalNo = trim((string) ($sourceLog->num_fiscal ?? data_get($sourceLog->response_payload, 'NumFiscal') ?? ''));
 
         if ($originalFiscalNo !== '') {
+            $storned['NumFiscal'] = $originalFiscalNo;
             $storned['CHECKHEAD'] = array_merge(
                 (array) ($storned['CHECKHEAD'] ?? []),
                 [
