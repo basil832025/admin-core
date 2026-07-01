@@ -135,7 +135,7 @@ class CashalotFiscalService
             'check_sum' => (float) data_get($check, 'CHECKTOTAL.SUM', $this->resolveCheckSum($order)),
             'payment_type' => 'Cashalot return',
             'request_payload' => array_merge($check, [
-                'StornedCheck' => $originalPayload,
+                'StornedCheck' => $stornedCheck,
             ]),
         ]);
 
@@ -150,6 +150,8 @@ class CashalotFiscalService
 
             $response = app(CashalotApiClient::class)->registerCheck($check, [
                 'storned_check' => $stornedCheck,
+                'storned_check_to_convert' => $stornedCheckToConvert,
+                'check_to_convert' => $stornedCheckToConvert,
             ]);
 
             $errorCode = (string) ($response['ErrorCode'] ?? '');
@@ -466,6 +468,7 @@ class CashalotFiscalService
             : $this->buildRequestPayload($order, []);
 
         $originalFiscalNo = trim((string) ($sourceLog->num_fiscal ?? data_get($sourceLog->response_payload, 'NumFiscal') ?? ''));
+        $stornedCheckToConvert = $originalFiscalNo !== '' ? $originalFiscalNo : null;
         if ($originalFiscalNo !== '') {
             $payload['NumFiscal'] = $originalFiscalNo;
             $payload['NUMFISCAL'] = $originalFiscalNo;
