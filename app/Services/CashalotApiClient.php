@@ -29,17 +29,6 @@ class CashalotApiClient
             'VisAsHtml' => (bool) Arr::get($options, 'vis_as_html', config('cashalot.vis_as_html', false)),
         ];
 
-        if (isset($options['check_to_convert'])) {
-            $payload['CheckToConvert'] = (string) $options['check_to_convert'];
-        }
-
-        if (isset($options['storned_check']) && is_array($options['storned_check'])) {
-            $payload['StornedCheck'] = $options['storned_check'];
-        }
-
-        if (isset($options['storned_check_to_convert'])) {
-            $payload['StornedCheckToConvert'] = (string) $options['storned_check_to_convert'];
-        }
 
         return $this->send($payload);
     }

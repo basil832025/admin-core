@@ -463,12 +463,12 @@ class CashalotFiscalService
 
         return [
             'CHECKHEAD' => [
-                'DOCTYPE' => 'SaleGoods',
-                'DOCSUBTYPE' => 'CheckStorno',
-                'TESTING' => false,
+                'DOCTYPE' => 0,
+                'DOCSUBTYPE' => 3,
             ],
-            'CheckDocumentSubType' => 1,
-            'SourceCheckFiscalNumber' => $sourceFiscalNo,
+            'StornedCheck' => [
+                'FiscalNumber' => $sourceFiscalNo,
+            ],
             'Positions' => $positions,
             'Payments' => [
                 [
