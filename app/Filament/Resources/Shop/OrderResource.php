@@ -43,7 +43,7 @@ use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
-use Filament\Tables\Actions\Action;               // <— для таблицы (модалка «Статусы»)
+use Filament\Tables\Actions\Action;               // <РІР‚вЂќ Р Т‘Р В»РЎРЏ РЎвЂљР В°Р В±Р В»Р С‘РЎвЂ РЎвЂ№ (Р СР С•Р Т‘Р В°Р В»Р С”Р В° Р’В«Р РЋРЎвЂљР В°РЎвЂљРЎС“РЎРѓРЎвЂ№Р’В»)
 use Filament\Tables\Actions\BulkActionGroup;
 use Filament\Tables\Actions\DeleteBulkAction;
 use Filament\Tables\Actions\EditAction;
@@ -156,7 +156,7 @@ class OrderResource extends Resource
     }
 
     // =========================
-    //   Переиспользуемая форма модалки статусов
+    //   Р СџР ВµРЎР‚Р ВµР С‘РЎРѓР С—Р С•Р В»РЎРЉР В·РЎС“Р ВµР СР В°РЎРЏ РЎвЂћР С•РЎР‚Р СР В° Р СР С•Р Т‘Р В°Р В»Р С”Р С‘ РЎРѓРЎвЂљР В°РЎвЂљРЎС“РЎРѓР С•Р Р†
     // =========================
     public static function statusModalForm(): array
     {
@@ -220,7 +220,7 @@ class OrderResource extends Resource
                                 $modifierSum = $modifiers->sum(fn ($mod) => (float) ($mod['price_modifier'] ?? 0));
                                 return $qty * ($price + $modifierSum);
                             });
-                            return number_format($total, 2, ',', ' ') . ' грн';
+                            return number_format($total, 2, ',', ' ') . ' Р С–РЎР‚Р Р…';
                         })
                         ->reactive()
                         ->columnSpanFull(),
@@ -232,7 +232,7 @@ class OrderResource extends Resource
     public static function getSidebarSchema(): array
     {
         return [
-            // ——— Суммы и скидки ———
+            // РІР‚вЂќРІР‚вЂќРІР‚вЂќ Р РЋРЎС“Р СР СРЎвЂ№ Р С‘ РЎРѓР С”Р С‘Р Т‘Р С”Р С‘ РІР‚вЂќРІР‚вЂќРІР‚вЂќ
             Section::make(__('order.sections.amount_discounts'))
                 ->schema([
                     Placeholder::make('order_total_right')
@@ -251,11 +251,11 @@ class OrderResource extends Resource
                                 return $qty * ($price + $modsSum);
                             });
 
-                            return number_format($base, 2, ',', ' ') . ' грн';
+                            return number_format($base, 2, ',', ' ') . ' Р С–РЎР‚Р Р…';
                         })
                         ->reactive(),
 
-                    // 1) Фіксована знижка
+                    // 1) Р В¤РЎвЂ“Р С”РЎРѓР С•Р Р†Р В°Р Р…Р В° Р В·Р Р…Р С‘Р В¶Р С”Р В°
              /*       Select::make('ui_fixed_discount_id')
                         ->label(__('order.fields.fixed_discount'))
                         ->dehydrated(false)
@@ -283,7 +283,7 @@ class OrderResource extends Resource
                             $set('ui_version', microtime(true));
                         }),*/
 
-                    // 2) Знижки за часом (happy hours)
+                    // 2) Р вЂ”Р Р…Р С‘Р В¶Р С”Р С‘ Р В·Р В° РЎвЂЎР В°РЎРѓР С•Р С (happy hours)
                     Select::make('ui_time_discount_id')
                         ->label(__('order.fields.time_discount'))
                         ->searchable()
@@ -322,7 +322,7 @@ class OrderResource extends Resource
                                 ->pluck('name', 'id')
                                 ->toArray();
 
-                            return ['none' => 'Без акції'] + $options;
+                            return ['none' => 'Р вЂР ВµР В· Р В°Р С”РЎвЂ РЎвЂ“РЎвЂ”'] + $options;
                         })
                         ->afterStateUpdated(function ($state, Set $set, Get $get, ?Order $record) {
                             if (! $record) return;
@@ -371,13 +371,13 @@ class OrderResource extends Resource
 
                                 Notification::make()
                                     ->warning()
-                                    ->title('Акція не застосовується до цього замовлення')
-                                    ->body('Вибрана знижка за часом не підходить для товарів у поточному замовленні.')
+                                    ->title('Р С’Р С”РЎвЂ РЎвЂ“РЎРЏ Р Р…Р Вµ Р В·Р В°РЎРѓРЎвЂљР С•РЎРѓР С•Р Р†РЎС“РЎвЂќРЎвЂљРЎРЉРЎРѓРЎРЏ Р Т‘Р С• РЎвЂ РЎРЉР С•Р С–Р С• Р В·Р В°Р СР С•Р Р†Р В»Р ВµР Р…Р Р…РЎРЏ')
+                                    ->body('Р вЂ™Р С‘Р В±РЎР‚Р В°Р Р…Р В° Р В·Р Р…Р С‘Р В¶Р С”Р В° Р В·Р В° РЎвЂЎР В°РЎРѓР С•Р С Р Р…Р Вµ Р С—РЎвЂ“Р Т‘РЎвЂ¦Р С•Р Т‘Р С‘РЎвЂљРЎРЉ Р Т‘Р В»РЎРЏ РЎвЂљР С•Р Р†Р В°РЎР‚РЎвЂ“Р Р† РЎС“ Р С—Р С•РЎвЂљР С•РЎвЂЎР Р…Р С•Р СРЎС“ Р В·Р В°Р СР С•Р Р†Р В»Р ВµР Р…Р Р…РЎвЂ“.')
                                     ->send();
                             }
                         }),
 
-                    // 3) Промокод
+                    // 3) Р СџРЎР‚Р С•Р СР С•Р С”Р С•Р Т‘
                     TextInput::make('ui_promo_code')
                         ->label(__('order.fields.promo_code'))
                         ->placeholder(__('order.placeholders.promo_code'))
@@ -404,9 +404,9 @@ class OrderResource extends Resource
                                     if ($ok) {
                                         $set('ui_promo_code', $code);
                                         $set('delivery_price_auto', 'discount_coupon_apply_' . microtime(true));
-                                        Notification::make()->title('Промокод застосовано')->success()->send();
+                                        Notification::make()->title('Р СџРЎР‚Р С•Р СР С•Р С”Р С•Р Т‘ Р В·Р В°РЎРѓРЎвЂљР С•РЎРѓР С•Р Р†Р В°Р Р…Р С•')->success()->send();
                                     } else {
-                                        Notification::make()->title('Промокод не дійсний')->danger()->send();
+                                        Notification::make()->title('Р СџРЎР‚Р С•Р СР С•Р С”Р С•Р Т‘ Р Р…Р Вµ Р Т‘РЎвЂ“Р в„–РЎРѓР Р…Р С‘Р в„–')->danger()->send();
                                     }
                                 }),
 
@@ -442,16 +442,16 @@ class OrderResource extends Resource
 
                                         Notification::make()
                                             ->success()
-                                            ->title('Промокод удален')
+                                            ->title('Р СџРЎР‚Р С•Р СР С•Р С”Р С•Р Т‘ РЎС“Р Т‘Р В°Р В»Р ВµР Р…')
                                             ->send();
                                     } catch (\Exception $e) {
                                         Notification::make()
                                             ->danger()
-                                            ->title('Ошибка при удалении промокода')
+                                            ->title('Р С›РЎв‚¬Р С‘Р В±Р С”Р В° Р С—РЎР‚Р С‘ РЎС“Р Т‘Р В°Р В»Р ВµР Р…Р С‘Р С‘ Р С—РЎР‚Р С•Р СР С•Р С”Р С•Р Т‘Р В°')
                                             ->body($e->getMessage())
                                             ->send();
 
-                                        Log::error('Ошибка при удалении промокода из заказа', [
+                                        Log::error('Р С›РЎв‚¬Р С‘Р В±Р С”Р В° Р С—РЎР‚Р С‘ РЎС“Р Т‘Р В°Р В»Р ВµР Р…Р С‘Р С‘ Р С—РЎР‚Р С•Р СР С•Р С”Р С•Р Т‘Р В° Р С‘Р В· Р В·Р В°Р С”Р В°Р В·Р В°', [
                                             'order_id' => $record->id,
                                             'error' => $e->getMessage(),
                                             'trace' => $e->getTraceAsString(),
@@ -529,7 +529,7 @@ class OrderResource extends Resource
                     Placeholder::make('ui_adjustments_list')
                         ->label(__('order.fields.applied_discounts'))
                         ->content(function (?Order $order, Get $get) {
-                            if (! $order) return new HtmlString('—');
+                            if (! $order) return new HtmlString('РІР‚вЂќ');
 
                             $orderId = (int) ($order->getKey() ?: ($get('id') ?? 0));
                             $rows = $orderId > 0
@@ -561,7 +561,7 @@ class OrderResource extends Resource
 
                                 return '<div class="space-y-1">'
                                     . '<div class="flex justify-between text-sm">'
-                                    . '<div><span class="font-medium">Скидка по заказу</span></div>'
+                                    . '<div><span class="font-medium">Р РЋР С”Р С‘Р Т‘Р С”Р В° Р С—Р С• Р В·Р В°Р С”Р В°Р В·РЎС“</span></div>'
                                     . '<div class="text-rose-600">-'
                                     . number_format($discountAmount, 2, ',', ' ')
                                     . ' '
@@ -578,7 +578,7 @@ class OrderResource extends Resource
                                     return new HtmlString($fallback);
                                 }
 
-                                return new HtmlString('<div class="text-sm text-gray-500">Скидки не применены</div>');
+                                return new HtmlString('<div class="text-sm text-gray-500">Р РЋР С”Р С‘Р Т‘Р С”Р С‘ Р Р…Р Вµ Р С—РЎР‚Р С‘Р СР ВµР Р…Р ВµР Р…РЎвЂ№</div>');
                             }
 
                             $out = '<div class="space-y-1">';
@@ -634,18 +634,18 @@ class OrderResource extends Resource
                         ->label(__('order.fields.bonuses_written_off'))
                         ->content(function (?Order $order) {
                             if (! $order) {
-                                return new HtmlString('—');
+                                return new HtmlString('РІР‚вЂќ');
                             }
 
                             $spent = static::resolveSpentBonuses($order);
 
                             if ($spent <= 0) {
                                 return new HtmlString(
-                                    '<div class="text-sm text-gray-500">Бонуси не використовувались</div>'
+                                    '<div class="text-sm text-gray-500">Р вЂР С•Р Р…РЎС“РЎРѓР С‘ Р Р…Р Вµ Р Р†Р С‘Р С”Р С•РЎР‚Р С‘РЎРѓРЎвЂљР С•Р Р†РЎС“Р Р†Р В°Р В»Р С‘РЎРѓРЎРЉ</div>'
                                 );
                             }
 
-                            $val = number_format($spent, 2, ',', ' ') . ' грн';
+                            $val = number_format($spent, 2, ',', ' ') . ' Р С–РЎР‚Р Р…';
 
                             return new HtmlString(
                                 '<div class="text-lg font-semibold">'.$val.'</div>'
@@ -655,16 +655,16 @@ class OrderResource extends Resource
                     Hidden::make('ui_version')->dehydrated(false)->reactive(),
                     Hidden::make('total_price')
                         ->dehydrated(true)
-                        ->afterStateHydrated(fn ($component) => $component->state(null)) // не мешаем редактированию
+                        ->afterStateHydrated(fn ($component) => $component->state(null)) // Р Р…Р Вµ Р СР ВµРЎв‚¬Р В°Р ВµР С РЎР‚Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚Р С•Р Р†Р В°Р Р…Р С‘РЎР‹
                         ->dehydrateStateUsing(fn (Get $get) => round(static::calcBaseTotalFromGet($get), 2)),
 
                     Hidden::make('discount_total')
                         ->dehydrated(true)
                         ->afterStateHydrated(fn ($component) => $component->state(null))
                         ->dehydrateStateUsing(function (?Order $record) {
-                            // если записи нет или скидок нет — 0
+                            // Р ВµРЎРѓР В»Р С‘ Р В·Р В°Р С—Р С‘РЎРѓР С‘ Р Р…Р ВµРЎвЂљ Р С‘Р В»Р С‘ РЎРѓР С”Р С‘Р Т‘Р С•Р С” Р Р…Р ВµРЎвЂљ РІР‚вЂќ 0
                             if (! $record) return 0.0;
-                            return (float) $record->adjustments()->sum('amount'); // скидки у тебя отрицательные
+                            return (float) $record->adjustments()->sum('amount'); // РЎРѓР С”Р С‘Р Т‘Р С”Р С‘ РЎС“ РЎвЂљР ВµР В±РЎРЏ Р С•РЎвЂљРЎР‚Р С‘РЎвЂ Р В°РЎвЂљР ВµР В»РЎРЉР Р…РЎвЂ№Р Вµ
                         }),
 
                     Hidden::make('grand_total')
@@ -677,22 +677,22 @@ class OrderResource extends Resource
 
                             return round((float) ($resolved['final'] ?? 0), 2);
                         }),
-                    // Скрытое поле для отслеживания изменений координат (триггер для обновления доставки)
+                    // Р РЋР С”РЎР‚РЎвЂ№РЎвЂљР С•Р Вµ Р С—Р С•Р В»Р Вµ Р Т‘Р В»РЎРЏ Р С•РЎвЂљРЎРѓР В»Р ВµР В¶Р С‘Р Р†Р В°Р Р…Р С‘РЎРЏ Р С‘Р В·Р СР ВµР Р…Р ВµР Р…Р С‘Р в„– Р С”Р С•Р С•РЎР‚Р Т‘Р С‘Р Р…Р В°РЎвЂљ (РЎвЂљРЎР‚Р С‘Р С–Р С–Р ВµРЎР‚ Р Т‘Р В»РЎРЏ Р С•Р В±Р Р…Р С•Р Р†Р В»Р ВµР Р…Р С‘РЎРЏ Р Т‘Р С•РЎРѓРЎвЂљР В°Р Р†Р С”Р С‘)
                     Hidden::make('delivery_coords_trigger')
                         ->dehydrated(false)
                         ->default('')
                         ->live()
                         ->reactive()
                         ->afterStateUpdated(function ($state, callable $set, Get $get, ?Order $record) {
-                            // Триггерим обновление delivery_price_auto для пересчета shipping_price
+                            // Р СћРЎР‚Р С‘Р С–Р С–Р ВµРЎР‚Р С‘Р С Р С•Р В±Р Р…Р С•Р Р†Р В»Р ВµР Р…Р С‘Р Вµ delivery_price_auto Р Т‘Р В»РЎРЏ Р С—Р ВµРЎР‚Р ВµРЎРѓРЎвЂЎР ВµРЎвЂљР В° shipping_price
                             \Log::info('OrderResource: delivery_coords_trigger afterStateUpdated', [
                                 'trigger' => $state,
                             ]);
 
-                            // Обновляем delivery_price_auto для пересчета shipping_price
+                            // Р С›Р В±Р Р…Р С•Р Р†Р В»РЎРЏР ВµР С delivery_price_auto Р Т‘Р В»РЎРЏ Р С—Р ВµРЎР‚Р ВµРЎРѓРЎвЂЎР ВµРЎвЂљР В° shipping_price
                             $set('delivery_price_auto', $state ?: time());
 
-                            // Также напрямую обновляем shipping_price, если координаты есть
+                            // Р СћР В°Р С”Р В¶Р Вµ Р Р…Р В°Р С—РЎР‚РЎРЏР СРЎС“РЎР‹ Р С•Р В±Р Р…Р С•Р Р†Р В»РЎРЏР ВµР С shipping_price, Р ВµРЎРѓР В»Р С‘ Р С”Р С•Р С•РЎР‚Р Т‘Р С‘Р Р…Р В°РЎвЂљРЎвЂ№ Р ВµРЎРѓРЎвЂљРЎРЉ
                             if ($state) {
                                 $address = $get('address') ?? [];
                                 $latitude = $address['latitude'] ?? null;
@@ -712,7 +712,7 @@ class OrderResource extends Resource
 
                                     $currentShippingPrice = (float) ($get('shipping_price') ?? 0);
 
-                                    // Обновляем shipping_price если текущее значение равно 0 или близко к рассчитанному
+                                    // Р С›Р В±Р Р…Р С•Р Р†Р В»РЎРЏР ВµР С shipping_price Р ВµРЎРѓР В»Р С‘ РЎвЂљР ВµР С”РЎС“РЎвЂ°Р ВµР Вµ Р В·Р Р…Р В°РЎвЂЎР ВµР Р…Р С‘Р Вµ РЎР‚Р В°Р Р†Р Р…Р С• 0 Р С‘Р В»Р С‘ Р В±Р В»Р С‘Р В·Р С”Р С• Р С” РЎР‚Р В°РЎРѓРЎРѓРЎвЂЎР С‘РЎвЂљР В°Р Р…Р Р…Р С•Р СРЎС“
                                     if ($currentShippingPrice == 0 || abs($currentShippingPrice - $calculatedPrice) < 0.01) {
                                         $set('shipping_price', $calculatedPrice);
                                         \Log::info('OrderResource: shipping_price updated via delivery_coords_trigger', [
@@ -724,18 +724,18 @@ class OrderResource extends Resource
                             }
                         }),
 
-                    // Сумма доставки (редактируемое поле)
+                    // Р РЋРЎС“Р СР СР В° Р Т‘Р С•РЎРѓРЎвЂљР В°Р Р†Р С”Р С‘ (РЎР‚Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚РЎС“Р ВµР СР С•Р Вµ Р С—Р С•Р В»Р Вµ)
                     TextInput::make('shipping_price')
-                        ->label('Сумма доставки')
+                        ->label('Р РЋРЎС“Р СР СР В° Р Т‘Р С•РЎРѓРЎвЂљР В°Р Р†Р С”Р С‘')
                         ->numeric()
-                        ->suffix('грн')
+                        ->suffix('Р С–РЎР‚Р Р…')
                         ->step(0.01)
                         ->minValue(0)
                         ->default(0)
                         ->reactive()
                         ->live()
                         ->afterStateHydrated(function (TextInput $component, $state, ?Order $record, Get $get) {
-                            // При загрузке формы, если shipping_price пустой, рассчитываем автоматически
+                            // Р СџРЎР‚Р С‘ Р В·Р В°Р С–РЎР‚РЎС“Р В·Р С”Р Вµ РЎвЂћР С•РЎР‚Р СРЎвЂ№, Р ВµРЎРѓР В»Р С‘ shipping_price Р С—РЎС“РЎРѓРЎвЂљР С•Р в„–, РЎР‚Р В°РЎРѓРЎРѓРЎвЂЎР С‘РЎвЂљРЎвЂ№Р Р†Р В°Р ВµР С Р В°Р Р†РЎвЂљР С•Р СР В°РЎвЂљР С‘РЎвЂЎР ВµРЎРѓР С”Р С‘
                             if (!$state && $record) {
                                 $address = $get('address') ?? [];
                                 $latitude = $address['latitude'] ?? null;
@@ -756,7 +756,7 @@ class OrderResource extends Resource
                             }
                         })
                         ->afterStateUpdated(function ($state, callable $set, Get $get, ?Order $record) {
-                            // При изменении суммы доставки пересчитываем итоговую сумму
+                            // Р СџРЎР‚Р С‘ Р С‘Р В·Р СР ВµР Р…Р ВµР Р…Р С‘Р С‘ РЎРѓРЎС“Р СР СРЎвЂ№ Р Т‘Р С•РЎРѓРЎвЂљР В°Р Р†Р С”Р С‘ Р С—Р ВµРЎР‚Р ВµРЎРѓРЎвЂЎР С‘РЎвЂљРЎвЂ№Р Р†Р В°Р ВµР С Р С‘РЎвЂљР С•Р С–Р С•Р Р†РЎС“РЎР‹ РЎРѓРЎС“Р СР СРЎС“
                             if ($record) {
                                 $set('shipping_total', (float)$state);
                             }
@@ -768,11 +768,11 @@ class OrderResource extends Resource
                             $selfPickup = $get('self_pickup') ?? false;
 
                             if ($selfPickup) {
-                                return 'Самовывоз';
+                                return 'Р РЋР В°Р СР С•Р Р†РЎвЂ№Р Р†Р С•Р В·';
                             }
 
                             if (!$latitude || !$longitude) {
-                                return 'Выберите адрес для расчета доставки';
+                                return 'Р вЂ™РЎвЂ№Р В±Р ВµРЎР‚Р С‘РЎвЂљР Вµ Р В°Р Т‘РЎР‚Р ВµРЎРѓ Р Т‘Р В»РЎРЏ РЎР‚Р В°РЎРѓРЎвЂЎР ВµРЎвЂљР В° Р Т‘Р С•РЎРѓРЎвЂљР В°Р Р†Р С”Р С‘';
                             }
 
                             $deliveryService = app(\App\Services\DeliveryCalculationService::class);
@@ -791,22 +791,22 @@ class OrderResource extends Resource
 
                             $color = e($zone->color ?? '#64748b');
                             $name = e($zone->name ?? '');
-                            $html = '<span style="display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:999px;background:' . $color . ';color:#fff;">Зона: <strong>' . $name . '</strong></span>';
+                            $html = '<span style="display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:999px;background:' . $color . ';color:#fff;">Р вЂ”Р С•Р Р…Р В°: <strong>' . $name . '</strong></span>';
 
                             if ($delivery['is_free']) {
-                                $html .= ' <span style="color:#16a34a;">Бесплатная доставка (от ' . number_format((float) $zone->free_delivery_from, 2, ',', ' ') . ' грн)</span>';
+                                $html .= ' <span style="color:#16a34a;">Р вЂР ВµРЎРѓР С—Р В»Р В°РЎвЂљР Р…Р В°РЎРЏ Р Т‘Р С•РЎРѓРЎвЂљР В°Р Р†Р С”Р В° (Р С•РЎвЂљ ' . number_format((float) $zone->free_delivery_from, 2, ',', ' ') . ' Р С–РЎР‚Р Р…)</span>';
                             }
 
                             return new \Illuminate\Support\HtmlString($html);
                         })
                         ->visible(fn (Get $get) => !($get('self_pickup') ?? false)),
 
-                    // Скрытое поле для автоматического обновления shipping_price при изменении координат
+                    // Р РЋР С”РЎР‚РЎвЂ№РЎвЂљР С•Р Вµ Р С—Р С•Р В»Р Вµ Р Т‘Р В»РЎРЏ Р В°Р Р†РЎвЂљР С•Р СР В°РЎвЂљР С‘РЎвЂЎР ВµРЎРѓР С”Р С•Р С–Р С• Р С•Р В±Р Р…Р С•Р Р†Р В»Р ВµР Р…Р С‘РЎРЏ shipping_price Р С—РЎР‚Р С‘ Р С‘Р В·Р СР ВµР Р…Р ВµР Р…Р С‘Р С‘ Р С”Р С•Р С•РЎР‚Р Т‘Р С‘Р Р…Р В°РЎвЂљ
                     Hidden::make('delivery_price_auto')
                         ->dehydrated(false)
                         ->reactive()
                         ->afterStateUpdated(function ($state, callable $set, Get $get, ?Order $record) {
-                            // Автоматически обновляем shipping_price при изменении координат
+                            // Р С’Р Р†РЎвЂљР С•Р СР В°РЎвЂљР С‘РЎвЂЎР ВµРЎРѓР С”Р С‘ Р С•Р В±Р Р…Р С•Р Р†Р В»РЎРЏР ВµР С shipping_price Р С—РЎР‚Р С‘ Р С‘Р В·Р СР ВµР Р…Р ВµР Р…Р С‘Р С‘ Р С”Р С•Р С•РЎР‚Р Т‘Р С‘Р Р…Р В°РЎвЂљ
                             \Log::info('OrderResource: delivery_price_auto afterStateUpdated called', [
                                 'state' => $state,
                                 'has_record' => !is_null($record),
@@ -850,7 +850,7 @@ class OrderResource extends Resource
 
                             $delivery = $deliveryService->calculateDelivery($tempOrder, $orderTotal);
 
-                            // Обновляем shipping_price
+                            // Р С›Р В±Р Р…Р С•Р Р†Р В»РЎРЏР ВµР С shipping_price
                             $currentShippingPrice = (float) ($get('shipping_price') ?? 0);
                             $calculatedPrice = (float) ($delivery['price'] ?? 0);
 
@@ -878,12 +878,12 @@ class OrderResource extends Resource
                         ->dehydrated(false)
                         ->reactive()
                         ->content(function (?Order $record, Get $get) {
-                            // 1) Базовая сумма из текущих позиций формы
+                            // 1) Р вЂР В°Р В·Р С•Р Р†Р В°РЎРЏ РЎРѓРЎС“Р СР СР В° Р С‘Р В· РЎвЂљР ВµР С”РЎС“РЎвЂ°Р С‘РЎвЂ¦ Р С—Р С•Р В·Р С‘РЎвЂ Р С‘Р в„– РЎвЂћР С•РЎР‚Р СРЎвЂ№
                             $baseTotal = static::calcBaseTotalFromGet($get);
 
-                            // 2) Если заказа ещё нет — просто показываем базу
+                            // 2) Р вЂўРЎРѓР В»Р С‘ Р В·Р В°Р С”Р В°Р В·Р В° Р ВµРЎвЂ°РЎвЂ Р Р…Р ВµРЎвЂљ РІР‚вЂќ Р С—РЎР‚Р С•РЎРѓРЎвЂљР С• Р С—Р С•Р С”Р В°Р В·РЎвЂ№Р Р†Р В°Р ВµР С Р В±Р В°Р В·РЎС“
                             if (! $record) {
-                                $val = number_format($baseTotal, 2, ',', ' ') . ' грн';
+                                $val = number_format($baseTotal, 2, ',', ' ') . ' Р С–РЎР‚Р Р…';
                                 return new \Illuminate\Support\HtmlString('<div class="text-lg font-semibold">'.$val.'</div>');
                             }
 
@@ -893,28 +893,28 @@ class OrderResource extends Resource
                             $bonusesSpent = (float) ($resolved['bonuses'] ?? 0);
                             $amount = max(0, $finalAmount - $deliveryPrice);
 
-                            // 4) Показываем breakdown
+                            // 4) Р СџР С•Р С”Р В°Р В·РЎвЂ№Р Р†Р В°Р ВµР С breakdown
                             $address = $get('address') ?? [];
                             $selfPickup = $get('self_pickup') ?? false;
 
                             $html = '<div class="space-y-1">';
-                            $html .= '<div class="text-lg font-semibold">' . number_format($finalAmount, 2, ',', ' ') . ' грн</div>';
+                            $html .= '<div class="text-lg font-semibold">' . number_format($finalAmount, 2, ',', ' ') . ' Р С–РЎР‚Р Р…</div>';
 
                             if ($deliveryPrice > 0) {
                                 $html .= '<div class="text-xs text-gray-500 flex items-center gap-2">';
-                                $html .= '<span>Товары:</span>';
-                                $html .= '<span>' . number_format($amount, 2, ',', ' ') . ' грн</span>';
+                                $html .= '<span>Р СћР С•Р Р†Р В°РЎР‚РЎвЂ№:</span>';
+                                $html .= '<span>' . number_format($amount, 2, ',', ' ') . ' Р С–РЎР‚Р Р…</span>';
                                 $html .= '<span class="mx-1">+</span>';
-                                $html .= '<span>Доставка:</span>';
-                                $html .= '<span>' . number_format($deliveryPrice, 2, ',', ' ') . ' грн</span>';
+                                $html .= '<span>Р вЂќР С•РЎРѓРЎвЂљР В°Р Р†Р С”Р В°:</span>';
+                                $html .= '<span>' . number_format($deliveryPrice, 2, ',', ' ') . ' Р С–РЎР‚Р Р…</span>';
                                 $html .= '</div>';
                                 if ($bonusesSpent > 0) {
-                                    $html .= '<div class="text-xs text-gray-500">Списанные бонусы: -'
+                                    $html .= '<div class="text-xs text-gray-500">Р РЋР С—Р С‘РЎРѓР В°Р Р…Р Р…РЎвЂ№Р Вµ Р В±Р С•Р Р…РЎС“РЎРѓРЎвЂ№: -'
                                         . number_format($bonusesSpent, 2, ',', ' ')
-                                        . ' грн</div>';
+                                        . ' Р С–РЎР‚Р Р…</div>';
                                 }
                             } elseif (!$selfPickup) {
-                                // Проверяем, есть ли бесплатная доставка
+                                // Р СџРЎР‚Р С•Р Р†Р ВµРЎР‚РЎРЏР ВµР С, Р ВµРЎРѓРЎвЂљРЎРЉ Р В»Р С‘ Р В±Р ВµРЎРѓР С—Р В»Р В°РЎвЂљР Р…Р В°РЎРЏ Р Т‘Р С•РЎРѓРЎвЂљР В°Р Р†Р С”Р В°
                                 $address = $get('address') ?? [];
                                 $latitude = $address['latitude'] ?? null;
                                 $longitude = $address['longitude'] ?? null;
@@ -928,7 +928,7 @@ class OrderResource extends Resource
                                     $delivery = $deliveryService->calculateDelivery($tempOrder, $amount);
 
                                     if (isset($delivery['is_free']) && $delivery['is_free'] && isset($delivery['zone']) && $delivery['zone']) {
-                                        $html .= '<div class="text-xs text-green-600">Доставка бесплатна (от ' . number_format($delivery['zone']->free_delivery_from, 2, ',', ' ') . ' грн)</div>';
+                                        $html .= '<div class="text-xs text-green-600">Р вЂќР С•РЎРѓРЎвЂљР В°Р Р†Р С”Р В° Р В±Р ВµРЎРѓР С—Р В»Р В°РЎвЂљР Р…Р В° (Р С•РЎвЂљ ' . number_format($delivery['zone']->free_delivery_from, 2, ',', ' ') . ' Р С–РЎР‚Р Р…)</div>';
                                     }
                                 }
                             }
@@ -938,14 +938,14 @@ class OrderResource extends Resource
                             return new \Illuminate\Support\HtmlString($html);
                         })
                        /* ->content(function (?Order $record) {
-                            if (! $record) return new HtmlString('—');
+                            if (! $record) return new HtmlString('РІР‚вЂќ');
                             $record->refresh();
-                            $val = number_format((float)$record->grand_total, 2, ',', ' ') . ' грн';
+                            $val = number_format((float)$record->grand_total, 2, ',', ' ') . ' Р С–РЎР‚Р Р…';
                             return new HtmlString('<div class="text-lg font-semibold">'.$val.'</div>');
                         }),*/
                 ]),
 
-            // ——— Статусы (инлайн блок остаётся на форме редактирования) ———
+            // РІР‚вЂќРІР‚вЂќРІР‚вЂќ Р РЋРЎвЂљР В°РЎвЂљРЎС“РЎРѓРЎвЂ№ (Р С‘Р Р…Р В»Р В°Р в„–Р Р… Р В±Р В»Р С•Р С” Р С•РЎРѓРЎвЂљР В°РЎвЂРЎвЂљРЎРѓРЎРЏ Р Р…Р В° РЎвЂћР С•РЎР‚Р СР Вµ РЎР‚Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚Р С•Р Р†Р В°Р Р…Р С‘РЎРЏ) РІР‚вЂќРІР‚вЂќРІР‚вЂќ
             Section::make(__('order.sections.statuses'))
                 ->reactive()
                 ->schema([
@@ -976,7 +976,7 @@ class OrderResource extends Resource
 
                             if (! static::canSetStatus($state)) {
                                 $set('status_ui', $current);
-                                Notification::make()->danger()->title('Нет прав на установку этого статуса')->send();
+                                Notification::make()->danger()->title('Р СњР ВµРЎвЂљ Р С—РЎР‚Р В°Р Р† Р Р…Р В° РЎС“РЎРѓРЎвЂљР В°Р Р…Р С•Р Р†Р С”РЎС“ РЎРЊРЎвЂљР С•Р С–Р С• РЎРѓРЎвЂљР В°РЎвЂљРЎС“РЎРѓР В°')->send();
                                 return;
                             }
 
@@ -995,7 +995,7 @@ class OrderResource extends Resource
 
                             if (! static::canDowngrade()) {
                                 $set('status_ui', $current);
-                                Notification::make()->danger()->title('Нет прав возвращать статус назад')->send();
+                                Notification::make()->danger()->title('Р СњР ВµРЎвЂљ Р С—РЎР‚Р В°Р Р† Р Р†Р С•Р В·Р Р†РЎР‚Р В°РЎвЂ°Р В°РЎвЂљРЎРЉ РЎРѓРЎвЂљР В°РЎвЂљРЎС“РЎРѓ Р Р…Р В°Р В·Р В°Р Т‘')->send();
                                 return;
                             }
 
@@ -1023,7 +1023,7 @@ class OrderResource extends Resource
                                     if (! $to) return;
 
                                     if (! static::canSetStatus($to) || ! static::canDowngrade()) {
-                                        Notification::make()->danger()->title('Нет прав')->send();
+                                        Notification::make()->danger()->title('Р СњР ВµРЎвЂљ Р С—РЎР‚Р В°Р Р†')->send();
                                         return;
                                     }
 
@@ -1047,7 +1047,7 @@ class OrderResource extends Resource
                                     $set('downgrade_reason', null);
                                     $livewire->prevStatus = $to;
 
-                                    Notification::make()->success()->title('Статус откатан')->send();
+                                    Notification::make()->success()->title('Р РЋРЎвЂљР В°РЎвЂљРЎС“РЎРѓ Р С•РЎвЂљР С”Р В°РЎвЂљР В°Р Р…')->send();
                                 }),
                             FormAction::make('cancelDowngradeInline')
                                 ->label(__('order.actions.cancel'))
@@ -1076,8 +1076,8 @@ class OrderResource extends Resource
 
     protected static function resolveTimeDiscountMomentFromForm(Get $get, string $timeType): Carbon
     {
-        // В callcenter ориентируемся на выбранные дату/время доставки,
-        // как на checkout (fixed delivery date).
+        // Р вЂ™ callcenter Р С•РЎР‚Р С‘Р ВµР Р…РЎвЂљР С‘РЎР‚РЎС“Р ВµР СРЎРѓРЎРЏ Р Р…Р В° Р Р†РЎвЂ№Р В±РЎР‚Р В°Р Р…Р Р…РЎвЂ№Р Вµ Р Т‘Р В°РЎвЂљРЎС“/Р Р†РЎР‚Р ВµР СРЎРЏ Р Т‘Р С•РЎРѓРЎвЂљР В°Р Р†Р С”Р С‘,
+        // Р С”Р В°Р С” Р Р…Р В° checkout (fixed delivery date).
         if (! (bool) ($get('as_soon_possible') ?? false)) {
             $deliveryMoment = static::composeMomentFromStates(
                 $get('date_order'),
@@ -1089,7 +1089,7 @@ class OrderResource extends Resource
             }
         }
 
-        // Фолбек: момент создания заказа.
+        // Р В¤Р С•Р В»Р В±Р ВµР С”: Р СР С•Р СР ВµР Р…РЎвЂљ РЎРѓР С•Р В·Р Т‘Р В°Р Р…Р С‘РЎРЏ Р В·Р В°Р С”Р В°Р В·Р В°.
         $createdMoment = static::composeMomentFromStates(
             $get('dat'),
             $get('time_start')
@@ -1148,7 +1148,7 @@ class OrderResource extends Resource
         return [
             Grid::make(12)->schema([
 
-                // 1) Номер заказа — компактное поле
+                // 1) Р СњР С•Р СР ВµРЎР‚ Р В·Р В°Р С”Р В°Р В·Р В° РІР‚вЂќ Р С”Р С•Р СР С—Р В°Р С”РЎвЂљР Р…Р С•Р Вµ Р С—Р С•Р В»Р Вµ
                 TextInput::make('number')
                     ->label(__('order.fields.order_number'))
                     ->disabled()
@@ -1156,25 +1156,25 @@ class OrderResource extends Resource
                     ->placeholder(fn (?Order $r) => $r?->exists ? $r->number : __('order.placeholders.number_auto'))
                     ->columnSpan(3),
 
-                // 2) Клиент — с create/edit в модалках из ClientResource
+                // 2) Р С™Р В»Р С‘Р ВµР Р…РЎвЂљ РІР‚вЂќ РЎРѓ create/edit Р Р† Р СР С•Р Т‘Р В°Р В»Р С”Р В°РЎвЂ¦ Р С‘Р В· ClientResource
                 Select::make('clients_id')
                     ->relationship('clients', 'name')
                     ->searchable()
                     ->label(__('order.fields.client'))
                     ->required()
                     ->live()
-                    // === ЛЕЙБЛ ПУНКТА (выбранное значение) ===
-                    // Если выбран клиент — показываем "Имя · +38 (...)"
+                    // === Р вЂєР вЂўР в„ўР вЂР вЂє Р СџР Р€Р СњР С™Р СћР С’ (Р Р†РЎвЂ№Р В±РЎР‚Р В°Р Р…Р Р…Р С•Р Вµ Р В·Р Р…Р В°РЎвЂЎР ВµР Р…Р С‘Р Вµ) ===
+                    // Р вЂўРЎРѓР В»Р С‘ Р Р†РЎвЂ№Р В±РЎР‚Р В°Р Р… Р С”Р В»Р С‘Р ВµР Р…РЎвЂљ РІР‚вЂќ Р С—Р С•Р С”Р В°Р В·РЎвЂ№Р Р†Р В°Р ВµР С "Р ВР СРЎРЏ Р’В· +38 (...)"
                     ->getOptionLabelUsing(function ($value) {
                         if (!$value) return null;
                         $c = Client::query()->select('id','name','phone')->find($value);
-                        return $c ? ($c->name . ' · ' . $c->phone_pretty) : null;
+                        return $c ? ($c->name . ' Р’В· ' . $c->phone_pretty) : null;
                     })
-                    // На всякий случай (когда рисуется из relationship)
-                    ->getOptionLabelFromRecordUsing(fn (Client $c) => $c->name . ' · ' . $c->phone_pretty)
-                    // === ПОИСК ===
+                    // Р СњР В° Р Р†РЎРѓРЎРЏР С”Р С‘Р в„– РЎРѓР В»РЎС“РЎвЂЎР В°Р в„– (Р С”Р С•Р С–Р Т‘Р В° РЎР‚Р С‘РЎРѓРЎС“Р ВµРЎвЂљРЎРѓРЎРЏ Р С‘Р В· relationship)
+                    ->getOptionLabelFromRecordUsing(fn (Client $c) => $c->name . ' Р’В· ' . $c->phone_pretty)
+                    // === Р СџР С›Р ВР РЋР С™ ===
                     ->getSearchResultsUsing(function (string $search) {
-                        $digits = preg_replace('/\D+/', '', $search); // только цифры из запроса
+                        $digits = preg_replace('/\D+/', '', $search); // РЎвЂљР С•Р В»РЎРЉР С”Р С• РЎвЂ Р С‘РЎвЂћРЎР‚РЎвЂ№ Р С‘Р В· Р В·Р В°Р С—РЎР‚Р С•РЎРѓР В°
                         return Client::query()
                             ->select('id','name','phone')
                             ->when($search !== '', fn ($q) =>
@@ -1182,19 +1182,19 @@ class OrderResource extends Resource
                                 ->orWhere('email', 'like', "%{$search}%")
                             )
                             ->when($digits !== '', fn ($q) =>
-                                // MySQL 8+: убираем всё, что не цифры, и ищем подстроку
+                                // MySQL 8+: РЎС“Р В±Р С‘РЎР‚Р В°Р ВµР С Р Р†РЎРѓРЎвЂ, РЎвЂЎРЎвЂљР С• Р Р…Р Вµ РЎвЂ Р С‘РЎвЂћРЎР‚РЎвЂ№, Р С‘ Р С‘РЎвЂ°Р ВµР С Р С—Р С•Р Т‘РЎРѓРЎвЂљРЎР‚Р С•Р С”РЎС“
                             $q->orWhereRaw("REGEXP_REPLACE(phone, '[^0-9]', '') LIKE ?", ["%{$digits}%"])
                             )
                             ->orderBy('name')
                             ->limit(50)
                             ->get()
                             ->mapWithKeys(fn (Client $c) => [
-                                $c->id => $c->name . ' · ' . $c->phone_pretty,
+                                $c->id => $c->name . ' Р’В· ' . $c->phone_pretty,
                             ]);
                     })
                     ->optionsLimit(50)
                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                        // $state — это выбранный clients_id
+                        // $state РІР‚вЂќ РЎРЊРЎвЂљР С• Р Р†РЎвЂ№Р В±РЎР‚Р В°Р Р…Р Р…РЎвЂ№Р в„– clients_id
                         $phone = $state
                             ? Client::query()->whereKey($state)->value('phone')
                             : null;
@@ -1202,8 +1202,8 @@ class OrderResource extends Resource
                         $set('client_phone_view', $phone ?: (string) ($get('incoming_phone') ?? ''));
                     })
                     ->afterStateHydrated(function (Get $get, Set $set) {
-                        // При открытии формы (редактирование/создание) подставим телефон,
-                        // если клиент уже выбран:
+                        // Р СџРЎР‚Р С‘ Р С•РЎвЂљР С”РЎР‚РЎвЂ№РЎвЂљР С‘Р С‘ РЎвЂћР С•РЎР‚Р СРЎвЂ№ (РЎР‚Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚Р С•Р Р†Р В°Р Р…Р С‘Р Вµ/РЎРѓР С•Р В·Р Т‘Р В°Р Р…Р С‘Р Вµ) Р С—Р С•Р Т‘РЎРѓРЎвЂљР В°Р Р†Р С‘Р С РЎвЂљР ВµР В»Р ВµРЎвЂћР С•Р Р…,
+                        // Р ВµРЎРѓР В»Р С‘ Р С”Р В»Р С‘Р ВµР Р…РЎвЂљ РЎС“Р В¶Р Вµ Р Р†РЎвЂ№Р В±РЎР‚Р В°Р Р…:
                         $id = $get('clients_id');
                         $fallback = (string) ($get('incoming_phone') ?? '');
                         $set('client_phone_view', $id
@@ -1214,29 +1214,29 @@ class OrderResource extends Resource
                     ->createOptionForm(fn (Form $form) => ClientResource::form($form))
                     ->createOptionUsing(function (array $data) { $client = Client::create($data); return $client->getKey(); })
                     ->createOptionAction(function (FormAction $action) { return $action
-                        ->modalHeading('Создание клиента')
-                        ->modalSubmitActionLabel('Создать клиента')
+                        ->modalHeading('Р РЋР С•Р В·Р Т‘Р В°Р Р…Р С‘Р Вµ Р С”Р В»Р С‘Р ВµР Р…РЎвЂљР В°')
+                        ->modalSubmitActionLabel('Р РЋР С•Р В·Р Т‘Р В°РЎвЂљРЎРЉ Р С”Р В»Р С‘Р ВµР Р…РЎвЂљР В°')
                         ->modalWidth('4xl');
                })
 
                     ->editOptionForm(fn (Form $form) => ClientResource::form($form))
                     ->editOptionAction(fn (FormAction $action) => $action
-                        ->modalHeading('Редактирование клиента')
-                        ->modalSubmitActionLabel('Сохранить')
+                        ->modalHeading('Р В Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚Р С•Р Р†Р В°Р Р…Р С‘Р Вµ Р С”Р В»Р С‘Р ВµР Р…РЎвЂљР В°')
+                        ->modalSubmitActionLabel('Р РЋР С•РЎвЂ¦РЎР‚Р В°Р Р…Р С‘РЎвЂљРЎРЉ')
                         ->modalWidth('4xl') )
                     ->columnSpan(6),
 
-                // 3) Телефон клиента — read-only + кнопка "копировать"
+                // 3) Р СћР ВµР В»Р ВµРЎвЂћР С•Р Р… Р С”Р В»Р С‘Р ВµР Р…РЎвЂљР В° РІР‚вЂќ read-only + Р С”Р Р…Р С•Р С—Р С”Р В° "Р С”Р С•Р С—Р С‘РЎР‚Р С•Р Р†Р В°РЎвЂљРЎРЉ"
                 TextInput::make('client_phone_view')
                     ->label(__('order.fields.phone'))
-                    ->readOnly()            // нельзя редактировать
-                    ->dehydrated(false)     // не сохраняем в модель заказа
-                    ->reactive()            // чтобы перерисовывалось
-                    ->extraAttributes(['x-data' => '{}'])// общий Alpine-контекст
+                    ->readOnly()            // Р Р…Р ВµР В»РЎРЉР В·РЎРЏ РЎР‚Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚Р С•Р Р†Р В°РЎвЂљРЎРЉ
+                    ->dehydrated(false)     // Р Р…Р Вµ РЎРѓР С•РЎвЂ¦РЎР‚Р В°Р Р…РЎРЏР ВµР С Р Р† Р СР С•Р Т‘Р ВµР В»РЎРЉ Р В·Р В°Р С”Р В°Р В·Р В°
+                    ->reactive()            // РЎвЂЎРЎвЂљР С•Р В±РЎвЂ№ Р С—Р ВµРЎР‚Р ВµРЎР‚Р С‘РЎРѓР С•Р Р†РЎвЂ№Р Р†Р В°Р В»Р С•РЎРѓРЎРЉ
+                    ->extraAttributes(['x-data' => '{}'])// Р С•Р В±РЎвЂ°Р С‘Р в„– Alpine-Р С”Р С•Р Р…РЎвЂљР ВµР С”РЎРѓРЎвЂљ
                     ->extraInputAttributes([
-                        'x-ref'   => 'cpInput',          // ссылка на input
-                        'readonly'=> true,               // ВАЖНО: только для чтения, не disabled
-                        'tabindex'=> 0,                  // можно фокуснуть
+                        'x-ref'   => 'cpInput',          // РЎРѓРЎРѓРЎвЂ№Р В»Р С”Р В° Р Р…Р В° input
+                        'readonly'=> true,               // Р вЂ™Р С’Р вЂ“Р СњР С›: РЎвЂљР С•Р В»РЎРЉР С”Р С• Р Т‘Р В»РЎРЏ РЎвЂЎРЎвЂљР ВµР Р…Р С‘РЎРЏ, Р Р…Р Вµ disabled
+                        'tabindex'=> 0,                  // Р СР С•Р В¶Р Р…Р С• РЎвЂћР С•Р С”РЎС“РЎРѓР Р…РЎС“РЎвЂљРЎРЉ
                     ])
                    // ->dependsOn('clients_id')
                     ->afterStateHydrated(function (TextInput $component, Get $get) {
@@ -1257,7 +1257,7 @@ class OrderResource extends Resource
             ]),
 
                /* ->createOptionAction(function (FormAction $action) {
-                    return $action->modalHeading('Создание клиента')->modalSubmitActionLabel('Создать клиента')->modalWidth('4xl');
+                    return $action->modalHeading('Р РЋР С•Р В·Р Т‘Р В°Р Р…Р С‘Р Вµ Р С”Р В»Р С‘Р ВµР Р…РЎвЂљР В°')->modalSubmitActionLabel('Р РЋР С•Р В·Р Т‘Р В°РЎвЂљРЎРЉ Р С”Р В»Р С‘Р ВµР Р…РЎвЂљР В°')->modalWidth('4xl');
                 })*/
 
             Hidden::make('client_address_id')->dehydrated(true),
@@ -1445,7 +1445,7 @@ class OrderResource extends Resource
                                     }
                                 }
 
-                                // Берём текущее время в Киеве
+                                // Р вЂР ВµРЎР‚РЎвЂР С РЎвЂљР ВµР С”РЎС“РЎвЂ°Р ВµР Вµ Р Р†РЎР‚Р ВµР СРЎРЏ Р Р† Р С™Р С‘Р ВµР Р†Р Вµ
                                 $dt = Carbon::now(config('app.timezone'))->addMinutes($add);
 
                                 if (! (bool) ($get('time_order_manually_changed') ?? false)) {
@@ -1462,15 +1462,15 @@ class OrderResource extends Resource
                             ->columnSpan(fn () => static::isCallcenterContext() ? 2 : 3),
 
                      /*    Select::make('payment')
-                            ->label('Способ оплаты')
+                            ->label('Р РЋР С—Р С•РЎРѓР С•Р В± Р С•Р С—Р В»Р В°РЎвЂљРЎвЂ№')
                             ->options([
-                                1=> 'Кредитная карта',
-                                2 => 'Наличкой',
-                                3 => 'Клубная карта (кредит/депозит)',
-                                4 => 'Безналичная через организацию',
-                                5 => 'Без оплаты',
-                                9 => 'Оплата через POS-термінал',
-                                10 => 'Рахунок-фактура',
+                                1=> 'Р С™РЎР‚Р ВµР Т‘Р С‘РЎвЂљР Р…Р В°РЎРЏ Р С”Р В°РЎР‚РЎвЂљР В°',
+                                2 => 'Р СњР В°Р В»Р С‘РЎвЂЎР С”Р С•Р в„–',
+                                3 => 'Р С™Р В»РЎС“Р В±Р Р…Р В°РЎРЏ Р С”Р В°РЎР‚РЎвЂљР В° (Р С”РЎР‚Р ВµР Т‘Р С‘РЎвЂљ/Р Т‘Р ВµР С—Р С•Р В·Р С‘РЎвЂљ)',
+                                4 => 'Р вЂР ВµР В·Р Р…Р В°Р В»Р С‘РЎвЂЎР Р…Р В°РЎРЏ РЎвЂЎР ВµРЎР‚Р ВµР В· Р С•РЎР‚Р С–Р В°Р Р…Р С‘Р В·Р В°РЎвЂ Р С‘РЎР‹',
+                                5 => 'Р вЂР ВµР В· Р С•Р С—Р В»Р В°РЎвЂљРЎвЂ№',
+                                9 => 'Р С›Р С—Р В»Р В°РЎвЂљР В° РЎвЂЎР ВµРЎР‚Р ВµР В· POS-РЎвЂљР ВµРЎР‚Р СРЎвЂ“Р Р…Р В°Р В»',
+                                10 => 'Р В Р В°РЎвЂ¦РЎС“Р Р…Р С•Р С”-РЎвЂћР В°Р С”РЎвЂљРЎС“РЎР‚Р В°',
                                 11 => 'LiqPay',
                             ])*/
                             Select::make('payment')
@@ -1497,7 +1497,7 @@ class OrderResource extends Resource
                             ->visible(fn () => static::isCallcenterContext())
                             ->schema([
                                 TimePicker::make('time_issue')
-                                    ->label('Час видачі')
+                                    ->label('Р В§Р В°РЎРѓ Р Р†Р С‘Р Т‘Р В°РЎвЂЎРЎвЂ“')
                                     ->seconds(false)
                                     ->afterStateHydrated(function ($component, $state, Get $get) {
                                         if (blank($state)) {
@@ -1515,7 +1515,7 @@ class OrderResource extends Resource
                             ->columnSpan(3),
 
                         Select::make('shipping_method')
-                            ->label('Вид самовивозу')
+                            ->label('Р вЂ™Р С‘Р Т‘ РЎРѓР В°Р СР С•Р Р†Р С‘Р Р†Р С•Р В·РЎС“')
                             ->options(static::pickupMethodOptions())
                             ->default('pickup')
                             ->native(false)
@@ -1580,14 +1580,14 @@ class OrderResource extends Resource
                                 'latitude','longitude','street_place_id','formatted_address',
                             ]);
 
-                            // Получаем координаты из сохраненного адреса заказа, если они есть
+                            // Р СџР С•Р В»РЎС“РЎвЂЎР В°Р ВµР С Р С”Р С•Р С•РЎР‚Р Т‘Р С‘Р Р…Р В°РЎвЂљРЎвЂ№ Р С‘Р В· РЎРѓР С•РЎвЂ¦РЎР‚Р В°Р Р…Р ВµР Р…Р Р…Р С•Р С–Р С• Р В°Р Т‘РЎР‚Р ВµРЎРѓР В° Р В·Р В°Р С”Р В°Р В·Р В°, Р ВµРЎРѓР В»Р С‘ Р С•Р Р…Р С‘ Р ВµРЎРѓРЎвЂљРЎРЉ
                             $orderAddress = $record->address ?? [];
                             if (isset($orderAddress['latitude']) && isset($orderAddress['longitude'])) {
                                 $addressData['latitude'] = $orderAddress['latitude'];
                                 $addressData['longitude'] = $orderAddress['longitude'];
                                 $addressData['formatted_address'] = $orderAddress['formatted_address'] ?? null;
                             } else {
-                                // Если координат нет, получаем их через API
+                                // Р вЂўРЎРѓР В»Р С‘ Р С”Р С•Р С•РЎР‚Р Т‘Р С‘Р Р…Р В°РЎвЂљ Р Р…Р ВµРЎвЂљ, Р С—Р С•Р В»РЎС“РЎвЂЎР В°Р ВµР С Р С‘РЎвЂ¦ РЎвЂЎР ВµРЎР‚Р ВµР В· API
                                 $coordinates = static::getCoordinatesForAddress($address);
                                 if ($coordinates) {
                                     $addressData['latitude'] = $coordinates['latitude'];
@@ -1617,7 +1617,7 @@ class OrderResource extends Resource
                             'floor'=> null,
                             'entrance'=> null,
                             'zip'=> null,
-                            'city'=> 'Київ',
+                            'city'=> 'Р С™Р С‘РЎвЂ”Р Р†',
                             'country'=> null,
                             'note'=> null,
                             'type'=> null,
@@ -1640,7 +1640,7 @@ class OrderResource extends Resource
                         'latitude','longitude','street_place_id','formatted_address',
                     ]);
 
-                    // fallback: если в адресе нет coords, но в заказе были — можно использовать их
+                    // fallback: Р ВµРЎРѓР В»Р С‘ Р Р† Р В°Р Т‘РЎР‚Р ВµРЎРѓР Вµ Р Р…Р ВµРЎвЂљ coords, Р Р…Р С• Р Р† Р В·Р В°Р С”Р В°Р В·Р Вµ Р В±РЎвЂ№Р В»Р С‘ РІР‚вЂќ Р СР С•Р В¶Р Р…Р С• Р С‘РЎРѓР С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°РЎвЂљРЎРЉ Р С‘РЎвЂ¦
                     if (empty($addressData['latitude']) || empty($addressData['longitude'])) {
                         $orderAddress = $record ? ((array) ($record->address ?? [])) : [];
                         if (!empty($orderAddress['latitude']) && !empty($orderAddress['longitude'])) {
@@ -1677,23 +1677,23 @@ class OrderResource extends Resource
 
                         $calculatedPrice = (float) ($delivery['price'] ?? 0);
 
-                        // ВАЖНО: при выборе сохранённого адреса всегда обновляем цену автоматически
+                        // Р вЂ™Р С’Р вЂ“Р СњР С›: Р С—РЎР‚Р С‘ Р Р†РЎвЂ№Р В±Р С•РЎР‚Р Вµ РЎРѓР С•РЎвЂ¦РЎР‚Р В°Р Р…РЎвЂР Р…Р Р…Р С•Р С–Р С• Р В°Р Т‘РЎР‚Р ВµРЎРѓР В° Р Р†РЎРѓР ВµР С–Р Т‘Р В° Р С•Р В±Р Р…Р С•Р Р†Р В»РЎРЏР ВµР С РЎвЂ Р ВµР Р…РЎС“ Р В°Р Р†РЎвЂљР С•Р СР В°РЎвЂљР С‘РЎвЂЎР ВµРЎРѓР С”Р С‘
                         $set('shipping_price', $calculatedPrice);
 
-                        // опционально: чтобы триггеры/плейсхолдеры тоже “шевельнулись”
+                        // Р С•Р С—РЎвЂ Р С‘Р С•Р Р…Р В°Р В»РЎРЉР Р…Р С•: РЎвЂЎРЎвЂљР С•Р В±РЎвЂ№ РЎвЂљРЎР‚Р С‘Р С–Р С–Р ВµРЎР‚РЎвЂ№/Р С—Р В»Р ВµР в„–РЎРѓРЎвЂ¦Р С•Р В»Р Т‘Р ВµРЎР‚РЎвЂ№ РЎвЂљР С•Р В¶Р Вµ РІР‚СљРЎв‚¬Р ВµР Р†Р ВµР В»РЎРЉР Р…РЎС“Р В»Р С‘РЎРѓРЎРЉРІР‚Сњ
                         $set('delivery_coords_trigger', 'coords_' . $lat . '_' . $lng . '_' . time());
                     } else {
-                        // координат нет — доставка не может пересчитаться
-                        // можно оставить старую сумму или обнулить (на твой выбор)
+                        // Р С”Р С•Р С•РЎР‚Р Т‘Р С‘Р Р…Р В°РЎвЂљ Р Р…Р ВµРЎвЂљ РІР‚вЂќ Р Т‘Р С•РЎРѓРЎвЂљР В°Р Р†Р С”Р В° Р Р…Р Вµ Р СР С•Р В¶Р ВµРЎвЂљ Р С—Р ВµРЎР‚Р ВµРЎРѓРЎвЂЎР С‘РЎвЂљР В°РЎвЂљРЎРЉРЎРѓРЎРЏ
+                        // Р СР С•Р В¶Р Р…Р С• Р С•РЎРѓРЎвЂљР В°Р Р†Р С‘РЎвЂљРЎРЉ РЎРѓРЎвЂљР В°РЎР‚РЎС“РЎР‹ РЎРѓРЎС“Р СР СРЎС“ Р С‘Р В»Р С‘ Р С•Р В±Р Р…РЎС“Р В»Р С‘РЎвЂљРЎРЉ (Р Р…Р В° РЎвЂљР Р†Р С•Р в„– Р Р†РЎвЂ№Р В±Р С•РЎР‚)
                         // $set('shipping_price', 0);
                     }
-                    // триггерим пересчет если coords есть
+                    // РЎвЂљРЎР‚Р С‘Р С–Р С–Р ВµРЎР‚Р С‘Р С Р С—Р ВµРЎР‚Р ВµРЎРѓРЎвЂЎР ВµРЎвЂљ Р ВµРЎРѓР В»Р С‘ coords Р ВµРЎРѓРЎвЂљРЎРЉ
                     if (!empty($addressData['latitude']) && !empty($addressData['longitude'])) {
                         $key = 'coords_' . $addressData['latitude'] . '_' . $addressData['longitude'] . '_' . time();
                         $set('delivery_coords_trigger', $key);
                         $set('delivery_price_auto', 'auto_' . $key);
                     } else {
-                        // нет coords: покажи подсказку (а пересчет невозможен)
+                        // Р Р…Р ВµРЎвЂљ coords: Р С—Р С•Р С”Р В°Р В¶Р С‘ Р С—Р С•Р Т‘РЎРѓР С”Р В°Р В·Р С”РЎС“ (Р В° Р С—Р ВµРЎР‚Р ВµРЎРѓРЎвЂЎР ВµРЎвЂљ Р Р…Р ВµР Р†Р С•Р В·Р СР С•Р В¶Р ВµР Р…)
                         $set('delivery_coords_trigger', 'error_no_coords_' . time());
                     }
                 })
@@ -1815,16 +1815,16 @@ class OrderResource extends Resource
             ->where('in_stock', 1)
             ->orderByRaw('COALESCE(parent_id, id), CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END, sort ASC, id ASC');
 
-        // Поиск (важно: JSON_VALID чтобы не падало на битом JSON)
+        // Р СџР С•Р С‘РЎРѓР С” (Р Р†Р В°Р В¶Р Р…Р С•: JSON_VALID РЎвЂЎРЎвЂљР С•Р В±РЎвЂ№ Р Р…Р Вµ Р С—Р В°Р Т‘Р В°Р В»Р С• Р Р…Р В° Р В±Р С‘РЎвЂљР С•Р С JSON)
         if ($search !== null && trim($search) !== '') {
             $q->where(function ($qq) use ($like, $locale) {
-                // short_name (обычно строка)
+                // short_name (Р С•Р В±РЎвЂ№РЎвЂЎР Р…Р С• РЎРѓРЎвЂљРЎР‚Р С•Р С”Р В°)
                 $qq->orWhere('short_name', 'like', $like);
 
                 // sku
                 $qq->orWhere('sku', 'like', $like);
 
-                // title: если JSON валидный — ищем по переводу, если нет — ищем как по обычной строке
+                // title: Р ВµРЎРѓР В»Р С‘ JSON Р Р†Р В°Р В»Р С‘Р Т‘Р Р…РЎвЂ№Р в„– РІР‚вЂќ Р С‘РЎвЂ°Р ВµР С Р С—Р С• Р С—Р ВµРЎР‚Р ВµР Р†Р С•Р Т‘РЎС“, Р ВµРЎРѓР В»Р С‘ Р Р…Р ВµРЎвЂљ РІР‚вЂќ Р С‘РЎвЂ°Р ВµР С Р С”Р В°Р С” Р С—Р С• Р С•Р В±РЎвЂ№РЎвЂЎР Р…Р С•Р в„– РЎРѓРЎвЂљРЎР‚Р С•Р С”Р Вµ
                 $path = '$."' . $locale . '"';
 
                 $qq->orWhereRaw(
@@ -1837,7 +1837,7 @@ class OrderResource extends Resource
                     [$like]
                 );
 
-                // + можно еще fallback по uk если нужно:
+                // + Р СР С•Р В¶Р Р…Р С• Р ВµРЎвЂ°Р Вµ fallback Р С—Р С• uk Р ВµРЎРѓР В»Р С‘ Р Р…РЎС“Р В¶Р Р…Р С•:
                 $qq->orWhereRaw(
                     "(JSON_VALID(title) AND JSON_UNQUOTE(JSON_EXTRACT(title, '$.\"uk\"')) LIKE ?)",
                     [$like]
@@ -1847,7 +1847,7 @@ class OrderResource extends Resource
 
         $items = $q->limit($limit)->get();
 
-        // чтобы для детей можно было быстро взять родителя (без N+1)
+        // РЎвЂЎРЎвЂљР С•Р В±РЎвЂ№ Р Т‘Р В»РЎРЏ Р Т‘Р ВµРЎвЂљР ВµР в„– Р СР С•Р В¶Р Р…Р С• Р В±РЎвЂ№Р В»Р С• Р В±РЎвЂ№РЎРѓРЎвЂљРЎР‚Р С• Р Р†Р В·РЎРЏРЎвЂљРЎРЉ РЎР‚Р С•Р Т‘Р С‘РЎвЂљР ВµР В»РЎРЏ (Р В±Р ВµР В· N+1)
         $parentIds = $items->pluck('parent_id')->filter()->unique()->values();
         $parents = $parentIds->isEmpty()
             ? collect()
@@ -1861,7 +1861,7 @@ class OrderResource extends Resource
         foreach ($items as $p) {
             $parent = $p->parent_id ? $parents->get($p->parent_id) : null;
 
-            // Для детей хотим "↳ child — parent"
+            // Р вЂќР В»РЎРЏ Р Т‘Р ВµРЎвЂљР ВµР в„– РЎвЂ¦Р С•РЎвЂљР С‘Р С "РІвЂ С– child РІР‚вЂќ parent"
             $out[$p->id] = static::formatProductLabel($p, $locale, withParentForChild: true, parent: $parent);
         }
 
@@ -1875,11 +1875,11 @@ class OrderResource extends Resource
         $name = trim((string)($short ?: $title ?: $p->short_name ?: $p->title ?: ''));
         $sku  = trim((string)($p->sku ?? ''));
 
-        // [23] [29] — это твой размер/sku
+        // [23] [29] РІР‚вЂќ РЎРЊРЎвЂљР С• РЎвЂљР Р†Р С•Р в„– РЎР‚Р В°Р В·Р СР ВµРЎР‚/sku
         $size = $sku !== '' ? " [{$sku}]" : '';
 
-        // чтобы дочерние шли под главным визуально
-        $prefix = $p->parent_id ? "↳ " : "";
+        // РЎвЂЎРЎвЂљР С•Р В±РЎвЂ№ Р Т‘Р С•РЎвЂЎР ВµРЎР‚Р Р…Р С‘Р Вµ РЎв‚¬Р В»Р С‘ Р С—Р С•Р Т‘ Р С–Р В»Р В°Р Р†Р Р…РЎвЂ№Р С Р Р†Р С‘Р В·РЎС“Р В°Р В»РЎРЉР Р…Р С•
+        $prefix = $p->parent_id ? "РІвЂ С– " : "";
 
         return $prefix . $name . $size;
     }
@@ -1893,16 +1893,16 @@ class OrderResource extends Resource
                ->where('in_stock', 1)
                ->orderByRaw('COALESCE(parent_id, id), CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END, sort ASC, id ASC');
 
-           // Поиск (важно: JSON_VALID чтобы не падало на битом JSON)
+           // Р СџР С•Р С‘РЎРѓР С” (Р Р†Р В°Р В¶Р Р…Р С•: JSON_VALID РЎвЂЎРЎвЂљР С•Р В±РЎвЂ№ Р Р…Р Вµ Р С—Р В°Р Т‘Р В°Р В»Р С• Р Р…Р В° Р В±Р С‘РЎвЂљР С•Р С JSON)
            if ($search !== null && trim($search) !== '') {
                $q->where(function ($qq) use ($like, $locale) {
-                   // short_name (обычно строка)
+                   // short_name (Р С•Р В±РЎвЂ№РЎвЂЎР Р…Р С• РЎРѓРЎвЂљРЎР‚Р С•Р С”Р В°)
                    $qq->orWhere('short_name', 'like', $like);
 
                    // sku
                    $qq->orWhere('sku', 'like', $like);
 
-                   // title: если JSON валидный — ищем по переводу, если нет — ищем как по обычной строке
+                   // title: Р ВµРЎРѓР В»Р С‘ JSON Р Р†Р В°Р В»Р С‘Р Т‘Р Р…РЎвЂ№Р в„– РІР‚вЂќ Р С‘РЎвЂ°Р ВµР С Р С—Р С• Р С—Р ВµРЎР‚Р ВµР Р†Р С•Р Т‘РЎС“, Р ВµРЎРѓР В»Р С‘ Р Р…Р ВµРЎвЂљ РІР‚вЂќ Р С‘РЎвЂ°Р ВµР С Р С”Р В°Р С” Р С—Р С• Р С•Р В±РЎвЂ№РЎвЂЎР Р…Р С•Р в„– РЎРѓРЎвЂљРЎР‚Р С•Р С”Р Вµ
                    $path = '$."' . $locale . '"';
 
                    $qq->orWhereRaw(
@@ -1915,7 +1915,7 @@ class OrderResource extends Resource
                        [$like]
                    );
 
-                   // + можно еще fallback по uk если нужно:
+                   // + Р СР С•Р В¶Р Р…Р С• Р ВµРЎвЂ°Р Вµ fallback Р С—Р С• uk Р ВµРЎРѓР В»Р С‘ Р Р…РЎС“Р В¶Р Р…Р С•:
                    $qq->orWhereRaw(
                        "(JSON_VALID(title) AND JSON_UNQUOTE(JSON_EXTRACT(title, '$.\"uk\"')) LIKE ?)",
                        [$like]
@@ -1925,7 +1925,7 @@ class OrderResource extends Resource
 
            $items = $q->limit($limit)->get();
 
-           // чтобы для детей можно было быстро взять родителя (без N+1)
+           // РЎвЂЎРЎвЂљР С•Р В±РЎвЂ№ Р Т‘Р В»РЎРЏ Р Т‘Р ВµРЎвЂљР ВµР в„– Р СР С•Р В¶Р Р…Р С• Р В±РЎвЂ№Р В»Р С• Р В±РЎвЂ№РЎРѓРЎвЂљРЎР‚Р С• Р Р†Р В·РЎРЏРЎвЂљРЎРЉ РЎР‚Р С•Р Т‘Р С‘РЎвЂљР ВµР В»РЎРЏ (Р В±Р ВµР В· N+1)
            $parentIds = $items->pluck('parent_id')->filter()->unique()->values();
            $parents = $parentIds->isEmpty()
                ? collect()
@@ -1939,7 +1939,7 @@ class OrderResource extends Resource
            foreach ($items as $p) {
                $parent = $p->parent_id ? $parents->get($p->parent_id) : null;
 
-               // Для детей хотим "↳ child — parent"
+               // Р вЂќР В»РЎРЏ Р Т‘Р ВµРЎвЂљР ВµР в„– РЎвЂ¦Р С•РЎвЂљР С‘Р С "РІвЂ С– child РІР‚вЂќ parent"
                $out[$p->id] = static::formatProductLabel($p, $locale, withParentForChild: true, parent: $parent);
            }
 
@@ -1950,14 +1950,14 @@ class OrderResource extends Resource
         if ($raw === null || $raw === '') return null;
 
         $trim = ltrim($raw);
-        // если НЕ JSON — возвращаем как есть
+        // Р ВµРЎРѓР В»Р С‘ Р СњР вЂў JSON РІР‚вЂќ Р Р†Р С•Р В·Р Р†РЎР‚Р В°РЎвЂ°Р В°Р ВµР С Р С”Р В°Р С” Р ВµРЎРѓРЎвЂљРЎРЉ
         if ($trim === '' || ($trim[0] !== '{' && $trim[0] !== '[')) {
             return $raw;
         }
 
         $arr = json_decode($raw, true);
         if (json_last_error() !== JSON_ERROR_NONE || !is_array($arr)) {
-            // невалидный JSON — вернём как строку
+            // Р Р…Р ВµР Р†Р В°Р В»Р С‘Р Т‘Р Р…РЎвЂ№Р в„– JSON РІР‚вЂќ Р Р†Р ВµРЎР‚Р Р…РЎвЂР С Р С”Р В°Р С” РЎРѓРЎвЂљРЎР‚Р С•Р С”РЎС“
             return $raw;
         }
 
@@ -1975,16 +1975,16 @@ class OrderResource extends Resource
             ->where('in_stock', 1)
             ->orderByRaw('COALESCE(parent_id, id), CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END, sort ASC, id ASC');
 
-        // Поиск (важно: JSON_VALID чтобы не падало на битом JSON)
+        // Р СџР С•Р С‘РЎРѓР С” (Р Р†Р В°Р В¶Р Р…Р С•: JSON_VALID РЎвЂЎРЎвЂљР С•Р В±РЎвЂ№ Р Р…Р Вµ Р С—Р В°Р Т‘Р В°Р В»Р С• Р Р…Р В° Р В±Р С‘РЎвЂљР С•Р С JSON)
         if ($search !== null && trim($search) !== '') {
             $q->where(function ($qq) use ($like, $locale) {
-                // short_name (обычно строка)
+                // short_name (Р С•Р В±РЎвЂ№РЎвЂЎР Р…Р С• РЎРѓРЎвЂљРЎР‚Р С•Р С”Р В°)
                 $qq->orWhere('short_name', 'like', $like);
 
                 // sku
                 $qq->orWhere('sku', 'like', $like);
 
-                // title: если JSON валидный — ищем по переводу, если нет — ищем как по обычной строке
+                // title: Р ВµРЎРѓР В»Р С‘ JSON Р Р†Р В°Р В»Р С‘Р Т‘Р Р…РЎвЂ№Р в„– РІР‚вЂќ Р С‘РЎвЂ°Р ВµР С Р С—Р С• Р С—Р ВµРЎР‚Р ВµР Р†Р С•Р Т‘РЎС“, Р ВµРЎРѓР В»Р С‘ Р Р…Р ВµРЎвЂљ РІР‚вЂќ Р С‘РЎвЂ°Р ВµР С Р С”Р В°Р С” Р С—Р С• Р С•Р В±РЎвЂ№РЎвЂЎР Р…Р С•Р в„– РЎРѓРЎвЂљРЎР‚Р С•Р С”Р Вµ
                 $path = '$."' . $locale . '"';
 
                 $qq->orWhereRaw(
@@ -1997,7 +1997,7 @@ class OrderResource extends Resource
                     [$like]
                 );
 
-                // + можно еще fallback по uk если нужно:
+                // + Р СР С•Р В¶Р Р…Р С• Р ВµРЎвЂ°Р Вµ fallback Р С—Р С• uk Р ВµРЎРѓР В»Р С‘ Р Р…РЎС“Р В¶Р Р…Р С•:
                 $qq->orWhereRaw(
                     "(JSON_VALID(title) AND JSON_UNQUOTE(JSON_EXTRACT(title, '$.\"uk\"')) LIKE ?)",
                     [$like]
@@ -2007,7 +2007,7 @@ class OrderResource extends Resource
 
         $items = $q->limit($limit)->get();
 
-        // чтобы для детей можно было быстро взять родителя (без N+1)
+        // РЎвЂЎРЎвЂљР С•Р В±РЎвЂ№ Р Т‘Р В»РЎРЏ Р Т‘Р ВµРЎвЂљР ВµР в„– Р СР С•Р В¶Р Р…Р С• Р В±РЎвЂ№Р В»Р С• Р В±РЎвЂ№РЎРѓРЎвЂљРЎР‚Р С• Р Р†Р В·РЎРЏРЎвЂљРЎРЉ РЎР‚Р С•Р Т‘Р С‘РЎвЂљР ВµР В»РЎРЏ (Р В±Р ВµР В· N+1)
         $parentIds = $items->pluck('parent_id')->filter()->unique()->values();
         $parents = $parentIds->isEmpty()
             ? collect()
@@ -2021,7 +2021,7 @@ class OrderResource extends Resource
         foreach ($items as $p) {
             $parent = $p->parent_id ? $parents->get($p->parent_id) : null;
 
-            // Для детей хотим "↳ child — parent"
+            // Р вЂќР В»РЎРЏ Р Т‘Р ВµРЎвЂљР ВµР в„– РЎвЂ¦Р С•РЎвЂљР С‘Р С "РІвЂ С– child РІР‚вЂќ parent"
             $out[$p->id] = static::formatProductLabel($p, $locale, withParentForChild: true, parent: $parent);
         }
 
@@ -2042,14 +2042,14 @@ class OrderResource extends Resource
         $sku = trim((string) ($p->sku ?? ''));
         $suffix = $sku !== '' ? " [{$sku}]" : '';
 
-        // родительский товар
+        // РЎР‚Р С•Р Т‘Р С‘РЎвЂљР ВµР В»РЎРЉРЎРѓР С”Р С‘Р в„– РЎвЂљР С•Р Р†Р В°РЎР‚
         if (!$p->parent_id) {
             return $childName . $suffix;
         }
 
-        // дочерний товар
+        // Р Т‘Р С•РЎвЂЎР ВµРЎР‚Р Р…Р С‘Р в„– РЎвЂљР С•Р Р†Р В°РЎР‚
         if (!$withParentForChild) {
-            return "↳ {$childName}" . $suffix;
+            return "РІвЂ С– {$childName}" . $suffix;
         }
 
         $parentName = '';
@@ -2061,18 +2061,18 @@ class OrderResource extends Resource
             }
         }
 
-        // нормализуем, чтобы сравнение было честным
+        // Р Р…Р С•РЎР‚Р СР В°Р В»Р С‘Р В·РЎС“Р ВµР С, РЎвЂЎРЎвЂљР С•Р В±РЎвЂ№ РЎРѓРЎР‚Р В°Р Р†Р Р…Р ВµР Р…Р С‘Р Вµ Р В±РЎвЂ№Р В»Р С• РЎвЂЎР ВµРЎРѓРЎвЂљР Р…РЎвЂ№Р С
         $norm = fn ($s) => mb_strtolower(trim(preg_replace('/\s+/', ' ', (string) $s)));
 
-        // если совпадают — НЕ добавляем "— parent"
+        // Р ВµРЎРѓР В»Р С‘ РЎРѓР С•Р Р†Р С—Р В°Р Т‘Р В°РЎР‹РЎвЂљ РІР‚вЂќ Р СњР вЂў Р Т‘Р С•Р В±Р В°Р Р†Р В»РЎРЏР ВµР С "РІР‚вЂќ parent"
         if ($parentName !== '' && $norm($childName) === $norm($parentName)) {
-            return "↳ {$childName}" . $suffix;
+            return "РІвЂ С– {$childName}" . $suffix;
         }
 
-        // иначе показываем как задумано
-        $label = "↳ {$childName}";
+        // Р С‘Р Р…Р В°РЎвЂЎР Вµ Р С—Р С•Р С”Р В°Р В·РЎвЂ№Р Р†Р В°Р ВµР С Р С”Р В°Р С” Р В·Р В°Р Т‘РЎС“Р СР В°Р Р…Р С•
+        $label = "РІвЂ С– {$childName}";
         if ($parentName !== '') {
-            $label .= " — {$parentName}";
+            $label .= " РІР‚вЂќ {$parentName}";
         }
 
         return $label . $suffix;
@@ -2091,14 +2091,14 @@ class OrderResource extends Resource
                     Select::make('product_id')
                         ->label(__('order.fields.product'))
                         ->searchable()
-                        ->preload()        // можно оставить, но основное — поиск ниже
+                        ->preload()        // Р СР С•Р В¶Р Р…Р С• Р С•РЎРѓРЎвЂљР В°Р Р†Р С‘РЎвЂљРЎРЉ, Р Р…Р С• Р С•РЎРѓР Р…Р С•Р Р†Р Р…Р С•Р Вµ РІР‚вЂќ Р С—Р С•Р С‘РЎРѓР С” Р Р…Р С‘Р В¶Р Вµ
                         ->optionsLimit(50)
                         ->getSearchResultsUsing(function (string $search) use ($defaultLocale) {
 
                             $search = trim($search);
                             $q = \App\Models\Shop\Product::query()
                                 ->select(['id','title','short_name','parent_id','sort','sku'])
-                                ->where('in_stock', 1); // активные (и главные и дочерние)
+                                ->where('in_stock', 1); // Р В°Р С”РЎвЂљР С‘Р Р†Р Р…РЎвЂ№Р Вµ (Р С‘ Р С–Р В»Р В°Р Р†Р Р…РЎвЂ№Р Вµ Р С‘ Р Т‘Р С•РЎвЂЎР ВµРЎР‚Р Р…Р С‘Р Вµ)
 
                             if ($search !== '') {
                                 $like = "%{$search}%";
@@ -2115,11 +2115,11 @@ class OrderResource extends Resource
                                         ->orWhereRaw("NOT JSON_VALID(short_name) AND short_name LIKE ?", [$like]);
                                 });
 
-                                // sku (размер)
+                                // sku (РЎР‚Р В°Р В·Р СР ВµРЎР‚)
                                 $q->orWhere('sku', 'like', $like);
                             }
 
-                            // сортировка: родитель -> дети
+                            // РЎРѓР С•РЎР‚РЎвЂљР С‘РЎР‚Р С•Р Р†Р С”Р В°: РЎР‚Р С•Р Т‘Р С‘РЎвЂљР ВµР В»РЎРЉ -> Р Т‘Р ВµРЎвЂљР С‘
                             $q->orderByRaw("COALESCE(parent_id, id) ASC")
                                 ->orderByRaw("CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END ASC")
                                 ->orderBy('sort')
@@ -2149,7 +2149,7 @@ class OrderResource extends Resource
                             if (!$product) {
                                 \Filament\Notifications\Notification::make()
                                     ->danger()
-                                    ->title('Товар не найден')
+                                    ->title('Р СћР С•Р Р†Р В°РЎР‚ Р Р…Р Вµ Р Р…Р В°Р в„–Р Т‘Р ВµР Р…')
                                     ->send();
                                 $set('product_id', null);
                                 $set('unit_price', 0);
@@ -2200,7 +2200,7 @@ class OrderResource extends Resource
                             $modifiers = collect($modifiers)->map(fn($m) => is_array($m) ? $m : (array)$m);
                             $modifierSum = $modifiers->sum('price_modifier');
                             $total = $qty * ($price + $modifierSum);
-                            return number_format($total, 2, ',', ' ') . ' грн';
+                            return number_format($total, 2, ',', ' ') . ' Р С–РЎР‚Р Р…';
                         })
                         ->reactive()
                         ->columnSpan(2),
@@ -2252,7 +2252,7 @@ class OrderResource extends Resource
                                         ->orderBy('characteristic_id')
                                         ->get(['characteristic_values.*','pcv.price_modifier'])
                                         ->mapWithKeys(fn ($val) => [
-                                            $val->id => "{$val->characteristic->name} - {$val->value} (+{$val->price_modifier}₴)",
+                                            $val->id => "{$val->characteristic->name} - {$val->value} (+{$val->price_modifier}РІвЂљТ‘)",
                                         ])
                                         ->toArray();
                                 })
@@ -2275,12 +2275,12 @@ class OrderResource extends Resource
                                 ->inputMode('decimal')
                                 ->step('any')
                                 ->default(0)
-                                ->suffix('₴')
+                                ->suffix('РІвЂљТ‘')
                                 ->columnSpan(3),
                         ])
                     ])
                     ->collapsed(false)
-                    ->itemLabel(fn (array $state): ?string => 'Модификатор')
+                    ->itemLabel(fn (array $state): ?string => 'Р СљР С•Р Т‘Р С‘РЎвЂћР С‘Р С”Р В°РЎвЂљР С•РЎР‚')
                     ->defaultItems(0)
                     ->reorderable()
                     ->columns(3)
@@ -2291,7 +2291,7 @@ class OrderResource extends Resource
                 FormAction::make('addModifier')
                     ->icon('heroicon-o-plus')
                     ->iconButton()
-                    ->tooltip('Добавить характеристику')
+                    ->tooltip('Р вЂќР С•Р В±Р В°Р Р†Р С‘РЎвЂљРЎРЉ РЎвЂ¦Р В°РЎР‚Р В°Р С”РЎвЂљР ВµРЎР‚Р С‘РЎРѓРЎвЂљР С‘Р С”РЎС“')
                     ->color('gray')
                     ->action(function (array $arguments, Repeater $component): void {
                         $index = $arguments['item'];
@@ -2328,13 +2328,13 @@ class OrderResource extends Resource
     }
 
     // =========================
-    //   Таблица с модалкой «Статусы»
+    //   Р СћР В°Р В±Р В»Р С‘РЎвЂ Р В° РЎРѓ Р СР С•Р Т‘Р В°Р В»Р С”Р С•Р в„– Р’В«Р РЋРЎвЂљР В°РЎвЂљРЎС“РЎРѓРЎвЂ№Р’В»
     // =========================
     public static function table(Table $table): Table
     {
         return $table
             ->modifyQueryUsing(fn (Builder $query) => $query
-                ->with(['clients.group', 'clientAddress', 'lastLiqpayLog', 'items.product', 'source']) // ← исправление N+1 проблемы
+                ->with(['clients.group', 'clientAddress', 'lastLiqpayLog', 'items.product', 'source']) // РІвЂ С’ Р С‘РЎРѓР С—РЎР‚Р В°Р Р†Р В»Р ВµР Р…Р С‘Р Вµ N+1 Р С—РЎР‚Р С•Р В±Р В»Р ВµР СРЎвЂ№
                 ->when(
                     static::class === \App\Filament\Resources\Callcenter\OrderResource::class,
                     fn (Builder $q) => $q
@@ -2366,7 +2366,7 @@ class OrderResource extends Resource
 
                         'style' => 'line-height:1.1;min-width:8rem;width:8rem;',
                         'x-data' => '{}',
-                        // вставляем "родной" лейбл Filament, чтобы стили совпали
+                        // Р Р†РЎРѓРЎвЂљР В°Р Р†Р В»РЎРЏР ВµР С "РЎР‚Р С•Р Т‘Р Р…Р С•Р в„–" Р В»Р ВµР в„–Р В±Р В» Filament, РЎвЂЎРЎвЂљР С•Р В±РЎвЂ№ РЎРѓРЎвЂљР С‘Р В»Р С‘ РЎРѓР С•Р Р†Р С—Р В°Р В»Р С‘
                         'x-html' => json_encode(
                             '<span class="fi-ta-header-cell-label text-sm font-medium">'
                             . (static::class === \App\Filament\Resources\Callcenter\OrderResource::class
@@ -2374,7 +2374,7 @@ class OrderResource extends Resource
                                 : __('order.columns.number_dates'))
                             .'</span>'
                         ) ])
-                    ->grow(false) // чтобы колонка не ужималась другими
+                    ->grow(false) // РЎвЂЎРЎвЂљР С•Р В±РЎвЂ№ Р С”Р С•Р В»Р С•Р Р…Р С”Р В° Р Р…Р Вµ РЎС“Р В¶Р С‘Р СР В°Р В»Р В°РЎРѓРЎРЉ Р Т‘РЎР‚РЎС“Р С–Р С‘Р СР С‘
 
                     ->extraCellAttributes(['style' => 'min-width:8rem;width:8rem;'])
                     ->searchable(isIndividual: true)
@@ -2421,7 +2421,7 @@ class OrderResource extends Resource
                             $orderMoment = $businessMoment;
                         }
 
-                        $orderDateText = $orderMoment ? $orderMoment->format('d.m H:i') : '—';
+                        $orderDateText = $orderMoment ? $orderMoment->format('d.m H:i') : 'РІР‚вЂќ';
 
                         if (! $isCallcenter) {
                             return $orderDateText;
@@ -2438,8 +2438,8 @@ class OrderResource extends Resource
                         if ((bool) $record->as_soon_possible) {
                             $deliveryBadge = '<span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold" style="background:#DBEAFE;color:#1D4ED8;">ASAP</span>';
                         } elseif ($record->date_order || $record->time_order) {
-                            $deliveryDate = $record->date_order ? Carbon::parse($record->date_order)->format('d.m') : '—';
-                            $deliveryTime = $record->time_order ? Carbon::parse($record->time_order)->format('H:i') : '—';
+                            $deliveryDate = $record->date_order ? Carbon::parse($record->date_order)->format('d.m') : 'РІР‚вЂќ';
+                            $deliveryTime = $record->time_order ? Carbon::parse($record->time_order)->format('H:i') : 'РІР‚вЂќ';
                             $deliveryBadge = '<span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold" style="background:#DBEAFE;color:#1D4ED8;">'
                                 . e($deliveryDate . ' ' . $deliveryTime)
                                 . '</span>';
@@ -2454,7 +2454,7 @@ class OrderResource extends Resource
                         );
                     }),
                   //  ->extraAttributes(['class' => 'cursor-pointer underline']),
-                  //  ->action('statuses'), // клик по номеру откроет модалку статусов
+                  //  ->action('statuses'), // Р С”Р В»Р С‘Р С” Р С—Р С• Р Р…Р С•Р СР ВµРЎР‚РЎС“ Р С•РЎвЂљР С”РЎР‚Р С•Р ВµРЎвЂљ Р СР С•Р Т‘Р В°Р В»Р С”РЎС“ РЎРѓРЎвЂљР В°РЎвЂљРЎС“РЎРѓР С•Р Р†
 
                 TextColumn::make('clients.name')
                     ->label(__('order.columns.client'))
@@ -2489,7 +2489,7 @@ class OrderResource extends Resource
 
                                 $groupBadge = '<span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs" '
                                     . 'style="background:' . ($isBlacklist ? '#fee2e2' : '#eff6ff') . ';color:' . ($isBlacklist ? '#b91c1c' : '#1d4ed8') . ';border:1px solid ' . ($isBlacklist ? '#fecaca' : '#bfdbfe') . ';font-weight:600;">'
-                                    . e(($isBlacklist ? '👎 ' : '') . $groupName)
+                                    . e(($isBlacklist ? 'СЂСџвЂР‹ ' : '') . $groupName)
                                     . '</span>';
                             }
                         }
@@ -2575,16 +2575,16 @@ class OrderResource extends Resource
                         ),
                     ])
                     ->formatStateUsing(function ($state, Order $record) {
-                        $total = number_format((float) ($record->total_price ?? 0), 2, ',', ' ') . ' грн';
+                        $total = number_format((float) ($record->total_price ?? 0), 2, ',', ' ') . ' Р С–РЎР‚Р Р…';
                         $discountValue = (float) ($record->discount_total ?? 0);
                         $discount = $discountValue != 0
-                            ? number_format($discountValue, 2, ',', ' ') . ' грн'
-                            : '—';
+                            ? number_format($discountValue, 2, ',', ' ') . ' Р С–РЎР‚Р Р…'
+                            : 'РІР‚вЂќ';
                         $shippingValue = $record->resolveDeliveryAmount();
                         $shipping = $shippingValue != 0
-                            ? number_format($shippingValue, 2, ',', ' ') . ' грн'
-                            : '—';
-                        $grand = number_format((float) ($record->grand_total ?? 0), 2, ',', ' ') . ' грн';
+                            ? number_format($shippingValue, 2, ',', ' ') . ' Р С–РЎР‚Р Р…'
+                            : 'РІР‚вЂќ';
+                        $grand = number_format((float) ($record->grand_total ?? 0), 2, ',', ' ') . ' Р С–РЎР‚Р Р…';
 
                         $isCallcenter = static::class === \App\Filament\Resources\Callcenter\OrderResource::class;
                         $isCash = (($record->payment instanceof PaymentMethodEnum ? $record->payment->value : (int) $record->payment) === PaymentMethodEnum::CASH->value);
@@ -2630,10 +2630,10 @@ class OrderResource extends Resource
 
                                 return new HtmlString(
                                     '<span style="display:block;line-height:1.2;margin:0;padding:0;">'
-                                    . '<span style="display:block;margin:0;padding:0;">' . number_format($sumTotal, 2, ',', ' ') . ' грн</span>'
-                                    . '<span style="display:block;margin:0;padding:0;color:#dc2626;">' . number_format($sumDiscount, 2, ',', ' ') . ' грн</span>'
-                                    . '<span style="display:block;margin:0;padding:0;color:#15803d;">' . number_format($sumShipping, 2, ',', ' ') . ' грн</span>'
-                                    . '<span style="display:block;margin:0;padding:0;color:#1d4ed8;font-weight:600;">' . number_format($sumGrand, 2, ',', ' ') . ' грн</span>'
+                                    . '<span style="display:block;margin:0;padding:0;">' . number_format($sumTotal, 2, ',', ' ') . ' Р С–РЎР‚Р Р…</span>'
+                                    . '<span style="display:block;margin:0;padding:0;color:#dc2626;">' . number_format($sumDiscount, 2, ',', ' ') . ' Р С–РЎР‚Р Р…</span>'
+                                    . '<span style="display:block;margin:0;padding:0;color:#15803d;">' . number_format($sumShipping, 2, ',', ' ') . ' Р С–РЎР‚Р Р…</span>'
+                                    . '<span style="display:block;margin:0;padding:0;color:#1d4ed8;font-weight:600;">' . number_format($sumGrand, 2, ',', ' ') . ' Р С–РЎР‚Р Р…</span>'
                                     . '</span>'
                                 );
                             }),
@@ -2646,18 +2646,18 @@ class OrderResource extends Resource
                             'x-data' => '{}',
                             'x-html' => json_encode(
                                 '<span class="fi-ta-header-cell-label text-sm font-medium">'
-                                .'Дата<br>доставки'
+                                .'Р вЂќР В°РЎвЂљР В°<br>Р Т‘Р С•РЎРѓРЎвЂљР В°Р Р†Р С”Р С‘'
                                 .'</span>'
                             ),
                             'style'  => 'line-height: 1.1;',
                         ])
                         ->formatStateUsing(function ($state, Order $record) {
                             if (! $state) {
-                                return '—';
+                                return 'РІР‚вЂќ';
                             }
 
                             $date = Carbon::parse($state)->format('d.m');
-                            $time = $record->time_order ? Carbon::parse($record->time_order)->format('H:i') : '—';
+                            $time = $record->time_order ? Carbon::parse($record->time_order)->format('H:i') : 'РІР‚вЂќ';
 
                             return new HtmlString($date . '<br>' . $time);
                         })
@@ -2667,8 +2667,8 @@ class OrderResource extends Resource
                 TextColumn::make('delivery_info')
                     ->label(__('order.columns.delivery_method'))
                     ->getStateUsing(fn (Order $record) => static::deliveryMethodLabel($record))
-                    ->badge() // красивый бейдж
-                    ->grow(false) // чтобы ширина не “съедалась” другими колонками
+                    ->badge() // Р С”РЎР‚Р В°РЎРѓР С‘Р Р†РЎвЂ№Р в„– Р В±Р ВµР в„–Р Т‘Р В¶
+                    ->grow(false) // РЎвЂЎРЎвЂљР С•Р В±РЎвЂ№ РЎв‚¬Р С‘РЎР‚Р С‘Р Р…Р В° Р Р…Р Вµ РІР‚СљРЎРѓРЎР‰Р ВµР Т‘Р В°Р В»Р В°РЎРѓРЎРЉРІР‚Сњ Р Т‘РЎР‚РЎС“Р С–Р С‘Р СР С‘ Р С”Р С•Р В»Р С•Р Р…Р С”Р В°Р СР С‘
                     ->extraHeaderAttributes(['class' => 'min-w-[22rem] w-[22rem]'])
                     ->extraCellAttributes(['class' => 'min-w-[22rem] w-[22rem]'])
                     ->searchable(isIndividual: true, query: function (Builder $query, string $search): Builder {
@@ -2683,14 +2683,14 @@ class OrderResource extends Resource
                         });
                     })
                     ->icon(fn ($record) => $record->self_pickup ? 'heroicon-m-shopping-bag' : 'heroicon-m-map-pin')
-                    ->color(fn ($record) => $record->self_pickup ? 'warning' : 'primary') // другой цвет для самовывоза
-                    // Подпись мелким текстом — адрес (только если не самовывоз)
+                    ->color(fn ($record) => $record->self_pickup ? 'warning' : 'primary') // Р Т‘РЎР‚РЎС“Р С–Р С•Р в„– РЎвЂ Р Р†Р ВµРЎвЂљ Р Т‘Р В»РЎРЏ РЎРѓР В°Р СР С•Р Р†РЎвЂ№Р Р†Р С•Р В·Р В°
+                    // Р СџР С•Р Т‘Р С—Р С‘РЎРѓРЎРЉ Р СР ВµР В»Р С”Р С‘Р С РЎвЂљР ВµР С”РЎРѓРЎвЂљР С•Р С РІР‚вЂќ Р В°Р Т‘РЎР‚Р ВµРЎРѓ (РЎвЂљР С•Р В»РЎРЉР С”Р С• Р ВµРЎРѓР В»Р С‘ Р Р…Р Вµ РЎРѓР В°Р СР С•Р Р†РЎвЂ№Р Р†Р С•Р В·)
                     ->description(function (Order $record) {
                         if ($record->self_pickup) return null;
 
                         $addressLine = null;
 
-                        // 1) сначала пробуем привязанный адрес
+                        // 1) РЎРѓР Р…Р В°РЎвЂЎР В°Р В»Р В° Р С—РЎР‚Р С•Р В±РЎС“Р ВµР С Р С—РЎР‚Р С‘Р Р†РЎРЏР В·Р В°Р Р…Р Р…РЎвЂ№Р в„– Р В°Р Т‘РЎР‚Р ВµРЎРѓ
                         if ($a = $record->clientAddress) {
                             $parts = [
                                 $a->street,
@@ -2703,7 +2703,7 @@ class OrderResource extends Resource
                             $addressLine = $line !== '' ? $line : null;
                         }
 
-                        // 2) иначе — из JSON поля order.address (если есть)
+                        // 2) Р С‘Р Р…Р В°РЎвЂЎР Вµ РІР‚вЂќ Р С‘Р В· JSON Р С—Р С•Р В»РЎРЏ order.address (Р ВµРЎРѓР В»Р С‘ Р ВµРЎРѓРЎвЂљРЎРЉ)
                         if ($addressLine === null) {
                             $addr = (array) ($record->address ?? []);
                             $parts = [
@@ -2714,7 +2714,7 @@ class OrderResource extends Resource
                                 !empty($addr['floor'])     ? __('order.address_prefixes.floor') . ' ' . $addr['floor']       : null,
                             ];
                             $line = trim(implode(', ', array_filter($parts)));
-                            $addressLine = $line !== '' ? $line : '—';
+                            $addressLine = $line !== '' ? $line : 'РІР‚вЂќ';
                         }
 
                         if (static::class !== \App\Filament\Resources\Callcenter\OrderResource::class) {
@@ -2736,8 +2736,8 @@ class OrderResource extends Resource
                             . '</div>'
                         );
                     })
-                    ->wrap()        // перенос длинных адресов
-                    ->toggleable(), // можно спрятать в настройках таблицы
+                    ->wrap()        // Р С—Р ВµРЎР‚Р ВµР Р…Р С•РЎРѓ Р Т‘Р В»Р С‘Р Р…Р Р…РЎвЂ№РЎвЂ¦ Р В°Р Т‘РЎР‚Р ВµРЎРѓР С•Р Р†
+                    ->toggleable(), // Р СР С•Р В¶Р Р…Р С• РЎРѓР С—РЎР‚РЎРЏРЎвЂљР В°РЎвЂљРЎРЉ Р Р† Р Р…Р В°РЎРѓРЎвЂљРЎР‚Р С•Р в„–Р С”Р В°РЎвЂ¦ РЎвЂљР В°Р В±Р В»Р С‘РЎвЂ РЎвЂ№
 
                 static::class === \App\Filament\Resources\Callcenter\OrderResource::class
                     ? ViewColumn::make('items_inline')
@@ -2755,7 +2755,7 @@ class OrderResource extends Resource
                     ->formatStateUsing(
                         function (null|PaymentMethodEnum $state): string {
                             if (! $state) {
-                                return '—';
+                                return 'РІР‚вЂќ';
                             }
 
                             if ($state === PaymentMethodEnum::INVOICE) {
@@ -2771,18 +2771,21 @@ class OrderResource extends Resource
                         }
 
                         $isFiscalized = (bool) ($record->has_success_cashalot_log ?? false);
+                        $isReturnedFiscal = (bool) ($record->has_success_cashalot_return_log ?? false);
 
-                        if (! $isFiscalized) {
+                        if (! $isFiscalized && ! $isReturnedFiscal) {
                             return null;
                         }
 
-                        return new HtmlString('<span style="display:inline-block;margin-top:3px;border-radius:999px;background:#fee2e2;color:#b91c1c;padding:2px 7px;font-size:11px;font-weight:700;line-height:1.2;">фіскалізовано</span>');
+                        $label = $isReturnedFiscal ? 'С‡РµРє С„РёСЃРєР°Р»СЊРЅРѕ РѕС‚РјРµРЅРµРЅ' : 'С„РёСЃРєР°Р»РёР·РѕРІР°РЅРѕ';
+
+                        return new HtmlString('<span style="display:inline-block;margin-top:3px;border-radius:999px;background:#fee2e2;color:#b91c1c;padding:2px 7px;font-size:11px;font-weight:700;line-height:1.2;">'.e($label).'</span>');
                     }),
-                // ⬇️ НОВАЯ КОЛОНКА L i q P a y
+                // РІВ¬вЂЎРїС‘РЏ Р СњР С›Р вЂ™Р С’Р Р‡ Р С™Р С›Р вЂєР С›Р СњР С™Р С’ L i q P a y
                 BadgeColumn::make('liqpay_status')
                     ->label(__('order.columns.liqpay'))
                     ->getStateUsing(fn (Order $record) => $record->lastLiqpayLog?->status)
-                    // что писать на бейдже
+                    // РЎвЂЎРЎвЂљР С• Р С—Р С‘РЎРѓР В°РЎвЂљРЎРЉ Р Р…Р В° Р В±Р ВµР в„–Р Т‘Р В¶Р Вµ
                     ->formatStateUsing(function ($state) {
                         return match ($state) {
                             'success', 'sandbox'        => __('order.liqpay.success'),
@@ -2792,17 +2795,17 @@ class OrderResource extends Resource
                             default                     => __('order.liqpay.none'),
                         };
                     })
-                    // цвет бейджа
+                    // РЎвЂ Р Р†Р ВµРЎвЂљ Р В±Р ВµР в„–Р Т‘Р В¶Р В°
                     ->color(function ($state) {
                         return match ($state) {
-                            'success', 'sandbox'        => 'success',   // зелёный
-                            'wait_accept', 'processing' => 'warning',   // жёлтый
-                            'failure', 'error'          => 'danger',    // красный
-                            'reversed', 'refunded'      => 'gray',      // серый
-                            default                     => 'secondary', // обычный
+                            'success', 'sandbox'        => 'success',   // Р В·Р ВµР В»РЎвЂР Р…РЎвЂ№Р в„–
+                            'wait_accept', 'processing' => 'warning',   // Р В¶РЎвЂР В»РЎвЂљРЎвЂ№Р в„–
+                            'failure', 'error'          => 'danger',    // Р С”РЎР‚Р В°РЎРѓР Р…РЎвЂ№Р в„–
+                            'reversed', 'refunded'      => 'gray',      // РЎРѓР ВµРЎР‚РЎвЂ№Р в„–
+                            default                     => 'secondary', // Р С•Р В±РЎвЂ№РЎвЂЎР Р…РЎвЂ№Р в„–
                         };
                     })
-                    // краткий коммент при наведении
+                    // Р С”РЎР‚Р В°РЎвЂљР С”Р С‘Р в„– Р С”Р С•Р СР СР ВµР Р…РЎвЂљ Р С—РЎР‚Р С‘ Р Р…Р В°Р Р†Р ВµР Т‘Р ВµР Р…Р С‘Р С‘
                     ->tooltip(function (Order $record) {
                         $log = $record->lastLiqpayLog;
 
@@ -2817,13 +2820,13 @@ class OrderResource extends Resource
                         $err = $payload['err_description'] ?? $payload['err_code'] ?? null;
 
                         return match ($log->status) {
-                            'success', 'sandbox'        => 'Оплата пройшла успішно',
-                            'wait_accept', 'processing' => 'Платіж ще обробляється LiqPay',
+                            'success', 'sandbox'        => 'Р С›Р С—Р В»Р В°РЎвЂљР В° Р С—РЎР‚Р С•Р в„–РЎв‚¬Р В»Р В° РЎС“РЎРѓР С—РЎвЂ“РЎв‚¬Р Р…Р С•',
+                            'wait_accept', 'processing' => 'Р СџР В»Р В°РЎвЂљРЎвЂ“Р В¶ РЎвЂ°Р Вµ Р С•Р В±РЎР‚Р С•Р В±Р В»РЎРЏРЎвЂќРЎвЂљРЎРЉРЎРѓРЎРЏ LiqPay',
                             'failure', 'error'          => $err
-                                ? 'Помилка оплати: ' . $err
-                                : 'Помилка оплати на стороні LiqPay',
-                            'reversed', 'refunded'      => 'Платіж повернуто / відшкодовано',
-                            default                     => 'Статус LiqPay: невідомий',
+                                ? 'Р СџР С•Р СР С‘Р В»Р С”Р В° Р С•Р С—Р В»Р В°РЎвЂљР С‘: ' . $err
+                                : 'Р СџР С•Р СР С‘Р В»Р С”Р В° Р С•Р С—Р В»Р В°РЎвЂљР С‘ Р Р…Р В° РЎРѓРЎвЂљР С•РЎР‚Р С•Р Р…РЎвЂ“ LiqPay',
+                            'reversed', 'refunded'      => 'Р СџР В»Р В°РЎвЂљРЎвЂ“Р В¶ Р С—Р С•Р Р†Р ВµРЎР‚Р Р…РЎС“РЎвЂљР С• / Р Р†РЎвЂ“Р Т‘РЎв‚¬Р С”Р С•Р Т‘Р С•Р Р†Р В°Р Р…Р С•',
+                            default                     => 'Р РЋРЎвЂљР В°РЎвЂљРЎС“РЎРѓ LiqPay: Р Р…Р ВµР Р†РЎвЂ“Р Т‘Р С•Р СР С‘Р в„–',
                         };
                     })
                     ->sortable(false)
@@ -2832,7 +2835,7 @@ class OrderResource extends Resource
             ->defaultSort(
                 static::class === \App\Filament\Resources\Callcenter\OrderResource::class ? 'order_dt' : 'created_at',
                 'desc'
-            ) // 👈 сортировка по умолчанию
+            ) // СЂСџвЂв‚¬ РЎРѓР С•РЎР‚РЎвЂљР С‘РЎР‚Р С•Р Р†Р С”Р В° Р С—Р С• РЎС“Р СР С•Р В»РЎвЂЎР В°Р Р…Р С‘РЎР‹
             ->filtersLayout(\Filament\Tables\Enums\FiltersLayout::AboveContentCollapsible)
             ->filtersFormColumns(12)
             ->filters([
@@ -2860,7 +2863,7 @@ class OrderResource extends Resource
                     })
                     ->columnSpan(1),
 
-                SelectFilter::make('payment')     // то же имя поля
+                SelectFilter::make('payment')     // РЎвЂљР С• Р В¶Р Вµ Р С‘Р СРЎРЏ Р С—Р С•Р В»РЎРЏ
                 ->label(__('order.columns.payment'))
                     ->options(static::paymentOptionsAdmin())
                     ->multiple()
@@ -2868,7 +2871,7 @@ class OrderResource extends Resource
                     ->columnSpan(1),
 
                 Filter::make('cashalot_fiscalized')
-                    ->label('Фіскальні тільки')
+                    ->label('Р В¤РЎвЂ“РЎРѓР С”Р В°Р В»РЎРЉР Р…РЎвЂ“ РЎвЂљРЎвЂ“Р В»РЎРЉР С”Р С‘')
                     ->visible(fn (): bool => static::class === \App\Filament\Resources\Callcenter\OrderResource::class)
                     ->query(fn (Builder $query): Builder => $query->whereHas(
                         'cashalotLogs',
@@ -2948,7 +2951,7 @@ class OrderResource extends Resource
             ])
 
             ->actions([
-                // МОДАЛЬНОЕ ДЕЙСТВИЕ «Статусы»
+                // Р СљР С›Р вЂќР С’Р вЂєР В¬Р СњР С›Р вЂў Р вЂќР вЂўР в„ўР РЋР СћР вЂ™Р ВР вЂў Р’В«Р РЋРЎвЂљР В°РЎвЂљРЎС“РЎРѓРЎвЂ№Р’В»
                 Action::make('statuses')
                     ->label(static::class === \App\Filament\Resources\Callcenter\OrderResource::class ? '' : __('order.actions.statuses'))
                     ->icon(static::class === \App\Filament\Resources\Callcenter\OrderResource::class ? '' : 'heroicon-m-adjustments-horizontal')
@@ -2964,7 +2967,7 @@ class OrderResource extends Resource
                     ->action(function (array $data, Order $record) {
                         $user = auth('admin')->user();
                         if (!$user || !$user instanceof \App\Models\User) {
-                            Notification::make()->danger()->title('Ошибка авторизации')->send();
+                            Notification::make()->danger()->title('Р С›РЎв‚¬Р С‘Р В±Р С”Р В° Р В°Р Р†РЎвЂљР С•РЎР‚Р С‘Р В·Р В°РЎвЂ Р С‘Р С‘')->send();
                             return;
                         }
 
@@ -2977,7 +2980,7 @@ class OrderResource extends Resource
                         }
 
                         if (! static::canSetStatus($to)) {
-                            Notification::make()->danger()->title('Нет прав на установку этого статуса')->send();
+                            Notification::make()->danger()->title('Р СњР ВµРЎвЂљ Р С—РЎР‚Р В°Р Р† Р Р…Р В° РЎС“РЎРѓРЎвЂљР В°Р Р…Р С•Р Р†Р С”РЎС“ РЎРЊРЎвЂљР С•Р С–Р С• РЎРѓРЎвЂљР В°РЎвЂљРЎС“РЎРѓР В°')->send();
                             return;
                         }
 
@@ -2985,7 +2988,7 @@ class OrderResource extends Resource
                         $newRank = $to->rank();
 
                         if ($newRank < $oldRank && ! static::canDowngrade()) {
-                            Notification::make()->danger()->title('Нет прав возвращать статус назад')->send();
+                            Notification::make()->danger()->title('Р СњР ВµРЎвЂљ Р С—РЎР‚Р В°Р Р† Р Р†Р С•Р В·Р Р†РЎР‚Р В°РЎвЂ°Р В°РЎвЂљРЎРЉ РЎРѓРЎвЂљР В°РЎвЂљРЎС“РЎРѓ Р Р…Р В°Р В·Р В°Р Т‘')->send();
                             return;
                         }
 
@@ -2993,7 +2996,7 @@ class OrderResource extends Resource
                         if ($newRank < $oldRank) {
                             $reason = trim((string)($data['downgrade_reason'] ?? ''));
                             if ($reason === '') {
-                                Notification::make()->danger()->title('Укажите причину отката')->send();
+                                Notification::make()->danger()->title('Р Р€Р С”Р В°Р В¶Р С‘РЎвЂљР Вµ Р С—РЎР‚Р С‘РЎвЂЎР С‘Р Р…РЎС“ Р С•РЎвЂљР С”Р В°РЎвЂљР В°')->send();
                                 return;
                             }
                             $record->extra_reason = $reason;
@@ -3016,12 +3019,12 @@ class OrderResource extends Resource
 
                         Notification::make()
                             ->success()
-                            ->title($newRank < $oldRank ? 'Статус откатан' : 'Статус обновлён')
+                            ->title($newRank < $oldRank ? 'Р РЋРЎвЂљР В°РЎвЂљРЎС“РЎРѓ Р С•РЎвЂљР С”Р В°РЎвЂљР В°Р Р…' : 'Р РЋРЎвЂљР В°РЎвЂљРЎС“РЎРѓ Р С•Р В±Р Р…Р С•Р Р†Р В»РЎвЂР Р…')
                             ->send();
                     }),
 
                 Action::make('refund_payparts')
-                    ->label('Полный возврат')
+                    ->label('Р СџР С•Р В»Р Р…РЎвЂ№Р в„– Р Р†Р С•Р В·Р Р†РЎР‚Р В°РЎвЂљ')
                     ->icon('heroicon-o-arrow-uturn-left')
                     ->color('danger')
                     ->visible(function (Order $record): bool {
@@ -3038,12 +3041,12 @@ class OrderResource extends Resource
                             && in_array($record->payparts_status, ['payment_success', 'refund_failed'], true);
                     })
                     ->requiresConfirmation()
-                    ->modalHeading(fn (Order $record): string => 'Полный возврат по заказу №' . ($record->number ?: $record->id))
+                    ->modalHeading(fn (Order $record): string => 'Р СџР С•Р В»Р Р…РЎвЂ№Р в„– Р Р†Р С•Р В·Р Р†РЎР‚Р В°РЎвЂљ Р С—Р С• Р В·Р В°Р С”Р В°Р В·РЎС“ РІвЂћвЂ“' . ($record->number ?: $record->id))
                     ->modalDescription(fn (Order $record): string => sprintf(
-                        'Вернуть %.2f грн через ПриватБанк? Операцию нельзя запускать повторно, пока банк обрабатывает возврат. Возвратный чек Cashalot оформляется отдельно.',
+                        'Р вЂ™Р ВµРЎР‚Р Р…РЎС“РЎвЂљРЎРЉ %.2f Р С–РЎР‚Р Р… РЎвЂЎР ВµРЎР‚Р ВµР В· Р СџРЎР‚Р С‘Р Р†Р В°РЎвЂљР вЂР В°Р Р…Р С”? Р С›Р С—Р ВµРЎР‚Р В°РЎвЂ Р С‘РЎР‹ Р Р…Р ВµР В»РЎРЉР В·РЎРЏ Р В·Р В°Р С—РЎС“РЎРѓР С”Р В°РЎвЂљРЎРЉ Р С—Р С•Р Р†РЎвЂљР С•РЎР‚Р Р…Р С•, Р С—Р С•Р С”Р В° Р В±Р В°Р Р…Р С” Р С•Р В±РЎР‚Р В°Р В±Р В°РЎвЂљРЎвЂ№Р Р†Р В°Р ВµРЎвЂљ Р Р†Р С•Р В·Р Р†РЎР‚Р В°РЎвЂљ. Р вЂ™Р С•Р В·Р Р†РЎР‚Р В°РЎвЂљР Р…РЎвЂ№Р в„– РЎвЂЎР ВµР С” Cashalot Р С•РЎвЂћР С•РЎР‚Р СР В»РЎРЏР ВµРЎвЂљРЎРѓРЎРЏ Р С•РЎвЂљР Т‘Р ВµР В»РЎРЉР Р…Р С•.',
                         (float) $record->grand_total
                     ))
-                    ->modalSubmitActionLabel('Выполнить возврат')
+                    ->modalSubmitActionLabel('Р вЂ™РЎвЂ№Р С—Р С•Р В»Р Р…Р С‘РЎвЂљРЎРЉ Р Р†Р С•Р В·Р Р†РЎР‚Р В°РЎвЂљ')
                     ->action(function (Order $record): void {
                         $user = auth('admin')->user();
 
@@ -3052,7 +3055,7 @@ class OrderResource extends Resource
                                 && ((method_exists($user, 'hasRole') && $user->hasRole(config('shield.super_admin.name', 'super_admin')))
                                     || $user->can('refund_payparts_payment'));
                             if (! $allowed) {
-                                throw new \RuntimeException('Недостаточно прав для возврата платежа.');
+                                throw new \RuntimeException('Р СњР ВµР Т‘Р С•РЎРѓРЎвЂљР В°РЎвЂљР С•РЎвЂЎР Р…Р С• Р С—РЎР‚Р В°Р Р† Р Т‘Р В»РЎРЏ Р Р†Р С•Р В·Р Р†РЎР‚Р В°РЎвЂљР В° Р С—Р В»Р В°РЎвЂљР ВµР В¶Р В°.');
                             }
 
                             $refund = PrivatBankPaypartsRefundService::make()
@@ -3067,12 +3070,12 @@ class OrderResource extends Resource
                                     'amount' => $refund->amount,
                                     'status' => $refund->status,
                                 ])
-                                ->log('Запрошен полный возврат «Оплаты частями»');
+                                ->log('Р вЂ”Р В°Р С—РЎР‚Р С•РЎв‚¬Р ВµР Р… Р С—Р С•Р В»Р Р…РЎвЂ№Р в„– Р Р†Р С•Р В·Р Р†РЎР‚Р В°РЎвЂљ Р’В«Р С›Р С—Р В»Р В°РЎвЂљРЎвЂ№ РЎвЂЎР В°РЎРѓРЎвЂљРЎРЏР СР С‘Р’В»');
 
                             Notification::make()
                                 ->title($refund->status === 'refunded'
-                                    ? 'Возврат успешно выполнен'
-                                    : 'Возврат принят и ожидает подтверждения банка')
+                                    ? 'Р вЂ™Р С•Р В·Р Р†РЎР‚Р В°РЎвЂљ РЎС“РЎРѓР С—Р ВµРЎв‚¬Р Р…Р С• Р Р†РЎвЂ№Р С—Р С•Р В»Р Р…Р ВµР Р…'
+                                    : 'Р вЂ™Р С•Р В·Р Р†РЎР‚Р В°РЎвЂљ Р С—РЎР‚Р С‘Р Р…РЎРЏРЎвЂљ Р С‘ Р С•Р В¶Р С‘Р Т‘Р В°Р ВµРЎвЂљ Р С—Р С•Р Т‘РЎвЂљР Р†Р ВµРЎР‚Р В¶Р Т‘Р ВµР Р…Р С‘РЎРЏ Р В±Р В°Р Р…Р С”Р В°')
                                 ->{$refund->status === 'refunded' ? 'success' : 'warning'}()
                                 ->send();
                         } catch (\Throwable $e) {
@@ -3084,7 +3087,7 @@ class OrderResource extends Resource
 
                             Notification::make()
                                 ->danger()
-                                ->title('Возврат не выполнен')
+                                ->title('Р вЂ™Р С•Р В·Р Р†РЎР‚Р В°РЎвЂљ Р Р…Р Вµ Р Р†РЎвЂ№Р С—Р С•Р В»Р Р…Р ВµР Р…')
                                 ->body($e->getMessage())
                                 ->persistent()
                                 ->send();
@@ -3092,7 +3095,7 @@ class OrderResource extends Resource
                     }),
 
                 Action::make('cashalot_return')
-                    ->label('Отменить фискальный чек')
+                    ->label('Р С›РЎвЂљР СР ВµР Р…Р С‘РЎвЂљРЎРЉ РЎвЂћР С‘РЎРѓР С”Р В°Р В»РЎРЉР Р…РЎвЂ№Р в„– РЎвЂЎР ВµР С”')
                     ->icon('heroicon-o-receipt-refund')
                     ->color('warning')
                     ->visible(function (Order $record): bool {
@@ -3121,12 +3124,12 @@ class OrderResource extends Resource
                         return $allowed && $hasSaleCashalot && ! $hasReturnCashalot;
                     })
                     ->requiresConfirmation()
-                    ->modalHeading(fn (Order $record): string => 'Отмена фискального чека по заказу №' . ($record->number ?: $record->id))
+                    ->modalHeading(fn (Order $record): string => 'Р С›РЎвЂљР СР ВµР Р…Р В° РЎвЂћР С‘РЎРѓР С”Р В°Р В»РЎРЉР Р…Р С•Р С–Р С• РЎвЂЎР ВµР С”Р В° Р С—Р С• Р В·Р В°Р С”Р В°Р В·РЎС“ РІвЂћвЂ“' . ($record->number ?: $record->id))
                     ->modalDescription(fn (Order $record): string => sprintf(
-                        'Отменить фискальный чек на %.2f грн? После подтверждения будет сформирован сторно-чек Cashalot. Повторно запускать операцию нельзя, пока возврат не завершен.',
+                        'Р С›РЎвЂљР СР ВµР Р…Р С‘РЎвЂљРЎРЉ РЎвЂћР С‘РЎРѓР С”Р В°Р В»РЎРЉР Р…РЎвЂ№Р в„– РЎвЂЎР ВµР С” Р Р…Р В° %.2f Р С–РЎР‚Р Р…? Р СџР С•РЎРѓР В»Р Вµ Р С—Р С•Р Т‘РЎвЂљР Р†Р ВµРЎР‚Р В¶Р Т‘Р ВµР Р…Р С‘РЎРЏ Р В±РЎС“Р Т‘Р ВµРЎвЂљ РЎРѓРЎвЂћР С•РЎР‚Р СР С‘РЎР‚Р С•Р Р†Р В°Р Р… РЎРѓРЎвЂљР С•РЎР‚Р Р…Р С•-РЎвЂЎР ВµР С” Cashalot. Р СџР С•Р Р†РЎвЂљР С•РЎР‚Р Р…Р С• Р В·Р В°Р С—РЎС“РЎРѓР С”Р В°РЎвЂљРЎРЉ Р С•Р С—Р ВµРЎР‚Р В°РЎвЂ Р С‘РЎР‹ Р Р…Р ВµР В»РЎРЉР В·РЎРЏ, Р С—Р С•Р С”Р В° Р Р†Р С•Р В·Р Р†РЎР‚Р В°РЎвЂљ Р Р…Р Вµ Р В·Р В°Р Р†Р ВµРЎР‚РЎв‚¬Р ВµР Р….',
                         (float) $record->grand_total
                     ))
-                    ->modalSubmitActionLabel('Отменить чек')
+                    ->modalSubmitActionLabel('Р С›РЎвЂљР СР ВµР Р…Р С‘РЎвЂљРЎРЉ РЎвЂЎР ВµР С”')
                     ->action(function (Order $record): void {
                         $user = auth('admin')->user();
 
@@ -3136,7 +3139,7 @@ class OrderResource extends Resource
                                     || $user->can('refund_payparts_payment'));
 
                             if (! $allowed) {
-                                throw new \RuntimeException('Недостаточно прав для отмены фискального чека.');
+                                throw new \RuntimeException('Р СњР ВµР Т‘Р С•РЎРѓРЎвЂљР В°РЎвЂљР С•РЎвЂЎР Р…Р С• Р С—РЎР‚Р В°Р Р† Р Т‘Р В»РЎРЏ Р С•РЎвЂљР СР ВµР Р…РЎвЂ№ РЎвЂћР С‘РЎРѓР С”Р В°Р В»РЎРЉР Р…Р С•Р С–Р С• РЎвЂЎР ВµР С”Р В°.');
                             }
 
                             $cashalotLog = $record->cashalotLogs()
@@ -3149,7 +3152,7 @@ class OrderResource extends Resource
                                 ->first();
 
                             if (! $cashalotLog) {
-                                throw new \RuntimeException('Не найден успешный фискальный чек для сторно.');
+                                throw new \RuntimeException('Р СњР Вµ Р Р…Р В°Р в„–Р Т‘Р ВµР Р… РЎС“РЎРѓР С—Р ВµРЎв‚¬Р Р…РЎвЂ№Р в„– РЎвЂћР С‘РЎРѓР С”Р В°Р В»РЎРЉР Р…РЎвЂ№Р в„– РЎвЂЎР ВµР С” Р Т‘Р В»РЎРЏ РЎРѓРЎвЂљР С•РЎР‚Р Р…Р С•.');
                             }
 
                             $returnLog = app(CashalotFiscalService::class)
@@ -3164,12 +3167,12 @@ class OrderResource extends Resource
                                     'return_log_id' => $returnLog?->id,
                                     'status' => $returnLog?->status,
                                 ])
-                                ->log('Запрошена отмена фискального чека');
+                                ->log('Р вЂ”Р В°Р С—РЎР‚Р С•РЎв‚¬Р ВµР Р…Р В° Р С•РЎвЂљР СР ВµР Р…Р В° РЎвЂћР С‘РЎРѓР С”Р В°Р В»РЎРЉР Р…Р С•Р С–Р С• РЎвЂЎР ВµР С”Р В°');
 
                             Notification::make()
                                 ->title($returnLog?->status === 'success'
-                                    ? 'Фискальный чек отменен'
-                                    : 'Сторно чека принято и ожидает обработки')
+                                    ? 'Р В¤Р С‘РЎРѓР С”Р В°Р В»РЎРЉР Р…РЎвЂ№Р в„– РЎвЂЎР ВµР С” Р С•РЎвЂљР СР ВµР Р…Р ВµР Р…'
+                                    : 'Р РЋРЎвЂљР С•РЎР‚Р Р…Р С• РЎвЂЎР ВµР С”Р В° Р С—РЎР‚Р С‘Р Р…РЎРЏРЎвЂљР С• Р С‘ Р С•Р В¶Р С‘Р Т‘Р В°Р ВµРЎвЂљ Р С•Р В±РЎР‚Р В°Р В±Р С•РЎвЂљР С”Р С‘')
                                 ->{$returnLog?->status === 'success' ? 'success' : 'warning'}()
                                 ->send();
                         } catch (\Throwable $e) {
@@ -3181,7 +3184,7 @@ class OrderResource extends Resource
 
                             Notification::make()
                                 ->danger()
-                                ->title('Отмена фискального чека не выполнена')
+                                ->title('Р С›РЎвЂљР СР ВµР Р…Р В° РЎвЂћР С‘РЎРѓР С”Р В°Р В»РЎРЉР Р…Р С•Р С–Р С• РЎвЂЎР ВµР С”Р В° Р Р…Р Вµ Р Р†РЎвЂ№Р С—Р С•Р В»Р Р…Р ВµР Р…Р В°')
                                 ->body($e->getMessage())
                                 ->persistent()
                                 ->send();
@@ -3198,7 +3201,7 @@ class OrderResource extends Resource
             ])
             ->groups([
                 Tables\Grouping\Group::make('created_at')->label(__('order.filters.order_date'))->date()->collapsible()
-                    // 👇 Фикс: принудительно сортируем по дате НОВЫЕ → СТАРЫЕ
+                    // СЂСџвЂвЂЎ Р В¤Р С‘Р С”РЎРѓ: Р С—РЎР‚Р С‘Р Р…РЎС“Р Т‘Р С‘РЎвЂљР ВµР В»РЎРЉР Р…Р С• РЎРѓР С•РЎР‚РЎвЂљР С‘РЎР‚РЎС“Р ВµР С Р С—Р С• Р Т‘Р В°РЎвЂљР Вµ Р СњР С›Р вЂ™Р В«Р вЂў РІвЂ вЂ™ Р РЋР СћР С’Р В Р В«Р вЂў
                     ->orderQueryUsing(fn (Builder $query) =>
                     $query->orderBy('created_at', 'desc')->orderBy('id', 'desc')
                     ),
@@ -3217,30 +3220,30 @@ class OrderResource extends Resource
     public static function getRelations(): array
     {
         return [
-            // ... твои другие relation managers (например, ItemsRelationManager)
+            // ... РЎвЂљР Р†Р С•Р С‘ Р Т‘РЎР‚РЎС“Р С–Р С‘Р Вµ relation managers (Р Р…Р В°Р С—РЎР‚Р С‘Р СР ВµРЎР‚, ItemsRelationManager)
             \App\Filament\Resources\Shop\OrderResource\RelationManagers\ClientOrdersRelationManager::class,
         ];
     }
 
     /**
-     * Получает координаты адреса через Google Places API (предпочтительно) или Geocoding API
+     * Р СџР С•Р В»РЎС“РЎвЂЎР В°Р ВµРЎвЂљ Р С”Р С•Р С•РЎР‚Р Т‘Р С‘Р Р…Р В°РЎвЂљРЎвЂ№ Р В°Р Т‘РЎР‚Р ВµРЎРѓР В° РЎвЂЎР ВµРЎР‚Р ВµР В· Google Places API (Р С—РЎР‚Р ВµР Т‘Р С—Р С•РЎвЂЎРЎвЂљР С‘РЎвЂљР ВµР В»РЎРЉР Р…Р С•) Р С‘Р В»Р С‘ Geocoding API
      *
-     * ВАЖНО: Если API ключ имеет ограничения по referer, серверные запросы не будут работать.
-     * В этом случае координаты должны быть получены через клиентский JavaScript (поле "Вулиця (Київ)").
+     * Р вЂ™Р С’Р вЂ“Р СњР С›: Р вЂўРЎРѓР В»Р С‘ API Р С”Р В»РЎР‹РЎвЂЎ Р С‘Р СР ВµР ВµРЎвЂљ Р С•Р С–РЎР‚Р В°Р Р…Р С‘РЎвЂЎР ВµР Р…Р С‘РЎРЏ Р С—Р С• referer, РЎРѓР ВµРЎР‚Р Р†Р ВµРЎР‚Р Р…РЎвЂ№Р Вµ Р В·Р В°Р С—РЎР‚Р С•РЎРѓРЎвЂ№ Р Р…Р Вµ Р В±РЎС“Р Т‘РЎС“РЎвЂљ РЎР‚Р В°Р В±Р С•РЎвЂљР В°РЎвЂљРЎРЉ.
+     * Р вЂ™ РЎРЊРЎвЂљР С•Р С РЎРѓР В»РЎС“РЎвЂЎР В°Р Вµ Р С”Р С•Р С•РЎР‚Р Т‘Р С‘Р Р…Р В°РЎвЂљРЎвЂ№ Р Т‘Р С•Р В»Р В¶Р Р…РЎвЂ№ Р В±РЎвЂ№РЎвЂљРЎРЉ Р С—Р С•Р В»РЎС“РЎвЂЎР ВµР Р…РЎвЂ№ РЎвЂЎР ВµРЎР‚Р ВµР В· Р С”Р В»Р С‘Р ВµР Р…РЎвЂљРЎРѓР С”Р С‘Р в„– JavaScript (Р С—Р С•Р В»Р Вµ "Р вЂ™РЎС“Р В»Р С‘РЎвЂ РЎРЏ (Р С™Р С‘РЎвЂ”Р Р†)").
      *
      * @param ClientAddress $address
-     * @param string|null $placeId Place ID из сохраненного адреса заказа (опционально)
+     * @param string|null $placeId Place ID Р С‘Р В· РЎРѓР С•РЎвЂ¦РЎР‚Р В°Р Р…Р ВµР Р…Р Р…Р С•Р С–Р С• Р В°Р Т‘РЎР‚Р ВµРЎРѓР В° Р В·Р В°Р С”Р В°Р В·Р В° (Р С•Р С—РЎвЂ Р С‘Р С•Р Р…Р В°Р В»РЎРЉР Р…Р С•)
      * @return array|null ['latitude' => float, 'longitude' => float, 'formatted_address' => string]
      */
     protected static function getCoordinatesForAddress(ClientAddress $address, ?string $placeId = null): ?array
     {
-        // Если API ключ имеет ограничения по referer, серверные запросы не работают
-        // В этом случае координаты должны быть получены через клиентский JavaScript
-        // Пропускаем попытку получить координаты через серверный API
+        // Р вЂўРЎРѓР В»Р С‘ API Р С”Р В»РЎР‹РЎвЂЎ Р С‘Р СР ВµР ВµРЎвЂљ Р С•Р С–РЎР‚Р В°Р Р…Р С‘РЎвЂЎР ВµР Р…Р С‘РЎРЏ Р С—Р С• referer, РЎРѓР ВµРЎР‚Р Р†Р ВµРЎР‚Р Р…РЎвЂ№Р Вµ Р В·Р В°Р С—РЎР‚Р С•РЎРѓРЎвЂ№ Р Р…Р Вµ РЎР‚Р В°Р В±Р С•РЎвЂљР В°РЎР‹РЎвЂљ
+        // Р вЂ™ РЎРЊРЎвЂљР С•Р С РЎРѓР В»РЎС“РЎвЂЎР В°Р Вµ Р С”Р С•Р С•РЎР‚Р Т‘Р С‘Р Р…Р В°РЎвЂљРЎвЂ№ Р Т‘Р С•Р В»Р В¶Р Р…РЎвЂ№ Р В±РЎвЂ№РЎвЂљРЎРЉ Р С—Р С•Р В»РЎС“РЎвЂЎР ВµР Р…РЎвЂ№ РЎвЂЎР ВµРЎР‚Р ВµР В· Р С”Р В»Р С‘Р ВµР Р…РЎвЂљРЎРѓР С”Р С‘Р в„– JavaScript
+        // Р СџРЎР‚Р С•Р С—РЎС“РЎРѓР С”Р В°Р ВµР С Р С—Р С•Р С—РЎвЂ№РЎвЂљР С”РЎС“ Р С—Р С•Р В»РЎС“РЎвЂЎР С‘РЎвЂљРЎРЉ Р С”Р С•Р С•РЎР‚Р Т‘Р С‘Р Р…Р В°РЎвЂљРЎвЂ№ РЎвЂЎР ВµРЎР‚Р ВµР В· РЎРѓР ВµРЎР‚Р Р†Р ВµРЎР‚Р Р…РЎвЂ№Р в„– API
         Log::info('Skipping server-side coordinate lookup due to API key referer restrictions. Coordinates should be obtained via client-side JavaScript (Street field).');
         return null;
 
-        /* Закомментировано, так как API ключ с ограничениями по referer не работает для серверных запросов
+        /* Р вЂ”Р В°Р С”Р С•Р СР СР ВµР Р…РЎвЂљР С‘РЎР‚Р С•Р Р†Р В°Р Р…Р С•, РЎвЂљР В°Р С” Р С”Р В°Р С” API Р С”Р В»РЎР‹РЎвЂЎ РЎРѓ Р С•Р С–РЎР‚Р В°Р Р…Р С‘РЎвЂЎР ВµР Р…Р С‘РЎРЏР СР С‘ Р С—Р С• referer Р Р…Р Вµ РЎР‚Р В°Р В±Р С•РЎвЂљР В°Р ВµРЎвЂљ Р Т‘Р В»РЎРЏ РЎРѓР ВµРЎР‚Р Р†Р ВµРЎР‚Р Р…РЎвЂ№РЎвЂ¦ Р В·Р В°Р С—РЎР‚Р С•РЎРѓР С•Р Р†
         try {
             $key = config('services.google_maps.key');
             if (!$key) {
@@ -3249,7 +3252,7 @@ class OrderResource extends Resource
             }
 
             if ($placeId) {
-                // Используем Google Places API для получения координат по place_id
+                // Р ВРЎРѓР С—Р С•Р В»РЎРЉР В·РЎС“Р ВµР С Google Places API Р Т‘Р В»РЎРЏ Р С—Р С•Р В»РЎС“РЎвЂЎР ВµР Р…Р С‘РЎРЏ Р С”Р С•Р С•РЎР‚Р Т‘Р С‘Р Р…Р В°РЎвЂљ Р С—Р С• place_id
                 $token = session('gplaces_token') ?? null;
 
                 try {
@@ -3284,24 +3287,24 @@ class OrderResource extends Resource
                         'place_id' => $placeId,
                         'error' => $e->getMessage(),
                     ]);
-                    // Продолжаем с Geocoding API как fallback
+                    // Р СџРЎР‚Р С•Р Т‘Р С•Р В»Р В¶Р В°Р ВµР С РЎРѓ Geocoding API Р С”Р В°Р С” fallback
                 }
             }
 
-            // Fallback: используем Google Places Autocomplete API для поиска адреса, затем Places Details API
-            // Это более надежный способ, так как Places API обычно включен по умолчанию
+            // Fallback: Р С‘РЎРѓР С—Р С•Р В»РЎРЉР В·РЎС“Р ВµР С Google Places Autocomplete API Р Т‘Р В»РЎРЏ Р С—Р С•Р С‘РЎРѓР С”Р В° Р В°Р Т‘РЎР‚Р ВµРЎРѓР В°, Р В·Р В°РЎвЂљР ВµР С Places Details API
+            // Р В­РЎвЂљР С• Р В±Р С•Р В»Р ВµР Вµ Р Р…Р В°Р Т‘Р ВµР В¶Р Р…РЎвЂ№Р в„– РЎРѓР С—Р С•РЎРѓР С•Р В±, РЎвЂљР В°Р С” Р С”Р В°Р С” Places API Р С•Р В±РЎвЂ№РЎвЂЎР Р…Р С• Р Р†Р С”Р В»РЎР‹РЎвЂЎР ВµР Р… Р С—Р С• РЎС“Р СР С•Р В»РЎвЂЎР В°Р Р…Р С‘РЎР‹
             $street = $address->street;
             $house = $address->house;
-            $city = $address->city ?: 'Київ';
+            $city = $address->city ?: 'Р С™Р С‘РЎвЂ”Р Р†';
 
-            // Если в street уже есть город (например, "вул. Курортна, Ворзель Київська область")
-            // убираем его и используем только улицу и дом
+            // Р вЂўРЎРѓР В»Р С‘ Р Р† street РЎС“Р В¶Р Вµ Р ВµРЎРѓРЎвЂљРЎРЉ Р С–Р С•РЎР‚Р С•Р Т‘ (Р Р…Р В°Р С—РЎР‚Р С‘Р СР ВµРЎР‚, "Р Р†РЎС“Р В». Р С™РЎС“РЎР‚Р С•РЎР‚РЎвЂљР Р…Р В°, Р вЂ™Р С•РЎР‚Р В·Р ВµР В»РЎРЉ Р С™Р С‘РЎвЂ”Р Р†РЎРѓРЎРЉР С”Р В° Р С•Р В±Р В»Р В°РЎРѓРЎвЂљРЎРЉ")
+            // РЎС“Р В±Р С‘РЎР‚Р В°Р ВµР С Р ВµР С–Р С• Р С‘ Р С‘РЎРѓР С—Р С•Р В»РЎРЉР В·РЎС“Р ВµР С РЎвЂљР С•Р В»РЎРЉР С”Р С• РЎС“Р В»Р С‘РЎвЂ РЎС“ Р С‘ Р Т‘Р С•Р С
             if (str_contains($street, ',')) {
                 $streetParts = explode(',', $street);
-                $street = trim($streetParts[0]); // Берем только первую часть (улицу)
+                $street = trim($streetParts[0]); // Р вЂР ВµРЎР‚Р ВµР С РЎвЂљР С•Р В»РЎРЉР С”Р С• Р С—Р ВµРЎР‚Р Р†РЎС“РЎР‹ РЎвЂЎР В°РЎРѓРЎвЂљРЎРЉ (РЎС“Р В»Р С‘РЎвЂ РЎС“)
             }
 
-            // Формируем адрес для поиска: улица, дом, город
+            // Р В¤Р С•РЎР‚Р СР С‘РЎР‚РЎС“Р ВµР С Р В°Р Т‘РЎР‚Р ВµРЎРѓ Р Т‘Р В»РЎРЏ Р С—Р С•Р С‘РЎРѓР С”Р В°: РЎС“Р В»Р С‘РЎвЂ Р В°, Р Т‘Р С•Р С, Р С–Р С•РЎР‚Р С•Р Т‘
             $addressParts = array_filter([
                 $street,
                 $house,
@@ -3313,7 +3316,7 @@ class OrderResource extends Resource
                 return null;
             }
 
-            // Используем Google Places Autocomplete API для поиска адреса
+            // Р ВРЎРѓР С—Р С•Р В»РЎРЉР В·РЎС“Р ВµР С Google Places Autocomplete API Р Т‘Р В»РЎРЏ Р С—Р С•Р С‘РЎРѓР С”Р В° Р В°Р Т‘РЎР‚Р ВµРЎРѓР В°
             $token = session('gplaces_token') ?? (string) \Illuminate\Support\Str::uuid();
             session(['gplaces_token' => $token]);
 
@@ -3325,7 +3328,7 @@ class OrderResource extends Resource
                         'types' => 'address',
                         'language' => 'uk',
                         'components' => 'country:ua',
-                        'location' => '50.4501,30.5234', // Центр Киева
+                        'location' => '50.4501,30.5234', // Р В¦Р ВµР Р…РЎвЂљРЎР‚ Р С™Р С‘Р ВµР Р†Р В°
                         'radius' => 30000,
                         'sessiontoken' => $token,
                         'key' => $key,
@@ -3335,12 +3338,12 @@ class OrderResource extends Resource
                 if ($autocompleteResponse->ok()) {
                     $autocompleteData = $autocompleteResponse->json();
                     if ($autocompleteData['status'] === 'OK' && !empty($autocompleteData['predictions'])) {
-                        // Берем первый результат
+                        // Р вЂР ВµРЎР‚Р ВµР С Р С—Р ВµРЎР‚Р Р†РЎвЂ№Р в„– РЎР‚Р ВµР В·РЎС“Р В»РЎРЉРЎвЂљР В°РЎвЂљ
                         $prediction = $autocompleteData['predictions'][0];
                         $foundPlaceId = $prediction['place_id'] ?? null;
 
                         if ($foundPlaceId) {
-                            // Получаем детали места через Places Details API
+                            // Р СџР С•Р В»РЎС“РЎвЂЎР В°Р ВµР С Р Т‘Р ВµРЎвЂљР В°Р В»Р С‘ Р СР ВµРЎРѓРЎвЂљР В° РЎвЂЎР ВµРЎР‚Р ВµР В· Places Details API
                             $detailsResponse = \Illuminate\Support\Facades\Http::timeout(8)->acceptJson()->get(
                                 'https://maps.googleapis.com/maps/api/place/details/json',
                                 [
@@ -3377,7 +3380,7 @@ class OrderResource extends Resource
                 ]);
             }
 
-            // Если Places API не сработал, возвращаем null
+            // Р вЂўРЎРѓР В»Р С‘ Places API Р Р…Р Вµ РЎРѓРЎР‚Р В°Р В±Р С•РЎвЂљР В°Р В», Р Р†Р С•Р В·Р Р†РЎР‚Р В°РЎвЂ°Р В°Р ВµР С null
             Log::warning('Could not get coordinates for address using Places API', [
                 'address' => $addressString,
                 'address_id' => $address->id,
@@ -3435,7 +3438,7 @@ class OrderResource extends Resource
     protected static function formatDeliveryTime(Order $record): string|HtmlString
     {
         if ($record->self_pickup) {
-            return '—';
+            return 'РІР‚вЂќ';
         }
 
         $start = $record->statusTime(OrderStatus::Prepared);
@@ -3462,7 +3465,7 @@ class OrderResource extends Resource
         $end = static::earliestTimeAfter($start, $endCandidates);
 
         if (! $start || ! $end) {
-            return '—';
+            return 'РІР‚вЂќ';
         }
 
         $minutes = max(0, (int) floor($start->diffInSeconds($end) / 60));
@@ -3487,7 +3490,7 @@ class OrderResource extends Resource
     protected static function formatDurationCell(?Carbon $start, ?Carbon $end, string $color): string|HtmlString
     {
         if (! $start || ! $end) {
-            return '—';
+            return 'РІР‚вЂќ';
         }
 
         $minutes = max(0, (int) floor($start->diffInSeconds($end) / 60));
@@ -3500,8 +3503,8 @@ class OrderResource extends Resource
     protected static function invoiceLabel(): string
     {
         return match (app()->getLocale()) {
-            'ru' => 'Счет-фактура',
-            'uk' => 'Рахунок-фактура',
+            'ru' => 'Р РЋРЎвЂЎР ВµРЎвЂљ-РЎвЂћР В°Р С”РЎвЂљРЎС“РЎР‚Р В°',
+            'uk' => 'Р В Р В°РЎвЂ¦РЎС“Р Р…Р С•Р С”-РЎвЂћР В°Р С”РЎвЂљРЎС“РЎР‚Р В°',
             default => 'Invoice',
         };
     }
@@ -3649,3 +3652,4 @@ class OrderResource extends Resource
     }
 
 }
+
