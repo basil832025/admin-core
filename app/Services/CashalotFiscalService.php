@@ -462,6 +462,11 @@ class CashalotFiscalService
         $total = $this->resolveCheckSum($order);
 
         return [
+            'CHECKHEAD' => [
+                'DOCTYPE' => 'SaleGoods',
+                'DOCSUBTYPE' => 'CheckStorno',
+                'TESTING' => false,
+            ],
             'CheckDocumentSubType' => 1,
             'SourceCheckFiscalNumber' => $sourceFiscalNo,
             'Positions' => $positions,
