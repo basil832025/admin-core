@@ -303,6 +303,13 @@ class AdminPanelProvider extends PanelProvider
             );
         }
 
+        if (config('services.payparts.admin_polling_enabled', true)) {
+            $panel->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn () => view('filament.hooks.payparts-status-poller')
+            );
+        }
+
         if (config('services.courier_comment.admin_polling_enabled', true)) {
             $panel->renderHook(
                 PanelsRenderHook::BODY_END,

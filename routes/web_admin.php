@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\PaypartsStatusController;
 use App\Http\Controllers\Integrations\BinotelWebhookController;
 use Illuminate\Support\Facades\Route;
 
@@ -88,6 +89,10 @@ Route::get('/admin/callcenter/clients/phone-suggestions', function (\Illuminate\
 
 Route::get('/admin/integrations/binotel/incoming-call/next', [BinotelWebhookController::class, 'nextIncomingCall'])
     ->name('admin.integrations.binotel.incoming-call.next')
+    ->middleware(['web', 'auth:admin']);
+
+Route::get('/admin/callcenter/payparts/pending/sync', PaypartsStatusController::class)
+    ->name('admin.callcenter.payparts.pending.sync')
     ->middleware(['web', 'auth:admin']);
 
 Route::post('/admin/print-templates/ckeditor-upload', function (\Illuminate\Http\Request $request) {

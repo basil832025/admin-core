@@ -27,10 +27,8 @@ use App\Services\DeliveryCalculationService;
 use App\Services\ScheduleV2Service;
 use App\Services\LiqPayService;
 use App\Services\PrivatBankPaypartsService;
-use App\Services\CashalotFiscalService;
 use App\Mail\OrderNotificationMail;
 use App\Mail\OrderClientMail;
-use App\Mail\CashalotReceiptMail;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -1791,43 +1789,6 @@ public function payPayparts(Request $request, $localeOrOrder, ?Order $order = nu
         'editEmail' => $editEmail,
     ]);
 }
-private function fiscalizePaypartsPaidOrder(Order $order, ?\App\Models\Shop\PaypartsTransaction $transaction): void
-{
-    try {
-        $fiscalKey = 'payparts_fiscalized_order:' . $order->id;
-        if (! \Illuminate\Support\Facades\Cache::add($fiscalKey, true, now()->addDays(30))) {
-            return;
-        }
-
-        $cashalotLog = app(CashalotFiscalService::class)->fiscalizePaidOrder($order, [
-            'payment_id' => (string) ($transaction?->order_id ?? $transaction?->token ?? ''),
-            'paytype' => 'payparts',
-            'status' => (string) ($transaction?->status ?? 'success'),
-        ]);
-
-        if (! $cashalotLog || $cashalotLog->status !== 'success') {
-            return;
-        }
-
-        $order->loadMissing('clients');
-        $clientEmail = trim((string) ($order->clients?->email ?? ''));
-        if ($clientEmail === '' || ! filter_var($clientEmail, FILTER_VALIDATE_EMAIL)) {
-            return;
-        }
-
-        $mailKey = 'cashalot_receipt_mail_sent:' . $cashalotLog->id;
-        if (\Illuminate\Support\Facades\Cache::add($mailKey, true, now()->addDays(30))) {
-            Mail::to($clientEmail)->send(new CashalotReceiptMail($order, $cashalotLog));
-        }
-    } catch (\Throwable $e) {
-        Log::error('Payparts fallback: Cashalot fiscalization failed', [
-            'order_id' => $order->id,
-            'error' => $e->getMessage(),
-        ]);
-    }
-}
-
-
 public function savePaypartsEmail(Request $request, $localeOrOrder, ?Order $order = null)
 {
     $locale = null;
@@ -1891,48 +1852,16 @@ public function payPaypartsStatus($localeOrOrder, ?Order $order = null)
     $bank = $order->paypartsBank;
 
     if ($transaction && $bank && in_array((string) $order->payparts_status, ['payment_redirected', 'pending_payment'], true)) {
-        $syncKey = 'payparts_status_sync:' . $transaction->id;
-        if (\Illuminate\Support\Facades\Cache::add($syncKey, now()->timestamp, 8)) {
-            try {
-                $sync = PrivatBankPaypartsService::make()->fetchPaymentState($transaction);
-                $remote = $sync['response_payload'] ?? [];
-                $state = strtolower((string) ($remote['paymentState'] ?? $remote['state'] ?? $remote['status'] ?? 'payment_failed'));
-                $internalStatus = in_array($state, ['payment_success', 'success', 'sandbox', 'paid', 'locked'], true)
-                    ? 'payment_success'
-                    : (in_array($state, ['payment_failed', 'failure', 'failed', 'declined', 'decline', 'error'], true)
-                        ? 'payment_failed'
-                        : (in_array($state, ['payment_redirected', 'redirected'], true)
-                            ? 'payment_redirected'
-                            : 'pending_payment'));
-
-                $transaction->update([
-                    'status' => $internalStatus,
-                    'response_payload' => $remote,
-                    'response_message' => $remote['message'] ?? $transaction->response_message,
-                ]);
-
-                if (in_array($internalStatus, ['payment_success', 'payment_failed'], true)) {
-                    $order->forceFill([
-                        'payparts_status' => $internalStatus,
-                        'status' => $internalStatus === 'payment_success' ? OrderStatus::New : OrderStatus::Cart,
-                        'payment' => PaymentMethodEnum::PAYPARTS,
-                        'paid_at' => $internalStatus === 'payment_success' && empty($order->paid_at) ? now() : $order->paid_at,
-                    ])->save();
-
-                    if ($internalStatus === 'payment_success') {
-                        $this->fiscalizePaypartsPaidOrder($order, $transaction);
-                    }
-                }
-            } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::info('Payparts status sync skipped', [
-                    'order_id' => $order->id,
-                    'transaction_id' => $transaction->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
+        try {
+            app(\App\Services\PaypartsStatusSyncService::class)->sync($transaction);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::info('Payparts status sync skipped', [
+                'order_id' => $order->id,
+                'transaction_id' => $transaction->id,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
-
     $order->refresh();
 
     $locale ??= app()->getLocale();

@@ -40,6 +40,10 @@ return [
             'decline_path' => env('PRIVATBANK_PAYPARTS_DECLINE_PATH', '/ipp/v2/payment/decline'),
             'state_path' => env('PRIVATBANK_PAYPARTS_STATE_PATH', '/ipp/v2/payment/state'),
         ],
+        'admin_polling_enabled' => (bool) env('ADMIN_PAYPARTS_POLLING_ENABLED', true),
+        'admin_polling_interval_ms' => (int) env('ADMIN_PAYPARTS_POLLING_INTERVAL_MS', 10000),
+        'admin_polling_batch_size' => (int) env('ADMIN_PAYPARTS_POLLING_BATCH_SIZE', 5),
+        'admin_polling_max_age_hours' => (int) env('ADMIN_PAYPARTS_POLLING_MAX_AGE_HOURS', 24),
     ],
 
     'google_maps' => [
