@@ -11,7 +11,7 @@
         window.__ccPaypartsStatusPollerInit = true;
 
         const endpoint = '/admin/callcenter/payparts/pending/sync';
-        const intervalMs = {{ (int) config('services.payparts.admin_polling_interval_ms', 10000) }};
+        const intervalMs = {{ (int) config('services.payparts.admin_polling_interval_ms', 60000) }};
         let isBusy = false;
         let pollTimer = null;
 
