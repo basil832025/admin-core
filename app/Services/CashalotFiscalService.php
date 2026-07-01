@@ -125,6 +125,8 @@ class CashalotFiscalService
         }
 
         $originalPayload = is_array($sourceLog->request_payload) ? $sourceLog->request_payload : [];
+        $originalFiscalNo = trim((string) ($sourceLog->num_fiscal ?? data_get($sourceLog->response_payload, 'NumFiscal') ?? ''));
+        $stornedCheckToConvert = $originalFiscalNo !== '' ? $originalFiscalNo : null;
         $check = $this->buildReturnCheckPayload($order, $sourceLog, $originalPayload);
         $stornedCheck = $this->buildStornedCheckPayload($sourceLog, $originalPayload);
 
@@ -468,7 +470,6 @@ class CashalotFiscalService
             : $this->buildRequestPayload($order, []);
 
         $originalFiscalNo = trim((string) ($sourceLog->num_fiscal ?? data_get($sourceLog->response_payload, 'NumFiscal') ?? ''));
-        $stornedCheckToConvert = $originalFiscalNo !== '' ? $originalFiscalNo : null;
         if ($originalFiscalNo !== '') {
             $payload['NumFiscal'] = $originalFiscalNo;
             $payload['NUMFISCAL'] = $originalFiscalNo;
