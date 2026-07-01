@@ -2354,6 +2354,9 @@ class OrderResource extends Resource
                         ->withExists([
                             'cashalotLogs as has_success_cashalot_log' => fn (Builder $q) => $q
                                 ->where('status', 'success'),
+                            'cashalotLogs as has_success_cashalot_return_log' => fn (Builder $q) => $q
+                                ->where('status', 'success')
+                                ->where('payment_type', 'Cashalot return'),
                         ])
                 )
             )
@@ -2777,7 +2780,7 @@ class OrderResource extends Resource
                             return null;
                         }
                         if ($isReturnedFiscal) {
-                            return new HtmlString('<span style="display:inline-block;margin-top:3px;border-radius:999px;background:#fee2e2;color:#b91c1c;padding:2px 7px;font-size:11px;font-weight:700;line-height:1.2;">&#1095;&#1077;&#1082; &#1092;&#1080;&#1089;&#1082;&#1072;&#1083;&#1100;&#1085;&#1086; &#1086;&#1090;&#1084;&#1077;&#1085;&#1077;&#1085;</span>');
+                            return new HtmlString('<span style="display:inline-block;margin-top:3px;border-radius:999px;background:#fee2e2;color:#b91c1c;padding:2px 7px;font-size:11px;font-weight:700;line-height:1.2;">&#1074;&#1110;&#1076;&#1084;&#1110;&#1085;&#1072; &#1092;&#1110;&#1089;&#1082;&#1072;&#1083;&#1110;&#1079;&#1072;&#1094;&#1110;&#1111;</span>');
                         }
 
                         return new HtmlString('<span style="display:inline-block;margin-top:3px;border-radius:999px;background:#fee2e2;color:#b91c1c;padding:2px 7px;font-size:11px;font-weight:700;line-height:1.2;">фіскалізовано</span>');
