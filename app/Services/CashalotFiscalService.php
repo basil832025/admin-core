@@ -125,9 +125,10 @@ class CashalotFiscalService
         }
 
         $originalPayload = is_array($sourceLog->request_payload) ? $sourceLog->request_payload : [];
-        $originalFiscalNo = trim((string) ($sourceLog->num_fiscal ?? data_get($sourceLog->response_payload, 'NumFiscal') ?? ''));
+        $successfulResponse = is_array($sourceLog->response_payload) ? $sourceLog->response_payload : [];
+        $originalFiscalNo = trim((string) ($sourceLog->num_fiscal ?? data_get($successfulResponse, 'NumFiscal') ?? ''));
         $check = $this->buildReturnCheckPayload($order, $sourceLog, $originalPayload);
-        $stornedCheck = $this->buildStornedCheckPayload($sourceLog, $originalPayload);
+        $stornedCheck = $this->buildStornedCheckPayload($sourceLog, $originalPayload, $successfulResponse);
 
         $log = CashalotLog::create([
             'shop_order_id' => $order->id,
@@ -495,12 +496,13 @@ class CashalotFiscalService
         return $payload;
     }
 
-    protected function buildStornedCheckPayload(CashalotLog $sourceLog, array $originalPayload): array
+    protected function buildStornedCheckPayload(CashalotLog $sourceLog, array $originalPayload, array $successfulResponse = []): array
     {
-        $storned = $originalPayload;
-        $originalFiscalNo = trim((string) ($sourceLog->num_fiscal ?? data_get($sourceLog->response_payload, 'NumFiscal') ?? ''));
+        $storned = $successfulResponse !== [] ? $successfulResponse : $originalPayload;
+        $originalFiscalNo = trim((string) ($sourceLog->num_fiscal ?? data_get($successfulResponse, 'NumFiscal') ?? data_get($sourceLog->response_payload, 'NumFiscal') ?? ''));
 
         if ($originalFiscalNo !== '') {
+            $storned['NumFiscal'] = $originalFiscalNo;
             $storned['CHECKHEAD'] = array_merge(
                 (array) ($storned['CHECKHEAD'] ?? []),
                 [
