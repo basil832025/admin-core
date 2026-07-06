@@ -124,7 +124,7 @@
                 class="pl-8 space-y-3"
             >
 
-                
+
                 @if($paypartsBanks->isEmpty())
                     <p class="text-sm text-gray-500">
                         {{ st('cart.payment.payparts_unavailable', 'Оплата частинами зараз налаштовується. Доступні банки зʼявляться після додавання записів у адмінці.') }}

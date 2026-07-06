@@ -1666,7 +1666,6 @@ public function payLiqPay($localeOrOrder, ?Order $order = null)
         'order'     => $order,
         'clientEmail' => $clientEmail,
         'emailRequired' => $emailRequired,
-        'editEmail' => $editEmail,
         'liqpayForm'=> $liqpayForm,
     ]);
 }
