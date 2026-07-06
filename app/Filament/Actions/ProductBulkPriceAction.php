@@ -236,7 +236,7 @@ class ProductBulkPriceAction
 
     private static function percent(mixed $value): string
     {
-        return $value === null ? '0%' : number_format((float) $value, 2, ',', ' ').'%';
+        return $value === null ? '0%' : number_format(round((float) $value), 0, ',', ' ').'%';
     }
 
     private static function resolveTargetIds($livewire, array $data): array

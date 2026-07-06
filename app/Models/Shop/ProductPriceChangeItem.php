@@ -17,7 +17,7 @@ class ProductPriceChangeItem extends Model
         'old_old_price' => 'decimal:2',
         'new_old_price' => 'decimal:2',
         'old_discount_percent' => 'decimal:2',
-        'new_discount_percent' => 'decimal:2',
+        'new_discount_percent' => 'decimal:0',
     ];
 
     public function batch(): BelongsTo

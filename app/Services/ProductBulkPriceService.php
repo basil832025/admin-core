@@ -163,8 +163,10 @@ class ProductBulkPriceService
                     'new_price_value' => $after['price'],
                     'old_old_price' => $beforeOldPrice,
                     'new_old_price' => $after['old_price'],
-                    'old_discount' => $this->calculator->discountPercent($beforePrice, $beforeOldPrice),
-                    'new_discount' => $after['manual_discount_percent'],
+                    'old_discount' => $this->roundedDiscountPercent(
+                        $this->calculator->discountPercent($beforePrice, $beforeOldPrice)
+                    ),
+                    'new_discount' => $this->roundedDiscountPercent($after['manual_discount_percent']),
                 ];
             })
             ->all();
@@ -245,7 +247,7 @@ class ProductBulkPriceService
                                 'old_old_price' => $beforeOldPrice,
                                 'new_old_price' => $after['old_price'],
                                 'old_discount_percent' => $beforeDiscount,
-                                'new_discount_percent' => $after['manual_discount_percent'],
+                                'new_discount_percent' => $this->roundedDiscountPercent($after['manual_discount_percent']),
                                 'created_at' => $now,
                                 'updated_at' => $now,
                             ];
@@ -253,7 +255,7 @@ class ProductBulkPriceService
                             Product::query()->whereKey($product->id)->update([
                                 'price' => $after['price'],
                                 'old_price' => $after['old_price'],
-                                'manual_discount_percent' => $after['manual_discount_percent'],
+                                'manual_discount_percent' => $this->roundedDiscountPercent($after['manual_discount_percent']),
                                 'updated_at' => $now,
                             ]);
                         }
@@ -339,5 +341,10 @@ class ProductBulkPriceService
         } catch (Throwable $exception) {
             report($exception);
         }
+    }
+
+    private function roundedDiscountPercent(?float $value): ?float
+    {
+        return $value === null ? null : round($value, 0);
     }
 }

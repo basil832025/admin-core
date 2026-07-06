@@ -154,7 +154,11 @@ class ProductPriceChangeBatchResource extends Resource
                     TextEntry::make('new_price')->label('Ціна після')->money('UAH'),
                     TextEntry::make('old_old_price')->label('Стара до')->money('UAH')->placeholder('—'),
                     TextEntry::make('new_old_price')->label('Стара після')->money('UAH')->placeholder('—'),
-                    TextEntry::make('new_discount_percent')->label('Знижка після')->suffix('%')->placeholder('0%'),
+                    TextEntry::make('new_discount_percent')
+                        ->label('Знижка після')
+                        ->formatStateUsing(fn ($state): string => (string) round((float) $state, 0))
+                        ->suffix('%')
+                        ->placeholder('0%'),
                 ]),
         ]);
     }
