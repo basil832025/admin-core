@@ -1479,7 +1479,9 @@ class OrderResource extends Resource
                                 ->required()
                                 ->native(false)
                                 ->searchable()
-                            ->default(1)
+                            ->default(fn (): int => static::isCallcenterContext()
+                                ? PaymentMethodEnum::POS->value
+                                : PaymentMethodEnum::CARD->value)
                             ->live()
                             ->reactive()
                             ->columnSpan(fn () => static::isCallcenterContext() ? 5 : 4),

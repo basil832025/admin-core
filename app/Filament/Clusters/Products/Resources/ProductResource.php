@@ -62,6 +62,12 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Columns\ToggleColumn;
+use App\Filament\Actions\ProductBulkPriceAction;
+use App\Services\ProductBulkPriceService;
+use Filament\Notifications\Notification;
+use Throwable;
+use Filament\Facades\Filament;
+use Filament\Support\Enums\MaxWidth;
 
 class ProductResource extends Resource
 {
@@ -550,7 +556,7 @@ class ProductResource extends Resource
         return $options;
     }
 
-    protected static function getCategoryFilterOptions(string $defaultLocale): array
+    public static function getCategoryFilterOptions(string $defaultLocale): array
     {
         return cache()->remember("product_categories_admin_filter_{$defaultLocale}", 3600, function () use ($defaultLocale) {
             return ProductCategory::query()
@@ -1564,8 +1570,61 @@ class ProductResource extends Resource
                     }),*/
             ], layout: FiltersLayout::AboveContent)
 
+            ->headerActions([
+                ProductBulkPriceAction::makeTableAction(),
+            ])
             ->Actions([
                 EditAction::make(),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkAction::make('bulk_change_prices')
+                    ->label('Змінити ціни вибраних')
+                    ->icon('heroicon-o-banknotes')
+                    ->visible(fn (): bool => ProductBulkPriceService::canManage(Filament::auth()->user()))
+                    ->form(ProductBulkPriceAction::form(
+                        function (Get $get, $livewire): array {
+                            $selectedIds = $livewire->getSelectedTableRecords()->modelKeys();
+
+                            return app(ProductBulkPriceService::class)->idsForSelected(
+                                $selectedIds,
+                                (bool) ($get('include_variants') ?? true),
+                            );
+                        },
+                        false,
+                    ))
+                    ->requiresConfirmation()
+                    ->modalHeading('Масова зміна цін вибраних товарів')
+                    ->modalDescription('Перевірте попередній перегляд. Зміна буде записана в журнал і її можна буде скасувати.')
+                    ->modalSubmitActionLabel('Застосувати')
+                    ->modalWidth(MaxWidth::SevenExtraLarge)
+                    ->action(function ($records, array $data): void {
+                        $user = Filament::auth()->user();
+                        abort_unless(ProductBulkPriceService::canManage($user), 403);
+
+                        try {
+                            $service = app(ProductBulkPriceService::class);
+                            $ids = $service->idsForSelected(
+                                $records->modelKeys(),
+                                (bool) ($data['include_variants'] ?? true),
+                            );
+                            $batch = $service->apply($ids, $data, $user, [
+                                'scope' => ProductBulkPriceService::SCOPE_SELECTED,
+                            ]);
+
+                            Notification::make()
+                                ->success()
+                                ->title('Ціни змінено')
+                                ->body("Оновлено товарів: {$batch->affected_count}.")
+                                ->send();
+                        } catch (Throwable $exception) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Не вдалося змінити ціни')
+                                ->body($exception->getMessage())
+                                ->send();
+                        }
+                    })
+                    ->deselectRecordsAfterCompletion(),
             ]);
     }
     public static function getActiveLocales(): array

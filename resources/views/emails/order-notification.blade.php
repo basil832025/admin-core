@@ -66,7 +66,7 @@
 
     $paymentLabel = match ($paymentMethod) {
         \App\Enums\PaymentMethodEnum::LIQPAY => st('cart.payment.liqpay', 'Онлайн-оплата карткою'),
-        \App\Enums\PaymentMethodEnum::CARD => st('cart.payment.card_on_delivery', 'Оплата через POS-термінал при отриманні'),
+        \App\Enums\PaymentMethodEnum::POS => st('cart.payment.card_on_delivery', 'Оплата через POS-термінал при отриманні'),
         \App\Enums\PaymentMethodEnum::CASH => st('cart.payment.cash', 'Готівкою при отриманні'),
         \App\Enums\PaymentMethodEnum::ORG_TRANSFER,
         \App\Enums\PaymentMethodEnum::INVOICE => st('cart.payment.invoice', 'Безготівковий розрахунок за рахунком для юридичних осіб'),

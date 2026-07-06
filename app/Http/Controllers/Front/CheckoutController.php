@@ -1015,7 +1015,7 @@ public function submit(Request $request)
     // 4. Способ оплаты -> enum
     $paymentEnum = match ($request->input('payment_method')) {
         'liqpay'          => PaymentMethodEnum::LIQPAY,
-        'card_on_delivery'=> PaymentMethodEnum::CARD,
+        'card_on_delivery'=> PaymentMethodEnum::POS,
         'cash'            => PaymentMethodEnum::CASH,
         'invoice'         => PaymentMethodEnum::INVOICE,
         'payparts'        => PaymentMethodEnum::PAYPARTS,
