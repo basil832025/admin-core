@@ -50,6 +50,7 @@ class PaypartsTransactionResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('created_at')->label('Час')->dateTime('d.m.Y H:i:s')->sortable(),
                 TextColumn::make('order.number')->label('Замовлення'),

@@ -6,7 +6,7 @@ use App\Models\Shop\Order;
 use App\Models\Shop\PaypartsBank;
 use App\Models\Shop\PaypartsTransaction;
 use Illuminate\Support\Facades\Http;
-
+use Illuminate\Support\Facades\Log;
 class PrivatBankPaypartsService
 {
     public function __construct(
@@ -39,6 +39,7 @@ class PrivatBankPaypartsService
     }
 
     public function createPayment(
+
         Order $order,
         PaypartsBank $bank,
         string $merchantType,
@@ -47,6 +48,7 @@ class PrivatBankPaypartsService
         ?string $customerEmail = null,
         ?string $locale = null,
     ): PaypartsTransaction {
+    Log::info('PAYPARTS CREATE METHOD START');
         $orderNumber = $this->buildOrderId($order);
         $responseUrl = self::callbackUrl('payparts.response');
         $redirectUrl = self::callbackUrl('payparts.redirect', ['orderId' => $orderNumber]);
@@ -86,7 +88,11 @@ class PrivatBankPaypartsService
         $apiResponse = Http::acceptJson()
             ->asJson()
             ->post($this->baseUrl . (string) config('services.payparts.privatbank.create_path', '/ipp/v2/payment/create'), $payload);
-
+    Log::info('PAYPARTS AFTER CREATE', [
+        'http_status' => $apiResponse->status(),
+        'body' => $apiResponse->body(),
+        'json' => $apiResponse->json(),
+    ]);
         $responseData = $apiResponse->json() ?: [];
         $hasToken = ! empty($responseData['token']);
 

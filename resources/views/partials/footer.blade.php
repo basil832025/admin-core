@@ -62,6 +62,26 @@
                     // phones from HeaderContacts composer
                     $phones = collect($headerPhones ?? []);
 
+                    // same working-hours block as in the burger menu
+                    $pickup = ['time' => 'з 09:00 до 20:00', 'title' => 'Приймаємо замовлення на самовивіз'];
+                    $delivery = ['time' => 'з 09:00 до 21:00', 'title' => 'Доставляємо замовлення'];
+
+                    if (!empty($headerSchedule)) {
+                        foreach ($headerSchedule as $schedule) {
+                            $slug = trim((string) ($schedule['slug'] ?? ''));
+
+                            if ($slug === 'delivery') {
+                                $delivery['time'] = (string) ($schedule['time'] ?? $delivery['time']);
+                                $delivery['title'] = (string) ($schedule['title'] ?? $delivery['title']);
+                            }
+
+                            if ($slug === 'pickup') {
+                                $pickup['time'] = (string) ($schedule['time'] ?? $pickup['time']);
+                                $pickup['title'] = (string) ($schedule['title'] ?? $pickup['title']);
+                            }
+                        }
+                    }
+
                     // email/address — берем из location, если есть (подстрой ключи под свою модель Location)
                     $email   = data_get($headerLocation, 'email')
                             ?? data_get($headerLocation, 'contact_email')
@@ -72,7 +92,7 @@
                             ?? '';
                 @endphp
 
-                <div class="mt-4 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-1 gap-6 text-[14px] font-bold">
+                <div class="mt-4 flex flex-col gap-6 text-[14px] font-bold">
                     {{-- телефоны --}}
                     <ul class="space-y-2 text-[#272828]">
                         @foreach ($phones as $p)
@@ -83,6 +103,18 @@
                             </li>
                         @endforeach
                     </ul>
+
+                    <div class="space-y-2">
+                        <h4 class="text-[13px] font-semibold text-black">{{ __('location.sections.schedule') }}</h4>
+                        <div>
+                            <div class="text-[#9E9E9E] text-[13px]">{{ $pickup['title'] }}:</div>
+                            <div class="font-semibold text-[14px] text-[#272828]">{{ $pickup['time'] }}</div>
+                        </div>
+                        <div>
+                            <div class="text-[#9E9E9E] text-[13px]">{{ $delivery['title'] }}:</div>
+                            <div class="font-semibold text-[14px] text-[#272828]">{{ $delivery['time'] }}</div>
+                        </div>
+                    </div>
 
                     {{-- email + address --}}
                     <ul class="space-y-2">
