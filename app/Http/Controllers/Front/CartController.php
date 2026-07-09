@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Front;
 use App\Services\CartService;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Models\Shop\Product;
+use App\Support\Presenters\ProductCardPresenter;
 
 class CartController extends Controller
 {
@@ -45,12 +47,21 @@ class CartController extends Controller
     }
 public function page()
 {
+    $locale = app()->getLocale();
     $info = $this->cart->info();
+    $relatedQuery = Product::withListingCardRelations()
+        ->active()
+        ->cardListingSelect()
+        ->MainProduct()
+        ->hit()
+        ->orderBy('sort');
+    $related = (new ProductCardPresenter($locale, null, true))->collection($relatedQuery->get());
 
     return view('cart.index', [
         'items' => $info['items'] ?? [],
         'qty'   => (int)($info['qty'] ?? 0),
         'total' => (float)($info['total'] ?? $info['total_price'] ?? 0),
+        'related' => $related,
     ]);
 }
 

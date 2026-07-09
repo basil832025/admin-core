@@ -30,6 +30,7 @@ class DatabaseSeeder extends Seeder
             MenuFavoritesTranslationsSeeder::class,
             SearchTranslationsSeeder::class,
             FilterTranslationsSeeder::class,
+            CartForgotAnythingTranslationsSeeder::class,
             LogisticReceiptExtendedTemplateSeeder::class,
             ReceiptTemplatesThreePiesSeeder::class,
             // ... другие сидеры
