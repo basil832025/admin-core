@@ -17,12 +17,16 @@ class ViewServiceProvider extends ServiceProvider
         View::composer([
             'partials.menu',
             'front.*.partials.menu',
+            'front.*::partials.menu',
             'partials.footer',
             'front.*.partials.footer',
+            'front.*::partials.footer',
             'product.filter-panel',
-            'front.*.product.filter-panel',      // наш шаблон фильтра
+            'front.*.product.filter-panel',
+            'front.*::product.filter-panel',      // наш шаблон фильтра
             'components.menu-drawer',
-            'front.*.components.menu-drawer',      // наш шаблон фильтра
+            'front.*.components.menu-drawer',
+            'front.*::components.menu-drawer',      // наш шаблон фильтра
           ], function ($view) {
             $locale = app()->getLocale();
             $prefix = in_array($locale, ['ru', 'en'], true) ? '/' . $locale : '';
@@ -145,3 +149,4 @@ class ViewServiceProvider extends ServiceProvider
         });
     }
 }
+
