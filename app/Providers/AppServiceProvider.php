@@ -27,6 +27,11 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(LoginResponseContract::class, FilamentLoginResponse::class);
+        $frontendProvider = base_path('packages/frontend-3piroga/src/FrontendThreePirogaServiceProvider.php');
+        if (file_exists($frontendProvider)) {
+            require_once $frontendProvider;
+            $this->app->register(\Basil832025\FrontendThreePiroga\FrontendThreePirogaServiceProvider::class);
+        }
 
      /*   $this->app->singleton(LiqPayService::class, function ($app) {
             $cfg = config('services.liqpay');
