@@ -1,9 +1,7 @@
 export default {
     content: [
         "./resources/**/*.blade.php",
-        "./packages/frontend-3piroga/resources/**/*.blade.php",
         "./resources/**/*.js",
-        "./packages/frontend-3piroga/resources/**/*.js",
         "./vendor/filament/**/*.blade.php",
         './vendor/awcodes/filament-curator/resources/**/*.blade.php',
 
@@ -33,4 +31,3 @@ export default {
     },
     plugins: [require('@tailwindcss/typography')],
 }
-

@@ -9,7 +9,6 @@
         "php": "^8.2",
         "amidesfahani/filament-tinyeditor": "^3.0",
         "awcodes/filament-table-repeater": "3.0",
-        "basil832025/frontend-3piroga": "dev-main",
         "barryvdh/laravel-dompdf": "^3.0",
         "bezhansalleh/filament-shield": "^3.3",
         "blade-ui-kit/blade-heroicons": "^2.6",
@@ -115,13 +114,6 @@
     "repositories": [
         {
             "type": "path",
-            "url": "packages/frontend-3piroga",
-            "options": {
-                "symlink": true
-            }
-        },
-        {
-            "type": "path",
             "url": "packages/cashalotapi",
             "options": {
                 "symlink": false
@@ -129,5 +121,3 @@
         }
     ]
 }
-
-
