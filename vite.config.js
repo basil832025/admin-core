@@ -2,23 +2,17 @@ import { defineConfig } from 'vite';
 import laravel from 'laravel-vite-plugin';
 
 export default defineConfig({
-   // base: '/',            // если сайт в корне домена
     plugins: [
         laravel({
-            input: ['resources/css/app.css',
-                'resources/js/app.js',
-                'resources/js/map-cart.js',
-                'resources/css/filament/admin/theme.css',],
+            input: [
+                'packages/frontend-3piroga/resources/css/app.css',
+                'packages/frontend-3piroga/resources/js/app.js',
+                'packages/frontend-3piroga/resources/js/map-cart.js',
+                'resources/css/filament/admin/theme.css',
+            ],
             refresh: true,
-            buildDirectory: 'build',     // <— обязательно
+            buildDirectory: 'build',
         }),
-
     ],
- /*   build: {
-        outDir: 'public/build',
-        assetsDir: 'assets',
-        manifest: true,
-    },*/
-    base: '/build/',                 // <— КЛЮЧЕВОЕ: чтобы внутри CSS стало /build/assets/...
-
+    base: '/build/',
 });

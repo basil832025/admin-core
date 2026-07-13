@@ -29,3 +29,9 @@ Thumbs.db
 /screenshot/
 NUL
 script.py
+
+# Project frontend package publishes these locally.
+/public/images
+/public/favicon.png
+/public/favicon-16x16.png
+/public/apple-touch-icon.png
