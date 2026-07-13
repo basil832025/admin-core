@@ -1,6 +1,43 @@
 {
+  "packages/frontend-3piroga/resources/css/app.css": {
+    "file": "assets/app-B_9j8Ae4.css",
+    "src": "packages/frontend-3piroga/resources/css/app.css",
+    "isEntry": true
+  },
+  "packages/frontend-3piroga/resources/fonts/intro/intro_bold.ttf": {
+    "file": "assets/intro_bold-DUHoma4Q.ttf",
+    "src": "packages/frontend-3piroga/resources/fonts/intro/intro_bold.ttf"
+  },
+  "packages/frontend-3piroga/resources/fonts/intro/intro_regular.ttf": {
+    "file": "assets/intro_regular-Bi5raiqJ.ttf",
+    "src": "packages/frontend-3piroga/resources/fonts/intro/intro_regular.ttf"
+  },
+  "packages/frontend-3piroga/resources/js/alpine/checkout.js": {
+    "file": "assets/checkout-CBCp5Tyw.js",
+    "name": "checkout",
+    "src": "packages/frontend-3piroga/resources/js/alpine/checkout.js",
+    "isDynamicEntry": true
+  },
+  "packages/frontend-3piroga/resources/js/app.js": {
+    "file": "assets/app-CEujPrOk.js",
+    "name": "app",
+    "src": "packages/frontend-3piroga/resources/js/app.js",
+    "isEntry": true,
+    "dynamicImports": [
+      "packages/frontend-3piroga/resources/js/alpine/checkout.js"
+    ],
+    "css": [
+      "assets/app-DHTUK0JL.css"
+    ]
+  },
+  "packages/frontend-3piroga/resources/js/map-cart.js": {
+    "file": "assets/map-cart-CihDz4Fi.js",
+    "name": "map-cart",
+    "src": "packages/frontend-3piroga/resources/js/map-cart.js",
+    "isEntry": true
+  },
   "resources/css/filament/admin/theme.css": {
-    "file": "assets/theme-8OWXy7Va.css",
+    "file": "assets/theme-BYSwb9OT.css",
     "src": "resources/css/filament/admin/theme.css",
     "isEntry": true
   }
