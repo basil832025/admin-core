@@ -54,4 +54,8 @@ Route::get('/debug/session', function () {
 })->middleware('web');
 
 require __DIR__ . '/web_admin.php';
-require __DIR__ . '/web_front.php';
+
+$frontendRoutes = base_path('packages/frontend-3piroga/routes/web.php');
+if (file_exists($frontendRoutes) && ! class_exists(\Basil832025\FrontendThreePiroga\FrontendThreePirogaServiceProvider::class)) {
+    require $frontendRoutes;
+}
