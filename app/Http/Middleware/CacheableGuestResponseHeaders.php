@@ -11,6 +11,14 @@ class CacheableGuestResponseHeaders
     {
         $response = $next($request);
 
+        if ($this->shouldPreventAuthenticatedHtmlCache($request, $response)) {
+            $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+            $response->headers->set('Pragma', 'no-cache');
+            $response->headers->set('Expires', 'Fri, 01 Jan 1990 00:00:00 GMT');
+
+            return $response;
+        }
+
         if (! $this->shouldMarkCacheable($request, $response)) {
             return $response;
         }
@@ -50,4 +58,27 @@ class CacheableGuestResponseHeaders
 
         return true;
     }
+
+    private function shouldPreventAuthenticatedHtmlCache(Request $request, $response): bool
+    {
+        if (! $request->isMethodCacheable()) {
+            return false;
+        }
+
+        if ($response->getStatusCode() !== 200) {
+            return false;
+        }
+
+        if (! auth()->check()) {
+            return false;
+        }
+
+        $contentType = (string) $response->headers->get('Content-Type', '');
+        if ($contentType !== '' && ! str_contains(strtolower($contentType), 'text/html')) {
+            return false;
+        }
+
+        return true;
+    }
+
 }
