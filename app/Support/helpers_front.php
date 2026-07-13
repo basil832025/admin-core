@@ -3,21 +3,26 @@
 if (! function_exists('front_view')) {
     function front_view(string $view, ?string $theme = null): string
     {
-        $theme ??= (string) config('project.theme', '3piroga');
-        $theme = trim($theme);
+        $configuredTheme = trim((string) ($theme ?? config('project.theme', '3piroga')));
         $view = ltrim($view, '.');
 
-        if ($theme === '') {
-            return $view;
+        $themes = collect([$configuredTheme, '3piroga'])
+            ->filter()
+            ->unique()
+            ->values();
+
+        foreach ($themes as $candidateTheme) {
+            $namespacedView = 'front.' . $candidateTheme . '::' . $view;
+            if (view()->exists($namespacedView)) {
+                return $namespacedView;
+            }
+
+            $themedView = 'front.' . $candidateTheme . '.' . $view;
+            if (view()->exists($themedView)) {
+                return $themedView;
+            }
         }
 
-        $namespacedView = 'front.' . $theme . '::' . $view;
-        if (view()->exists($namespacedView)) {
-            return $namespacedView;
-        }
-
-        $themedView = 'front.' . $theme . '.' . $view;
-
-        return view()->exists($themedView) ? $themedView : $view;
+        return $view;
     }
 }
