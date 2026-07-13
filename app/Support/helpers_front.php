@@ -5,12 +5,18 @@ if (! function_exists('front_view')) {
     {
         $theme ??= (string) config('project.theme', '3piroga');
         $theme = trim($theme);
+        $view = ltrim($view, '.');
 
         if ($theme === '') {
             return $view;
         }
 
-        $themedView = 'front.' . $theme . '.' . ltrim($view, '.');
+        $namespacedView = 'front.' . $theme . '::' . $view;
+        if (view()->exists($namespacedView)) {
+            return $namespacedView;
+        }
+
+        $themedView = 'front.' . $theme . '.' . $view;
 
         return view()->exists($themedView) ? $themedView : $view;
     }
