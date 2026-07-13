@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "bba9273a2b62f5c0c4331329fea20218",
+    "content-hash": "843bc0a09c58cb2291d99d4a72d33efe",
     "packages": [
         {
             "name": "amidesfahani/filament-tinyeditor",
@@ -281,6 +281,36 @@
                 }
             ],
             "time": "2025-02-13T15:07:54+00:00"
+        },
+        {
+            "name": "basil832025/frontend-3piroga",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "packages/frontend-3piroga",
+                "reference": "83904891f7312907d0c98f2d6ced32087237fca4"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Basil832025\\FrontendThreePiroga\\FrontendThreePirogaServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Basil832025\\FrontendThreePiroga\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Project frontend package for 3piroga.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
         },
         {
             "name": "bezhansalleh/filament-shield",
@@ -14745,7 +14775,9 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {},
+    "stability-flags": {
+        "basil832025/frontend-3piroga": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
