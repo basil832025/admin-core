@@ -26,10 +26,6 @@ class ClientAuthController extends Controller
      */
     public function show(Request $request)
     {
-        // Если пользователь уже авторизован, редиректим
-        if (Auth::check()) {
-            return redirect($this->getRedirectUrl($request));
-        }
 
         // Если есть параметр redirect_to_checkout, сохраняем URL checkout в сессию
         if ($request->has('redirect_to_checkout')) {
