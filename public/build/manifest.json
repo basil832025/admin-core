@@ -1,44 +1,44 @@
 {
-  "resources/css/app.css": {
-    "file": "assets/app-CVG8tEGp.css",
-    "src": "resources/css/app.css",
+  "packages/frontend-3piroga/resources/css/app.css": {
+    "file": "assets/app-B_9j8Ae4.css",
+    "src": "packages/frontend-3piroga/resources/css/app.css",
     "isEntry": true
   },
-  "resources/css/filament/admin/theme.css": {
-    "file": "assets/theme-BnAcgYPS.css",
-    "src": "resources/css/filament/admin/theme.css",
-    "isEntry": true
-  },
-  "resources/fonts/intro/intro_bold.ttf": {
+  "packages/frontend-3piroga/resources/fonts/intro/intro_bold.ttf": {
     "file": "assets/intro_bold-DUHoma4Q.ttf",
-    "src": "resources/fonts/intro/intro_bold.ttf"
+    "src": "packages/frontend-3piroga/resources/fonts/intro/intro_bold.ttf"
   },
-  "resources/fonts/intro/intro_regular.ttf": {
+  "packages/frontend-3piroga/resources/fonts/intro/intro_regular.ttf": {
     "file": "assets/intro_regular-Bi5raiqJ.ttf",
-    "src": "resources/fonts/intro/intro_regular.ttf"
+    "src": "packages/frontend-3piroga/resources/fonts/intro/intro_regular.ttf"
   },
-  "resources/js/alpine/checkout.js": {
+  "packages/frontend-3piroga/resources/js/alpine/checkout.js": {
     "file": "assets/checkout-CBCp5Tyw.js",
     "name": "checkout",
-    "src": "resources/js/alpine/checkout.js",
+    "src": "packages/frontend-3piroga/resources/js/alpine/checkout.js",
     "isDynamicEntry": true
   },
-  "resources/js/app.js": {
+  "packages/frontend-3piroga/resources/js/app.js": {
     "file": "assets/app-CEujPrOk.js",
     "name": "app",
-    "src": "resources/js/app.js",
+    "src": "packages/frontend-3piroga/resources/js/app.js",
     "isEntry": true,
     "dynamicImports": [
-      "resources/js/alpine/checkout.js"
+      "packages/frontend-3piroga/resources/js/alpine/checkout.js"
     ],
     "css": [
       "assets/app-DHTUK0JL.css"
     ]
   },
-  "resources/js/map-cart.js": {
+  "packages/frontend-3piroga/resources/js/map-cart.js": {
     "file": "assets/map-cart-CihDz4Fi.js",
     "name": "map-cart",
-    "src": "resources/js/map-cart.js",
+    "src": "packages/frontend-3piroga/resources/js/map-cart.js",
+    "isEntry": true
+  },
+  "resources/css/filament/admin/theme.css": {
+    "file": "assets/theme-BYSwb9OT.css",
+    "src": "resources/css/filament/admin/theme.css",
     "isEntry": true
   }
 }
