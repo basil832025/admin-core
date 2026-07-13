@@ -1,5 +1,5 @@
 <?php
-
+//клиенты
 namespace App\Filament\Resources;
 use App\Filament\Resources\ClientResource\RelationManagers\AddressesRelationManager;
 use App\Models\Shop\Client;
