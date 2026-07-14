@@ -1,6 +1,6 @@
 {
   "packages/frontend-3piroga/resources/css/app.css": {
-    "file": "assets/app-B_9j8Ae4.css",
+    "file": "assets/app-DL1zZWE3.css",
     "src": "packages/frontend-3piroga/resources/css/app.css",
     "isEntry": true
   },
@@ -19,7 +19,7 @@
     "isDynamicEntry": true
   },
   "packages/frontend-3piroga/resources/js/app.js": {
-    "file": "assets/app-CEujPrOk.js",
+    "file": "assets/app-cFaDfUKe.js",
     "name": "app",
     "src": "packages/frontend-3piroga/resources/js/app.js",
     "isEntry": true,
@@ -37,7 +37,7 @@
     "isEntry": true
   },
   "resources/css/filament/admin/theme.css": {
-    "file": "assets/theme-BYSwb9OT.css",
+    "file": "assets/theme-6Nx7qWPi.css",
     "src": "resources/css/filament/admin/theme.css",
     "isEntry": true
   }
