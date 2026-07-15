@@ -74,7 +74,7 @@ class DeliveryZoneResolverService
             return $this->deliveryAreas;
         }
         
-        $filePath = resource_path('js/map-cart.js');
+        $filePath = $this->resolveDeliveryAreasFilePath();
         
         if (!File::exists($filePath)) {
             Log::warning('DeliveryZoneResolver: map-cart.js not found');
@@ -95,6 +95,23 @@ class DeliveryZoneResolverService
         }
         
         return $this->deliveryAreas;
+    }
+
+    protected function resolveDeliveryAreasFilePath(): string
+    {
+        $candidates = [
+            resource_path('js/map-cart.js'),
+            base_path('packages/frontend-' . config('project.theme', '3piroga') . '/resources/js/map-cart.js'),
+            base_path('packages/frontend-3piroga/resources/js/map-cart.js'),
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (File::exists($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return $candidates[0];
     }
     
     /**
