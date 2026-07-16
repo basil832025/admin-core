@@ -133,14 +133,10 @@ class VariantsRelationManager extends RelationManager
                             ->numeric()
                             ->minValue(0)
                             ->maxValue(99.99)
-                            ->step(0.01)
+                            ->step(1)
                             ->live(onBlur: true)
                             ->afterStateHydrated(function (TextInput $component, $state, ?Product $record): void {
-                                if ($state !== null && $state !== '') {
-                                    return;
-                                }
-
-                                $component->state(\App\Filament\Clusters\Products\Resources\ProductResource::calculatedDiscountPercent($record?->old_price, $record?->price));
+                                $component->state($state !== null && $state !== '' ? round(\App\Filament\Clusters\Products\Resources\ProductResource::normalizeDecimal($state)) : null);
                             })
                             ->afterStateUpdated(fn ($state, Set $set, Get $get) => \App\Filament\Clusters\Products\Resources\ProductResource::applyDiscountPercentToPrices($set, $get, $state)),
 
@@ -339,7 +335,7 @@ class VariantsRelationManager extends RelationManager
                     ->label('Скидка %')
                     ->getStateUsing(function (Product $record): ?float {
                         if ($record->manual_discount_percent !== null) {
-                            return round((float) $record->manual_discount_percent, 2);
+                            return round((float) $record->manual_discount_percent);
                         }
 
                         return \App\Filament\Clusters\Products\Resources\ProductResource::calculatedDiscountPercent($record->old_price, $record->price);
@@ -348,16 +344,8 @@ class VariantsRelationManager extends RelationManager
                         $discountPercent = \App\Filament\Clusters\Products\Resources\ProductResource::normalizeDecimal($state);
 
                         if ($discountPercent <= 0) {
-                            $existingOldPrice = (float) ($record->old_price ?? 0);
-
-                            if ($existingOldPrice > 0) {
-                                $record->price = round($existingOldPrice);
-                            }
-
-                            $record->old_price = null;
                             $record->manual_discount_percent = null;
                             $record->save();
-
                             app(\App\Services\CatalogCacheService::class)->bump();
 
                             if (is_object($livewire) && method_exists($livewire, 'dispatch')) {
@@ -380,7 +368,7 @@ class VariantsRelationManager extends RelationManager
                             $record->old_price = round($basePrice);
                         }
 
-                        $record->manual_discount_percent = round($discountPercent, 2);
+                        $record->manual_discount_percent = round($discountPercent);
                         $record->price = round($basePrice * (1 - ($discountPercent / 100)));
                         $record->save();
 
@@ -390,7 +378,7 @@ class VariantsRelationManager extends RelationManager
                             $livewire->dispatch('$refresh');
                         }
 
-                        return round((float) $record->manual_discount_percent, 2);
+                        return round((float) $record->manual_discount_percent);
                     })
                     ->alignRight()
                     ->sortable(query: function ($query, string $direction) {

@@ -62,7 +62,7 @@ class ProductPriceCalculator
             self::REMOVE_PROMOTION => null,
         };
 
-        $newDiscountPercent = $this->discountPercent($newPrice, $newOldPrice);
+        $newDiscountPercent = null;
 
         return [
             'price' => $newPrice,
@@ -77,7 +77,7 @@ class ProductPriceCalculator
             return null;
         }
 
-        return round((($oldPrice - $price) / $oldPrice) * 100, 2);
+        return round((($oldPrice - $price) / $oldPrice) * 100);
     }
 
     public function assertValid(string $operation, float $value, string $oldPriceMode, int $roundingPrecision = 0): void

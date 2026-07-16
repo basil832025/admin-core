@@ -118,7 +118,7 @@ class ProductRelationManager extends RelationManager
                     ->label('Скидка %')
                     ->getStateUsing(function (Product $record): ?float {
                         if ($record->manual_discount_percent !== null) {
-                            return round((float) $record->manual_discount_percent, 2);
+                            return round((float) $record->manual_discount_percent);
                         }
 
                         $oldPrice = (float) ($record->old_price ?? 0);
@@ -128,7 +128,7 @@ class ProductRelationManager extends RelationManager
                             return null;
                         }
 
-                        return round((($oldPrice - $price) / $oldPrice) * 100, 2);
+                        return round((($oldPrice - $price) / $oldPrice) * 100);
                     })
                     ->updateStateUsing(function (Product $record, $state, $livewire): ?float {
                         $discountPercent = (float) ($state ?? 0);
@@ -164,7 +164,7 @@ class ProductRelationManager extends RelationManager
                             $record->old_price = round($basePrice);
                         }
 
-                        $record->manual_discount_percent = round($discountPercent, 2);
+                        $record->manual_discount_percent = round($discountPercent);
                         $record->price = round($basePrice * (1 - ($discountPercent / 100)));
                         $record->save();
 
@@ -172,7 +172,7 @@ class ProductRelationManager extends RelationManager
                             $livewire->dispatch('$refresh');
                         }
 
-                        return round((float) $record->manual_discount_percent, 2);
+                        return round((float) $record->manual_discount_percent);
                     }),
 
                 TextColumn::make('sku')

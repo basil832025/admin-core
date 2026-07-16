@@ -146,12 +146,12 @@ class ProductResource extends Resource
             return null;
         }
 
-        return round((($oldPrice - $price) / $oldPrice) * 100, 2);
+        return round((($oldPrice - $price) / $oldPrice) * 100);
     }
 
     public static function syncDiscountPercentField(Set $set, Get $get): void
     {
-        $set('manual_discount_percent', static::calculatedDiscountPercent($get('old_price'), $get('price')));
+        $set('manual_discount_percent', null);
     }
 
     public static function applyDiscountPercentToPrices(Set $set, Get $get, mixed $state): void
@@ -159,13 +159,6 @@ class ProductResource extends Resource
         $discountPercent = static::normalizeDecimal($state);
 
         if ($discountPercent <= 0) {
-            $existingOldPrice = static::normalizeDecimal($get('old_price'));
-
-            if ($existingOldPrice > 0) {
-                $set('price', round($existingOldPrice));
-            }
-
-            $set('old_price', null);
             $set('manual_discount_percent', null);
 
             return;
@@ -184,7 +177,7 @@ class ProductResource extends Resource
             $set('old_price', round($basePrice));
         }
 
-        $set('manual_discount_percent', round($discountPercent, 2));
+        $set('manual_discount_percent', round($discountPercent));
         $set('price', round($basePrice * (1 - ($discountPercent / 100))));
     }
 
@@ -197,13 +190,6 @@ class ProductResource extends Resource
         $discountPercent = static::normalizeDecimal($data['manual_discount_percent']);
 
         if ($discountPercent <= 0) {
-            $existingOldPrice = static::normalizeDecimal($data['old_price'] ?? null);
-
-            if ($existingOldPrice > 0) {
-                $data['price'] = round($existingOldPrice);
-            }
-
-            $data['old_price'] = null;
             $data['manual_discount_percent'] = null;
 
             return $data;
@@ -222,7 +208,7 @@ class ProductResource extends Resource
             $data['old_price'] = round($basePrice);
         }
 
-        $data['manual_discount_percent'] = round($discountPercent, 2);
+        $data['manual_discount_percent'] = round($discountPercent);
         $data['price'] = round($basePrice * (1 - ($discountPercent / 100)));
 
         return $data;
@@ -318,14 +304,10 @@ class ProductResource extends Resource
                                 ->numeric()
                                 ->minValue(0)
                                 ->maxValue(99.99)
-                                ->step(0.01)
+                                ->step(1)
                                 ->live(onBlur: true)
                                 ->afterStateHydrated(function (TextInput $component, $state, ?Product $record): void {
-                                    if ($state !== null && $state !== '') {
-                                        return;
-                                    }
-
-                                    $component->state(static::calculatedDiscountPercent($record?->old_price, $record?->price));
+                                    $component->state($state !== null && $state !== '' ? round(static::normalizeDecimal($state)) : null);
                                 })
                                 ->afterStateUpdated(fn ($state, Set $set, Get $get) => static::applyDiscountPercentToPrices($set, $get, $state)),
                         ]) ->columns(4),
