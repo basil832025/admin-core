@@ -51,8 +51,18 @@ class SvgImage extends Model
             return $path;
         }
 
-        // тут просто собираем урл без storage
-        return url($path);
+        return asset($this->normalizePublicAssetPath($path));
+    }
+
+    protected function normalizePublicAssetPath(string $path): string
+    {
+        $path = ltrim($path, '/');
+
+        if (str_starts_with($path, 'images/svg/')) {
+            return 'vendor/frontend-3piroga/' . $path;
+        }
+
+        return $path;
     }
     protected static function booted(): void
     {
@@ -95,6 +105,8 @@ class SvgImage extends Model
 
     public function getPublicUrlAttribute(): string
     {
-        return asset($this->file_path ?: ('images/svg/' . $this->slug . '.svg'));
+        $path = $this->file_path ?: ('images/svg/' . $this->slug . '.svg');
+
+        return asset($this->normalizePublicAssetPath($path));
     }
 }
