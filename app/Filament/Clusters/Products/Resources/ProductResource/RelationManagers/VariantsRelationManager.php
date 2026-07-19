@@ -344,6 +344,13 @@ class VariantsRelationManager extends RelationManager
                         $discountPercent = \App\Filament\Clusters\Products\Resources\ProductResource::normalizeDecimal($state);
 
                         if ($discountPercent <= 0) {
+                            $existingOldPrice = (float) ($record->old_price ?? 0);
+
+                            if ($existingOldPrice > 0) {
+                                $record->price = round($existingOldPrice);
+                            }
+
+                            $record->old_price = null;
                             $record->manual_discount_percent = null;
                             $record->save();
                             app(\App\Services\CatalogCacheService::class)->bump();
