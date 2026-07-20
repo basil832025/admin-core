@@ -34,7 +34,7 @@ class CreateProduct extends CreateRecord
             $data['sku'] = ProductResource::nextAvailableSku();
         }
 
-        return $data;
+        return ProductResource::applyDiscountPercentToData($data);
     }
     protected function beforeValidate(): void
     {

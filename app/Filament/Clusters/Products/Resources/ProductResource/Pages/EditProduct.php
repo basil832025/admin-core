@@ -69,7 +69,7 @@ class EditProduct extends EditRecord
        /* $data['characteristics'] = $data['characteristics_payload'] ?? [];
         unset($data['characteristics_payload']);*/
 
-        return $data;
+        return ProductResource::applyDiscountPercentToData($data);
     }
     protected function getRedirectUrl(): string
     {

@@ -159,6 +159,13 @@ class ProductResource extends Resource
         $discountPercent = static::normalizeDecimal($state);
 
         if ($discountPercent <= 0) {
+            $existingOldPrice = static::normalizeDecimal($get('old_price'));
+
+            if ($existingOldPrice > 0) {
+                $set('price', round($existingOldPrice));
+            }
+
+            $set('old_price', null);
             $set('manual_discount_percent', null);
 
             return;
@@ -190,6 +197,13 @@ class ProductResource extends Resource
         $discountPercent = static::normalizeDecimal($data['manual_discount_percent']);
 
         if ($discountPercent <= 0) {
+            $existingOldPrice = static::normalizeDecimal($data['old_price'] ?? null);
+
+            if ($existingOldPrice > 0) {
+                $data['price'] = round($existingOldPrice);
+            }
+
+            $data['old_price'] = null;
             $data['manual_discount_percent'] = null;
 
             return $data;
