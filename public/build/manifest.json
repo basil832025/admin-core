@@ -13,13 +13,13 @@
     "src": "packages/frontend-3piroga/resources/fonts/intro/intro_regular.ttf"
   },
   "packages/frontend-3piroga/resources/js/alpine/checkout.js": {
-    "file": "assets/checkout-CBCp5Tyw.js",
+    "file": "assets/checkout-7cyijaIt.js",
     "name": "checkout",
     "src": "packages/frontend-3piroga/resources/js/alpine/checkout.js",
     "isDynamicEntry": true
   },
   "packages/frontend-3piroga/resources/js/app.js": {
-    "file": "assets/app-cFaDfUKe.js",
+    "file": "assets/app-BZLCqVZg.js",
     "name": "app",
     "src": "packages/frontend-3piroga/resources/js/app.js",
     "isEntry": true,

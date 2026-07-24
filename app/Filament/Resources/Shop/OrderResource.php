@@ -2465,12 +2465,23 @@ class OrderResource extends Resource
                     ->label(__('order.columns.client'))
                     ->sortable()
                     ->toggleable()
-                    ->searchable(isIndividual: true, query: function (Builder $query, string $search): Builder {
-                        return $query->whereHas('clients', function (Builder $q) use ($search): void {
+                    ->searchable(query: function (Builder $query, string $search): Builder {
+                        $digits = preg_replace('/\D+/', '', $search) ?? '';
+                        $tail = strlen($digits) > 9 ? substr($digits, -9) : $digits;
+
+                        return $query->whereHas('clients', function (Builder $q) use ($search, $digits, $tail): void {
                             $q->where('name', 'like', "%{$search}%")
                                 ->orWhere('phone', 'like', "%{$search}%");
+
+                            if ($digits !== '') {
+                                $q->orWhereRaw("REGEXP_REPLACE(phone, '[^0-9]', '') LIKE ?", ["%{$digits}%"]);
+                            }
+
+                            if ($tail !== '' && $tail !== $digits) {
+                                $q->orWhereRaw("REGEXP_REPLACE(phone, '[^0-9]', '') LIKE ?", ["%{$tail}%"]);
+                            }
                         });
-                    })
+                    }, isIndividual: true, isGlobal: true)
                     ->extraHeaderAttributes(['style' => 'min-width:10rem;width:10rem;'])
                     ->extraCellAttributes(['style' => 'min-width:10rem;width:10rem;'])
                     ->description(function (Order $record) {

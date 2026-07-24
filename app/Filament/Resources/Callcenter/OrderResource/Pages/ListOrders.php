@@ -121,10 +121,6 @@ class ListOrders extends ListRecords
                 ->query(function ($query) use ($status, $statusValue) {
                     $query->where('status', $statusValue);
 
-                    if ($status === OrderStatus::Cart) {
-                        $this->excludeAwaitingPaymentFilter($query);
-                    }
-
                     return $query;
                 });
         }

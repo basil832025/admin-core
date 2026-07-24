@@ -513,6 +513,255 @@ class OrderPricing
 
     /* ====================== ПЕРЕСЧЁТ ====================== */
 
+    public function calculateCouponAmountWithSelectedPromo(Order $order, PromoCode $promo, ?string $selection): float
+    {
+        $couponMap = $promo->calculateDiscountMapForOrder($order);
+        if ($couponMap === []) {
+            return 0.0;
+        }
+
+        $programMap = $this->buildSelectedPromoDiscountMap($order, $selection);
+        $extra = 0.0;
+
+        foreach ($couponMap as $key => $couponAmount) {
+            $programAmount = (float) ($programMap[$key] ?? 0);
+            $extra += max(0, (float) $couponAmount - $programAmount);
+        }
+
+        $couponTotal = array_sum($couponMap);
+        $programTotal = $this->currentSelectedPromoAdjustmentAmount($order, $selection);
+        if ($programTotal <= 0) {
+            $programTotal = array_sum($programMap);
+        }
+
+        $extra = max($extra, $couponTotal - $programTotal);
+
+        return $extra > 0 ? -round($extra, 2) : 0.0;
+    }
+
+    private function currentSelectedPromoAdjustmentAmount(Order $order, ?string $selection): float
+    {
+        $selection = (string) ($selection ?? 'none');
+        if ($selection === '' || $selection === 'none') {
+            return 0.0;
+        }
+
+        [$kind] = explode(':', $selection) + [null];
+        if (! in_array($kind, ['fixed', 'time'], true)) {
+            return 0.0;
+        }
+
+        return abs((float) $order->adjustments()
+            ->whereNull('shop_order_item_id')
+            ->where('type', $kind)
+            ->sum('amount'));
+    }
+    /**
+     * @return array<string,float>
+     */
+    private function buildSelectedPromoDiscountMap(Order $order, ?string $selection): array
+    {
+        $selection = (string) ($selection ?? 'none');
+        if ($selection === '' || $selection === 'none') {
+            return [];
+        }
+
+        [$kind, $id] = explode(':', $selection) + [null, null];
+        $id = (int) $id;
+
+        if ($kind === 'fixed') {
+            $fixed = $id > 0 ? FixedDiscount::active()->find($id) : null;
+
+            return $fixed ? $this->buildCheckoutFixedDiscountMap($order, $fixed) : [];
+        }
+
+        if ($kind === 'time') {
+            $time = $id > 0 ? TimeDiscount::query()->find($id) : null;
+            if (! $time) {
+                return [];
+            }
+
+            $moment = $this->resolveMomentFor($order, $time);
+            $isActive = TimeDiscount::query()
+                ->whereKey($time->id)
+                ->activeForMoment($moment, 'Europe/Kyiv')
+                ->exists();
+
+            return $isActive ? $this->buildCheckoutTimeDiscountMap($order, $time) : [];
+        }
+
+        return [];
+    }
+
+    /**
+     * @return array<string,float>
+     */
+    private function buildCheckoutFixedDiscountMap(Order $order, FixedDiscount $discount): array
+    {
+        $subtotals = [];
+
+        foreach ($order->items as $index => $item) {
+            $product = $item->product;
+            if (! $product || $product->excludedFromPromotions()) {
+                continue;
+            }
+
+            $subtotal = (float) $item->unit_price * (int) $item->qty;
+            if ($subtotal <= 0) {
+                continue;
+            }
+
+            $subtotals[PromoCode::discountMapKey($item, (int) $index)] = $subtotal;
+        }
+
+        $total = array_sum($subtotals);
+        if ($total <= 0) {
+            return [];
+        }
+
+        $percent = (float) ($discount->percent ?? 0);
+        if ($percent > 0) {
+            $map = [];
+            foreach ($subtotals as $key => $subtotal) {
+                $amount = round($subtotal * ($percent / 100), 2);
+                if ($amount > 0) {
+                    $map[$key] = $amount;
+                }
+            }
+
+            return $map;
+        }
+
+        $fixedAmount = min((float) ($discount->amount ?? 0), $total);
+        if ($fixedAmount <= 0) {
+            return [];
+        }
+
+        $map = [];
+        $remaining = round($fixedAmount, 2);
+        $keys = array_keys($subtotals);
+        $lastKey = end($keys);
+
+        foreach ($subtotals as $key => $subtotal) {
+            $amount = ($key === $lastKey)
+                ? $remaining
+                : round($fixedAmount * ($subtotal / $total), 2);
+
+            $amount = min($amount, $remaining, $subtotal);
+            $remaining = round($remaining - $amount, 2);
+
+            if ($amount > 0) {
+                $map[$key] = $amount;
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * @return array<string,float>
+     */
+    private function buildCheckoutTimeDiscountMap(Order $order, TimeDiscount $discount): array
+    {
+        $percent = (float) ($discount->percent ?? 0);
+        $eachN = (int) ($discount->nth_item ?? 0);
+
+        if ($percent <= 0 || $eachN < 1) {
+            return [];
+        }
+
+        $channels = $discount->channels ?: [];
+        if (! empty($channels)) {
+            $orderChannel = (bool) ($order->self_pickup ?? false)
+                ? TimeDiscount::CHANNEL_PICKUP
+                : TimeDiscount::CHANNEL_DELIVERY;
+
+            if (! in_array($orderChannel, $channels, true)) {
+                return [];
+            }
+        }
+
+        $units = [];
+
+        foreach ($order->items as $index => $item) {
+            $product = $item->product;
+            if (! $product || $product->excludedFromPromotions()) {
+                continue;
+            }
+
+            if (! $this->matchesTimeDiscountScope($discount, $item)) {
+                continue;
+            }
+
+            $qty = (int) ($item->qty ?? 0);
+            $price = (float) ($item->unit_price ?? 0);
+            if ($qty <= 0 || $price <= 0) {
+                continue;
+            }
+
+            $key = PromoCode::discountMapKey($item, (int) $index);
+            for ($i = 0; $i < $qty; $i++) {
+                $units[] = ['key' => $key, 'price' => $price];
+            }
+        }
+
+        if ($units === [] || count($units) < $eachN) {
+            return [];
+        }
+
+        $map = [];
+
+        if ($eachN === 1) {
+            foreach ($units as $unit) {
+                $key = (string) $unit['key'];
+                $map[$key] = ($map[$key] ?? 0) + ((float) $unit['price']) * ($percent / 100);
+            }
+
+            foreach ($map as &$amount) {
+                $amount = round((float) $amount, 2);
+            }
+
+            return $map;
+        }
+
+        if ((string) ($discount->grouping_mode ?: TimeDiscount::GROUP_PRICE_SORTED) === TimeDiscount::GROUP_PRICE_SORTED) {
+            usort($units, fn (array $a, array $b) => $b['price'] <=> $a['price']);
+        }
+
+        $target = (string) ($discount->apply_target ?: TimeDiscount::TARGET_CHEAPEST);
+        $position = (int) ($discount->apply_index ?? 0);
+        $chunks = array_values(array_filter(array_chunk($units, $eachN), fn (array $chunk) => count($chunk) === $eachN));
+
+        foreach ($chunks as $chunk) {
+            if ($target === TimeDiscount::TARGET_MOST_EXPENSIVE) {
+                usort($chunk, fn (array $a, array $b) => $b['price'] <=> $a['price']);
+                $recipient = $chunk[0] ?? null;
+            } elseif ($target === TimeDiscount::TARGET_INDEX) {
+                usort($chunk, fn (array $a, array $b) => $a['price'] <=> $b['price']);
+                $recipient = $chunk[max(0, min(count($chunk) - 1, ($position > 0 ? $position : 1) - 1))] ?? null;
+            } else {
+                usort($chunk, fn (array $a, array $b) => $a['price'] <=> $b['price']);
+                $recipient = $chunk[0] ?? null;
+            }
+
+            if (! is_array($recipient)) {
+                continue;
+            }
+
+            $key = (string) ($recipient['key'] ?? '');
+            if ($key === '') {
+                continue;
+            }
+
+            $map[$key] = ($map[$key] ?? 0) + ((float) ($recipient['price'] ?? 0)) * ($percent / 100);
+        }
+
+        foreach ($map as &$amount) {
+            $amount = round((float) $amount, 2);
+        }
+
+        return $map;
+    }
     public function recalc(Order $order): void
     {
         $order->loadMissing(['items.product.parent', 'items.product.categories', 'items.product.characteristicValues', 'adjustments']);

@@ -122,6 +122,15 @@ class PromoCodeResource extends Resource
                         ->default(1)
                         ->required(),
 
+                    Forms\Components\Select::make('fulfillment_method')
+                        ->label(__('promo_code.fields.fulfillment_method'))
+                        ->options([
+                            'delivery' => __('promo_code.options.fulfillment_method.delivery'),
+                            'pickup' => __('promo_code.options.fulfillment_method.pickup'),
+                        ])
+                        ->placeholder(__('promo_code.options.fulfillment_method.all'))
+                        ->native(false),
+
                     Forms\Components\Textarea::make('note')
                         ->label(__('promo_code.fields.note'))
                         ->columnSpanFull(),
@@ -354,6 +363,13 @@ class PromoCodeResource extends Resource
                 Tables\Columns\IconColumn::make('is_active')
                     ->label(__('promo_code.columns.is_active'))
                     ->boolean(),
+
+                Tables\Columns\TextColumn::make('fulfillment_method')
+                    ->label(__('promo_code.columns.fulfillment_method'))
+                    ->formatStateUsing(fn (?string $state): string => $state
+                        ? __('promo_code.options.fulfillment_method.' . $state)
+                        : __('promo_code.options.fulfillment_method.all'))
+                    ->badge(),
 
                 Tables\Columns\TextColumn::make('starts_at')
                     ->label(__('promo_code.columns.starts_at'))

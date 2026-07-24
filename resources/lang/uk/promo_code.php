@@ -24,6 +24,7 @@ return [
         'starts_at'                 => 'Початок дії',
         'ends_at'                   => 'Закінчення дії',
         'max_uses'                  => 'Глобальний ліміт використань',
+        'fulfillment_method'       => 'Спосіб отримання',
         'per_client_limit'          => 'Ліміт на клієнта',
         'note'                      => 'Примітка',
         'categories'                => 'Категорії (групи)',
@@ -38,6 +39,7 @@ return [
         'code'          => 'Код',
         'discount_type' => 'Тип',
         'discount'      => 'Знижка',
+        'fulfillment_method' => 'Отримання',
         'is_active'     => 'Активний',
         'starts_at'     => 'Початок',
         'ends_at'       => 'Закінчення',
@@ -59,6 +61,12 @@ return [
     ],
 
     'options' => [
+        'fulfillment_method' => [
+            'delivery' => 'Доставка',
+            'pickup' => 'Самовивіз',
+            'all' => 'Усі',
+        ],
+
         'discount_type' => [
             'percent' => 'Відсоткова',
             'fixed' => 'Фіксована сума',

@@ -53,6 +53,7 @@ use Filament\Forms\Components\MultiSelect;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\Component;
 use App\Models\Shop\Characteristic;
+use App\Models\Shop\CategoryVariation;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Get;
@@ -250,6 +251,10 @@ class ProductResource extends Resource
                         ->schema(fn (Get $get, ?Product $record) => static::characteristicTab($get, $record))
                         ->columns(1),
 
+                    Tab::make(__('product.tabs.variations'))
+                        ->schema(fn (Get $get, ?Product $record) => static::variationTab($get, $record))
+                        ->visible(fn (?Product $record): bool => $record?->exists && is_null($record->parent_id))
+                        ->columns(1),
                     Tab::make('Склад')
                         ->schema(static::legacyConsistTab())
                         ->columns(1),
@@ -1691,7 +1696,13 @@ class ProductResource extends Resource
 
     public static function variationTab(Get $get, ?Product $record): array
     {
-        $categoryIds = $get('category_ids') ?? $record?->categories?->pluck('id')->toArray() ?? [];
+        $categoryIds = collect([$get('category_id')])
+            ->merge((array) ($get('categories') ?? []))
+            ->merge($record?->categories?->pluck('id')->toArray() ?? [])
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
 
         if (empty($categoryIds)) {
             return [

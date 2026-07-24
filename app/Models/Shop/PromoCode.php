@@ -26,6 +26,7 @@ class PromoCode extends Model
         'ends_at',
         'max_uses',
         'per_client_limit',
+        'fulfillment_method',
         'note',
     ];
 
@@ -38,7 +39,26 @@ class PromoCode extends Model
         'ends_at'          => 'datetime',
         'max_uses'         => 'integer',
         'per_client_limit' => 'integer',
+        'fulfillment_method' => 'string',
     ];
+
+    public function matchesFulfillmentMethod(Order|string|null $orderOrMethod): bool
+    {
+        $required = $this->fulfillment_method ?: null;
+
+        if (! in_array($required, ['delivery', 'pickup'], true)) {
+            return true;
+        }
+
+        if ($orderOrMethod instanceof Order) {
+            $method = $orderOrMethod->shipping_method
+                ?: ($orderOrMethod->self_pickup ? 'pickup' : 'delivery');
+        } else {
+            $method = $orderOrMethod ?: null;
+        }
+
+        return $method === $required;
+    }
 
     /* ------------ Mutators / Helpers ------------ */
     /**
@@ -53,28 +73,177 @@ class PromoCode extends Model
      */
     public function calculateAmountForOrder(Order $order): float
     {
-        $eligible = $this->calculateEligibleSubtotalForOrder($order);
+        return -round(array_sum($this->calculateDiscountMapForOrder($order)), 2);
+    }
 
-        if ($eligible <= 0) {
-            return 0.0;
+    /**
+     * @return array<string,float> Positive discount amount by order item key.
+     */
+    public function calculateDiscountMapForOrder(Order $order): array
+    {
+        if (! $this->matchesFulfillmentMethod($order)) {
+            return [];
+        }
+
+        $ids = function ($rel) {
+            $tbl = $rel->getRelated()->getTable();
+            return $rel->select("$tbl.id")->pluck("$tbl.id")->map(fn($v)=>(int)$v)->all();
+        };
+
+        $productIds = $ids($this->products());
+        $categoryIds = $ids($this->categories());
+        $valueIdsReq = $ids($this->characteristicValues());
+        $charIdsReq = $ids($this->characteristics());
+        $filtersOn = (bool) ($productIds || $categoryIds || $valueIdsReq || $charIdsReq);
+
+        $order->loadMissing([
+            'items.product.parent',
+            'items.product.categories',
+            'items.product.mainCategory',
+            'items.product.parent.categories',
+            'items.product.parent.mainCategory',
+        ]);
+
+        if (method_exists(Product::class, 'attributeValues')) {
+            $order->loadMissing(['items.product.attributeValues']);
+        }
+
+        $eligible = [];
+        $eligibleSubtotal = 0.0;
+
+        foreach ($order->items as $index => $row) {
+            $product = $row->product;
+
+            if (! $product || $product->excludedFromPromotions()) {
+                continue;
+            }
+
+            if (! $this->itemMatchesConfiguredScope($row, $productIds, $categoryIds, $valueIdsReq, $charIdsReq, $filtersOn)) {
+                continue;
+            }
+
+            $subtotal = (float) $row->unit_price * (int) $row->qty;
+            if ($subtotal <= 0) {
+                continue;
+            }
+
+            $key = self::discountMapKey($row, (int) $index);
+            $eligible[$key] = $subtotal;
+            $eligibleSubtotal += $subtotal;
+        }
+
+        if ($eligibleSubtotal <= 0) {
+            return [];
         }
 
         if ($this->discount_type === 'fixed') {
-            $amount = (float) ($this->amount ?? 0);
-
+            $amount = min((float) ($this->amount ?? 0), $eligibleSubtotal);
             if ($amount <= 0) {
-                return 0.0;
+                return [];
             }
 
-            return -round(min($amount, $eligible), 2);
+            return $this->allocateFixedDiscountMap($eligible, $amount);
         }
 
         $percent = (float) ($this->percent ?? 0);
-        if ($percent <= 0) return 0.0;
+        if ($percent <= 0) {
+            return [];
+        }
 
-        return -round($eligible * ($percent / 100), 2);
+        $map = [];
+        foreach ($eligible as $key => $subtotal) {
+            $discount = round($subtotal * ($percent / 100), 2);
+            if ($discount > 0) {
+                $map[$key] = $discount;
+            }
+        }
+
+        return $map;
     }
 
+    public static function discountMapKey($item, int $index): string
+    {
+        $id = (int) ($item->id ?? 0);
+
+        return $id > 0 ? 'id:' . $id : 'idx:' . $index;
+    }
+
+    protected function itemMatchesConfiguredScope($row, array $productIds, array $categoryIds, array $valueIdsReq, array $charIdsReq, bool $filtersOn): bool
+    {
+        $product = $row->product;
+        $matches = ! $filtersOn;
+
+        if (!$matches && $productIds && $this->productMatchesScope($product, $productIds)) {
+            $matches = true;
+        }
+
+        if (!$matches && $categoryIds) {
+            $prodCatIds = $this->resolveProductCategoryIds($product);
+            if (array_intersect($categoryIds, $prodCatIds)) {
+                $matches = true;
+            }
+        }
+
+        if (!$matches && ($valueIdsReq || $charIdsReq)) {
+            $prodValueIds = [];
+            $prodCharIds = [];
+
+            if (method_exists($product, 'attributeValues')) {
+                $vals = $product->attributeValues ?? collect();
+                $prodValueIds = $vals->pluck('id')->map(fn($v)=>(int)$v)->all();
+                $prodCharIds = $vals->pluck('pivot.attribute_id')->filter()->map(fn($v)=>(int)$v)->all();
+                if (!$prodCharIds && $vals->first()?->attribute_id) {
+                    $prodCharIds = $vals->pluck('attribute_id')->map(fn($v)=>(int)$v)->all();
+                }
+            }
+
+            [$metaValueIds, $metaCharIds] = $this->extractMetaIdsStrict($row, $valueIdsReq, $charIdsReq);
+
+            $allValueIds = array_values(array_unique(array_merge($prodValueIds, $metaValueIds)));
+            $allCharIds = array_values(array_unique(array_merge($prodCharIds, $metaCharIds)));
+
+            if ($valueIdsReq && array_intersect($valueIdsReq, $allValueIds)) {
+                $matches = true;
+            }
+            if (!$matches && $charIdsReq && array_intersect($charIdsReq, $allCharIds)) {
+                $matches = true;
+            }
+        }
+
+        return $matches;
+    }
+
+    /**
+     * @param array<string,float> $subtotals
+     * @return array<string,float>
+     */
+    protected function allocateFixedDiscountMap(array $subtotals, float $amount): array
+    {
+        $total = array_sum($subtotals);
+        if ($total <= 0 || $amount <= 0) {
+            return [];
+        }
+
+        $map = [];
+        $remaining = round($amount, 2);
+        $keys = array_keys($subtotals);
+        $lastKey = end($keys);
+
+        foreach ($subtotals as $key => $subtotal) {
+            $discount = ($key === $lastKey)
+                ? $remaining
+                : round($amount * ($subtotal / $total), 2);
+
+            $discount = min($discount, $remaining, $subtotal);
+            $remaining = round($remaining - $discount, 2);
+
+            if ($discount > 0) {
+                $map[$key] = $discount;
+            }
+        }
+
+        return $map;
+    }
     protected function calculateEligibleSubtotalForOrder(Order $order): float
     {
 

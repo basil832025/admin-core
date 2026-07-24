@@ -24,6 +24,7 @@ return [
         'starts_at'                 => 'Start date',
         'ends_at'                   => 'End date',
         'max_uses'                  => 'Global usage limit',
+        'fulfillment_method'       => 'Fulfillment method',
         'per_client_limit'          => 'Client usage limit',
         'note'                      => 'Note',
         'categories'                => 'Categories (groups)',
@@ -38,6 +39,7 @@ return [
         'code'          => 'Code',
         'discount_type' => 'Type',
         'discount'      => 'Discount',
+        'fulfillment_method' => 'Fulfillment',
         'is_active'     => 'Active',
         'starts_at'     => 'Start',
         'ends_at'       => 'End',
@@ -59,6 +61,12 @@ return [
     ],
 
     'options' => [
+        'fulfillment_method' => [
+            'delivery' => 'Delivery',
+            'pickup' => 'Pickup',
+            'all' => 'All',
+        ],
+
         'discount_type' => [
             'percent' => 'Percentage',
             'fixed' => 'Fixed amount',
