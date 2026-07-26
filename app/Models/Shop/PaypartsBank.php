@@ -106,16 +106,20 @@ class PaypartsBank extends Model
                     || ! empty($merchantTypesSource[$type] ?? false);
             };
 
-            $merchantTypes = array_values(array_filter([
-                $hasMerchantType('pp') ? 'PP' : null,
-                $hasMerchantType('ii') ? 'II' : null,
-            ]));
+            $merchantTypes = $this->bankType() === PaypartsBankTypeEnum::MonoBank
+                ? ['product_1']
+                : array_values(array_filter([
+                    $hasMerchantType('pp') ? 'PP' : null,
+                    $hasMerchantType('ii') ? 'II' : null,
+                ]));
 
             foreach ($merchantTypes as $merchantType) {
                 $maxPartsCount = (int) ($rule['parts_count'] ?? 0);
-                $merchantTypeLabel = $merchantType === 'II'
-                    ? st('cart.payment.payparts_type_ii', 'Миттєва розстрочка')
-                    : st('cart.payment.payparts_type_pp', 'Оплата частинами');
+                $merchantTypeLabel = match ($merchantType) {
+                    'II' => st('cart.payment.payparts_type_ii', 'Instant installments'),
+                    'product_1' => st('cart.payment.payparts_type_mono', 'Monobank installments'),
+                    default => st('cart.payment.payparts_type_pp', 'Payment by parts'),
+                };
 
                 for ($partsCount = $maxPartsCount; $partsCount >= 3; $partsCount--) {
                     $duplicateExists = collect($plans)->contains(

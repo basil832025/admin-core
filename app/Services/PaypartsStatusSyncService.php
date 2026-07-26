@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\OrderStatus;
+use App\Enums\PaypartsBankTypeEnum;
 use App\Enums\PaymentMethodEnum;
 use App\Mail\CashalotReceiptMail;
 use App\Models\Shop\Order;
@@ -45,10 +46,31 @@ class PaypartsStatusSyncService
             ];
         }
 
-        $sync = PrivatBankPaypartsService::make()->fetchPaymentState($transaction);
-        $remote = (array) ($sync['response_payload'] ?? []);
-        $remoteState = strtolower((string) ($remote['paymentState'] ?? $remote['state'] ?? $remote['status'] ?? ''));
-        $internalStatus = $this->normalizeStatus($remoteState);
+        if ($transaction->bank->bankType() === PaypartsBankTypeEnum::MonoBank) {
+            $mono = MonoBankPaypartsService::make();
+            $sync = $mono->fetchPaymentState($transaction);
+            $remote = (array) ($sync['response_payload'] ?? []);
+
+            if ((bool) config('services.payparts.monobank.auto_confirm', true) && $mono->shouldConfirm($remote)) {
+                $confirm = $mono->confirmPayment($transaction);
+                $state = $mono->fetchPaymentState($transaction);
+                $remote = array_merge($remote, [
+                    'confirm_response' => $confirm['response_payload'] ?? [],
+                    'state_response' => $state['response_payload'] ?? [],
+                ]);
+                $remoteForStatus = (array) ($state['response_payload'] ?? $remote);
+            } else {
+                $remoteForStatus = $remote;
+            }
+
+            $remoteState = strtolower((string) ($remoteForStatus['state'] ?? '')) . '/' . strtolower((string) ($remoteForStatus['order_sub_state'] ?? ''));
+            $internalStatus = $mono->normalizeRemoteStatus($remoteForStatus);
+        } else {
+            $sync = PrivatBankPaypartsService::make()->fetchPaymentState($transaction);
+            $remote = (array) ($sync['response_payload'] ?? []);
+            $remoteState = strtolower((string) ($remote['paymentState'] ?? $remote['state'] ?? $remote['status'] ?? ''));
+            $internalStatus = $this->normalizeStatus($remoteState);
+        }
 
         $transaction->update([
             'status' => $internalStatus,

@@ -13,6 +13,7 @@ use App\Models\Shop\PaypartsBank;
 use App\Models\Shop\PaypartsTransaction;
 use App\Services\CartService;
 use App\Services\PrivatBankPaypartsService;
+use App\Services\MonoBankPaypartsService;
 use App\Services\CashalotFiscalService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -124,6 +125,81 @@ class PaypartsController extends Controller
         return response('ok');
     }
 
+    public function monobankResponse(Request $request)
+    {
+        $rawBody = $request->getContent();
+        $payload = json_decode($rawBody, true) ?: [];
+        $providerOrderId = (string) ($payload['order_id'] ?? '');
+        $transaction = $providerOrderId !== ''
+            ? PaypartsTransaction::where('token', $providerOrderId)->latest('id')->first()
+            : null;
+        $bank = $transaction?->bank;
+
+        Log::info('Monobank payparts callback received', [
+            'provider_order_id' => $providerOrderId,
+            'transaction_id' => $transaction?->id,
+            'payload' => $payload,
+        ]);
+
+        if (! $transaction || ! $bank) {
+            Log::warning('Monobank payparts callback without transaction', [
+                'provider_order_id' => $providerOrderId,
+                'payload' => $payload,
+            ]);
+
+            return response('ok');
+        }
+
+        $signature = (string) $request->header('signature', '');
+        if (! MonoBankPaypartsService::make()->verifySignature($bank, $rawBody, $signature)) {
+            Log::warning('Monobank payparts callback invalid signature', [
+                'provider_order_id' => $providerOrderId,
+                'transaction_id' => $transaction->id,
+            ]);
+
+            return response('ok');
+        }
+
+        $service = MonoBankPaypartsService::make();
+        $remotePayload = $payload;
+
+        try {
+            if ((bool) config('services.payparts.monobank.auto_confirm', true) && $service->shouldConfirm($payload)) {
+                $confirm = $service->confirmPayment($transaction);
+                $state = $service->fetchPaymentState($transaction);
+                $remotePayload = array_merge($payload, [
+                    'confirm_response' => $confirm['response_payload'] ?? [],
+                    'state_response' => $state['response_payload'] ?? [],
+                ]);
+                $payload = (array) ($state['response_payload'] ?? $payload);
+            }
+        } catch (\Throwable $e) {
+            Log::error('Monobank payparts auto confirm failed', [
+                'transaction_id' => $transaction->id,
+                'provider_order_id' => $providerOrderId,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        $internalStatus = $service->normalizeRemoteStatus($payload);
+        $transaction->update([
+            'status' => $internalStatus,
+            'response_payload' => $remotePayload,
+            'response_message' => $payload['message'] ?? $transaction->response_message,
+        ]);
+
+        $order = $transaction->order;
+        if ($order) {
+            $this->applyOrderPaypartsStatus($order, $transaction, $internalStatus);
+
+            if ($internalStatus === 'payment_success') {
+                $this->sendSuccessNotifications($order, $transaction);
+                $this->fiscalizePaidOrder($order, $transaction);
+            }
+        }
+
+        return response('ok');
+    }
     public function redirect(Request $request)
     {
         Log::info('Payparts redirect received', [
