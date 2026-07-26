@@ -3,7 +3,7 @@
 @php
     $slotContent = trim((string) $slot);
     $defaultAppName = trim((string) config('app.name'));
-    $logoUrl = rtrim((string) config('app.url'), '/') . '/images/logo.svg';
+    $logoUrl = asset('vendor/frontend-3piroga/images/logo.svg');
     $logoAlt = st('header.logo_alt', 'Три пироги');
 @endphp
 
