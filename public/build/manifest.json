@@ -1,6 +1,6 @@
 {
   "packages/frontend-3piroga/resources/css/app.css": {
-    "file": "assets/app-DV8i06YD.css",
+    "file": "assets/app-9Me8v6wg.css",
     "src": "packages/frontend-3piroga/resources/css/app.css",
     "isEntry": true
   },
@@ -37,7 +37,7 @@
     "isEntry": true
   },
   "resources/css/filament/admin/theme.css": {
-    "file": "assets/theme-DurJRh56.css",
+    "file": "assets/theme-VCCgnrVm.css",
     "src": "resources/css/filament/admin/theme.css",
     "isEntry": true
   }
