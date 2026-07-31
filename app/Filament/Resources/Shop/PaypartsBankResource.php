@@ -7,6 +7,7 @@ use App\Filament\Resources\Shop\PaypartsBankResource\Pages;
 use App\Models\Setting;
 use App\Models\Shop\Client;
 use App\Models\Shop\PaypartsBank;
+use App\Services\MonoBankPaypartsService;
 use App\Services\PrivatBankPaypartsService;
 use Filament\Facades\Filament;
 use Filament\Forms;
@@ -73,6 +74,7 @@ class PaypartsBankResource extends Resource
                             ->label('Банк')
                             ->options(PaypartsBankTypeEnum::options())
                             ->native(false)
+                            ->live()
                             ->required()
                             ->columnSpan(4),
 
@@ -166,28 +168,28 @@ class PaypartsBankResource extends Resource
                     ]),
                 ]),
 
-            Section::make('PrivatBank API URL')
-                ->description('URL для налаштування у кабінеті ПриватБанку та службові endpoint-и інтеграції.')
+            Section::make('Payparts API URL')
+                ->description('URL для налаштування у кабінеті банку та службові endpoint-и інтеграції.')
                 ->schema([
                     Grid::make(12)->schema([
                         Forms\Components\Placeholder::make('payparts_response_url')
                             ->label('responseUrl')
-                            ->content(fn (): string => PrivatBankPaypartsService::callbackUrl('payparts.response'))
+                            ->content(fn (Forms\Get $get): string => static::paypartsResponseUrl((string) $get('bank_type')))
                             ->columnSpan(6),
 
                         Forms\Components\Placeholder::make('payparts_redirect_url')
                             ->label('redirectUrl')
-                            ->content(fn (): string => PrivatBankPaypartsService::callbackUrl('payparts.redirect'))
+                            ->content(fn (Forms\Get $get): string => static::paypartsRedirectUrl((string) $get('bank_type')))
                             ->columnSpan(6),
 
                         Forms\Components\Placeholder::make('payparts_create_url')
                             ->label('create payment endpoint')
-                            ->content(fn (): string => rtrim((string) config('services.payparts.privatbank.base_url'), '/') . (string) config('services.payparts.privatbank.create_path'))
+                            ->content(fn (Forms\Get $get): string => static::paypartsCreateUrl((string) $get('bank_type')))
                             ->columnSpan(6),
 
                         Forms\Components\Placeholder::make('payparts_payment_url')
                             ->label('customer redirect endpoint')
-                            ->content(fn (): string => rtrim((string) config('services.payparts.privatbank.base_url'), '/') . (string) config('services.payparts.privatbank.payment_path') . '?token=...')
+                            ->content(fn (Forms\Get $get): string => static::paypartsCustomerRedirectUrl((string) $get('bank_type')))
                             ->columnSpan(6),
                     ]),
                 ]),
@@ -237,6 +239,41 @@ class PaypartsBankResource extends Resource
         ]);
     }
 
+    protected static function paypartsResponseUrl(string $bankType): string
+    {
+        return $bankType === PaypartsBankTypeEnum::MonoBank->value
+            ? MonoBankPaypartsService::callbackUrl('payparts.monobank.response')
+            : PrivatBankPaypartsService::callbackUrl('payparts.response');
+    }
+
+    protected static function paypartsRedirectUrl(string $bankType): string
+    {
+        return $bankType === PaypartsBankTypeEnum::MonoBank->value
+            ? '-'
+            : PrivatBankPaypartsService::callbackUrl('payparts.redirect');
+    }
+
+    protected static function paypartsCreateUrl(string $bankType): string
+    {
+        if ($bankType === PaypartsBankTypeEnum::MonoBank->value) {
+            return rtrim((string) config('services.payparts.monobank.base_url'), '/')
+                . (string) config('services.payparts.monobank.create_path');
+        }
+
+        return rtrim((string) config('services.payparts.privatbank.base_url'), '/')
+            . (string) config('services.payparts.privatbank.create_path');
+    }
+
+    protected static function paypartsCustomerRedirectUrl(string $bankType): string
+    {
+        if ($bankType === PaypartsBankTypeEnum::MonoBank->value) {
+            return 'Покупатель подтверждает оплату в приложении monobank; redirect endpoint не используется.';
+        }
+
+        return rtrim((string) config('services.payparts.privatbank.base_url'), '/')
+            . (string) config('services.payparts.privatbank.payment_path')
+            . '?token=...';
+    }
     public static function table(Table $table): Table
     {
         return $table
