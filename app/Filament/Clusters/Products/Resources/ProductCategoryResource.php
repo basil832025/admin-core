@@ -127,6 +127,10 @@ class ProductCategoryResource extends Resource
                         Forms\Components\Toggle::make('is_visible')
                             ->label(__('category.fields.is_visible'))
                             ->default(true),
+
+                        Forms\Components\Toggle::make('is_main_group')
+                            ->label(__('category.fields.is_main_group'))
+                            ->helperText(__('category.fields.is_main_group_help')),
                     ]),
             ]);
     }
@@ -256,6 +260,11 @@ class ProductCategoryResource extends Resource
 
                 Tables\Columns\IconColumn::make('is_visible')
                     ->label(__('category.columns.is_visible'))
+                    ->sortable(),
+
+                Tables\Columns\IconColumn::make('is_main_group')
+                    ->label(__('category.columns.is_main_group'))
+                    ->boolean()
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('updated_at')

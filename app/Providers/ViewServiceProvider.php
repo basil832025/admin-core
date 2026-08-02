@@ -61,6 +61,7 @@ class ViewServiceProvider extends ServiceProvider
                             'url' => $prefix . '/' . ltrim((string) $node->slug, '/'),
                             'order' => (int) ($node->order ?? 0),
                             'count' => (int) ($countsBySlug[$node->slug] ?? 0),
+                            'is_main_group' => (bool) $node->is_main_group,
                         ]);
 
                         if ($node->slug == 'pies') {
@@ -95,9 +96,13 @@ class ViewServiceProvider extends ServiceProvider
                 }
             );
 
-            $currentSlug = request()->routeIs('catalog.index', 'localized.catalog.index')
-                ? 'pies'
-                : (request()->route('slug') ?? request()->route('categorySlug'));
+            $mainGroup = collect($items)->firstWhere('is_main_group', true);
+            $mainGroupSlug = is_array($mainGroup) ? ($mainGroup['slug'] ?? null) : null;
+            $currentSlug = match (true) {
+                request()->routeIs('home', 'localized.home') => $mainGroupSlug ?: 'pies',
+                request()->routeIs('catalog.index', 'localized.catalog.index') => 'pies',
+                default => request()->route('slug') ?? request()->route('categorySlug'),
+            };
 
             $activeIndex = null;
             foreach ($items as $i => $it) {

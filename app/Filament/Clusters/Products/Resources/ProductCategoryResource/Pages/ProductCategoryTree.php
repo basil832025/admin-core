@@ -112,7 +112,9 @@ class ProductCategoryTree extends BasePage
 
         $status = $record->is_visible ? '✅' : '❌';
 
-        return "{$title} | {$status}";
+        $mainGroup = $record->is_main_group ? ' | ' . __('category.tree.main_group_badge') : '';
+
+        return "{$title} | {$status}{$mainGroup}";
     }
 
     public static function shouldRegisterNavigation(): bool

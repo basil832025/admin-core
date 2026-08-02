@@ -20,6 +20,8 @@ return [
         'parent_id'        => 'Parent category',
         'parent_root'      => 'Root category',
         'is_visible'       => 'Visible to users',
+        'is_main_group'    => 'Show group as main',
+        'is_main_group_help' => 'When enabled, this flag is automatically removed from the other group.',
         'characteristics'  => 'Characteristics',
         'variations'       => 'Variations',
         'variation_name'   => 'Variation name',
@@ -32,6 +34,7 @@ return [
     'tree' => [
         'nav_label'  => 'Category tree',
         'title'      => 'Product categories',
+        'main_group_badge' => 'Main group',
         'breadcrumb' => 'Product categories',
     ],
     
@@ -40,6 +43,7 @@ return [
         'slug'       => 'Slug',
         'parent'     => 'Parent',
         'is_visible' => 'Visibility',
+        'is_main_group' => 'Main group',
         'updated_at' => 'Updated',
         'sku'        => 'SKU',
     ],

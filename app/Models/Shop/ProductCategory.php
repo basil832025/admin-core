@@ -37,6 +37,7 @@ class ProductCategory extends Model
         'seo_title',
         'seo_description',
         'seo_keywords',
+        'is_main_group',
     ];
 
     protected $casts = [
@@ -44,6 +45,7 @@ class ProductCategory extends Model
         'parent_id' => 'int',
      //   'description' => 'array',
         'is_visible' => 'boolean',
+        'is_main_group' => 'boolean',
     ];
     public $translatable = [
         'title',
@@ -58,7 +60,16 @@ class ProductCategory extends Model
 
     protected static function booted(): void
     {
-        static::saved(function (): void {
+        static::saved(function (ProductCategory $category): void {
+            if ($category->is_main_group) {
+                static::withoutEvents(function () use ($category): void {
+                    static::query()
+                        ->whereKeyNot($category->getKey())
+                        ->where('is_main_group', true)
+                        ->update(['is_main_group' => false]);
+                });
+            }
+
             app(CatalogCacheService::class)->bump();
         });
 

@@ -20,6 +20,8 @@ return [
         'parent_id'        => 'Батьківська категорія',
         'parent_root'      => 'Коренева категорія',
         'is_visible'       => 'Видима користувачам',
+        'is_main_group'    => 'Відображати групу як головну',
+        'is_main_group_help' => 'Якщо увімкнути, позначка автоматично зніметься з іншої групи.',
         'characteristics'  => 'Характеристики',
         'variations'       => 'Варіації',
         'variation_name'   => 'Назва варіації',
@@ -31,6 +33,7 @@ return [
     'tree' => [
         'nav_label'  => 'Дерево категорій',
         'title'      => 'Категорії товарів',
+        'main_group_badge' => 'Головна група',
         'breadcrumb' => 'Категорії товарів',
     ],
     'columns' => [
@@ -38,6 +41,7 @@ return [
         'slug'       => 'Slug',
         'parent'     => 'Батьківська',
         'is_visible' => 'Видимість',
+        'is_main_group' => 'Головна група',
         'updated_at' => 'Оновлено',
         'sku' => 'SKU',
     ],
