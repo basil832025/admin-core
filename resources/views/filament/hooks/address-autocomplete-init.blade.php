@@ -10,7 +10,7 @@
 {{-- Загружаем библиотеку address-autocomplete.js через app.js --}}
 @php
     // Пытаемся найти скомпилированный app.js в build/assets
-    $manifestPath = public_path('build/.vite/manifest.json');
+    $manifestPath = public_path('build/frontend-3piroga/manifest.json');
     $appJsUrl = null;
     
     if (file_exists($manifestPath)) {
@@ -18,7 +18,7 @@
         // Ищем app.js, который включает address-autocomplete
         foreach ($manifest as $key => $value) {
             if ($key === 'resources/js/app.js' || (isset($value['isEntry']) && str_contains($key, 'app.js'))) {
-                $appJsUrl = asset('build/' . ($value['file'] ?? $key));
+                $appJsUrl = asset('build/frontend-3piroga/' . ($value['file'] ?? $key));
                 break;
             }
         }
