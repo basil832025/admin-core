@@ -4,6 +4,7 @@ namespace App\Support\Traits;
 
 use App\Models\Shop\Client;
 use App\Models\Shop\Product;
+use App\Models\Shop\ProductCategory;
 use App\Models\Shop\Characteristic;
 use App\Services\CatalogCacheService;
 use App\Support\GuestFavoritesStore;
@@ -232,6 +233,65 @@ trait HasCatalogFilters
     /**
      * Применить сортировку к запросу товаров по параметру ?sort=
      */
+    protected function isDefaultCatalogSort(Request $request): bool
+    {
+        $sort = $request->query('sort', 'popular');
+
+        return $sort === null || $sort === '' || $sort === 'popular';
+    }
+
+    protected function applyCategoryDefaultSort(Builder $query, string|int|null $category): Builder
+    {
+        $categoryId = is_numeric($category)
+            ? (int) $category
+            : ProductCategory::query()->where('slug', (string) $category)->value('id');
+
+        if (! $categoryId) {
+            return $query->orderBy('bs_products.sort', 'asc')->orderBy('bs_products.id', 'asc');
+        }
+
+        return $query
+            ->leftJoin('bs_product_product_category as frontend_category_sort', function ($join) use ($categoryId): void {
+                $join->on('frontend_category_sort.product_id', '=', 'bs_products.id')
+                    ->where('frontend_category_sort.product_category_id', '=', $categoryId);
+            })
+            ->orderByRaw('CASE WHEN frontend_category_sort.sort_order IS NULL THEN 1 ELSE 0 END asc')
+            ->orderBy('frontend_category_sort.sort_order', 'asc')
+            ->orderBy('bs_products.sort', 'asc')
+            ->orderBy('bs_products.id', 'asc');
+    }
+
+    protected function categorySortOrders(array $categorySlugs): array
+    {
+        $categories = ProductCategory::query()
+            ->whereIn('slug', $categorySlugs)
+            ->pluck('id', 'slug');
+
+        if ($categories->isEmpty()) {
+            return [];
+        }
+
+        $rows = DB::table('bs_product_product_category')
+            ->whereIn('product_category_id', $categories->values())
+            ->select('product_category_id', 'product_id', 'sort_order')
+            ->get();
+
+        $slugsById = $categories->flip();
+        $orders = [];
+
+        foreach ($rows as $row) {
+            $slug = (string) ($slugsById[(int) $row->product_category_id] ?? '');
+
+            if ($slug === '') {
+                continue;
+            }
+
+            $orders[$slug][(int) $row->product_id] = (int) ($row->sort_order ?? PHP_INT_MAX);
+        }
+
+        return $orders;
+    }
+
     protected function applySort(Builder $query, Request $request): Builder
     {
         $sort = $request->query('sort', 'popular');
