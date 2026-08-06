@@ -48,7 +48,7 @@ class VariantsRelationManager extends RelationManager
     /** Показывать менеджер только у «родительских» товаров */
     public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
     {
-        return is_null($ownerRecord->parent_id);
+        return config('catalog_import.product_variants_enabled', true) && is_null($ownerRecord->parent_id);
     }
 
     /** В v4 вместо form() используется schema() */

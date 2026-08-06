@@ -1718,8 +1718,21 @@ class OrderResource extends ShopOrderResource
         }
 
         $product = \App\Models\Shop\Product::query()
-            ->select(['id', 'parent_id'])
+            ->with('unit')
+            ->select(['id', 'parent_id', 'unit_id', 'price_unit_quantity'])
             ->find($productId);
+
+        if ($product?->unit && $product->unit->code !== 'sht') {
+            $locale = app()->getLocale();
+
+            $quantity = (float) ($product->price_unit_quantity ?? 1);
+            $quantityLabel = rtrim(rtrim(number_format($quantity, 3, '.', ''), '0'), '.');
+            $unit = $product->unit->getTranslation('short_name', $locale, false)
+                ?: $product->unit->getTranslation('name', $locale, false)
+                ?: $product->unit->code;
+
+            return $cache[$productId] = ($quantityLabel ?: '1') . ' ' . $unit;
+        }
 
         $productIds = array_values(array_unique(array_filter([
             $productId,

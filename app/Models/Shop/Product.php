@@ -43,7 +43,7 @@ class Product extends Model implements HasMedia
     }
     protected $table = 'bs_products';
     protected $fillable = [
-        'title','sku', 'slug', 'description', 'price', 'old_price', 'manual_discount_percent',
+        'title','sku', 'slug', 'description', 'price', 'unit_id', 'price_unit_quantity', 'old_price', 'manual_discount_percent',
         'quantity', 'in_stock','main_image','parent_id','short_name',
         'seo_title', 'seo_description', 'seo_keywords','category_id','dop_info',
           'is_new',  'is_hit',  'is_home', 'is_promo', 'is_vegan', 'is_product_of_day', 'is_spicy',
@@ -54,6 +54,8 @@ class Product extends Model implements HasMedia
         'title' => 'array',
         'parent_id' => 'int',
         'description' => 'array',
+        'unit_id' => 'int',
+        'price_unit_quantity' => 'decimal:3',
         'is_visible' => 'boolean',
         'is_new'  => 'boolean',
         'is_hit'  => 'boolean',
@@ -102,6 +104,11 @@ class Product extends Model implements HasMedia
     public function mainCategory()
     {
         return $this->belongsTo(ProductCategory::class, 'category_id');
+    }
+
+    public function unit(): BelongsTo
+    {
+        return $this->belongsTo(ProductUnit::class, 'unit_id');
     }
     public function getMainImageUrlAttribute(): ?string
     {
@@ -469,6 +476,8 @@ class Product extends Model implements HasMedia
             'bs_products.sku',
             'bs_products.title',
             'bs_products.price',
+            'bs_products.unit_id',
+            'bs_products.price_unit_quantity',
             'bs_products.old_price',
             'bs_products.manual_discount_percent',
             'bs_products.main_image',
@@ -497,6 +506,8 @@ class Product extends Model implements HasMedia
             'bs_products.sku',
             'bs_products.title',
             'bs_products.price',
+            'bs_products.unit_id',
+            'bs_products.price_unit_quantity',
             'bs_products.old_price',
             'bs_products.manual_discount_percent',
             'bs_products.main_image',
@@ -530,6 +541,8 @@ class Product extends Model implements HasMedia
                     'sku',
                     'title',
                     'price',
+                    'unit_id',
+                    'price_unit_quantity',
                     'old_price',
                     'manual_discount_percent',
                     'main_image',
@@ -575,6 +588,8 @@ class Product extends Model implements HasMedia
                     'sku',
                     'title',
                     'price',
+                    'unit_id',
+                    'price_unit_quantity',
                     'old_price',
                     'manual_discount_percent',
                     'main_image',

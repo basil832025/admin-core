@@ -11,6 +11,7 @@ use App\Models\Language;
 use App\Models\Shop\Product;
 use App\Models\Setting;
 use App\Models\Shop\ProductCategory;
+use App\Models\Shop\ProductUnit;
 use Filament\Forms;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\CheckboxList;
@@ -65,6 +66,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Columns\ToggleColumn;
 use App\Filament\Actions\ProductBulkPriceAction;
 use App\Services\ProductBulkPriceService;
+use App\Services\Catalog\PerfumeExcelImportService;
 use Filament\Notifications\Notification;
 use Throwable;
 use Filament\Facades\Filament;
@@ -253,7 +255,7 @@ class ProductResource extends Resource
 
                     Tab::make(__('product.tabs.variations'))
                         ->schema(fn (Get $get, ?Product $record) => static::variationTab($get, $record))
-                        ->visible(fn (?Product $record): bool => $record?->exists && is_null($record->parent_id))
+                        ->visible(fn (?Product $record): bool => config('catalog_import.product_variants_enabled', true) && $record?->exists && is_null($record->parent_id))
                         ->columns(1),
                     Tab::make('Склад')
                         ->schema(static::legacyConsistTab())
@@ -306,6 +308,20 @@ class ProductResource extends Resource
                                 ->required()
                                 ->live(onBlur: true)
                                 ->afterStateUpdated(fn ($state, Set $set, Get $get) => static::syncDiscountPercentField($set, $get)),
+                            Select::make('unit_id')
+                                ->label(__('product.fields.unit_id'))
+                                ->options(fn (): array => static::getProductUnitOptions($defaultLocale))
+                                ->default(fn (): ?int => static::defaultProductUnitId())
+                                ->required()
+                                ->searchable()
+                                ->preload(),
+                            TextInput::make('price_unit_quantity')
+                                ->label(__('product.fields.price_unit_quantity'))
+                                ->numeric()
+                                ->minValue(0.001)
+                                ->step('0.001')
+                                ->default(1)
+                                ->required(),
                             TextInput::make('old_price')
                                 ->label(__('product.fields.old_price'))
                                 ->numeric()
@@ -329,7 +345,7 @@ class ProductResource extends Resource
                                     $component->state($state !== null && $state !== '' ? round(static::normalizeDecimal($state)) : null);
                                 })
                                 ->afterStateUpdated(fn ($state, Set $set, Get $get) => static::applyDiscountPercentToPrices($set, $get, $state)),
-                        ]) ->columns(4),
+                        ]) ->columns(6),
                     Section::make(__('product.sections.stock'))
                         ->schema([
                             TextInput::make('sku')
@@ -398,16 +414,7 @@ class ProductResource extends Resource
                                 ->maxLength(255)
                                 ->unique(Product::class, 'slug', ignoreRecord: true),
                             Toggle::make('in_stock')->label(__('product.fields.in_stock'))->default(true),
-                            Toggle::make('is_new')->label(__('product.fields.is_new'))->default(false),
-                            Toggle::make('is_hit')->label(__('product.fields.is_hit'))->default(false),
-                            Toggle::make('is_home')->label(__('product.fields.is_home'))->default(false),
-                            Toggle::make('is_promo')->label(__('product.fields.is_promo'))->default(false),
-                            Toggle::make('is_vegan')->label(__('product.fields.is_vegan'))->default(false),
-                            Toggle::make('is_product_of_day')->label(__('product.fields.is_product_of_day'))->default(false),
-                            Toggle::make('is_spicy')->label(__('product.fields.is_spicy'))->default(false),
-                            Toggle::make('exclude_from_promotions')
-                                ->label(__('product.fields.exclude_from_promotions'))
-                                ->default(false),
+                            ...static::productFeatureToggleFields(),
 
                             ]),
                     Section::make(__('product.sections.associations'))
@@ -464,6 +471,28 @@ class ProductResource extends Resource
                                 })
                                 ->searchable()
                                 ->preload()
+                                ->afterStateHydrated(function (Select $component, $state, ?Product $record): void {
+                                    $primary = (int) ($record?->category_id ?? 0);
+
+                                    $component->state(collect(Arr::wrap($state))
+                                        ->map(fn ($id) => (int) $id)
+                                        ->filter(fn (int $id): bool => $id > 0 && $id !== $primary)
+                                        ->values()
+                                        ->all());
+                                })
+                                ->saveRelationshipsUsing(function (Product $record, $state): void {
+                                    $primary = (int) ($record->category_id ?? 0);
+                                    $ids = collect(Arr::wrap($state))
+                                        ->map(fn ($id) => (int) $id)
+                                        ->filter(fn (int $id): bool => $id > 0 && $id !== $primary)
+                                        ->values();
+
+                                    if ($primary > 0) {
+                                        $ids->prepend($primary);
+                                    }
+
+                                    $record->categories()->sync($ids->unique()->values()->all());
+                                })
                                 ->helperText(__('product.fields.categories_helper')),
                             Forms\Components\FileUpload::make('main_image')
                                 ->label(__('product.fields.main_image'))
@@ -1330,7 +1359,7 @@ class ProductResource extends Resource
                     $q->whereNull('is_imported')
                         ->orWhere('is_imported', false);
                 })
-                ->with('mainCategory') // ← исправление N+1 проблемы
+                ->with(['mainCategory', 'unit']) // ← исправление N+1 проблемы
             )
             ->columns([
                 Tables\Columns\TextColumn::make('sku')->label('SKU')->sortable(),
@@ -1398,6 +1427,10 @@ class ProductResource extends Resource
                     }),
 
                 Tables\Columns\TextColumn::make('price')->label(__('product.columns.price'))->money('UAH')->sortable(),
+                Tables\Columns\TextColumn::make('price_unit_label')
+                    ->label(__('product.columns.price_unit_label'))
+                    ->getStateUsing(fn (Product $record): string => static::formatPriceUnitLabel($record, $defaultLocale))
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('old_price')
                     ->label('Старая цена')
                     ->money('UAH')
@@ -1432,14 +1465,7 @@ class ProductResource extends Resource
                     ->toggleable(),
                 Tables\Columns\IconColumn::make('in_stock')->label(__('product.columns.in_stock'))->boolean()->sortable(),
                 Tables\Columns\TextColumn::make('sort')->label(__('product.columns.sort'))->sortable()->toggleable(),
-                ToggleColumn::make('is_new')->label(__('product.columns.is_new'))->sortable(),
-                ToggleColumn::make('is_hit')->label(__('product.columns.is_hit'))->sortable(),
-                ToggleColumn::make('is_home')->label(__('product.columns.is_home'))->sortable(),
-                ToggleColumn::make('is_promo')->label(__('product.columns.is_promo'))->sortable(),
-                ToggleColumn::make('is_vegan')->label(__('product.columns.is_vegan'))->sortable(),
-                ToggleColumn::make('is_product_of_day')->label(__('product.columns.is_product_of_day'))->sortable(),
-                ToggleColumn::make('is_spicy')->label(__('product.columns.is_spicy'))->sortable(),
-                ToggleColumn::make('exclude_from_promotions')->label(__('product.columns.exclude_from_promotions'))->sortable(),
+                ...static::productFeatureTableColumns(),
                 Tables\Columns\TextColumn::make('quantity')->label(__('product.columns.quantity'))->sortable(),
                 Tables\Columns\TextColumn::make('updated_at')->label(__('product.columns.updated_at'))->dateTime('d.m.Y H:i')->sortable()
             ])
@@ -1468,72 +1494,7 @@ class ProductResource extends Resource
                     })
                     ->preload()
                     ->searchable(),
-                TernaryFilter::make('is_new')->label('Новинки')
-                    ->columnSpan(1)
-                    ->native(false)
-                    ->queries(
-                        true: fn (Builder $query): Builder => $query->where('is_new', true),
-                        false: fn (Builder $query): Builder => $query->where('is_new', false),
-                        blank: fn (Builder $query): Builder => $query,
-                    ),
-                TernaryFilter::make('is_hit')->label('Хіти')
-                    ->columnSpan(1)
-                    ->native(false)
-                    ->queries(
-                        true: fn (Builder $query): Builder => $query->where('is_hit', true),
-                        false: fn (Builder $query): Builder => $query->where('is_hit', false),
-                        blank: fn (Builder $query): Builder => $query,
-                    ),
-                TernaryFilter::make('is_promo')->label('Акції')
-                    ->columnSpan(1)
-                    ->native(false)
-                    ->queries(
-                        true: fn (Builder $query): Builder => $query->where('is_promo', true),
-                        false: fn (Builder $query): Builder => $query->where('is_promo', false),
-                        blank: fn (Builder $query): Builder => $query,
-                    ),
-                TernaryFilter::make('is_home')->label('Головна')
-                    ->columnSpan(1)
-                    ->native(false)
-                    ->queries(
-                        true: fn (Builder $query): Builder => $query->where('is_home', true),
-                        false: fn (Builder $query): Builder => $query->where('is_home', false),
-                        blank: fn (Builder $query): Builder => $query,
-                    ),  // Диапазон даты создания
-                TernaryFilter::make('is_vegan')->label('Веган')
-                    ->columnSpan(1)
-                    ->native(false)
-                    ->queries(
-                        true: fn (Builder $query): Builder => $query->where('is_vegan', true),
-                        false: fn (Builder $query): Builder => $query->where('is_vegan', false),
-                        blank: fn (Builder $query): Builder => $query,
-                    ),
-                TernaryFilter::make('is_product_of_day')->label('Товар дня')
-                    ->columnSpan(1)
-                    ->native(false)
-                    ->queries(
-                        true: fn (Builder $query): Builder => $query->where('is_product_of_day', true),
-                        false: fn (Builder $query): Builder => $query->where('is_product_of_day', false),
-                        blank: fn (Builder $query): Builder => $query,
-                    ),
-                TernaryFilter::make('is_spicy')->label('Гострий')
-                    ->columnSpan(1)
-                    ->native(false)
-                    ->queries(
-                        true: fn (Builder $query): Builder => $query->where('is_spicy', true),
-                        false: fn (Builder $query): Builder => $query->where('is_spicy', false),
-                        blank: fn (Builder $query): Builder => $query,
-                    ),
-
-                TernaryFilter::make('exclude_from_promotions')
-                    ->label('Без акцій')
-                    ->columnSpan(1)
-                    ->native(false)
-                    ->queries(
-                        true: fn (Builder $query): Builder => $query->where('exclude_from_promotions', true),
-                        false: fn (Builder $query): Builder => $query->where('exclude_from_promotions', false),
-                        blank: fn (Builder $query): Builder => $query,
-                    ),
+                ...static::productFeatureFilters(),
               /*  Filter::make('created_between')
                     ->form([
                         DatePicker::make('from')->label('Створено з'),
@@ -1573,6 +1534,58 @@ class ProductResource extends Resource
 
             ->headerActions([
                 ProductBulkPriceAction::makeTableAction(),
+                Tables\Actions\Action::make('import_products_excel')
+                    ->label(__('product.actions.import_products_excel'))
+                    ->icon('heroicon-o-arrow-up-tray')
+                    ->visible(fn (): bool => app(PerfumeExcelImportService::class)->enabled())
+                    ->modalWidth(MaxWidth::SevenExtraLarge)
+                    ->modalHeading(__('product.actions.import_products_excel'))
+                    ->modalSubmitActionLabel(__('product.actions.apply_import'))
+                    ->form([
+                        FileUpload::make('import_file')
+                            ->label('Excel')
+                            ->disk('local')
+                            ->directory('product-imports')
+                            ->acceptedFileTypes([
+                                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                                'application/vnd.ms-excel',
+                            ])
+                            ->required()
+                            ->live()
+                            ->afterStateUpdated(function (Set $set, $state): void {
+                                $set('selected_rows', app(PerfumeExcelImportService::class)->defaultSelectedRows($state));
+                            }),
+                        Placeholder::make('preview')
+                            ->label(__('product.import.preview'))
+                            ->content(fn (Get $get) => app(PerfumeExcelImportService::class)->previewHtml($get('import_file')))
+                            ->columnSpanFull(),
+                        CheckboxList::make('selected_rows')
+                            ->label(__('product.import.rows_to_import'))
+                            ->options(fn (Get $get): array => app(PerfumeExcelImportService::class)->selectionOptions($get('import_file')))
+                            ->columns(1)
+                            ->bulkToggleable()
+                            ->columnSpanFull(),
+                    ])
+                    ->action(function (array $data): void {
+                        try {
+                            $stats = app(PerfumeExcelImportService::class)->apply(
+                                $data['import_file'] ?? null,
+                                $data['selected_rows'] ?? [],
+                            );
+
+                            Notification::make()
+                                ->success()
+                                ->title(__('product.import.completed'))
+                                ->body(__('product.import.completed_body', $stats))
+                                ->send();
+                        } catch (Throwable $exception) {
+                            Notification::make()
+                                ->danger()
+                                ->title(__('product.import.failed'))
+                                ->body($exception->getMessage())
+                                ->send();
+                        }
+                    }),
             ])
             ->Actions([
                 EditAction::make(),
@@ -1637,8 +1650,111 @@ class ProductResource extends Resource
             ->toArray();
     }
 
+    public static function productFeatureDefinitions(): array
+    {
+        return [
+            'is_new' => ['field_label' => 'product.fields.is_new', 'column_label' => 'product.columns.is_new', 'filter_label' => 'product.filters.is_new'],
+            'is_hit' => ['field_label' => 'product.fields.is_hit', 'column_label' => 'product.columns.is_hit', 'filter_label' => 'product.filters.is_hit'],
+            'is_home' => ['field_label' => 'product.fields.is_home', 'column_label' => 'product.columns.is_home', 'filter_label' => 'product.filters.is_home'],
+            'is_promo' => ['field_label' => 'product.fields.is_promo', 'column_label' => 'product.columns.is_promo', 'filter_label' => 'product.filters.is_promo'],
+            'is_vegan' => ['field_label' => 'product.fields.is_vegan', 'column_label' => 'product.columns.is_vegan', 'filter_label' => 'product.filters.is_vegan'],
+            'is_product_of_day' => ['field_label' => 'product.fields.is_product_of_day', 'column_label' => 'product.columns.is_product_of_day', 'filter_label' => 'product.filters.is_product_of_day'],
+            'is_spicy' => ['field_label' => 'product.fields.is_spicy', 'column_label' => 'product.columns.is_spicy', 'filter_label' => 'product.filters.is_spicy'],
+            'exclude_from_promotions' => ['field_label' => 'product.fields.exclude_from_promotions', 'column_label' => 'product.columns.exclude_from_promotions', 'filter_label' => 'product.filters.exclude_from_promotions'],
+        ];
+    }
+
+    public static function enabledProductFeatureFlags(): array
+    {
+        $allowed = array_keys(static::productFeatureDefinitions());
+
+        return collect(config('catalog_import.product_admin_feature_flags', $allowed))
+            ->map(fn ($flag) => (string) $flag)
+            ->filter(fn (string $flag): bool => in_array($flag, $allowed, true))
+            ->values()
+            ->all();
+    }
+
+    public static function productFeatureToggleFields(): array
+    {
+        $definitions = static::productFeatureDefinitions();
+
+        return collect(static::enabledProductFeatureFlags())
+            ->map(fn (string $flag) => Toggle::make($flag)
+                ->label(__($definitions[$flag]['field_label']))
+                ->default(false))
+            ->all();
+    }
+
+    public static function productFeatureTableColumns(): array
+    {
+        $definitions = static::productFeatureDefinitions();
+
+        return collect(static::enabledProductFeatureFlags())
+            ->map(fn (string $flag) => ToggleColumn::make($flag)
+                ->label(__($definitions[$flag]['column_label']))
+                ->sortable())
+            ->all();
+    }
+
+    public static function productFeatureFilters(): array
+    {
+        $definitions = static::productFeatureDefinitions();
+
+        return collect(static::enabledProductFeatureFlags())
+            ->map(fn (string $flag) => TernaryFilter::make($flag)
+                ->label(__($definitions[$flag]['filter_label']))
+                ->columnSpan(1)
+                ->native(false)
+                ->queries(
+                    true: fn (Builder $query): Builder => $query->where($flag, true),
+                    false: fn (Builder $query): Builder => $query->where($flag, false),
+                    blank: fn (Builder $query): Builder => $query,
+                ))
+            ->all();
+    }
+
+    public static function formatPriceUnitLabel(Product $record, string $locale): string
+    {
+        $quantity = (float) ($record->price_unit_quantity ?? 1);
+        $quantityLabel = rtrim(rtrim(number_format($quantity, 3, '.', ''), '0'), '.');
+
+        if ($quantityLabel === '') {
+            $quantityLabel = '1';
+        }
+
+        $unit = $record->unit?->getTranslation('short_name', $locale, false) ?: __('product.units.piece_short');
+
+        return $quantityLabel . ' ' . $unit;
+    }
+
+    public static function getProductUnitOptions(string $locale): array
+    {
+        return ProductUnit::query()
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get()
+            ->mapWithKeys(fn (ProductUnit $unit): array => [
+                $unit->id => $unit->getTranslation('short_name', $locale, false)
+                    ?: $unit->getTranslation('name', $locale, false)
+                    ?: $unit->code,
+            ])
+            ->all();
+    }
+
+    public static function defaultProductUnitId(): ?int
+    {
+        return ProductUnit::query()->where('is_default', true)->value('id')
+            ?: ProductUnit::query()->orderBy('sort_order')->orderBy('id')->value('id');
+    }
+
     public static function getRelations(): array
     {
+        if (! config('catalog_import.product_variants_enabled', true)) {
+            return [];
+        }
+
         return [
             RelationManagers\VariantsRelationManager::class,
         ];
