@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\PaymentMethodEnum;
+use App\Enums\PaypartsBankTypeEnum;
 use App\Models\Shop\Order;
 use App\Models\Shop\PaypartsBank;
 use App\Models\Shop\PaypartsRefund;
@@ -77,6 +78,15 @@ class PrivatBankPaypartsRefundService
                 'order_id' => $lockedTransaction->order_id,
             ]);
         });
+
+        $refund->loadMissing('transaction.bank');
+        if ($this->isMonobank($refund->transaction?->bank)) {
+            if ($refund->transaction?->token) {
+                $refund->update(['order_id' => (string) $refund->transaction->token]);
+            }
+
+            return $this->initiateMonobankFullRefund($refund);
+        }
 
         $declineAttempted = false;
         $declineDefinitivelyFailed = false;
@@ -159,6 +169,10 @@ class PrivatBankPaypartsRefundService
             throw new RuntimeException('Транзакция или настройки банка для проверки возврата не найдены.');
         }
 
+        if ($this->isMonobank($bank)) {
+            return $this->syncMonobankRefund($refund);
+        }
+
         $payload = $this->statePayload($bank, (string) $transaction->order_id);
         $response = Http::acceptJson()
             ->asJson()
@@ -189,6 +203,99 @@ class PrivatBankPaypartsRefundService
         $this->setOrderRefundStatus($refund->order, 'refund_pending');
 
         return $refund->fresh();
+    }
+
+    private function initiateMonobankFullRefund(PaypartsRefund $refund): PaypartsRefund
+    {
+        $refund->loadMissing(['transaction.bank', 'order']);
+        $transaction = $refund->transaction;
+
+        if (! $transaction || ! $transaction->bank) {
+            throw new RuntimeException('Monobank transaction or bank settings for refund were not found.');
+        }
+
+        try {
+            $storeReturnId = 'refund_' . $refund->id . '_' . now()->format('YmdHis');
+            $result = MonoBankPaypartsService::make()->returnPayment(
+                $transaction,
+                $storeReturnId,
+                round((float) $refund->amount, 2),
+                true
+            );
+
+            $refund->update([
+                'decline_request_payload' => $result['request_payload'],
+                'decline_response_payload' => $result['response_payload'],
+                'response_message' => null,
+                'checked_at' => now(),
+            ]);
+
+            try {
+                $state = MonoBankPaypartsService::make()->fetchPaymentState($transaction);
+                $refund->update([
+                    'state_request_payload' => $state['request_payload'],
+                    'state_response_payload' => $state['response_payload'],
+                    'checked_at' => now(),
+                ]);
+            } catch (Throwable) {
+                // Return request succeeded; state sync can be retried from the refunds page.
+            }
+
+            return $this->complete($refund->fresh());
+        } catch (Throwable $e) {
+            $refund->update([
+                'status' => 'refund_failed',
+                'response_message' => $e->getMessage(),
+                'checked_at' => now(),
+            ]);
+            $this->setOrderRefundStatus($refund->order, 'refund_failed');
+
+            throw $e;
+        }
+    }
+
+    private function syncMonobankRefund(PaypartsRefund $refund): PaypartsRefund
+    {
+        $transaction = $refund->transaction;
+        if (! $transaction) {
+            throw new RuntimeException('Monobank transaction for refund sync was not found.');
+        }
+
+        $state = MonoBankPaypartsService::make()->fetchPaymentState($transaction);
+        $payload = $state['response_payload'];
+
+        $refund->update([
+            'state_request_payload' => $state['request_payload'],
+            'state_response_payload' => $payload,
+            'checked_at' => now(),
+        ]);
+
+        $remoteState = strtoupper((string) ($payload['state'] ?? ''));
+        $remoteSubState = strtoupper((string) ($payload['order_sub_state'] ?? ''));
+
+        if ($remoteState === 'SUCCESS' && $remoteSubState === 'RETURNED') {
+            return $this->complete($refund);
+        }
+
+        if ($remoteState === 'FAIL') {
+            $refund->update([
+                'status' => 'refund_failed',
+                'response_message' => trim($remoteState . '/' . $remoteSubState, '/'),
+            ]);
+            $this->setOrderRefundStatus($refund->order, 'refund_failed');
+
+            return $refund->fresh();
+        }
+
+        $refund->update(['status' => 'refund_pending']);
+        $this->setOrderRefundStatus($refund->order, 'refund_pending');
+
+        return $refund->fresh();
+    }
+
+    private function isMonobank(?PaypartsBank $bank): bool
+    {
+        return $bank?->bankType() === PaypartsBankTypeEnum::MonoBank;
     }
 
     private function declinePayload(PaypartsBank $bank, string $orderId, float $amount): array

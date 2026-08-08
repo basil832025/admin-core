@@ -3060,7 +3060,7 @@ class OrderResource extends Resource
                     ->requiresConfirmation()
                     ->modalHeading(fn (Order $record): string => 'Полный возврат по заказу №' . ($record->number ?: $record->id))
                     ->modalDescription(fn (Order $record): string => sprintf(
-                        'Вернуть %.2f грн через ПриватБанк? Операцию нельзя запускать повторно, пока банк обрабатывает возврат. Возвратный чек Cashalot оформляется отдельно.',
+                        'Вернуть %.2f грн через банк оплаты частями? Операцию нельзя запускать повторно, пока банк обрабатывает возврат. Возвратный чек Cashalot оформляется отдельно.',
                         (float) $record->grand_total
                     ))
                     ->modalSubmitActionLabel('Выполнить возврат')

@@ -45,7 +45,7 @@ class ViewPaypartsTransaction extends ViewRecord
                             ->label('Amount')
                             ->money('UAH'),
                         TextEntry::make('order_id')
-                            ->label('Privat order ID')
+                            ->label('Bank order ID')
                             ->copyable()
                             ->placeholder('-'),
                         TextEntry::make('token')

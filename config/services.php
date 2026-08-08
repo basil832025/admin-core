@@ -47,6 +47,7 @@ return [
             'state_path' => env('MONOBANK_PAYPARTS_STATE_PATH', '/api/order/state'),
             'confirm_path' => env('MONOBANK_PAYPARTS_CONFIRM_PATH', '/api/order/confirm'),
             'reject_path' => env('MONOBANK_PAYPARTS_REJECT_PATH', '/api/order/reject'),
+            'return_path' => env('MONOBANK_PAYPARTS_RETURN_PATH', '/api/order/return'),
             'validate_path' => env('MONOBANK_PAYPARTS_VALIDATE_PATH', '/api/v2/client/validate'),
             'auto_confirm' => (bool) env('MONOBANK_PAYPARTS_AUTO_CONFIRM', true),
         ],

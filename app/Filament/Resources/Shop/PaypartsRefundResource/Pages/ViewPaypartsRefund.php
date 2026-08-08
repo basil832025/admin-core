@@ -25,7 +25,7 @@ class ViewPaypartsRefund extends ViewRecord
                         ? OrderResource::getUrl('edit', ['record' => $record->order])
                         : null)
                     ->openUrlInNewTab(),
-                TextEntry::make('order_id')->label('Privat order ID')->copyable(),
+                TextEntry::make('order_id')->label('Bank order ID')->copyable(),
                 TextEntry::make('initiatedBy.name')->label('Инициатор')->placeholder('Система'),
                 TextEntry::make('created_at')->label('Создан')->dateTime('d.m.Y H:i:s'),
                 TextEntry::make('checked_at')->label('Проверен')->dateTime('d.m.Y H:i:s')->placeholder('—'),
@@ -34,11 +34,11 @@ class ViewPaypartsRefund extends ViewRecord
             ])->columns(2),
             Section::make('API')->schema([
                 TextEntry::make('decline_request_payload')
-                    ->label('Decline request')
+                    ->label('Refund request')
                     ->state(fn ($record): string => $this->formatPayload($record->decline_request_payload))
                     ->copyable()->columnSpanFull(),
                 TextEntry::make('decline_response_payload')
-                    ->label('Decline response')
+                    ->label('Refund response')
                     ->state(fn ($record): string => $this->formatPayload($record->decline_response_payload))
                     ->copyable()->columnSpanFull(),
                 TextEntry::make('state_request_payload')

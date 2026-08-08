@@ -9,6 +9,7 @@ use App\Models\Shop\Product;
 use App\Models\Shop\ProductCategory;
 use App\Models\Shop\ProductUnit;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\HtmlString;
@@ -133,7 +134,7 @@ class PerfumeExcelImportService
         return new HtmlString($html . '</tbody></table></div>');
     }
 
-    public function apply(mixed $file, array $selectedRows): array
+    public function apply(mixed $file, array $selectedRows, ?string $imageDirectory = null, bool $overwriteImages = false): array
     {
         $path = $this->resolvePath($file);
 
@@ -147,9 +148,10 @@ class PerfumeExcelImportService
             fn (array $row): bool => in_array((int) $row['row'], $selectedRows, true)
         );
 
-        $stats = ['created' => 0, 'updated' => 0, 'skipped' => 0];
+        $imageIndex = $this->imageIndex($imageDirectory);
+        $stats = ['created' => 0, 'updated' => 0, 'skipped' => 0, 'images_added' => 0, 'images_skipped' => 0, 'images_missing' => 0];
 
-        DB::transaction(function () use ($rows, &$stats): void {
+        DB::transaction(function () use ($rows, $imageIndex, $overwriteImages, &$stats): void {
             $characteristics = $this->ensureCharacteristics();
 
             foreach ($rows as $index => $row) {
@@ -197,11 +199,111 @@ class PerfumeExcelImportService
                 );
 
                 $this->syncCharacteristics($product, $row, $characteristics);
+                $this->syncMainImage($product, $row['sku'], $imageIndex, $overwriteImages, $stats);
                 $stats[$isNew ? 'created' : 'updated']++;
             }
         });
 
         return $stats;
+    }
+
+    private function imageIndex(?string $directory): array
+    {
+        $directory = $this->clean((string) $directory);
+
+        if ($directory === '') {
+            return [];
+        }
+
+        $directory = trim($directory, " \t\n\r\0\x0B\"'");
+
+        if (! is_dir($directory)) {
+            throw new \RuntimeException("Image directory does not exist: {$directory}");
+        }
+
+        $index = [];
+        $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+
+        foreach (File::files($directory) as $file) {
+            $extension = mb_strtolower($file->getExtension());
+
+            if (! in_array($extension, $allowedExtensions, true)) {
+                continue;
+            }
+
+            foreach ($this->imageKeys($file->getFilenameWithoutExtension()) as $key) {
+                $index[$key] ??= $file->getRealPath();
+            }
+        }
+
+        return $index;
+    }
+
+    private function syncMainImage(Product $product, string $sku, array $imageIndex, bool $overwriteImages, array &$stats): void
+    {
+        if ($imageIndex === []) {
+            return;
+        }
+
+        if (! $overwriteImages && filled($product->main_image)) {
+            $stats['images_skipped']++;
+            return;
+        }
+
+        $sourcePath = null;
+
+        foreach ($this->imageKeys($sku) as $key) {
+            if (isset($imageIndex[$key])) {
+                $sourcePath = $imageIndex[$key];
+                break;
+            }
+        }
+
+        if ($sourcePath === null) {
+            $stats['images_missing']++;
+            return;
+        }
+
+        $extension = mb_strtolower(pathinfo($sourcePath, PATHINFO_EXTENSION));
+        $targetPath = Product::productStorageDirectory('main') . '/' . $this->imageFileName($sku) . '.' . $extension;
+        $targetFullPath = Storage::disk('public')->path($targetPath);
+
+        File::ensureDirectoryExists(dirname($targetFullPath));
+
+        if (! File::copy($sourcePath, $targetFullPath)) {
+            throw new \RuntimeException("Failed to copy image for SKU {$sku}.");
+        }
+
+        $product->forceFill(['main_image' => $targetPath])->save();
+        $stats['images_added']++;
+    }
+
+    private function imageKeys(string $value): array
+    {
+        $value = $this->clean($value);
+
+        if ($value === '') {
+            return [];
+        }
+
+        $keys = [$this->normalizeImageKey($value)];
+
+        if (ctype_digit($value)) {
+            $keys[] = ltrim($value, '0') ?: '0';
+            $keys[] = str_pad(ltrim($value, '0') ?: '0', 3, '0', STR_PAD_LEFT);
+        }
+
+        return array_values(array_unique(array_filter($keys)));
+    }
+
+    private function normalizeImageKey(string $value): string
+    {
+        return mb_strtolower($this->clean($value));
+    }
+
+    private function imageFileName(string $sku): string
+    {
+        return Str::slug($sku) ?: preg_replace('/[^A-Za-z0-9_-]+/', '-', $sku) ?: 'product';
     }
 
     private function readRows(string $path): array

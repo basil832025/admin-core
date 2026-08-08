@@ -497,7 +497,7 @@ class ProductResource extends Resource
                             Forms\Components\FileUpload::make('main_image')
                                 ->label(__('product.fields.main_image'))
                                 ->image()
-                                ->directory('products/main') // картинки будут сохраняться сюда
+                                ->directory(fn (): string => Product::productStorageDirectory('main')) // картинки будут сохраняться сюда
                                 ->maxSize(20048)              // ограничение по размеру (в Кб)
                                 ->imageEditor()
                                 ->disk('public')
@@ -505,7 +505,7 @@ class ProductResource extends Resource
                             Forms\Components\FileUpload::make('main_image_small')
                                 ->image()
                                 ->disk('public')
-                                ->directory('products/small')
+                                ->directory(fn (): string => Product::productStorageDirectory('small'))
                                 ->preserveFilenames()
                                 ->label(__('product.fields.main_image_small'))
                             ])
@@ -872,7 +872,7 @@ class ProductResource extends Resource
                 ->image()
                 ->reorderable()
                 ->preserveFilenames()
-                ->directory('products')
+                ->directory(fn (): string => Product::productStorageDirectory())
                 ->disk('public') // или другое хранилище
                 ->storeFiles()   // <-- обязательно!
                 ->imageEditor()
@@ -1555,6 +1555,14 @@ class ProductResource extends Resource
                             ->afterStateUpdated(function (Set $set, $state): void {
                                 $set('selected_rows', app(PerfumeExcelImportService::class)->defaultSelectedRows($state));
                             }),
+                        TextInput::make('image_directory')
+                            ->label(__('product.import.image_directory'))
+                            ->default(fn (): ?string => is_dir(base_path('screenshot/Photo Parfums')) ? base_path('screenshot/Photo Parfums') : null)
+                            ->helperText(__('product.import.image_directory_helper'))
+                            ->columnSpanFull(),
+                        Toggle::make('overwrite_images')
+                            ->label(__('product.import.overwrite_images'))
+                            ->default(false),
                         Placeholder::make('preview')
                             ->label(__('product.import.preview'))
                             ->content(fn (Get $get) => app(PerfumeExcelImportService::class)->previewHtml($get('import_file')))
@@ -1571,6 +1579,8 @@ class ProductResource extends Resource
                             $stats = app(PerfumeExcelImportService::class)->apply(
                                 $data['import_file'] ?? null,
                                 $data['selected_rows'] ?? [],
+                                $data['image_directory'] ?? null,
+                                (bool) ($data['overwrite_images'] ?? false),
                             );
 
                             Notification::make()

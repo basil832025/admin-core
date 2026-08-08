@@ -159,6 +159,47 @@ class MonoBankPaypartsService
         ];
     }
 
+    public function returnPayment(
+        PaypartsTransaction $transaction,
+        string $storeReturnId,
+        float $amount,
+        bool $returnMoneyToCard = true,
+    ): array {
+        $transaction->loadMissing('bank');
+        $bank = $transaction->bank;
+
+        if (! $bank) {
+            throw new \RuntimeException('Payparts bank is missing for return');
+        }
+
+        $providerOrderId = (string) $transaction->token;
+        if ($providerOrderId === '') {
+            throw new \RuntimeException('Monobank provider order_id is missing for return');
+        }
+
+        $payload = [
+            'order_id' => $providerOrderId,
+            'sum' => round($amount, 2),
+            'store_return_id' => $storeReturnId,
+            'return_money_to_card' => $returnMoneyToCard,
+        ];
+        $response = $this->post($bank, (string) config('services.payparts.monobank.return_path', '/api/order/return'), $payload);
+        $responsePayload = $response->json();
+        $responsePayload = is_array($responsePayload) ? $responsePayload : [];
+
+        if (! $response->successful()) {
+            throw new \RuntimeException(
+                $this->responseMessage($responsePayload)
+                    ?? ('Monobank payparts return request failed with HTTP ' . $response->status())
+            );
+        }
+
+        return [
+            'request_payload' => $payload,
+            'response_payload' => $responsePayload,
+        ];
+    }
+
     public function verifySignature(PaypartsBank $bank, string $rawBody, string $signature): bool
     {
         return $signature !== '' && hash_equals($this->signRawBody((string) $bank->account_password, $rawBody), $signature);
@@ -171,6 +212,10 @@ class MonoBankPaypartsService
 
         if ($state === 'SUCCESS' && in_array($subState, ['ACTIVE', 'DONE'], true)) {
             return 'payment_success';
+        }
+
+        if ($state === 'SUCCESS' && $subState === 'RETURNED') {
+            return 'refunded';
         }
 
         if ($state === 'FAIL') {

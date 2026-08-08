@@ -35,6 +35,8 @@ return [
         'delete' => 'Delete',
         'create' => 'Create',
         'create_another' => 'Create and create another',
+        'import_products_excel' => 'Import products from Excel',
+        'apply_import' => 'Apply import',
     ],
     
     // Form sections
@@ -142,5 +144,16 @@ return [
         'is_hit'            => 'Hit',
         'is_product_of_day' => 'Pie of the day',
         'is_spicy'          => 'Spicy',
+    ],
+
+    'import' => [
+        'image_directory' => 'Photo folder',
+        'image_directory_helper' => 'Files are matched by SKU. SKU 1 matches both 1.png and 001.png.',
+        'overwrite_images' => 'Overwrite existing photos',
+        'preview' => 'Preview',
+        'rows_to_import' => 'Rows to import',
+        'completed' => 'Import completed',
+        'completed_body' => 'Created: :created. Updated: :updated. Skipped: :skipped. Photos added: :images_added. Photos skipped: :images_skipped. Photos missing: :images_missing.',
+        'failed' => 'Failed to import Excel',
     ],
 ];

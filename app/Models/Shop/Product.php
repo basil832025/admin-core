@@ -278,6 +278,18 @@ class Product extends Model implements HasMedia
         return $this->hasMany(ProductImage::class);
     }
 
+    public static function productStorageDirectory(?string $subdirectory = null): string
+    {
+        $project = (string) config('project.name', '3piroga');
+        $base = $project === '3piroga'
+            ? 'products'
+            : 'products/' . (Str::slug($project) ?: 'project');
+
+        return $subdirectory
+            ? $base . '/' . trim($subdirectory, '/')
+            : $base;
+    }
+
 
     // тут будет обработка доп полей после сохранения, картинки характеристики и вариации
     public function syncFromFormState(array $data): void
@@ -288,7 +300,7 @@ class Product extends Model implements HasMedia
         foreach ($data['images'] ?? [] as $image) {
             $path = is_string($image)
                 ? $image
-                : $image->store('products', 'public');
+                : $image->store(static::productStorageDirectory(), 'public');
 
             $this->images()->create([
                 'path' => $path,
