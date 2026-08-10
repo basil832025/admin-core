@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
             ProfileOrdersTranslationsSeeder::class,
             PaymentMethodLabelsTranslationsSeeder::class,
             PaypartsTranslationsSeeder::class,
+            MonobankPaypartsTranslationsSeeder::class,
             ProfileBonusesTranslationsSeeder::class,
             AuthSmsHelpTranslationsSeeder::class,
             BlogCommentCaptchaTranslationsSeeder::class,
