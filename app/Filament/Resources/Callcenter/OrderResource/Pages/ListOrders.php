@@ -22,6 +22,11 @@ class ListOrders extends ListRecords
 
     protected static string $resource = OrderResource::class;
 
+    private function isHeaderActionHidden(string $action): bool
+    {
+        return in_array($action, (array) config('callcenter.actions_no', []), true);
+    }
+
     protected function getHeaderActions(): array
     {
         return [
@@ -29,6 +34,7 @@ class ListOrders extends ListRecords
                 ->label(__('callcenter.list.actions.sync_catalog'))
                 ->icon('heroicon-m-squares-2x2')
                 ->color('gray')
+                ->visible(fn (): bool => ! $this->isHeaderActionHidden('sync_catalog'))
                 ->action(function (): void {
                     $stats = app(ExternalSyncService::class)->syncCatalogFromAllSources();
 
@@ -48,6 +54,7 @@ class ListOrders extends ListRecords
                 ->label(__('callcenter.list.actions.sync_orders'))
                 ->icon('heroicon-m-arrow-path')
                 ->color('primary')
+                ->visible(fn (): bool => ! $this->isHeaderActionHidden('sync_orders'))
                 ->action(function (): void {
                     $stats = app(ExternalSyncService::class)->syncOrdersFromAllSources(80);
                     $errors = array_slice((array) ($stats['errors'] ?? []), 0, 2);
@@ -82,6 +89,10 @@ class ListOrders extends ListRecords
 
     public function getTabs(): array
     {
+        if ((string) config('callcenter.order_form_mode', 'food') === 'nova_post') {
+            return $this->getNovaPostTabs();
+        }
+
         $tabs = [
             null => Tab::make(__('order.tabs.all'))
                 ->query(fn ($query) =>
@@ -128,19 +139,36 @@ class ListOrders extends ListRecords
         return $tabs;
     }
 
+    private function getNovaPostTabs(): array
+    {
+        $tabs = [
+            null => Tab::make(__('order.tabs.all'))
+                ->query(fn ($query) => $query->where('status', '!=', OrderStatus::Cart->value)),
+        ];
+
+        $labels = OrderResource::novaPostOrderStatusLabels();
+        $cartLabel = $labels[OrderStatus::Cart->value] ?? OrderStatus::Cart->getLabel();
+        unset($labels[OrderStatus::Cart->value]);
+
+        foreach ($labels as $status => $label) {
+            $tabs[$status] = Tab::make($label)
+                ->query(function ($query) use ($status) {
+                    return $query->whereIn('status', OrderResource::novaPostOrderStatusFilterValues((string) $status));
+                });
+        }
+
+        $tabs['awaiting_payment'] = Tab::make(__('order.tabs.awaiting_payment'))
+            ->query(fn ($query) => $this->applyAwaitingPaymentFilter($query));
+
+        $tabs[OrderStatus::Cart->value] = Tab::make($cartLabel)
+            ->query(fn ($query) => $query->where('status', OrderStatus::Cart->value));
+
+        return $tabs;
+    }
+
     private function applyAwaitingPaymentFilter($query)
     {
-        return $query
-            ->where('status', OrderStatus::Cart->value)
-            ->where(function ($query): void {
-                $query
-                    ->where('payment', PaymentMethodEnum::LIQPAY->value)
-                    ->orWhere(function ($query): void {
-                        $query
-                            ->where('payment', PaymentMethodEnum::PAYPARTS->value)
-                            ->whereIn('payparts_status', self::AWAITING_PAYPARTS_STATUSES);
-                    });
-            });
+        return OrderResource::applyAwaitingPaymentQuery($query);
     }
 
     private function excludeAwaitingPaymentFilter($query)

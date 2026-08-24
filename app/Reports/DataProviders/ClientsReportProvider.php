@@ -46,7 +46,7 @@ class ClientsReportProvider implements ReportDataProviderInterface
         $sql = <<<'SQL'
 SELECT
     c.id AS client_id,
-    c.name AS name,
+    TRIM(CONCAT_WS(' ', NULLIF(c.name, ''), NULLIF(c.surname, ''))) AS name,
     CASE
         WHEN LENGTH(phone_clean.phone_digits) >= 10 THEN RIGHT(phone_clean.phone_digits, 10)
         ELSE phone_clean.phone_digits

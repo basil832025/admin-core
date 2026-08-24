@@ -3,7 +3,7 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "build": "vite build --mode admin && vite build --mode frontend-3piroga",
+        "build": "vite build --mode admin && vite build --mode frontend-3piroga && vite build --mode frontend-sevia",
         "dev": "vite"
     },
     "devDependencies": {

@@ -8,7 +8,8 @@ return [
     ],
 
     'fields' => [
-        'name'              => 'ФИО',
+        'name'              => 'Имя',
+        'surname'           => 'Фамилия',
         'phone'             => 'Телефон',
         'email'             => 'Email',
         'birthday'          => 'Дата рождения',
@@ -35,7 +36,8 @@ return [
     ],
 
     'columns' => [
-        'name'      => 'ФИО',
+        'name'      => 'Имя',
+        'surname'   => 'Фамилия',
         'phone'     => 'Телефон',
         'email'     => 'Email',
         'gender'     => 'Пол',

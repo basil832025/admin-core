@@ -76,6 +76,12 @@ class OrderResource extends Resource
         return (string) static::getSlug() === 'callcenter/orders';
     }
 
+    protected static function isCallcenterFilterHidden(string $filter): bool
+    {
+        return static::isCallcenterContext()
+            && in_array($filter, (array) config('callcenter.filters_no', []), true);
+    }
+
     protected static function pickupMethodOptions(): array
     {
         return [
@@ -2861,6 +2867,7 @@ class OrderResource extends Resource
                     ->options(fn () => CallcenterSource::query()->orderBy('name')->pluck('name', 'id')->toArray())
                     ->searchable()
                     ->preload()
+                    ->visible(fn (): bool => ! static::isCallcenterFilterHidden('site'))
                     ->columnSpan(1),
 
                 SelectFilter::make('import_type')
@@ -2878,6 +2885,7 @@ class OrderResource extends Resource
                             default => $query,
                         };
                     })
+                    ->visible(fn (): bool => ! static::isCallcenterFilterHidden('type'))
                     ->columnSpan(1),
 
                 SelectFilter::make('payment')     // то же имя поля
@@ -2912,7 +2920,6 @@ class OrderResource extends Resource
                                 'today' => __('order.filters.today'),
                                 'tomorrow' => __('order.filters.tomorrow'),
                                 'yesterday' => __('order.filters.yesterday'),
-                                'day_before' => __('order.filters.day_before'),
                                 'this_week' => __('order.filters.this_week'),
                                 'this_month' => __('order.filters.this_month'),
                             ])
@@ -2939,7 +2946,6 @@ class OrderResource extends Resource
                                 'today' => [$today, now()->endOfDay()],
                                 'tomorrow' => [now()->addDay()->startOfDay(), now()->addDay()->endOfDay()],
                                 'yesterday' => [now()->subDay()->startOfDay(), now()->subDay()->endOfDay()],
-                                'day_before' => [now()->subDays(2)->startOfDay(), now()->subDays(2)->endOfDay()],
                                 'this_week' => [now()->startOfWeek(), now()->endOfWeek()],
                                 'this_month' => [now()->startOfMonth(), now()->endOfMonth()],
                                 default => [null, null],

@@ -12,6 +12,7 @@ class Pages extends Model
     // Разрешённые для массового заполнения поля
     protected $fillable = [
         'slug',
+        'template',
         'title',
         'content',
         'meta_title',
@@ -33,7 +34,6 @@ class Pages extends Model
     // список переводимых полей
     public $translatable = [
         'title',
-        'content',
      ];
     
     /**
@@ -51,7 +51,7 @@ class Pages extends Model
     /**
      * Получить заголовок на текущем языке с fallback на украинский
      */
-    public function getTitleForLocale(string $locale = null): ?string
+    public function getTitleForLocale(?string $locale = null): ?string
     {
         $locale ??= app()->getLocale();
         $fallback = config('translatable.fallback_locale', 'uk');
@@ -69,7 +69,7 @@ class Pages extends Model
     /**
      * Аналогично для контента с fallback на украинский
      */
-    public function getContentForLocale(string $locale = null): ?string
+    public function getContentForLocale(?string $locale = null): ?string
     {
         $locale ??= app()->getLocale();
         $fallback = config('translatable.fallback_locale', 'uk');

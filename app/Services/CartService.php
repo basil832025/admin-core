@@ -51,19 +51,28 @@ class CartService
     }
 
     /** Удалить товар */
-    public function remove(int $productId): array
+    public function remove(int $productId, array $meta = []): array
     {
         $user = $this->authUser();
 
         if ($user) {
             $order = $this->getOrCreateDraftOrder($user, false);
-            $order->items()->where('product_id', $productId)->delete();
+            $candidates = $this->visibleCartOrderItems($order)->filter(fn ($item) => (int) $item->product_id === $productId);
+            $items = $candidates->filter(fn ($item) => $this->sameCartVariant($item->meta ?? [], $meta));
+            if ($items->isEmpty() && $candidates->count() === 1) {
+                $items = $candidates;
+            }
+            $items->each->delete();
             $this->recalc($order);
         } else {
-            $items = collect($this->guestCartItems())
-                ->reject(fn($i) => (int)$i['product_id'] === $productId)
-                ->values()
-                ->all();
+            $current = collect($this->guestCartItems());
+            $candidates = $current->filter(fn ($item) => (int) ($item['product_id'] ?? 0) === $productId);
+            $targets = $candidates->filter(fn ($item) => $this->sameCartVariant($item['meta'] ?? [], $meta));
+            if ($targets->isEmpty() && $candidates->count() === 1) {
+                $targets = $candidates;
+            }
+            $items = $current->reject(fn ($item) => $targets->contains(fn ($target) => $target === $item))
+                ->values()->all();
             $this->storeGuestCartItems($items);
         }
 
@@ -115,10 +124,12 @@ class CartService
                 ];
             }
 
+                [$visibleQty, $visibleTotal] = $this->computeTotals();
+
                 return [
                     'ok'          => true,
-                    'qty'         => (int) $this->cartOrderItems($order)->sum('qty'),
-                    'total_price' => (float) $order->total_price,
+                    'qty'         => $visibleQty,
+                    'total_price' => $visibleTotal,
                     'items'       => $this->items(),
                 ];
         }
@@ -150,6 +161,23 @@ class CartService
     private function normalizeUnitPrice(array $row): float
     {
         return (float)($row['price'] ?? $row['unit_price'] ?? 0);
+    }
+
+    private function cartVariantKey(array $meta): string
+    {
+        $volume = trim((string) ($meta['volume'] ?? ''));
+
+        if ($volume === '' && ! empty($meta['cart_label'])) {
+            preg_match('/\d+(?:[.,]\d+)?\s*(?:мл|ml)/iu', (string) $meta['cart_label'], $matches);
+            $volume = trim((string) ($matches[0] ?? ''));
+        }
+
+        return mb_strtolower(preg_replace('/\s+/u', ' ', $volume));
+    }
+
+    private function sameCartVariant(array $left, array $right): bool
+    {
+        return $this->cartVariantKey($left) === $this->cartVariantKey($right);
     }
 
     private function buildItemPayload(?array $row): array
@@ -302,17 +330,19 @@ class CartService
 
             if ($pid <= 0 || $qty <= 0) continue;
 
-            if (!isset($acc[$pid])) {
-                $acc[$pid] = [
+            $lineKey = $pid . '|' . $this->cartVariantKey(is_array($meta) ? $meta : []);
+
+            if (!isset($acc[$lineKey])) {
+                $acc[$lineKey] = [
                     'product_id' => $pid,
                     'qty'        => 0,
                     'price'      => $price,
                     'meta'       => $meta,
                 ];
             }
-            $acc[$pid]['qty'] += $qty;
+            $acc[$lineKey]['qty'] += $qty;
             // если пришла явная цена — считаем её актуальной
-            if ($price > 0) $acc[$pid]['price'] = $price;
+            if ($price > 0) $acc[$lineKey]['price'] = $price;
         }
 
         $items = array_values($acc);
@@ -329,7 +359,7 @@ class CartService
 
         if ($user) {
             $order = $this->getOrCreateDraftOrder($user, false);
-            foreach ($this->cartOrderItems($order) as $oi) {
+            foreach ($this->visibleCartOrderItems($order) as $oi) {
                 $qty += (int)$oi->qty;
                 $sum += (float)$oi->qty * (float)$oi->unit_price;
             }
@@ -371,7 +401,9 @@ class CartService
                 }
 
                 /** @var \App\Models\Shop\OrderItem $row */
-                $row = $order->items()->firstOrNew(['product_id' => $pid]);
+                $row = $order->items()->where('product_id', $pid)->get()
+                    ->first(fn ($candidate) => $this->sameCartVariant($candidate->meta ?? [], $meta));
+                $row ??= $order->items()->make(['product_id' => $pid]);
                 $row->qty = ($row->exists ? (int)$row->qty : 0) + $qty;
 
                 // если цена пришла — используем её, иначе оставляем существующую
@@ -442,7 +474,7 @@ class CartService
     protected function setInSession(int $productId, int $qty, ?float $price, array $meta): void
     {
         $items = collect($this->normalizeSessionCart());
-        $idx   = $items->search(fn($i) => (int)$i['product_id'] === $productId);
+        $idx   = $items->search(fn($i) => (int) $i['product_id'] === $productId && $this->sameCartVariant($i['meta'] ?? [], $meta));
 
         if ($qty <= 0) {
             if ($idx !== false) {
@@ -468,7 +500,9 @@ class CartService
     {
         $order = $this->getOrCreateDraftOrder($user, true);
         /** @var OrderItem $item */
-        $item = $order->items()->firstOrNew(['product_id' => $productId]);
+        $item = $order->items()->where('product_id', $productId)->get()
+            ->first(fn ($candidate) => $this->sameCartVariant($candidate->meta ?? [], $meta));
+        $item ??= $order->items()->make(['product_id' => $productId]);
 
         if ($qty <= 0) {
             if ($item->exists) { $item->delete(); $this->forgetOrderCaches($order); $this->recalc($order); }
@@ -501,7 +535,9 @@ class CartService
         $order = $this->getOrCreateDraftOrder($user);
 
         /** @var OrderItem $item */
-        $item = $order->items()->firstOrNew(['product_id' => $productId]);
+        $item = $order->items()->where('product_id', $productId)->get()
+            ->first(fn ($candidate) => $this->sameCartVariant($candidate->meta ?? [], $meta));
+        $item ??= $order->items()->make(['product_id' => $productId]);
 
         // если позиции нет и дельта отрицательная — ничего не делаем
         if (!$item->exists && $deltaQty <= 0) {
@@ -543,7 +579,7 @@ class CartService
     {
         $items = collect($this->normalizeSessionCart());
 
-        $idx = $items->search(fn ($i) => (int)$i['product_id'] === $productId);
+        $idx = $items->search(fn ($i) => (int) $i['product_id'] === $productId && $this->sameCartVariant($i['meta'] ?? [], $meta));
 
         if ($idx === false) {
             // нет строки и пришла отрицательная дельта — игнорируем
@@ -644,6 +680,13 @@ class CartService
         return $this->cartItemsCache[$orderId];
     }
 
+    private function visibleCartOrderItems(?Order $order): \Illuminate\Support\Collection
+    {
+        return $this->cartOrderItems($order)
+            ->reject(fn (OrderItem $item): bool => $this->isBottleServiceItem($item))
+            ->values();
+    }
+
     private function cartOrderItemsByProductId(?Order $order): \Illuminate\Support\Collection
     {
         if (! $order) {
@@ -653,10 +696,15 @@ class CartService
         $orderId = (int) $order->id;
 
         if (! array_key_exists($orderId, $this->cartItemsByProductIdCache)) {
-            $this->cartItemsByProductIdCache[$orderId] = $this->cartOrderItems($order)->keyBy('product_id');
+            $this->cartItemsByProductIdCache[$orderId] = $this->visibleCartOrderItems($order)->keyBy('product_id');
         }
 
         return $this->cartItemsByProductIdCache[$orderId];
+    }
+
+    private function isBottleServiceItem(OrderItem $item): bool
+    {
+        return data_get($item->meta, 'line_type') === 'bottle';
     }
 
     private function forgetOrderCaches(?Order $order): void
@@ -735,7 +783,7 @@ class CartService
                 ? ($product->productCharacteristicValues ?? collect())
                 : collect();
 
-            $keep  = ['rozmir-pirogiv', 'vaga']; // размер и вес
+            $keep  = ['rozmir-pirogiv', 'vaga', 'obiem', 'obyem', 'volume', 'ml']; // размер, вес или объем
             $parts = [];
 
             foreach ($vals as $v) {
@@ -762,7 +810,7 @@ class CartService
                 return [];
             }
 
-            $items = $this->cartOrderItems($order);
+            $items = $this->visibleCartOrderItems($order);
             $productIds = $items->pluck('product_id')->map(fn ($id) => (int) $id)->filter()->values()->all();
 
             $products = \App\Models\Shop\Product::query()

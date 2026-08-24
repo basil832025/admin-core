@@ -17,6 +17,7 @@ class Client extends Authenticatable
     protected $table = 'bs_clients';
     protected $fillable = [
         'name',
+        'surname',
         'phone',
         'email',
         'birthday',
@@ -42,6 +43,11 @@ class Client extends Authenticatable
                 $client->password = Hash::make($client->password);
             }
         });
+    }
+
+    public function getFullNameAttribute(): string
+    {
+        return trim((string) $this->name . ' ' . (string) ($this->surname ?? ''));
     }
     // Возврат полной ссылки на аватар
     public function getAvatarUrlAttribute(): string
@@ -111,6 +117,11 @@ class Client extends Authenticatable
     public function addresses(): HasMany
     {
         return $this->hasMany(ClientAddress::class);
+    }
+
+    public function recipients(): HasMany
+    {
+        return $this->hasMany(ClientRecipient::class);
     }
 
     public function group(): BelongsTo

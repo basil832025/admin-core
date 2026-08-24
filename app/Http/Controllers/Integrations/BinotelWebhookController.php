@@ -35,7 +35,7 @@ class BinotelWebhookController extends Controller
             'call_type' => (string) ($payload['callType'] ?? ''),
             'caller_phone' => $phone,
             'client_id' => $client?->id,
-            'client_name' => $client?->name,
+            'client_name' => $client?->full_name,
             'pbx_number' => $pbxMeta['number'],
             'pbx_name' => $pbxMeta['name'],
             'source_id' => $resolvedSite['source_id'],
@@ -69,7 +69,7 @@ class BinotelWebhookController extends Controller
         $token = Str::random(48);
         Cache::put(self::CACHE_PREFIX . $token, [
             'client_id' => $client?->id,
-            'client_name' => $client?->name,
+            'client_name' => $client?->full_name,
             'phone' => $phone,
             'call_type' => (string) ($payload['callType'] ?? ''),
             'pbx_number' => $pbxMeta['number'],
@@ -97,7 +97,7 @@ class BinotelWebhookController extends Controller
 
         Log::info('Binotel API CALL SETTINGS accepted', [
             'client_id' => $client?->id,
-            'client_name' => $client?->name,
+            'client_name' => $client?->full_name,
             'phone' => $phone,
             'call_type' => (string) ($payload['callType'] ?? ''),
             'pbx_number' => $pbxMeta['number'],
@@ -150,7 +150,7 @@ class BinotelWebhookController extends Controller
             'call_type' => (string) ($payload['callType'] ?? ''),
             'caller_phone' => $phone,
             'client_id' => $client?->id,
-            'client_name' => $client?->name,
+            'client_name' => $client?->full_name,
             'pbx_number' => $pbxMeta['number'],
             'pbx_name' => $pbxMeta['name'],
             'source_id' => $resolvedSite['source_id'],

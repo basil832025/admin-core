@@ -209,6 +209,7 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
                 ->tabs([
                     static::generalTab(),
                     static::cartTab(),
+                    static::novaPostTab(),
                     static::adminTab(),
                     static::binotelTab(),
                     static::printNodeTab(),
@@ -327,6 +328,20 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
                 ])
                 ->compact(),
 
+            Section::make('Доставка')
+                ->description('Параметры доставки в корзине и checkout.')
+                ->schema([
+                    TextInput::make('cart.free_shipping_from')
+                        ->label('Сума від якої безкоштовна доставка')
+                        ->numeric()
+                        ->minValue(0)
+                        ->default(0)
+                        ->suffix('₴')
+                        ->helperText('0 — безкоштовна доставка вимкнена, доставка завжди платна.'),
+                ])
+                ->statePath('admin_settings')
+                ->compact(),
+
             Section::make('Товары в заказе')
                 ->description('Вид списка товаров в заказе коллцентра.')
                 ->schema([
@@ -409,9 +424,10 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
                                     $digits = preg_replace('/\D+/', '', $search);
 
                                     return Client::query()
-                                        ->select('id', 'name', 'phone')
+                                        ->select('id', 'name', 'surname', 'phone')
                                         ->when($search !== '', function ($query) use ($search): void {
                                             $query->where('name', 'like', "%{$search}%")
+                                                ->orWhere('surname', 'like', "%{$search}%")
                                                 ->orWhere('email', 'like', "%{$search}%");
                                         })
                                         ->when($digits !== '', function ($query) use ($digits): void {
@@ -420,7 +436,7 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
                                         ->limit(50)
                                         ->get()
                                         ->mapWithKeys(fn (Client $client): array => [
-                                            $client->id => $client->name . ' · ' . $client->phone_pretty,
+                                            $client->id => $client->full_name . ' · ' . $client->phone_pretty,
                                         ])
                                         ->all();
                                 })
@@ -429,11 +445,163 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
                                         return null;
                                     }
 
-                                    $client = Client::query()->select('id', 'name', 'phone')->find($value);
+                                    $client = Client::query()->select('id', 'name', 'surname', 'phone')->find($value);
 
-                                    return $client ? ($client->name . ' · ' . $client->phone_pretty) : null;
+                                    return $client ? ($client->full_name . ' · ' . $client->phone_pretty) : null;
                                 })
                                 ->columnSpan(4),
+                        ]),
+                ])
+                ->statePath('admin_settings')
+                ->compact(),
+        ]);
+    }
+
+    /** Вкладка: Нова пошта */
+    protected static function novaPostTab(): Tab
+    {
+        return Tab::make('Нова пошта')->schema([
+            Section::make('API')
+                ->description('Ключ можна залишити в .env. Поле нижче потрібне, якщо хочете керувати ключем через адмінку.')
+                ->schema([
+                    TextInput::make('nova_post.key')
+                        ->label('API ключ')
+                        ->password()
+                        ->revealable()
+                        ->placeholder('Якщо порожньо, використовується NOVA_POST_KEY з .env')
+                        ->helperText('Ключ з бізнес-кабінету Нової пошти. Не обовʼязково дублювати, якщо NOVA_POST_KEY вже заданий.'),
+                ])
+                ->statePath('admin_settings')
+                ->compact(),
+
+            Section::make('Відправник')
+                ->description('Ці Ref потрібні для створення ТТН методом InternetDocument.save.')
+                ->schema([
+                    Grid::make(12)
+                        ->schema([
+                            TextInput::make('nova_post.sender_ref')
+                                ->label('Sender Ref')
+                                ->placeholder('NOVA_POST_SENDER_REF')
+                                ->helperText('Дані ФОП/ТОВ, на якого оформлена НП.')
+                                ->maxLength(80)
+                                ->columnSpan(6),
+
+                            TextInput::make('nova_post.sender_contact_ref')
+                                ->label('Contact Sender Ref')
+                                ->placeholder('NOVA_POST_SENDER_CONTACT_REF')
+                                ->helperText('ПІБ контактної особи відправника.')
+                                ->maxLength(80)
+                                ->columnSpan(6),
+
+                            TextInput::make('nova_post.sender_city_ref')
+                                ->label('City Sender Ref')
+                                ->placeholder('NOVA_POST_SENDER_CITY_REF')
+                                ->default(config('services.nova_post.sender_city_ref'))
+                                ->helperText('Місто відправки, наприклад Київ.')
+                                ->maxLength(80)
+                                ->columnSpan(6),
+
+                            TextInput::make('nova_post.sender_address_ref')
+                                ->label('Sender Address Ref')
+                                ->placeholder('NOVA_POST_SENDER_ADDRESS_REF')
+                                ->helperText('Відділення НП, з якого відправляють.')
+                                ->maxLength(80)
+                                ->columnSpan(6),
+
+                            TextInput::make('nova_post.sender_phone')
+                                ->label('Телефон відправника')
+                                ->placeholder('380XXXXXXXXX')
+                                ->tel()
+                                ->helperText('Телефон у форматі 380..., без +.')
+                                ->maxLength(20)
+                                ->columnSpan(6),
+                        ]),
+                ])
+                ->statePath('admin_settings')
+                ->compact(),
+
+            Section::make('Параметри посилки за замовчуванням')
+                ->description('Використовуються для оцінки вартості та створення ТТН, якщо менеджер не вказав інше.')
+                ->schema([
+                    Grid::make(12)
+                        ->schema([
+                            TextInput::make('nova_post.default_weight')
+                                ->label('Вага, кг')
+                                ->numeric()
+                                ->step(0.1)
+                                ->minValue(0.1)
+                                ->default(config('services.nova_post.price_weight', '0.5'))
+                                ->helperText('За замовчуванням 0,5 кг.')
+                                ->columnSpan(4),
+
+                            TextInput::make('nova_post.default_length_cm')
+                                ->label('Довжина, см')
+                                ->numeric()
+                                ->step(1)
+                                ->minValue(1)
+                                ->default(20)
+                                ->columnSpan(4),
+
+                            TextInput::make('nova_post.default_width_cm')
+                                ->label('Ширина, см')
+                                ->numeric()
+                                ->step(1)
+                                ->minValue(1)
+                                ->default(15)
+                                ->columnSpan(4),
+
+                            TextInput::make('nova_post.default_height_cm')
+                                ->label('Висота, см')
+                                ->numeric()
+                                ->step(1)
+                                ->minValue(1)
+                                ->default(10)
+                                ->helperText('VolumeGeneral рахується автоматично: довжина × ширина × висота / 1 000 000. Для 20 × 15 × 10 см = 0.003 м³.')
+                                ->columnSpan(4),
+
+                            TextInput::make('nova_post.default_seats_amount')
+                                ->label('Кількість місць')
+                                ->numeric()
+                                ->minValue(1)
+                                ->default(1)
+                                ->helperText('За замовчуванням 1.')
+                                ->columnSpan(4),
+
+                            TextInput::make('nova_post.default_cost')
+                                ->label('Оціночна вартість за замовчуванням')
+                                ->numeric()
+                                ->step(1)
+                                ->minValue(1)
+                                ->default(config('services.nova_post.price_cost', '500'))
+                                ->suffix('₴')
+                                ->columnSpan(4),
+
+                            TextInput::make('nova_post.default_description')
+                                ->label('Опис відправлення')
+                                ->placeholder('Парфуми')
+                                ->default('Парфуми')
+                                ->maxLength(120)
+                                ->columnSpan(8),
+
+                            Select::make('nova_post.default_payer_type')
+                                ->label('Платник доставки')
+                                ->options([
+                                    'Recipient' => 'Отримувач',
+                                    'Sender' => 'Відправник',
+                                ])
+                                ->default('Recipient')
+                                ->native(false)
+                                ->columnSpan(3),
+
+                            Select::make('nova_post.default_payment_method')
+                                ->label('Оплата доставки')
+                                ->options([
+                                    'Cash' => 'Готівка',
+                                    'NonCash' => 'Безготівково',
+                                ])
+                                ->default('Cash')
+                                ->native(false)
+                                ->columnSpan(3),
                         ]),
                 ])
                 ->statePath('admin_settings')

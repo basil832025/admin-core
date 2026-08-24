@@ -2,8 +2,10 @@ export default {
     content: [
         "./resources/**/*.blade.php",
         "./packages/frontend-3piroga/resources/**/*.blade.php",
+        "./packages/frontend-sevia/resources/**/*.blade.php",
         "./resources/**/*.js",
         "./packages/frontend-3piroga/resources/**/*.js",
+        "./packages/frontend-sevia/resources/**/*.js",
         "./vendor/filament/**/*.blade.php",
         './vendor/awcodes/filament-curator/resources/**/*.blade.php',
 
@@ -11,7 +13,8 @@ export default {
     theme: {
         fontFamily: {
             // теперь font-sans -> Montserrat
-            sans: ["Intro", "ui-sans-serif", "system-ui", "sans-serif"],
+            sans: ["Inter Tight", "Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+            cormorant: ["Cormorant Garamond", "serif"],
         },
         extend: {
             fontSize: {

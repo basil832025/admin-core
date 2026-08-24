@@ -31,6 +31,19 @@ return [
         'private_key' => env('LIQPAY_PRIVATE_KEY'),
     ],
 
+    'nova_post' => [
+        'key' => env('NOVA_POST_KEY'),
+        'base_url' => env('NOVA_POST_BASE_URL', 'https://api.novaposhta.ua/v2.0/json/'),
+        'timeout' => (int) env('NOVA_POST_TIMEOUT', 8),
+        'sender_ref' => env('NOVA_POST_SENDER_REF'),
+        'sender_contact_ref' => env('NOVA_POST_SENDER_CONTACT_REF'),
+        'sender_city_ref' => env('NOVA_POST_SENDER_CITY_REF', '8d5a980d-391c-11dd-90d9-001a92567626'),
+        'sender_address_ref' => env('NOVA_POST_SENDER_ADDRESS_REF'),
+        'sender_phone' => env('NOVA_POST_SENDER_PHONE'),
+        'price_weight' => env('NOVA_POST_PRICE_WEIGHT', '0.5'),
+        'price_cost' => env('NOVA_POST_PRICE_COST', '500'),
+    ],
+
     'payparts' => [
         'privatbank' => [
             'base_url' => env('PRIVATBANK_PAYPARTS_BASE_URL', 'https://payparts2.privatbank.ua'),

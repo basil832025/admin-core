@@ -21,7 +21,7 @@
 {{-- Footer --}}
 <x-slot:footer>
 <x-mail::footer>
-© ТРИ ПИРОГИ. Усі права захищені
+© {{ in_array((string) config('project.name', '3piroga'), ['duxi', 'sevia'], true) ? 'Sevia' : 'ТРИ ПИРОГИ' }}. Усі права захищені
 </x-mail::footer>
 </x-slot:footer>
 </x-mail::layout>

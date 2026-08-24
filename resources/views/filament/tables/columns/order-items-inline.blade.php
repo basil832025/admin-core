@@ -1,4 +1,4 @@
-﻿@php
+@php
     $record = $getRecord();
     $items = ($record?->items ?? collect())->sortBy('id');
     $orderKitchenNote = trim((string) ($record?->notes ?? ''));

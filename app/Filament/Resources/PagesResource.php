@@ -9,6 +9,7 @@ use App\Models\Pages;
 use Filament\Forms;
 use Filament\Forms\Components\Builder;
 use Filament\Forms\Components\Builder\Block;
+use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
@@ -30,6 +31,8 @@ use Filament\Forms\Set;
 use AmidEsfahani\FilamentTinyEditor\TinyEditor;
 use Filament\Forms\Components\Tabs;
 use Filament\Forms\Components\Tabs\Tab;
+use Filament\Forms\Get;
+use App\Support\TemplatePages\TemplatePageRegistry;
 class PagesResource extends Resource
 {
     use Translatable;
@@ -79,11 +82,31 @@ class PagesResource extends Resource
     {
         return Tab::make(__('page.tabs.main'))
             ->schema([
+                Select::make('template')
+                    ->label('Шаблон')
+                    ->helperText('Пусто = старая HTML-страница. Выбранный шаблон строит форму из schema.php.')
+                    ->options(fn (): array => app(TemplatePageRegistry::class)->options())
+                    ->searchable()
+                    ->preload()
+                    ->live()
+                    ->afterStateUpdated(fn (Set $set) => $set('content', [])),
                 Translate::make()
                     ->locales($locales)
                     ->prefixLocaleLabel()
                     ->columns(1)
                     ->columnSpanFull()
+                    ->visible(fn (Get $get): bool => filled($get('template')))
+                    ->schema(fn(string $locale) => [
+                        TextInput::make('title')
+                            ->label(__('page.fields.title'))
+                            ->required($locale === $defaultLocale),
+                    ]),
+                Translate::make()
+                    ->locales($locales)
+                    ->prefixLocaleLabel()
+                    ->columns(1)
+                    ->columnSpanFull()
+                    ->visible(fn (Get $get): bool => blank($get('template')))
                     ->schema(fn(string $locale) => [
                         TextInput::make("title")
                             ->label(__('page.fields.title'))
@@ -112,8 +135,15 @@ class PagesResource extends Resource
                     ])
                     ->default('draft')
                     ->required(),
+                Forms\Components\Section::make('Данные шаблона')
+                    ->visible(fn (Get $get): bool => filled($get('template')))
+                    ->schema([
+                        Grid::make(1)
+                            ->schema(fn (Get $get): array => static::getTemplateSchema((string) $get('template'), $locales, $defaultLocale)),
+                    ]),
                 Forms\Components\Section::make(__('page.sections.builder'))
                     ->collapsible()
+                    ->visible(fn (Get $get): bool => blank($get('template')))
                     ->schema([
                         Builder::make('fields')
                             ->label(__('page.fields.fields'))
@@ -176,6 +206,15 @@ class PagesResource extends Resource
             ->columns(1);
     }
 
+    protected static function getTemplateSchema(string $template, array $locales, string $defaultLocale): array
+    {
+        if ($template === '') {
+            return [];
+        }
+
+        return app(TemplatePageRegistry::class)->schema($template, $locales, $defaultLocale);
+    }
+
     protected static function getSeoTab(array $locales): Tab
     {
         return Tab::make(__('page.tabs.seo'))
@@ -216,6 +255,11 @@ class PagesResource extends Resource
                 TextColumn::make('slug')
                     ->label(__('page.columns.slug')),
 
+                TextColumn::make('template')
+                    ->label('Шаблон')
+                    ->placeholder('Legacy')
+                    ->toggleable(),
+
                 TextColumn::make('updated_at')
                     ->label(__('page.columns.updated_at'))
                     ->dateTime('d.m.Y H:i'),
@@ -237,6 +281,9 @@ class PagesResource extends Resource
                         'draft'     => __('page.statuses.draft'),
                         'published' => __('page.statuses.published'),
                     ]),
+                SelectFilter::make('template')
+                    ->label('Шаблон')
+                    ->options(fn (): array => app(TemplatePageRegistry::class)->options()),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

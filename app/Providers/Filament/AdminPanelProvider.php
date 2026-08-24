@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Pages\Dashboard;
 use App\Http\Middleware\SetLocaleFromSession;
+use App\Http\Middleware\UseAdminGuard;
 use App\Models\Language;
 use App\Models\Setting;
 use Filament\Facades\Filament;
@@ -216,6 +217,7 @@ class AdminPanelProvider extends PanelProvider
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
+                UseAdminGuard::class,
                 StartSession::class,
                 AuthenticateSession::class,
                 // 👇 ДОЛЖНА идти ПОСЛЕ StartSession

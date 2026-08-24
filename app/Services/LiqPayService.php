@@ -1,8 +1,9 @@
 <?php
-// app/Services/LiqPayService.php
+
 namespace App\Services;
 
 use App\Models\Shop\Order;
+use Illuminate\Support\Facades\Route;
 use LiqPay;
 
 class LiqPayService
@@ -11,6 +12,7 @@ class LiqPayService
         protected string $publicKey,
         protected string $privateKey,
         protected bool $sandbox,
+        protected ?string $publicBaseUrl,
     ) {}
 
     public static function make(): self
@@ -18,7 +20,8 @@ class LiqPayService
         return new self(
             config('liqpay.public_key'),
             config('liqpay.private_key'),
-            (bool) config('liqpay.sandbox')
+            (bool) config('liqpay.sandbox'),
+            config('liqpay.public_base_url') ? rtrim((string) config('liqpay.public_base_url'), '/') : null,
         );
     }
 
@@ -27,7 +30,6 @@ class LiqPayService
         return new LiqPay($this->publicKey, $this->privateKey);
     }
 
-    /** HTML-форма c кнопкой LiqPay для заказа */
     public function formForOrder(Order $order, string $lang = 'uk'): string
     {
         $liqpay = $this->client();
@@ -39,36 +41,53 @@ class LiqPayService
             default => 'Оплата замовлення №' . $order->id,
         };
 
+        $resultRoute = in_array($lang, ['ru', 'en'], true) && Route::has('localized.checkout.success')
+            ? ['localized.checkout.success', ['locale' => $lang, 'order' => $order]]
+            : ['checkout.success', ['order' => $order]];
+
         $params = [
-            'action'      => 'pay',
-            'amount'      => $order->grand_total,
-            'currency'    => 'UAH',
+            'action' => 'pay',
+            'amount' => $order->grand_total,
+            'currency' => 'UAH',
             'description' => $description,
-            'order_id'    => 'order_'.$order->id,
-            'version'     => '3',
-            'result_url'  => in_array($lang, ['ru', 'en'], true)
-                ? route('localized.checkout.success', ['locale' => $lang, 'order' => $order], true)
-                : route('checkout.success', ['order' => $order], true),
-            'server_url'  => route('liqpay.callback', [], true),
-           // 'server_url'  => 'https://jaxson-semipreserved-judgmentally.ngrok-free.dev/liqpay/callback',
-          //  'server_url'  => 'https://braeden-inkiest-insistingly.ngrok-free.dev/liqpay/callback',
-            'language'    => $lang,
+            'order_id' => 'order_' . $order->id,
+            'version' => '3',
+            'result_url' => $this->routeUrl($resultRoute[0], $resultRoute[1]),
+            'server_url' => $this->routeUrl('liqpay.callback'),
+            'language' => $lang,
         ];
 
         if ($this->sandbox) {
             $params['sandbox'] = 1;
         }
-     //   \Log::info('LiqPay params', $params);
-       // dd($params);
-        // SDK отдаёт готовую <form>…</form> с кнопкой
+
         return $liqpay->cnb_form($params);
     }
 
-    /** Разбор callback + проверка подписи */
+    protected function routeUrl(string $name, array $parameters = []): string
+    {
+        if ($this->publicBaseUrl) {
+            return $this->publicBaseUrl . route($name, $parameters, false);
+        }
+
+        return route($name, $parameters, true);
+    }
+
+    public function statusForOrder(Order $order): array
+    {
+        $response = $this->client()->api('request', [
+            'action' => 'status',
+            'version' => 3,
+            'order_id' => 'order_' . $order->id,
+        ]);
+
+        return json_decode(json_encode($response), true) ?: [];
+    }
+
     public function decodeCallback(string $data, string $signature): array
     {
         $expected = base64_encode(sha1(
-            $this->privateKey.$data.$this->privateKey,
+            $this->privateKey . $data . $this->privateKey,
             true
         ));
 

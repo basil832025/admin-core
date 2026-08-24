@@ -27,10 +27,16 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(LoginResponseContract::class, FilamentLoginResponse::class);
-        $frontendProvider = base_path('packages/frontend-3piroga/src/FrontendThreePirogaServiceProvider.php');
-        if (file_exists($frontendProvider)) {
-            require_once $frontendProvider;
-            $this->app->register(\Basil832025\FrontendThreePiroga\FrontendThreePirogaServiceProvider::class);
+
+        $frontendPackage = $this->frontendPackage();
+        $providerLoader = base_path("packages/{$frontendPackage}/src/provider.php");
+
+        if (file_exists($providerLoader)) {
+            $providerClass = require $providerLoader;
+
+            if (is_string($providerClass) && class_exists($providerClass)) {
+                $this->app->register($providerClass);
+            }
         }
 
      /*   $this->app->singleton(LiqPayService::class, function ($app) {
@@ -60,5 +66,12 @@ class AppServiceProvider extends ServiceProvider
         Blade::anonymousComponentPath(resource_path('views/front/' . config('project.theme', '3piroga') . '/components'));
         Event::listen(Login::class, [SyncFavoritesOnLogin::class, 'handle']);
 
+    }
+
+    private function frontendPackage(): string
+    {
+        $project = (string) config('project.name', '3piroga');
+
+        return (string) config("projects.local.{$project}.frontend_package", "frontend-{$project}");
     }
 }

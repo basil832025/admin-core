@@ -18,6 +18,8 @@ class ClientAddress extends Model
         'intercom',
         'floor',
         'entrance',
+        'bring_to_floor',
+        'elevator',
         'note',
         'is_private_house',
         'type',
@@ -32,6 +34,7 @@ class ClientAddress extends Model
 
     protected $casts = [
         'is_private_house' => 'boolean',
+        'bring_to_floor' => 'boolean',
         'latitude' => 'float',
         'longitude' => 'float',
         'delivery_zone_id' => 'integer',

@@ -51,7 +51,7 @@ class KitchenDuplicatePrintService
 
         $vars = $this->buildKitchenTemplateVars($order, $operatorName, false, (int) ($order->kitchen_print_count ?? 0));
         $context = $this->buildKitchenOperationContext($vars);
-        $context['client_name'] = trim((string) ($order->clients?->name ?? ''));
+        $context['client_name'] = trim((string) ($order->clients?->full_name ?? ''));
 
         $result = $this->printOperationService->print(
             $operationCode,
@@ -95,7 +95,7 @@ class KitchenDuplicatePrintService
 
         $vars = $this->buildKitchenTemplateVars($order, $operatorName, false, (int) ($order->kitchen_print_count ?? 0));
         $context = $this->buildKitchenOperationContext($vars);
-        $context['client_name'] = trim((string) ($order->clients?->name ?? ''));
+        $context['client_name'] = trim((string) ($order->clients?->full_name ?? ''));
         $normalizedCopies = max(1, $copies);
 
         $primaryResult = $this->printOperationService->print(
@@ -327,7 +327,7 @@ class KitchenDuplicatePrintService
 
         $vars = $this->buildKitchenTemplateVars($order, $operatorName, false, (int) ($order->kitchen_print_count ?? 0));
         $context = $this->buildKitchenOperationContext($vars);
-        $context['client_name'] = trim((string) ($order->clients?->name ?? ''));
+        $context['client_name'] = trim((string) ($order->clients?->full_name ?? ''));
 
         return $this->printOperationService->buildPreview(
             $operationCode,

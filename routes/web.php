@@ -55,7 +55,16 @@ Route::get('/debug/session', function () {
 
 require __DIR__ . '/web_admin.php';
 
-$frontendRoutes = base_path('packages/frontend-3piroga/routes/web.php');
-if (file_exists($frontendRoutes) && ! class_exists(\Basil832025\FrontendThreePiroga\FrontendThreePirogaServiceProvider::class)) {
+$project = (string) config('project.name', '3piroga');
+$frontendPackage = (string) config("projects.local.{$project}.frontend_package", "frontend-{$project}");
+$frontendProviderClasses = [
+    'frontend-3piroga' => \Basil832025\FrontendThreePiroga\FrontendThreePirogaServiceProvider::class,
+    'frontend-sevia' => \Basil832025\FrontendSevia\FrontendSeviaServiceProvider::class,
+];
+
+$frontendRoutes = base_path("packages/{$frontendPackage}/routes/web.php");
+$frontendProviderClass = $frontendProviderClasses[$frontendPackage] ?? null;
+
+if (file_exists($frontendRoutes) && (! $frontendProviderClass || ! class_exists($frontendProviderClass))) {
     require $frontendRoutes;
 }

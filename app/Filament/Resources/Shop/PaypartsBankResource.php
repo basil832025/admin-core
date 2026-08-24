@@ -105,6 +105,7 @@ class PaypartsBankResource extends Resource
                                     ->select('id', 'name', 'phone')
                                     ->when($search !== '', function ($query) use ($search): void {
                                         $query->where('name', 'like', "%{$search}%")
+                                            ->orWhere('surname', 'like', "%{$search}%")
                                             ->orWhere('email', 'like', "%{$search}%");
                                     })
                                     ->when($digits !== '', function ($query) use ($digits): void {
@@ -113,7 +114,7 @@ class PaypartsBankResource extends Resource
                                     ->limit(50)
                                     ->get()
                                     ->mapWithKeys(fn (Client $client): array => [
-                                        $client->id => $client->name . ' · ' . $client->phone_pretty,
+                                        $client->id => $client->full_name . ' · ' . $client->phone_pretty,
                                     ])
                                     ->all();
                             })
@@ -122,9 +123,9 @@ class PaypartsBankResource extends Resource
                                     return null;
                                 }
 
-                                $client = Client::query()->select('id', 'name', 'phone')->find($value);
+                                $client = Client::query()->select('id', 'name', 'surname', 'phone')->find($value);
 
-                                return $client ? ($client->name . ' · ' . $client->phone_pretty) : null;
+                                return $client ? ($client->full_name . ' · ' . $client->phone_pretty) : null;
                             })
                             ->columnSpan(3),
                     ]),

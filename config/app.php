@@ -54,6 +54,8 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    'asset_url' => env('ASSET_URL'),
+
     'kiosk_api_key' => env('KIOSK_API_KEY', ''),
 
     'max_pagination_page' => (int) env('MAX_PAGINATION_PAGE', 1000),

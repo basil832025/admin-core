@@ -57,6 +57,7 @@ class ClientResource extends Resource
             Forms\Components\Section::make(__('client.sections.main'))
                 ->schema([
                     TextInput::make('name')->required()->label(__('client.fields.name')),
+                    TextInput::make('surname')->label(__('client.fields.surname')),
                     Grid::make(['default' => 1, 'lg' => 12])->schema([
                         TextInput::make('phone')
                             ->label(__('client.fields.phone'))
@@ -181,6 +182,10 @@ class ClientResource extends Resource
                 TextColumn::make('name')
                     ->searchable()
                     ->label(__('client.columns.name'))
+                    ->color(fn (Client $record) => $record->group?->is_blacklist ? 'danger' : null),
+                TextColumn::make('surname')
+                    ->searchable()
+                    ->label(__('client.columns.surname'))
                     ->color(fn (Client $record) => $record->group?->is_blacklist ? 'danger' : null),
                 TextColumn::make('phone')->label(__('client.columns.phone')),
                 TextColumn::make('email')->label(__('client.columns.email')),

@@ -42,8 +42,12 @@ class CreatePages extends CreateRecord
         $data['slug'] = Str::slug($data['slug'] ?? ($data['title']['uk'] ?? $data['title'] ?? ''));
 
         // По желанию: чистим «пустые» HTML-переводы, чтобы не хранить <p><br></p>
-        if (isset($data['content']) && is_array($data['content'])) {
+        if (blank($data['template'] ?? null) && isset($data['content']) && is_array($data['content'])) {
             foreach ($data['content'] as $loc => $val) {
+                if (! is_string($val) && ! is_null($val)) {
+                    continue;
+                }
+
                 $plain = trim(preg_replace('/\x{00A0}/u', ' ', strip_tags($val ?? '')));
                 if ($plain === '') {
                     $data['content'][$loc] = null; // или unset($data['content'][$loc]);

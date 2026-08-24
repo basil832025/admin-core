@@ -45,11 +45,31 @@ class Order extends Model
         'grand_total',
         'status',
         'client_address_id',
+        'client_recipient_id',
+        'recipient_surname',
+        'recipient_name',
+        'recipient_patronymic',
+        'recipient_phone',
+        'confirm_without_call',
+        'gift_no_receipt',
         'extra_reason',
         'clients_id',
         'currency',
         'shipping_price',
         'shipping_method',
+        'nova_delivery_type',
+        'nova_city',
+        'nova_city_details',
+        'nova_city_ref',
+        'nova_warehouse',
+        'nova_warehouse_ref',
+        'nova_ttn',
+        'nova_status',
+        'nova_payer',
+        'nova_declared_value',
+        'nova_cod_amount',
+        'nova_ttn_created_at',
+        'nova_tariff_type',
         'notes',
         'kitchen_note',
         'courier_comment',
@@ -99,16 +119,22 @@ class Order extends Model
         'as_soon_possible' => 'boolean',
         'sale_prc' => 'decimal:2',
         'cash_from' => 'decimal:2',
+        'nova_declared_value' => 'decimal:2',
+        'nova_cod_amount' => 'decimal:2',
+        'nova_ttn_created_at' => 'datetime',
         'sale_sum' => 'decimal:2',
         'total_price_sale' => 'decimal:2',
         'source_id' => 'integer',
         'has_unmatched_items' => 'boolean',
+        'confirm_without_call' => 'boolean',
+        'gift_no_receipt' => 'boolean',
         'synced_at' => 'datetime',
         'kitchen_print_count' => 'integer',
         'kitchen_last_printed_at' => 'datetime',
         'courier_comment_changed_at' => 'datetime',
         'courier_comment_read_at' => 'datetime',
         'delivery_zone_id' => 'integer',
+        'client_recipient_id' => 'integer',
         'zone_resolution_method' => 'string',
         'zone_resolved_at' => 'datetime',
 
@@ -167,6 +193,11 @@ class Order extends Model
     public function clientAddress()
     {
         return $this->belongsTo(\App\Models\Shop\ClientAddress::class, 'client_address_id');
+    }
+
+    public function clientRecipient(): BelongsTo
+    {
+        return $this->belongsTo(ClientRecipient::class, 'client_recipient_id');
     }
     public function kitchenTicket()
     {

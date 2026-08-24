@@ -28,6 +28,7 @@ class OrderItem extends Model
         'tax_rate','tax_total','total','currency',
         'kitchen_note',
         'product_snapshot','promotion_data',
+        'meta',
         // добавь сюда все нужные поля, которые массово заполняются
     ];
     protected $casts = [
@@ -35,6 +36,7 @@ class OrderItem extends Model
         'modifiers' => 'array',  // ← обязательно
         'product_snapshot' => 'array',
         'promotion_data'   => 'array',
+        'meta' => 'array',
         'stage_flags' => 'array',
     ];
     // Связи

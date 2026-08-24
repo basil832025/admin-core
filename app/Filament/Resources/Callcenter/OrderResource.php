@@ -4,18 +4,21 @@ namespace App\Filament\Resources\Callcenter;
 
 use App\Enums\PrintOperationCode;
 use App\Enums\PaymentMethodEnum;
+use App\Enums\OrderStatus;
 use App\Filament\Resources\Callcenter\OrderResource\Pages;
 use App\Filament\Resources\Callcenter\OrderResource\Widgets;
 use App\Filament\Resources\Shop\OrderResource as ShopOrderResource;
 use App\Models\Setting;
 use App\Services\PrintNode\KitchenDuplicatePrintService;
 use App\Models\Shop\Client;
+use App\Models\Shop\ClientAddress;
 use App\Models\Shop\Product;
 use App\Models\Shop\OrderAdjustment;
 use App\Models\Shop\OrderItem;
 use App\Models\Shop\ProductCharacteristicValue;
 use App\Models\Shop\TimeDiscount;
 use App\Models\Callcenter\Order;
+use App\Services\NovaPostApiClient;
 use Awcodes\TableRepeater\Components\TableRepeater;
 use Awcodes\TableRepeater\Header;
 use Filament\Forms\Components\Actions\Action as FormAction;
@@ -36,14 +39,22 @@ use Filament\Forms\Components\View;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
+use Filament\Notifications\Notification;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Facades\Log;
 use Livewire\Component as LivewireComponent;
+use Throwable;
 
 class OrderResource extends ShopOrderResource
 {
+    private const AWAITING_PAYPARTS_STATUSES = [
+        'pending_payment',
+        'payment_redirected',
+    ];
+
     protected static ?string $model = Order::class;
     protected static ?string $slug = 'callcenter/orders';
     protected static ?string $navigationGroup = null;
@@ -93,6 +104,125 @@ class OrderResource extends ShopOrderResource
         return parent::calcDeliveryBaseFromStateArray($state, $record);
     }
 
+    protected static function isNovaPostOrderForm(): bool
+    {
+        return (string) config('callcenter.order_form_mode', 'food') === 'nova_post';
+    }
+
+    protected static function normalizeNovaPostShippingMethod(mixed $method, bool $selfPickup = false): string
+    {
+        if ($selfPickup || in_array($method, ['self_pickup', 'pickup'], true)) {
+            return 'self_pickup';
+        }
+
+        return 'nova_post';
+    }
+
+    protected static function novaPostChoiceCacheKey(string $type, string $ref): string
+    {
+        return 'nova_post:admin_choice:' . $type . ':' . $ref;
+    }
+
+    protected static function rememberNovaPostChoice(string $type, array $choice): string
+    {
+        $ref = (string) ($choice['ref'] ?? '');
+
+        if ($ref !== '') {
+            Cache::put(static::novaPostChoiceCacheKey($type, $ref), $choice, now()->addHours(6));
+        }
+
+        return $ref;
+    }
+
+    protected static function novaPostChoice(string $type, mixed $ref): ?array
+    {
+        $ref = trim((string) $ref);
+
+        return $ref !== '' ? Cache::get(static::novaPostChoiceCacheKey($type, $ref)) : null;
+    }
+
+    protected static function novaPostCityOptions(string $search): array
+    {
+        if (mb_strlen(trim($search)) < 2) {
+            return [];
+        }
+
+        try {
+            return collect(app(NovaPostApiClient::class)->searchCities($search, 20))
+                ->mapWithKeys(function (array $city): array {
+                    $ref = static::rememberNovaPostChoice('city', $city);
+
+                    return $ref !== '' ? [$ref => (string) ($city['label'] ?? $city['display_name'] ?? $city['name'] ?? '')] : [];
+                })
+                ->all();
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    protected static function novaPostWarehouseOptions(Get $get, string $search, int $limit = 30): array
+    {
+        $cityRef = trim((string) $get('nova_city_ref'));
+        $type = (string) ($get('nova_delivery_type') ?? 'warehouse');
+
+        if ($cityRef === '' || $type === 'courier') {
+            return [];
+        }
+
+        try {
+            return collect(app(NovaPostApiClient::class)->searchWarehouses(
+                $cityRef,
+                $search,
+                $limit,
+                $type === 'postomat' ? 'postomat' : 'warehouse'
+            ))
+                ->mapWithKeys(function (array $warehouse): array {
+                    $ref = static::rememberNovaPostChoice('warehouse', $warehouse);
+
+                    return $ref !== '' ? [$ref => (string) ($warehouse['label'] ?? $warehouse['name'] ?? '')] : [];
+                })
+                ->all();
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    protected static function novaPostStreetOptions(Get $get, string $search): array
+    {
+        $cityRef = trim((string) $get('nova_city_ref'));
+
+        if ($cityRef === '' || mb_strlen(trim($search)) < 2) {
+            return [];
+        }
+
+        try {
+            return collect(app(NovaPostApiClient::class)->searchStreets($cityRef, $search, 20))
+                ->mapWithKeys(function (array $street): array {
+                    $ref = static::rememberNovaPostChoice('street', $street);
+
+                    return $ref !== '' ? [$ref => (string) ($street['label'] ?? $street['name'] ?? '')] : [];
+                })
+                ->all();
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    public static function applyAwaitingPaymentQuery($query)
+    {
+        return $query
+            ->where('status', OrderStatus::Cart->value)
+            ->where(function ($query): void {
+                $query
+                    ->where('payment', PaymentMethodEnum::LIQPAY->value)
+                    ->orWhere(function ($query): void {
+                        $query
+                            ->where('payment', PaymentMethodEnum::PAYPARTS->value)
+                            ->whereIn('payparts_status', self::AWAITING_PAYPARTS_STATUSES);
+                    });
+            });
+    }
+
     public static function form(Form $form): Form
     {
         return $form
@@ -110,18 +240,22 @@ class OrderResource extends ShopOrderResource
                     ->columnSpan(['lg' => 9]),
 
                 Group::make()
-                    ->schema(static::getCallcenterInfoTabSchema())
+                    ->schema(fn (): array => static::isNovaPostOrderForm()
+                        ? static::getNovaPostInfoSchema()
+                        : static::getCallcenterInfoTabSchema())
                     ->columnSpan(['lg' => 9]),
 
                 Group::make()
                     ->schema([
+                        Section::make(__('order.sections.statuses'))
+                            ->schema(fn (): array => static::isNovaPostOrderForm()
+                                ? static::getNovaPostStatusesSchema()
+                                : static::getCallcenterStatusesSchema()),
+
                         Tabs::make('callcenter_right_tabs')
                             ->tabs(static::getCallcenterRightTabs())
                             ->activeTab(fn (): int => request()->routeIs('filament.admin.resources.callcenter.orders.create') ? 2 : 1)
                             ->contained(false),
-
-                        Section::make(__('order.sections.statuses'))
-                            ->schema(static::getCallcenterStatusesSchema()),
 
                         Section::make(__('order.sections.metadata'))
                             ->schema(static::getCallcenterMetadataSchema()),
@@ -180,11 +314,11 @@ class OrderResource extends ShopOrderResource
                                 return null;
                             }
 
-                            $client = Client::query()->select('id', 'name', 'phone')->find($value);
+                            $client = Client::query()->select('id', 'name', 'surname', 'phone')->find($value);
 
-                            return $client ? ($client->phone_pretty . ' · ' . e($client->name)) : null;
+                            return $client ? ($client->phone_pretty . ' · ' . e($client->full_name)) : null;
                         })
-                        ->getOptionLabelFromRecordUsing(fn (Client $client) => $client->phone_pretty . ' · ' . e($client->name))
+                        ->getOptionLabelFromRecordUsing(fn (Client $client) => $client->phone_pretty . ' · ' . e($client->full_name))
                         ->getSearchResultsUsing(function (string $search): array {
                             $digits = preg_replace('/\D+/', '', $search);
 
@@ -193,7 +327,7 @@ class OrderResource extends ShopOrderResource
                             }
 
                             return Client::query()
-                                ->select('id', 'name', 'phone')
+                                ->select('id', 'name', 'surname', 'phone')
                                 ->whereRaw("REGEXP_REPLACE(phone, '[^0-9]', '') LIKE ?", ["%{$digits}%"])
                                 ->orderBy('name')
                                 ->limit(50)
@@ -209,7 +343,7 @@ class OrderResource extends ShopOrderResource
                                     return [
                                         $client->id => $client->phone_pretty
                                             . ' · '
-                                            . e($client->name)
+                                            . e($client->full_name)
                                             . ' <span style="color:#64748b;font-size:11px;">['
                                             . $highlighted
                                             . ']</span>',
@@ -387,6 +521,476 @@ class OrderResource extends ShopOrderResource
         }
 
         return $schema;
+    }
+
+    protected static function getNovaPostInfoSchema(): array
+    {
+        return [
+            Hidden::make('currency')->default('UAH')->dehydrated(true),
+            Hidden::make('source_id')->dehydrated(true),
+            Hidden::make('history_refresh')->default(fn () => (string) microtime(true))->live()->dehydrated(false),
+            Hidden::make('incoming_phone')->dehydrated(false),
+            Hidden::make('client_address_id')->dehydrated(true),
+            Hidden::make('self_pickup')->default(false)->dehydrated(true),
+            Hidden::make('as_soon_possible')->default(false)->dehydrated(true),
+            Hidden::make('dat')->default(fn (?Order $record) => $record?->dat ?? now()->toDateString())->dehydrated(true),
+            Hidden::make('time_start')->default(fn (?Order $record) => $record?->time_start ?? now()->format('H:i'))->dehydrated(true),
+            Hidden::make('date_order')->default(fn (?Order $record) => $record?->date_order ?? now()->toDateString())->dehydrated(true),
+            Hidden::make('time_order')->default(fn (?Order $record) => $record?->time_order ?? now()->format('H:i'))->dehydrated(true),
+
+            Section::make('Клієнт')
+                ->schema([
+                    Grid::make(12)->schema([
+                        TextInput::make('incoming_phone_ui')
+                            ->label(__('order.fields.phone'))
+                            ->placeholder('+380')
+                            ->tel()
+                            ->dehydrated(false)
+                            ->columnSpan(4)
+                            ->afterStateHydrated(function (TextInput $component, Get $get): void {
+                                $id = $get('clients_id');
+                                $phone = $id
+                                    ? Client::query()->whereKey($id)->value('phone')
+                                    : ((string) ($get('incoming_phone') ?? ''));
+
+                                $component->state($phone ?: '');
+                            })
+                            ->live(debounce: 300)
+                            ->afterStateUpdated(function (?string $state, Set $set): void {
+                                $phone = static::extractPhoneFromSuggestion($state);
+                                $digits = static::normalizePhone($phone);
+                                $set('incoming_phone', $phone);
+
+                                if (strlen($digits) < 10) {
+                                    $set('clients_id', null);
+                                    return;
+                                }
+
+                                $set('clients_id', static::findClientIdByPhone($digits));
+                                $set('history_refresh', (string) microtime(true));
+                            }),
+
+                        Select::make('clients_id')
+                            ->label(__('order.fields.client'))
+                            ->allowHtml()
+                            ->searchable()
+                            ->preload(false)
+                            ->live()
+                            ->reactive()
+                            ->columnSpan(8)
+                            ->getOptionLabelUsing(function ($value) {
+                                if (! $value) {
+                                    return null;
+                                }
+
+                                $client = Client::query()->select('id', 'name', 'surname', 'phone')->find($value);
+
+                                return $client ? ($client->phone_pretty . ' · ' . e($client->full_name)) : null;
+                            })
+                            ->getOptionLabelFromRecordUsing(fn (Client $client) => $client->phone_pretty . ' · ' . e($client->full_name))
+                            ->getSearchResultsUsing(function (string $search): array {
+                                $digits = preg_replace('/\D+/', '', $search);
+
+                                if (strlen($digits) < 3) {
+                                    return [];
+                                }
+
+                                return Client::query()
+                                    ->select('id', 'name', 'surname', 'phone')
+                                    ->whereRaw("REGEXP_REPLACE(phone, '[^0-9]', '') LIKE ?", ["%{$digits}%"])
+                                    ->orderBy('name')
+                                    ->limit(50)
+                                    ->get()
+                                    ->mapWithKeys(fn (Client $client): array => [
+                                        $client->id => $client->phone_pretty . ' · ' . e($client->full_name),
+                                    ])
+                                    ->toArray();
+                            })
+                            ->afterStateUpdated(function ($state, Set $set): void {
+                                $phone = $state
+                                    ? Client::query()->whereKey($state)->value('phone')
+                                    : null;
+
+                                if ($phone) {
+                                    $set('incoming_phone', $phone);
+                                    $set('incoming_phone_ui', $phone);
+                                }
+
+                                $set('history_refresh', (string) microtime(true));
+                            }),
+                    ]),
+                ]),
+
+            Section::make('Доставка та отримувач')
+                ->schema([
+                    Grid::make(12)->schema([
+                        Select::make('shipping_method')
+                            ->label('Спосіб доставки')
+                            ->options([
+                                'nova_post' => 'Нова пошта',
+                                'self_pickup' => 'Самовивіз',
+                            ])
+                            ->default('nova_post')
+                            ->afterStateHydrated(function (Select $component, mixed $state, ?Order $record): void {
+                                $component->state(static::normalizeNovaPostShippingMethod($state, (bool) ($record?->self_pickup ?? false)));
+                            })
+                            ->dehydrateStateUsing(fn (mixed $state): string => static::normalizeNovaPostShippingMethod($state))
+                            ->native(false)
+                            ->live()
+                            ->afterStateUpdated(function (mixed $state, Set $set): void {
+                                if (static::normalizeNovaPostShippingMethod($state) === 'self_pickup') {
+                                    $set('nova_delivery_type', null);
+                                    $set('nova_city', '');
+                                    $set('nova_city_details', '');
+                                    $set('nova_city_ref', '');
+                                    $set('nova_warehouse', '');
+                                    $set('nova_warehouse_ref', '');
+                                    $set('client_address_id', null);
+                                    $set('selected_address_id', null);
+                                } else {
+                                    $set('nova_delivery_type', 'warehouse');
+                                }
+                            })
+                            ->columnSpan(4),
+
+                        Select::make('nova_delivery_type')
+                            ->label('Тип доставки')
+                            ->options([
+                                'warehouse' => 'Відділення',
+                                'postomat' => 'Поштомат',
+                                'courier' => 'Курʼєр',
+                            ])
+                            ->default('warehouse')
+                            ->native(false)
+                            ->live()
+                            ->afterStateHydrated(function (Select $component, mixed $state, ?Order $record): void {
+                                if ($record?->shipping_method === 'courier') {
+                                    $component->state('courier');
+                                    return;
+                                }
+
+                                $component->state($state ?: 'warehouse');
+                            })
+                            ->afterStateUpdated(function (mixed $state, Set $set): void {
+                                $set('nova_warehouse', '');
+                                $set('nova_warehouse_ref', '');
+
+                                if ($state !== 'courier') {
+                                    $set('client_address_id', null);
+                                    $set('selected_address_id', null);
+                                }
+                            })
+                            ->visible(fn (Get $get): bool => static::normalizeNovaPostShippingMethod($get('shipping_method')) === 'nova_post')
+                            ->columnSpan(8),
+
+                        Select::make('nova_city_ref')
+                            ->label('Населений пункт')
+                            ->placeholder('м. Київ')
+                            ->searchable()
+                            ->preload(false)
+                            ->live()
+                            ->getSearchResultsUsing(fn (string $search): array => static::novaPostCityOptions($search))
+                            ->getOptionLabelUsing(fn ($value, Get $get): ?string => trim((string) $get('nova_city')) !== ''
+                                ? trim((string) $get('nova_city') . (filled($get('nova_city_details')) ? ' - ' . $get('nova_city_details') : ''))
+                                : null)
+                            ->afterStateUpdated(function (mixed $state, Set $set): void {
+                                $city = static::novaPostChoice('city', $state);
+                                $set('nova_city', (string) ($city['display_name'] ?? $city['name'] ?? ''));
+                                $set('nova_city_details', (string) ($city['details'] ?? ''));
+                                $set('nova_warehouse', '');
+                                $set('nova_warehouse_ref', '');
+                                $set('address.city', trim((string) (($city['display_name'] ?? $city['name'] ?? '') . (! empty($city['details']) ? ', ' . $city['details'] : ''))));
+                                $set('address.street', '');
+                                $set('address.street_place_id', '');
+                            })
+                            ->helperText(fn (Get $get): ?string => filled($get('nova_city_details'))
+                                ? (string) $get('nova_city_details')
+                                : null)
+                            ->required(fn (Get $get): bool => static::normalizeNovaPostShippingMethod($get('shipping_method')) === 'nova_post')
+                            ->visible(fn (Get $get): bool => static::normalizeNovaPostShippingMethod($get('shipping_method')) === 'nova_post')
+                            ->columnSpan(12),
+
+                        Hidden::make('nova_city')
+                            ->dehydrated(true),
+
+                        Hidden::make('nova_city_details')
+                            ->dehydrated(true),
+
+                        Select::make('nova_warehouse_ref')
+                            ->label(fn (Get $get): string => match ((string) ($get('nova_delivery_type') ?? 'warehouse')) {
+                                'postomat' => 'Поштомат',
+                                default => 'Відділення',
+                            })
+                            ->placeholder('№25, вул. Хрещатик, 25')
+                            ->searchable()
+                            ->options(fn (Get $get): array => static::novaPostWarehouseOptions($get, '', 10))
+                            ->preload()
+                            ->live()
+                            ->getSearchResultsUsing(fn (string $search, Get $get): array => static::novaPostWarehouseOptions($get, $search))
+                            ->getOptionLabelUsing(fn ($value, Get $get): ?string => filled($get('nova_warehouse')) ? (string) $get('nova_warehouse') : null)
+                            ->afterStateUpdated(function (mixed $state, Set $set): void {
+                                $warehouse = static::novaPostChoice('warehouse', $state);
+                                $set('nova_warehouse', (string) ($warehouse['label'] ?? $warehouse['name'] ?? ''));
+                            })
+                            ->required(fn (Get $get): bool => in_array((string) $get('nova_delivery_type'), ['warehouse', 'postomat'], true))
+                            ->visible(fn (Get $get): bool => static::normalizeNovaPostShippingMethod($get('shipping_method')) === 'nova_post'
+                                && in_array((string) $get('nova_delivery_type'), ['warehouse', 'postomat'], true))
+                            ->columnSpan(12),
+
+                        Hidden::make('nova_warehouse')
+                            ->dehydrated(true),
+
+                        Hidden::make('selected_address_id')
+                            ->default(fn (?Order $record): ?string => $record?->client_address_id ? (string) $record->client_address_id : '-1')
+                            ->afterStateHydrated(function (Hidden $component, ?Order $record, Set $set): void {
+                                if (! $record?->client_address_id) {
+                                    $component->state('-1');
+                                    return;
+                                }
+
+                                $component->state((string) $record->client_address_id);
+                                $address = ClientAddress::query()->find($record->client_address_id);
+
+                                if (! $address) {
+                                    return;
+                                }
+
+                                $set('address', $address->only([
+                                    'street',
+                                    'house',
+                                    'apartment',
+                                    'floor',
+                                    'entrance',
+                                    'bring_to_floor',
+                                    'elevator',
+                                    'city',
+                                    'street_place_id',
+                                    'formatted_address',
+                                    'type',
+                                    'is_private_house',
+                                ]));
+                            })
+                            ->dehydrated(fn (Get $get): bool => (string) $get('nova_delivery_type') === 'courier'),
+
+                        Select::make('address.street_place_id')
+                            ->label('Вулиця')
+                            ->placeholder('Почніть вводити вулицю')
+                            ->searchable()
+                            ->preload(false)
+                            ->live()
+                            ->getSearchResultsUsing(fn (string $search, Get $get): array => static::novaPostStreetOptions($get, $search))
+                            ->getOptionLabelUsing(fn ($value, Get $get): ?string => filled($get('address.street')) ? (string) $get('address.street') : null)
+                            ->afterStateUpdated(function (mixed $state, Set $set): void {
+                                $street = static::novaPostChoice('street', $state);
+                                $set('address.street', (string) ($street['label'] ?? $street['name'] ?? ''));
+                                $set('selected_address_id', '-1');
+                            })
+                            ->required(fn (Get $get): bool => (string) $get('nova_delivery_type') === 'courier')
+                            ->visible(fn (Get $get): bool => static::normalizeNovaPostShippingMethod($get('shipping_method')) === 'nova_post'
+                                && (string) $get('nova_delivery_type') === 'courier')
+                            ->dehydrated(fn (Get $get): bool => (string) $get('nova_delivery_type') === 'courier')
+                            ->columnSpan(7),
+
+                        Hidden::make('address.street')
+                            ->dehydrated(fn (Get $get): bool => (string) $get('nova_delivery_type') === 'courier'),
+
+                        TextInput::make('address.house')
+                            ->label('Будинок')
+                            ->required(fn (Get $get): bool => (string) $get('nova_delivery_type') === 'courier')
+                            ->visible(fn (Get $get): bool => static::normalizeNovaPostShippingMethod($get('shipping_method')) === 'nova_post'
+                                && (string) $get('nova_delivery_type') === 'courier')
+                            ->dehydrated(fn (Get $get): bool => (string) $get('nova_delivery_type') === 'courier')
+                            ->maxLength(40)
+                            ->columnSpan(3),
+
+                        TextInput::make('address.apartment')
+                            ->label('Квартира')
+                            ->visible(fn (Get $get): bool => static::normalizeNovaPostShippingMethod($get('shipping_method')) === 'nova_post'
+                                && (string) $get('nova_delivery_type') === 'courier')
+                            ->dehydrated(fn (Get $get): bool => (string) $get('nova_delivery_type') === 'courier')
+                            ->maxLength(40)
+                            ->columnSpan(2),
+
+                        Toggle::make('address.bring_to_floor')
+                            ->label('Підняти на поверх')
+                            ->visible(fn (Get $get): bool => static::normalizeNovaPostShippingMethod($get('shipping_method')) === 'nova_post'
+                                && (string) $get('nova_delivery_type') === 'courier')
+                            ->dehydrated(fn (Get $get): bool => (string) $get('nova_delivery_type') === 'courier')
+                            ->columnSpan(4),
+
+                        TextInput::make('address.floor')
+                            ->label('Поверх')
+                            ->visible(fn (Get $get): bool => static::normalizeNovaPostShippingMethod($get('shipping_method')) === 'nova_post'
+                                && (string) $get('nova_delivery_type') === 'courier')
+                            ->dehydrated(fn (Get $get): bool => (string) $get('nova_delivery_type') === 'courier')
+                            ->maxLength(20)
+                            ->columnSpan(2),
+
+                        Select::make('address.elevator')
+                            ->label('Ліфт')
+                            ->options([
+                                'yes' => 'Є вантажний ліфт',
+                                'no' => 'Немає вантажного ліфта',
+                                'unknown' => 'Невідомо',
+                            ])
+                            ->native(false)
+                            ->visible(fn (Get $get): bool => static::normalizeNovaPostShippingMethod($get('shipping_method')) === 'nova_post'
+                                && (string) $get('nova_delivery_type') === 'courier')
+                            ->dehydrated(fn (Get $get): bool => (string) $get('nova_delivery_type') === 'courier')
+                            ->columnSpan(3),
+
+                        TextInput::make('address.entrance')
+                            ->label('Підʼїзд')
+                            ->visible(fn (Get $get): bool => static::normalizeNovaPostShippingMethod($get('shipping_method')) === 'nova_post'
+                                && (string) $get('nova_delivery_type') === 'courier')
+                            ->dehydrated(fn (Get $get): bool => (string) $get('nova_delivery_type') === 'courier')
+                            ->maxLength(40)
+                            ->columnSpan(3),
+
+                        Hidden::make('address.city')
+                            ->default(fn (?Order $record): string => trim((string) ($record?->nova_city ?? '') . (filled($record?->nova_city_details) ? ', ' . $record?->nova_city_details : '')))
+                            ->dehydrated(fn (Get $get): bool => (string) $get('nova_delivery_type') === 'courier'),
+
+                        Hidden::make('address.type')
+                            ->default('home')
+                            ->dehydrated(fn (Get $get): bool => (string) $get('nova_delivery_type') === 'courier'),
+
+                        Hidden::make('address.is_private_house')
+                            ->default(false)
+                            ->dehydrated(fn (Get $get): bool => (string) $get('nova_delivery_type') === 'courier'),
+
+                        TextInput::make('recipient_surname')
+                            ->label('Прізвище отримувача')
+                            ->maxLength(255)
+                            ->columnSpan(4),
+
+                        TextInput::make('recipient_name')
+                            ->label('Імʼя отримувача')
+                            ->maxLength(255)
+                            ->columnSpan(4),
+
+                        TextInput::make('recipient_phone')
+                            ->label('Телефон отримувача')
+                            ->tel()
+                            ->maxLength(32)
+                            ->columnSpan(4),
+
+                        Select::make('payment')
+                            ->label(__('order.fields.payment_method'))
+                            ->options(static::paymentOptionsAdmin())
+                            ->required()
+                            ->native(false)
+                            ->searchable()
+                            ->default(PaymentMethodEnum::LIQPAY->value)
+                            ->live()
+                            ->columnSpan(6),
+
+                        TextInput::make('shipping_price')
+                            ->label('Вартість доставки')
+                            ->numeric()
+                            ->step(0.01)
+                            ->suffix('грн')
+                            ->default(0)
+                            ->columnSpan(3),
+
+                        TextInput::make('nova_declared_value')
+                            ->label('Оціночна вартість')
+                            ->numeric()
+                            ->step(0.01)
+                            ->suffix('грн')
+                            ->columnSpan(3),
+                    ]),
+                ]),
+
+            Section::make('Нова пошта')
+                ->schema([
+                    Grid::make(12)->schema([
+                        TextInput::make('nova_ttn')
+                            ->label('ТТН')
+                            ->placeholder('20451234567890')
+                            ->maxLength(32)
+                            ->suffixAction(
+                                FormAction::make('copy_ttn')
+                                    ->icon('heroicon-m-clipboard')
+                                    ->label('Копіювати')
+                                    ->action(fn () => null)
+                            )
+                            ->columnSpan(4),
+
+                        Select::make('nova_status')
+                            ->label('Статус НП')
+                            ->options([
+                                'created' => 'Створено',
+                                'at_branch' => 'У відділенні',
+                                'in_transit' => 'В дорозі',
+                                'arrived' => 'Прибув у відділення',
+                                'received' => 'Отримано',
+                                'cancelled' => 'Скасовано',
+                            ])
+                            ->native(false)
+                            ->columnSpan(4),
+
+                        TextInput::make('nova_tariff_type')
+                            ->label('Тариф')
+                            ->placeholder('Склад-Склад')
+                            ->maxLength(80)
+                            ->columnSpan(4),
+
+                        Select::make('nova_payer')
+                            ->label('Платник доставки')
+                            ->options([
+                                'sender' => 'Відправник',
+                                'recipient' => 'Отримувач',
+                            ])
+                            ->default('recipient')
+                            ->native(false)
+                            ->columnSpan(4),
+
+                        TextInput::make('nova_cod_amount')
+                            ->label('Післяплата')
+                            ->numeric()
+                            ->step(0.01)
+                            ->suffix('грн')
+                            ->columnSpan(4),
+
+                        TextInput::make('nova_ttn_created_at')
+                            ->label('Дата створення ТТН')
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->formatStateUsing(fn ($state) => $state instanceof \DateTimeInterface
+                                ? Carbon::instance($state)->format('d.m.Y H:i')
+                                : $state)
+                            ->columnSpan(4),
+                    ]),
+
+                    Actions::make([
+                        FormAction::make('print_nova_ttn')
+                            ->label('Друк ТТН')
+                            ->icon('heroicon-m-printer')
+                            ->disabled(fn (Get $get): bool => blank($get('nova_ttn'))),
+                        FormAction::make('track_nova_ttn')
+                            ->label('Відстежити')
+                            ->icon('heroicon-m-arrow-top-right-on-square')
+                            ->disabled(fn (Get $get): bool => blank($get('nova_ttn'))),
+                        FormAction::make('cancel_nova_ttn')
+                            ->label('Скасувати ТТН')
+                            ->icon('heroicon-m-trash')
+                            ->color('danger')
+                            ->disabled(fn (Get $get): bool => blank($get('nova_ttn'))),
+                    ])->columnSpanFull(),
+                ])
+                ->visible(fn (Get $get): bool => static::normalizeNovaPostShippingMethod($get('shipping_method')) === 'nova_post'),
+
+            Section::make('Примітка')
+                ->schema([
+                    Textarea::make('notes')
+                        ->label('')
+                        ->hiddenLabel()
+                        ->placeholder('Додаткова інформація по замовленню...')
+                        ->rows(4)
+                        ->columnSpanFull(),
+                ]),
+        ];
     }
 
     protected static function normalizePhone(?string $phone): string
@@ -581,7 +1185,12 @@ class OrderResource extends ShopOrderResource
                         'class' => 'callcenter-product-card-cell',
                     ])
                     ->content(function (Get $get) use ($defaultLocale): HtmlString {
-                        return static::renderOrderItemProductCard((int) ($get('product_id') ?? 0), $defaultLocale);
+                        $meta = $get('meta');
+
+                        return static::renderOrderItemProductCard(
+                            (int) ($get('product_id') ?? 0),
+                            $defaultLocale
+                        );
                     }),
 
                 Select::make('product_id')
@@ -1533,6 +2142,169 @@ class OrderResource extends ShopOrderResource
         }
 
         return [];
+    }
+
+    public static function novaPostOrderStatusLabels(): array
+    {
+        return [
+            OrderStatus::Cart->value => 'Чернетка (корзина)',
+            OrderStatus::New->value => 'Нове',
+            OrderStatus::Processing->value => 'Підтверджено',
+            OrderStatus::Filling->value => 'Комплектується',
+            OrderStatus::Assembled->value => 'Готове до відправки',
+            OrderStatus::Shipped->value => 'Відправлено',
+            OrderStatus::Delivered->value => 'Виконано',
+            OrderStatus::Cancelled->value => 'Скасовано',
+        ];
+    }
+
+    protected static function normalizeNovaPostOrderStatus(mixed $status): string
+    {
+        $status = $status instanceof OrderStatus ? $status->value : (string) $status;
+
+        return match ($status) {
+            OrderStatus::OnHold->value => OrderStatus::Processing->value,
+            OrderStatus::Molding->value,
+            OrderStatus::Baking->value => OrderStatus::Filling->value,
+            OrderStatus::Prepared->value => OrderStatus::Assembled->value,
+            default => array_key_exists($status, static::novaPostOrderStatusLabels())
+                ? $status
+                : OrderStatus::New->value,
+        };
+    }
+
+    protected static function novaPostOrderStatuses(): array
+    {
+        return collect(static::novaPostOrderStatusLabels())
+            ->filter(fn (string $label, string $status): bool => static::canSetStatus($status))
+            ->all();
+    }
+
+    public static function novaPostOrderStatusFilterValues(string $status): array
+    {
+        return match ($status) {
+            OrderStatus::Processing->value => [
+                OrderStatus::Processing->value,
+                OrderStatus::OnHold->value,
+            ],
+            OrderStatus::Filling->value => [
+                OrderStatus::Filling->value,
+                OrderStatus::Molding->value,
+                OrderStatus::Baking->value,
+            ],
+            OrderStatus::Assembled->value => [
+                OrderStatus::Assembled->value,
+                OrderStatus::Prepared->value,
+            ],
+            default => [$status],
+        };
+    }
+
+    protected static function getNovaPostStatusesSchema(): array
+    {
+        return [
+            Hidden::make('status')
+                ->default(fn (?Order $record) => static::normalizeNovaPostOrderStatus($record?->status ?? OrderStatus::New))
+                ->afterStateHydrated(function (Hidden $component, mixed $state, ?Order $record): void {
+                    $component->state(static::normalizeNovaPostOrderStatus($record?->status ?? $state ?? OrderStatus::New));
+                })
+                ->dehydrated(true),
+            Hidden::make('status_ui')
+                ->default(fn (?Order $record) => static::normalizeNovaPostOrderStatus($record?->status ?? OrderStatus::New))
+                ->dehydrated(false),
+            Hidden::make('downgrade_pending')->default(false)->dehydrated(false),
+            Hidden::make('pending_status')->dehydrated(false),
+            Hidden::make('downgrade_reason')->dehydrated(false),
+
+            View::make('filament.callcenter.order-status-timeline')
+                ->dehydrated(false)
+                ->live()
+                ->viewData(function (Get $get, ?Order $record): array {
+                    $current = static::normalizeNovaPostOrderStatus($get('status') ?? $record?->status ?? OrderStatus::New);
+                    $times = $record?->status_times ?? [];
+                    $labels = static::novaPostOrderStatusLabels();
+                    unset($labels[OrderStatus::Cancelled->value]);
+
+                    return [
+                        'current' => $current,
+                        'cancelled' => $current === OrderStatus::Cancelled->value,
+                        'statuses' => $labels,
+                        'cancelStatus' => OrderStatus::Cancelled->value,
+                        'cancelLabel' => static::novaPostOrderStatusLabels()[OrderStatus::Cancelled->value],
+                        'times' => $times,
+                        'timeAliases' => [
+                            OrderStatus::Processing->value => [OrderStatus::OnHold->value],
+                            OrderStatus::Filling->value => [OrderStatus::Molding->value, OrderStatus::Baking->value],
+                            OrderStatus::Assembled->value => [OrderStatus::Prepared->value],
+                        ],
+                        'canDowngrade' => static::canDowngrade(),
+                        'allowed' => static::novaPostOrderStatuses(),
+                        'ranks' => collect(OrderStatus::cases())->mapWithKeys(fn (OrderStatus $status): array => [
+                            $status->value => $status->rank(),
+                        ])->all(),
+                    ];
+                }),
+
+            Group::make([
+                Textarea::make('downgrade_reason')
+                    ->label(__('order.fields.rollback_reason'))
+                    ->placeholder(__('order.placeholders.rollback_reason'))
+                    ->required()
+                    ->rows(3)
+                    ->dehydrated(false),
+
+                Actions::make([
+                    FormAction::make('confirmNovaPostDowngradeInline')
+                        ->label(__('order.actions.confirm_rollback'))
+                        ->color('danger')
+                        ->icon('heroicon-m-arrow-uturn-left')
+                        ->action(function (callable $get, callable $set, $livewire, Order $record): void {
+                            $to = $get('pending_status');
+                            $reason = trim((string) $get('downgrade_reason'));
+
+                            if (! $to) {
+                                return;
+                            }
+
+                            if (! static::canSetStatus($to) || ! static::canDowngrade()) {
+                                Notification::make()->danger()->title('Немає прав')->send();
+                                return;
+                            }
+
+                            $from = $record->status->value;
+                            $record->extra_reason = $reason;
+                            $record->status = OrderStatus::from($to);
+                            $record->save();
+
+                            activity('order')->performedOn($record)->causedBy(auth('admin')->user())
+                                ->event('status_downgraded')->withProperties([
+                                    'action' => 'status_downgraded',
+                                    'from' => $from,
+                                    'to' => $to,
+                                    'reason' => $reason,
+                                ])->log(__('order.journal.status_rollback'));
+
+                            $set('status', $to);
+                            $set('status_ui', $to);
+                            $set('downgrade_pending', false);
+                            $set('pending_status', null);
+                            $set('downgrade_reason', null);
+                            $livewire->prevStatus = $to;
+
+                            Notification::make()->success()->title('Статус повернено')->send();
+                        }),
+                    FormAction::make('cancelNovaPostDowngradeInline')
+                        ->label(__('order.actions.cancel'))
+                        ->color('gray')
+                        ->icon('heroicon-m-x-mark')
+                        ->action(function (callable $set): void {
+                            $set('downgrade_pending', false);
+                            $set('pending_status', null);
+                            $set('downgrade_reason', null);
+                        }),
+                ])->alignment('left'),
+            ])->visible(fn (callable $get): bool => (bool) $get('downgrade_pending')),
+        ];
     }
 
     protected static function getCallcenterHistorySchema(): array

@@ -35,6 +35,8 @@ script.py
 /public/favicon.png
 /public/favicon-16x16.png
 /public/apple-touch-icon.png
+/public/build/frontend-sevia/
+/public/vendor/frontend-sevia/
 
 /packages/*
 !/packages/cashalotapi/

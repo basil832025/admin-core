@@ -12,12 +12,22 @@ const frontendThreePirogaInputs = [
     'packages/frontend-3piroga/resources/js/map-cart.js',
 ];
 
+const frontendSeviaInputs = [
+    'packages/frontend-sevia/resources/css/app.css',
+    'packages/frontend-sevia/resources/js/app.js',
+];
+
 export default defineConfig(({ mode }) => {
     const isFrontendThreePirogaBuild = mode === 'frontend-3piroga' && existsSync('packages/frontend-3piroga');
+    const isFrontendSeviaBuild = mode === 'frontend-sevia' && existsSync('packages/frontend-sevia');
     const input = isFrontendThreePirogaBuild
         ? frontendThreePirogaInputs
-        : (mode === 'admin' ? adminInputs : [...frontendThreePirogaInputs, ...adminInputs]);
-    const buildDirectory = isFrontendThreePirogaBuild ? 'build/frontend-3piroga' : 'build';
+        : (isFrontendSeviaBuild
+            ? frontendSeviaInputs
+            : (mode === 'admin' ? adminInputs : [...frontendThreePirogaInputs, ...frontendSeviaInputs, ...adminInputs]));
+    const buildDirectory = isFrontendThreePirogaBuild
+        ? 'build/frontend-3piroga'
+        : (isFrontendSeviaBuild ? 'build/frontend-sevia' : 'build');
 
     return {
         plugins: [

@@ -12,6 +12,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
 
 class EstablishmentReviewResource extends Resource
 {
@@ -24,6 +25,10 @@ class EstablishmentReviewResource extends Resource
 
     protected static function canAccessModule(): bool
     {
+        if (! Schema::hasTable('bs_establishment_reviews')) {
+            return false;
+        }
+
         $user = Filament::auth()->user();
 
         if (! $user) {
@@ -125,6 +130,10 @@ class EstablishmentReviewResource extends Resource
 
     protected static function pendingCount(): int
     {
+        if (! Schema::hasTable('bs_establishment_reviews')) {
+            return 0;
+        }
+
         return Cache::remember('nav:establishment_reviews:pending', now()->addMinute(), fn () =>
             EstablishmentReview::query()->where('is_active', false)->count()
         );

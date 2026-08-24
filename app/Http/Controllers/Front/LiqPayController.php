@@ -10,6 +10,7 @@ use App\Services\CashalotFiscalService;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethodEnum;
 use App\Mail\CashalotReceiptMail;
+use App\Mail\OrderClientMail;
 use App\Mail\OrderNotificationMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -98,7 +99,7 @@ class LiqPayController extends Controller
                 $order->status  = OrderStatus::New;
                 $order->payment = PaymentMethodEnum::LIQPAY;
 
-                if ($order->isFillable('paid_at') && empty($order->paid_at)) {
+                if (empty($order->paid_at)) {
                     $order->paid_at = now();
                 }
 
@@ -131,7 +132,7 @@ class LiqPayController extends Controller
                                 'emails'   => $notificationEmails,
                             ]);
                             Mail::to($notificationEmails)
-                                ->locale('ru')
+                                ->locale('uk')
                                 ->send(new OrderNotificationMail($order));
                         } else {
                             Log::warning('LiqPay callback: order notification email not configured', [
@@ -143,6 +144,24 @@ class LiqPayController extends Controller
                             'order_id' => $order->id,
                             'error'    => $e->getMessage(),
                             'trace'    => $e->getTraceAsString(),
+                        ]);
+                    }
+
+                    try {
+                        $order->loadMissing(['clients']);
+                        $clientEmail = trim((string) ($order->clients?->email ?? ''));
+
+                        if ($clientEmail !== '' && filter_var($clientEmail, FILTER_VALIDATE_EMAIL)) {
+                            $mailKey = 'order_client_mail_sent:' . $order->id;
+
+                            if (Cache::add($mailKey, true, now()->addDays(30))) {
+                                Mail::to($clientEmail)->locale('uk')->send(new OrderClientMail($order, 'uk'));
+                            }
+                        }
+                    } catch (\Throwable $e) {
+                        Log::error('LiqPay callback: failed to send client order email', [
+                            'order_id' => $order->id,
+                            'error' => $e->getMessage(),
                         ]);
                     }
                 }
