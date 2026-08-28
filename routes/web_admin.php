@@ -95,6 +95,36 @@ Route::get('/admin/callcenter/payparts/pending/sync', PaypartsStatusController::
     ->name('admin.callcenter.payparts.pending.sync')
     ->middleware(['web', 'auth:admin']);
 
+Route::get('/admin/callcenter/orders/{order}/nova-post/print', function (\App\Models\Callcenter\Order $order) {
+    $ttn = trim((string) $order->nova_ttn);
+
+    abort_if($ttn === '', 404);
+
+    $type = (string) request()->query('type', 'pdf');
+    $document = app(\App\Services\NovaPostApiClient::class)->printDocument($ttn, $type);
+
+    return response($document['body'])
+        ->header('Content-Type', $document['content_type'])
+        ->header('Content-Disposition', 'inline; filename="' . $document['filename'] . '"');
+})
+    ->name('admin.callcenter.orders.nova-post.print')
+    ->middleware(['web', 'auth:admin']);
+
+Route::get('/admin/callcenter/orders/{order}/nova-post/marking', function (\App\Models\Callcenter\Order $order) {
+    $ttn = trim((string) $order->nova_ttn);
+
+    abort_if($ttn === '', 404);
+
+    $type = (string) request()->query('type', 'pdf');
+    $document = app(\App\Services\NovaPostApiClient::class)->printMarking100x100($ttn, $type);
+
+    return response($document['body'])
+        ->header('Content-Type', $document['content_type'])
+        ->header('Content-Disposition', 'inline; filename="' . $document['filename'] . '"');
+})
+    ->name('admin.callcenter.orders.nova-post.marking')
+    ->middleware(['web', 'auth:admin']);
+
 Route::post('/admin/print-templates/ckeditor-upload', function (\Illuminate\Http\Request $request) {
     $validated = $request->validate([
         'upload' => ['required', 'file', 'image', 'max:5120'],
@@ -511,8 +541,9 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
 
         $productsRows = \App\Models\Callcenter\SourceProduct::query()
             ->with([
-                'localProduct:id,title,short_desc,description,main_image,parent_id,price,old_price,in_stock,is_new,is_hit,is_promo,is_vegan,is_product_of_day,is_spicy',
+                'localProduct:id,title,short_desc,description,main_image,parent_id,price,old_price,unit_id,price_unit_quantity,in_stock,is_new,is_hit,is_promo,is_vegan,is_product_of_day,is_spicy',
                 'localProduct.parent:id,main_image',
+                'localProduct.unit',
                 'source:id,base_url',
             ])
             ->where('source_id', $selectedSourceId)
@@ -749,7 +780,7 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
             ->values())->values();
 
         $productsQuery = \App\Models\Shop\Product::query()
-            ->select(['id', 'title', 'short_name', 'short_desc', 'description', 'price', 'old_price', 'main_image', 'parent_id', 'category_id', 'in_stock', 'is_home', 'is_promo', 'is_new', 'is_hit', 'is_vegan', 'is_product_of_day', 'is_spicy', 'sort', 'created_at'])
+            ->select(['id', 'title', 'short_name', 'short_desc', 'description', 'price', 'old_price', 'main_image', 'parent_id', 'category_id', 'unit_id', 'price_unit_quantity', 'in_stock', 'is_home', 'is_promo', 'is_new', 'is_hit', 'is_vegan', 'is_product_of_day', 'is_spicy', 'sort', 'created_at'])
             ->whereNull('parent_id')
             ->where('in_stock', 1)
             ->where(function ($w): void {
@@ -857,8 +888,9 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
                     });
                 });
             })
-            ->with(['children' => function ($q) {
-                $q->select(['id', 'title', 'short_desc', 'description', 'price', 'old_price', 'main_image', 'parent_id', 'in_stock', 'is_promo', 'is_new', 'is_hit', 'is_vegan', 'is_product_of_day', 'is_spicy'])
+            ->with(['unit', 'children' => function ($q) {
+                $q->select(['id', 'title', 'short_desc', 'description', 'price', 'old_price', 'main_image', 'parent_id', 'unit_id', 'price_unit_quantity', 'in_stock', 'is_promo', 'is_new', 'is_hit', 'is_vegan', 'is_product_of_day', 'is_spicy'])
+                    ->with('unit')
                     ->where('in_stock', 1)
                     ->orderBy('sort')
                     ->orderBy('id');
@@ -880,6 +912,7 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
             $locale = app()->getLocale();
             $variants = $product->children ?? collect();
             $hasVariants = $variants->isNotEmpty();
+            $unitOptionVariants = \App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions::menuUnitOptionVariants($product);
 
             $productShortDescription = trim(strip_tags((string) ($product->short_desc ?? '')));
 
@@ -948,6 +981,22 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
                     ->unique('id')
                     ->values()
                     ->all();
+            } elseif ($unitOptionVariants !== []) {
+                $variantsPayload = collect($unitOptionVariants)
+                    ->map(fn (array $variant): array => [
+                        ...$variant,
+                        'description' => $compactDescription($productDescription),
+                        'discount_percent' => $resolveDiscountPercent($variant['price'] ?? 0, $variant['old_price'] ?? 0),
+                        'is_promo' => (bool) ($product->is_promo ?? false),
+                        'is_new' => (bool) ($product->is_new ?? false),
+                        'is_hit' => (bool) ($product->is_hit ?? false),
+                        'is_vegan' => (bool) ($product->is_vegan ?? false),
+                        'is_product_of_day' => (bool) ($product->is_product_of_day ?? false),
+                        'is_spicy' => (bool) ($product->is_spicy ?? false),
+                    ])
+                    ->values()
+                    ->all();
+                $hasVariants = true;
             }
 
             return [

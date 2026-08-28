@@ -42,7 +42,7 @@ class CartService
         $this->resetCheckoutState();
 
         [$cartTotalQty, $cartTotalSum] = $this->computeTotals();
-        $lineArray = $this->getLineArrayByProductId($productId);
+        $lineArray = $this->getLineArrayByProductId($productId, $meta);
 
         return array_merge(
             $this->buildSummaryPayload($cartTotalQty, $cartTotalSum),
@@ -79,7 +79,7 @@ class CartService
         $this->resetCheckoutState();
 
         [$cartTotalQty, $cartTotalSum] = $this->computeTotals();
-        $lineArray = $this->getLineArrayByProductId($productId);
+        $lineArray = $this->getLineArrayByProductId($productId, $meta);
 
         return array_merge(
             $this->buildSummaryPayload($cartTotalQty, $cartTotalSum),
@@ -205,6 +205,7 @@ class CartService
                 'line_total' => $unit * $qty,
                 'old_unit_price' => $oldUnit,
                 'old_line_total' => $oldUnit ? $oldUnit * $qty : null,
+                'meta'       => is_array($row['meta'] ?? null) ? $row['meta'] : [],
             ],
             'removed' => $qty <= 0,
         ];
@@ -248,18 +249,19 @@ class CartService
         return null;
     }
 
-    private function getLineArrayByProductId(int $productId): ?array
+    private function getLineArrayByProductId(int $productId, array $meta = []): ?array
     {
         $items = $this->normalizeSessionCart();
 
         if (is_array($items) && $items) {
             // 1) Ассоциативный вариант: ['123' => ['qty'=>..,'price'=>..], ...]
-            if (isset($items[$productId]) && is_array($items[$productId])) {
+            if ($this->cartVariantKey($meta) === '' && isset($items[$productId]) && is_array($items[$productId])) {
                 $r = $items[$productId];
                 return [
                     'product_id' => $productId,
                     'qty'        => (int)($r['qty'] ?? 0),
                     'price'      => (float)($r['price'] ?? $r['unit_price'] ?? 0),
+                    'meta'       => is_array($r['meta'] ?? null) ? $r['meta'] : [],
                 ];
             }
 
@@ -270,11 +272,14 @@ class CartService
                     ? (int)$r['product_id']
                     : (is_numeric($k) ? null : (int)$k);
 
-                if ($pid === $productId) {
+                $rowMeta = is_array($r['meta'] ?? null) ? $r['meta'] : [];
+
+                if ($pid === $productId && $this->sameCartVariant($rowMeta, $meta)) {
                     return [
                         'product_id' => $productId,
                         'qty'        => (int)($r['qty'] ?? 0),
                         'price'      => (float)($r['price'] ?? $r['unit_price'] ?? 0),
+                        'meta'       => $rowMeta,
                     ];
                 }
             }
@@ -283,11 +288,16 @@ class CartService
         // Авторизованный — читаем из OrderItem
         if ($user = $this->authUser()) {
             $order = $this->getOrCreateDraftOrder($user, false);
-            if ($oi = $this->cartOrderItemsByProductId($order)->get($productId)) {
+            $oi = $this->visibleCartOrderItems($order)
+                ->filter(fn ($item) => (int) $item->product_id === $productId)
+                ->first(fn ($item) => $this->sameCartVariant($item->meta ?? [], $meta));
+
+            if ($oi) {
                 return [
                     'product_id' => (int)$oi->product_id,
                     'qty'        => (int)$oi->qty,
                     'price'      => (float)($oi->unit_price ?? $oi->price ?? 0),
+                    'meta'       => is_array($oi->meta ?? null) ? $oi->meta : [],
                 ];
             }
         }
@@ -444,7 +454,7 @@ class CartService
 
         // общий итог + текущая строка
         [$cartTotalQty, $cartTotalSum] = $this->computeTotals();
-        $lineArray = $this->getLineArrayByProductId($productId);
+        $lineArray = $this->getLineArrayByProductId($productId, $meta);
 
         return array_merge(
             $this->buildSummaryPayload($cartTotalQty, $cartTotalSum),
@@ -467,7 +477,7 @@ class CartService
         $this->resetCheckoutState();
 
         [$q,$s] = $this->computeTotals();
-        $row    = $this->getLineArrayByProductId($productId);
+        $row    = $this->getLineArrayByProductId($productId, $meta);
 
         return array_merge($this->buildSummaryPayload($q, $s), $this->buildItemPayload($row));
     }

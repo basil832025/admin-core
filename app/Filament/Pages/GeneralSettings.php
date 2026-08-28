@@ -33,7 +33,10 @@ use Filament\Forms\Components\Toggle;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use App\Services\LoyaltyService;
+use App\Services\NovaPostApiClient;
 use App\Services\PrintNode\KitchenDuplicatePrintService;
+use Illuminate\Support\Facades\Cache;
+use Throwable;
 use Wiebenieuwenhuis\FilamentCodeEditor\Components\CodeEditor;
 
 class GeneralSettings extends Page implements Forms\Contracts\HasForms
@@ -479,33 +482,63 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
                 ->schema([
                     Grid::make(12)
                         ->schema([
-                            TextInput::make('nova_post.sender_ref')
+                            Select::make('nova_post.sender_ref')
                                 ->label('Sender Ref')
-                                ->placeholder('NOVA_POST_SENDER_REF')
+                                ->placeholder('Оберіть відправника з API')
                                 ->helperText('Дані ФОП/ТОВ, на якого оформлена НП.')
-                                ->maxLength(80)
+                                ->options(fn (): array => static::novaPostSenderOptions())
+                                ->getOptionLabelUsing(fn ($value): ?string => filled($value) ? static::novaPostSenderOptions()[$value] ?? (string) $value : null)
+                                ->searchable()
+                                ->preload()
+                                ->live()
+                                ->afterStateUpdated(function (Set $set): void {
+                                    $set('nova_post.sender_contact_ref', null);
+                                })
+                                ->native(false)
                                 ->columnSpan(6),
 
-                            TextInput::make('nova_post.sender_contact_ref')
+                            Select::make('nova_post.sender_contact_ref')
                                 ->label('Contact Sender Ref')
-                                ->placeholder('NOVA_POST_SENDER_CONTACT_REF')
+                                ->placeholder('Оберіть контактну особу')
                                 ->helperText('ПІБ контактної особи відправника.')
-                                ->maxLength(80)
+                                ->options(fn (Get $get): array => static::novaPostSenderContactOptions((string) $get('nova_post.sender_ref')))
+                                ->getOptionLabelUsing(fn ($value, Get $get): ?string => filled($value)
+                                    ? static::novaPostSenderContactOptions((string) $get('nova_post.sender_ref'))[$value] ?? (string) $value
+                                    : null)
+                                ->searchable()
+                                ->preload()
+                                ->native(false)
                                 ->columnSpan(6),
 
-                            TextInput::make('nova_post.sender_city_ref')
+                            Select::make('nova_post.sender_city_ref')
                                 ->label('City Sender Ref')
-                                ->placeholder('NOVA_POST_SENDER_CITY_REF')
+                                ->placeholder('Почніть вводити місто')
                                 ->default(config('services.nova_post.sender_city_ref'))
                                 ->helperText('Місто відправки, наприклад Київ.')
-                                ->maxLength(80)
+                                ->getSearchResultsUsing(fn (string $search): array => static::novaPostCityOptions($search))
+                                ->getOptionLabelUsing(fn ($value): ?string => filled($value)
+                                    ? static::novaPostChoiceLabel('city', (string) $value) ?? (string) $value
+                                    : null)
+                                ->searchable()
+                                ->live()
+                                ->afterStateUpdated(function (Set $set): void {
+                                    $set('nova_post.sender_address_ref', null);
+                                })
+                                ->native(false)
                                 ->columnSpan(6),
 
-                            TextInput::make('nova_post.sender_address_ref')
+                            Select::make('nova_post.sender_address_ref')
                                 ->label('Sender Address Ref')
-                                ->placeholder('NOVA_POST_SENDER_ADDRESS_REF')
+                                ->placeholder('Оберіть відділення відправки')
                                 ->helperText('Відділення НП, з якого відправляють.')
-                                ->maxLength(80)
+                                ->options(fn (Get $get): array => static::novaPostSenderAddressOptions((string) $get('nova_post.sender_city_ref'), '', 20))
+                                ->getSearchResultsUsing(fn (string $search, Get $get): array => static::novaPostSenderAddressOptions((string) $get('nova_post.sender_city_ref'), $search))
+                                ->getOptionLabelUsing(fn ($value): ?string => filled($value)
+                                    ? static::novaPostChoiceLabel('warehouse', (string) $value) ?? (string) $value
+                                    : null)
+                                ->searchable()
+                                ->preload()
+                                ->native(false)
                                 ->columnSpan(6),
 
                             TextInput::make('nova_post.sender_phone')
@@ -896,6 +929,89 @@ class GeneralSettings extends Page implements Forms\Contracts\HasForms
                 . '<div style="font-weight:700;">До сплати: {{total}}</div>',
             default => static::defaultCourierReceiptTemplate(),
         };
+    }
+
+    protected static function novaPostSenderOptions(): array
+    {
+        try {
+            return collect(app(NovaPostApiClient::class)->senderCounterparties())
+                ->mapWithKeys(fn (array $sender): array => [(string) $sender['ref'] => (string) $sender['label']])
+                ->all();
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    protected static function novaPostSenderContactOptions(string $senderRef): array
+    {
+        try {
+            return collect(app(NovaPostApiClient::class)->senderContactPersons($senderRef))
+                ->mapWithKeys(fn (array $contact): array => [(string) $contact['ref'] => (string) $contact['label']])
+                ->all();
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    protected static function novaPostChoiceCacheKey(string $type, string $ref): string
+    {
+        return 'nova_post:general_settings_choice:' . $type . ':' . $ref;
+    }
+
+    protected static function rememberNovaPostChoice(string $type, string $ref, string $label): string
+    {
+        if ($ref !== '' && $label !== '') {
+            Cache::put(static::novaPostChoiceCacheKey($type, $ref), $label, now()->addHours(6));
+        }
+
+        return $ref;
+    }
+
+    protected static function novaPostChoiceLabel(string $type, string $ref): ?string
+    {
+        $ref = trim($ref);
+
+        return $ref !== '' ? Cache::get(static::novaPostChoiceCacheKey($type, $ref)) : null;
+    }
+
+    protected static function novaPostCityOptions(string $search): array
+    {
+        if (mb_strlen(trim($search)) < 2) {
+            return [];
+        }
+
+        try {
+            return collect(app(NovaPostApiClient::class)->searchCities($search, 20))
+                ->mapWithKeys(function (array $city): array {
+                    $ref = (string) $city['ref'];
+                    $label = (string) ($city['label'] ?? $city['display_name'] ?? $city['name'] ?? $city['ref']);
+
+                    return [static::rememberNovaPostChoice('city', $ref, $label) => $label];
+                })
+                ->all();
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    protected static function novaPostSenderAddressOptions(string $cityRef, string $search = '', int $limit = 30): array
+    {
+        if (! Str::isUuid(trim($cityRef))) {
+            return [];
+        }
+
+        try {
+            return collect(app(NovaPostApiClient::class)->searchWarehouses($cityRef, $search, $limit, 'warehouse'))
+                ->mapWithKeys(function (array $warehouse): array {
+                    $ref = (string) $warehouse['ref'];
+                    $label = (string) ($warehouse['label'] ?? $warehouse['name'] ?? $warehouse['ref']);
+
+                    return [static::rememberNovaPostChoice('warehouse', $ref, $label) => $label];
+                })
+                ->all();
+        } catch (Throwable) {
+            return [];
+        }
     }
 
     public function mount(): void

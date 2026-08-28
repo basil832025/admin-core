@@ -5,11 +5,16 @@
     $bg = $colors['bg'] ?? '#E5E7EB';
     $text = $colors['text'] ?? '#374151';
     $style = "background: {$bg}; color: {$text};";
+    $novaLabel = $novaStatusLabel ?? null;
+    $novaColors = is_array($novaStatusColors ?? null) ? $novaStatusColors : ['bg' => '#F1F5F9', 'text' => '#475569'];
+    $novaBg = $novaColors['bg'] ?? '#F1F5F9';
+    $novaText = $novaColors['text'] ?? '#475569';
+    $novaStyle = "background: {$novaBg}; color: {$novaText};";
 @endphp
 
 <button
     type="button"
-    class="group w-full text-left rounded-lg border border-slate-200 bg-white px-1.5 py-1 transition hover:border-primary-300 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+    class="group flex w-full flex-col gap-1 text-left rounded-lg border border-slate-200 bg-white px-1.5 py-1 transition hover:border-primary-300 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
     wire:click.stop.prevent="mountTableAction('statuses', '{{ $record->getKey() }}')"
     x-on:click.stop.prevent
     x-on:mousedown.stop.prevent
@@ -22,4 +27,13 @@
         <span class="truncate">{{ $label }}</span>
         <span class="ml-2 text-[10px] opacity-80">▼</span>
     </span>
+    @if(filled($novaLabel))
+        <span
+            class="flex w-full items-center rounded-md px-2 py-0.5 text-[10px] font-semibold leading-3"
+            style="<?php echo e($novaStyle); ?>"
+            title="Статус НП: {{ $novaLabel }}"
+        >
+            <span class="truncate">НП: {{ $novaLabel }}</span>
+        </span>
+    @endif
 </button>

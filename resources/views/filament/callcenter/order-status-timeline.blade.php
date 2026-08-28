@@ -8,6 +8,8 @@
     $allowed = $allowed ?? [];
     $times = $times ?? [];
     $timeAliases = $timeAliases ?? [];
+    $statePath = trim((string) ($statePath ?? 'data'), '.');
+    $fieldPath = static fn (string $field): string => $statePath === '' ? $field : "{$statePath}.{$field}";
 
     $formatTime = static function (?string $status) use ($times, $timeAliases): ?string {
         $keys = array_filter(array_merge([$status], $timeAliases[$status] ?? []));
@@ -235,18 +237,18 @@
                 @elseif($isRollback)
                     x-data
                     x-on:click="
-                        $wire.set('data.pending_status', '{{ $status }}');
-                        $wire.set('data.downgrade_pending', true);
-                        $wire.set('data.status_ui', '{{ $current }}');
+                        $wire.set(@js($fieldPath('pending_status')), @js($status));
+                        $wire.set(@js($fieldPath('downgrade_pending')), true);
+                        $wire.set(@js($fieldPath('status_ui')), @js($current));
                     "
                 @else
                     x-data
                     x-on:click="
-                        $wire.set('data.status', '{{ $status }}');
-                        $wire.set('data.status_ui', '{{ $status }}');
-                        $wire.set('data.pending_status', null);
-                        $wire.set('data.downgrade_pending', false);
-                        $wire.set('data.downgrade_reason', null);
+                        $wire.set(@js($fieldPath('status')), @js($status));
+                        $wire.set(@js($fieldPath('status_ui')), @js($status));
+                        $wire.set(@js($fieldPath('pending_status')), null);
+                        $wire.set(@js($fieldPath('downgrade_pending')), false);
+                        $wire.set(@js($fieldPath('downgrade_reason')), null);
                     "
                 @endif
             >
@@ -289,11 +291,11 @@
         @else
             x-data
             x-on:click="
-                $wire.set('data.status', '{{ $cancelStatus }}');
-                $wire.set('data.status_ui', '{{ $cancelStatus }}');
-                $wire.set('data.pending_status', null);
-                $wire.set('data.downgrade_pending', false);
-                $wire.set('data.downgrade_reason', null);
+                $wire.set(@js($fieldPath('status')), @js($cancelStatus));
+                $wire.set(@js($fieldPath('status_ui')), @js($cancelStatus));
+                $wire.set(@js($fieldPath('pending_status')), null);
+                $wire.set(@js($fieldPath('downgrade_pending')), false);
+                $wire.set(@js($fieldPath('downgrade_reason')), null);
             "
         @endif
     >

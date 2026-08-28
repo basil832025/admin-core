@@ -294,6 +294,11 @@ class AdminPanelProvider extends PanelProvider
         );
 
         $panel->renderHook(
+            PanelsRenderHook::HEAD_END,
+            fn () => view('filament.hooks.tinyeditor-fullscreen-fix')
+        );
+
+        $panel->renderHook(
             PanelsRenderHook::BODY_END,
             fn () => view('filament.hooks.logistics-route-map-init')
         );

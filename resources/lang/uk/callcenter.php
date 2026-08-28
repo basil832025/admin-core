@@ -24,7 +24,7 @@ return [
         ],
     ],
     'actions' => [
-        'menu' => 'Меню',
+        'menu' => 'Товари',
         'promotions' => 'Акції',
         'print_kitchen' => 'Друк на кухню',
         'duplicate' => 'Дублікат',

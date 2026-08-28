@@ -117,6 +117,9 @@ class ProductCardPresenter
         // Варианты: родитель + дети
         $variantRows = [[
             'product_id'  => $p->id,
+            'variant_key' => (string) $p->id,
+            'cart_product_id' => $p->id,
+            'cart_meta'   => [],
             'product_key' => trim((string) ($p->code2 ?: $p->sku ?: $p->id)),
             'slug'        => $p->slug,
             'variant_display_sort' => $p->variant_display_sort,
@@ -143,6 +146,9 @@ class ProductCardPresenter
             
             $variantRows[] = [
                 'product_id'  => $child->id,
+                'variant_key' => (string) $child->id,
+                'cart_product_id' => $child->id,
+                'cart_meta'   => [],
                 'product_key' => trim((string) ($child->code2 ?: $child->sku ?: $child->id)),
                 'slug'        => $child->slug,
                 'sort'        => (int) ($child->sort ?? 0),
@@ -162,6 +168,20 @@ class ProductCardPresenter
                 'is_spicy'    => (bool) ($p->is_spicy ?? false),
                 'char_values' => $buildCharMap($child),
             ];
+        }
+
+        $menuUnitVariants = $this->menuUnitOptionVariants($p, $buildCharMap($p), $pickArticle($p));
+
+        if ($menuUnitVariants !== [] && $sortedChildren->isEmpty()) {
+            $main[] = [
+                'id' => 'menu_measure',
+                'slug' => 'volume',
+                'title' => $this->unitShortLabel((string) ($p->unit?->code ?? 'ml')),
+                'svg' => null,
+                'sort' => -100,
+            ];
+
+            $variantRows = $menuUnitVariants;
         }
 
         $variantRows = collect($variantRows)
@@ -278,6 +298,88 @@ class ProductCardPresenter
             $out[] = $this->for($p);
         }
         return $out;
+    }
+
+    private function menuUnitOptionVariants(Product $product, array $charMap, string $article): array
+    {
+        $unitCode = (string) ($product->unit?->code ?? '');
+        $quantities = $this->menuUnitOptionQuantities($unitCode);
+        $baseQuantity = (float) ($product->price_unit_quantity ?? 0);
+        $basePrice = (float) ($product->price ?? 0);
+
+        if ($quantities === [] || $baseQuantity <= 0 || $basePrice <= 0) {
+            return [];
+        }
+
+        $oldBasePrice = (float) ($product->old_price ?? 0);
+
+        return collect($quantities)
+            ->map(function (float $quantity, int $index) use ($product, $unitCode, $baseQuantity, $basePrice, $oldBasePrice, $charMap, $article): array {
+                $label = $this->formatMenuQuantity($quantity) . ' ' . $this->unitShortLabel($unitCode);
+                $price = round($basePrice / $baseQuantity * $quantity, 2);
+                $oldPrice = $oldBasePrice > 0
+                    ? round($oldBasePrice / $baseQuantity * $quantity, 2)
+                    : null;
+
+                return [
+                    'product_id' => $product->id,
+                    'variant_key' => 'measure:' . $product->id . ':' . $this->formatMenuQuantity($quantity),
+                    'cart_product_id' => $product->id,
+                    'cart_meta' => [
+                        'volume' => $label,
+                        'cart_label' => $label,
+                    ],
+                    'product_key' => trim((string) ($product->code2 ?: $product->sku ?: $product->id)),
+                    'slug' => $product->slug,
+                    'sort' => $index,
+                    'variant_display_sort' => $index + 1,
+                    'is_root' => $index === 0,
+                    'price' => $price,
+                    'old_price' => $oldPrice,
+                    'manual_discount_percent' => $product->manual_discount_percent,
+                    'article' => $article,
+                    'is_new' => (bool) ($product->is_new ?? false),
+                    'is_hit' => (bool) ($product->is_hit ?? false),
+                    'is_promo' => (bool) ($product->is_promo ?? false),
+                    'is_vegan' => (bool) ($product->is_vegan ?? false),
+                    'is_product_of_day' => (bool) ($product->is_product_of_day ?? false),
+                    'is_spicy' => (bool) ($product->is_spicy ?? false),
+                    'char_values' => array_replace($charMap, [
+                        'menu_measure' => $label,
+                    ]),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    private function menuUnitOptionQuantities(string $unitCode): array
+    {
+        $raw = config('services.callcenter.order_menu_unit_options.' . $unitCode);
+
+        if (! is_string($raw) || trim($raw) === '') {
+            return [];
+        }
+
+        return collect(explode(',', $raw))
+            ->map(fn (string $value): float => (float) str_replace(',', '.', trim($value)))
+            ->filter(fn (float $value): bool => $value > 0)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function unitShortLabel(string $unitCode): string
+    {
+        return match ($unitCode) {
+            'ml' => 'мл',
+            default => $unitCode,
+        };
+    }
+
+    private function formatMenuQuantity(float $quantity): string
+    {
+        return rtrim(rtrim(number_format($quantity, 3, '.', ''), '0'), '.');
     }
 
 }

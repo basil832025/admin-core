@@ -12,6 +12,7 @@ class ClientAddress extends Model
     protected $fillable = [
         'client_id',
         'city',
+        'nova_city_ref',
         'street',
         'house',
         'apartment',
@@ -27,6 +28,7 @@ class ClientAddress extends Model
         'longitude',
         'street_place_id',
         'formatted_address',
+        'nova_warehouse_ref',
         'delivery_zone_id',
         'zone_resolution_method',
         'zone_resolved_at',

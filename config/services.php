@@ -140,6 +140,15 @@ return [
 
     'callcenter' => [
         'order_menu_source' => env('CALLCENTER_ORDER_MENU_SOURCE', 'main'),
+        'order_menu_unit_options' => [
+            'ml' => env('CALLCENTER_ORDER_MENU_ML_OPTIONS', '3,5,10,15,20,30'),
+        ],
+    ],
+
+    'instagram' => [
+        'access_token' => env('INSTAGRAM_ACCESS_TOKEN'),
+        'user_id' => env('INSTAGRAM_USER_ID'),
+        'cache_ttl' => (int) env('INSTAGRAM_CACHE_TTL', 3600),
     ],
 
     'postmark' => [

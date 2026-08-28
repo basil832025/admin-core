@@ -508,7 +508,7 @@ class Product extends Model implements HasMedia
             'bs_products.is_spicy',
             'bs_products.variant_display_sort',
         ])
-            ->with('categories:id,slug,title');
+            ->with(['categories:id,slug,title', 'unit:id,code,name']);
     }
 
     public function scopeCardListingSelect($q)
@@ -538,6 +538,7 @@ class Product extends Model implements HasMedia
         ])->with([
             'categories:id,slug,title',
             'mainCategory:id,slug',
+            'unit:id,code,name',
         ]);
     }
 
@@ -547,6 +548,7 @@ class Product extends Model implements HasMedia
             'productCharacteristicValues.characteristic.svgImage',
             'productCharacteristicValues.characteristicValue',
             'ingredients',
+            'unit:id,code,name',
             'children' => function ($query) {
                 $query->select([
                     'id',
@@ -576,6 +578,7 @@ class Product extends Model implements HasMedia
                     'is_spicy',
                 ]);
             },
+            'children.unit:id,code,name',
             'children.productCharacteristicValues.characteristic.svgImage',
             'children.productCharacteristicValues.characteristicValue',
             'mainCategory:id,slug',// ← можно сузить столбцы
@@ -594,6 +597,7 @@ class Product extends Model implements HasMedia
             'productCharacteristicValues.characteristic.svgImage',
             'productCharacteristicValues.characteristicValue',
             'ingredients',
+            'unit:id,code,name',
             'children' => function ($query) {
                 $query->select([
                     'id',
@@ -621,6 +625,7 @@ class Product extends Model implements HasMedia
                     'is_spicy',
                 ]);
             },
+            'children.unit:id,code,name',
             'children.productCharacteristicValues' => function ($query) {
                 $query->whereHas('characteristic', function ($characteristicQuery) {
                     $characteristicQuery->where('is_main_tab', true)

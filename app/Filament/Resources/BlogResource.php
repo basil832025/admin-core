@@ -130,6 +130,8 @@ class BlogResource extends Resource
                         TinyEditor::make("content")
                             ->label(__('blog.fields.content'))
                             ->required($locale === $defaultLocale)
+                            ->toolbarSticky(false)
+                            ->toolbarStickyOffset(0)
                             ->fileAttachmentsDisk('public')
                             ->fileAttachmentsDirectory('uploads')
                             ->fileAttachmentsVisibility('public'),

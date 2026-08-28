@@ -2546,9 +2546,35 @@ class OrderResource extends Resource
                                 ? $record->status
                                 : OrderStatus::tryFrom((string) $record->status);
 
+                            $statusValue = $status?->value ?? (string) $record->status;
+                            $statusLabel = $status?->getLabel() ?? $statusValue;
+
+                            if (static::class === \App\Filament\Resources\Callcenter\OrderResource::class
+                                && (string) config('callcenter.order_form_mode', 'food') === 'nova_post'
+                                && method_exists(static::class, 'novaPostOrderStatusLabels')) {
+                                $statusLabel = static::novaPostOrderStatusLabels()[$statusValue] ?? $statusLabel;
+                            }
+
+                            $novaStatusLabel = null;
+                            $novaStatusColors = null;
+                            $novaStatus = trim((string) $record->nova_status);
+
+                            if ($novaStatus !== ''
+                                && static::class === \App\Filament\Resources\Callcenter\OrderResource::class
+                                && (string) config('callcenter.order_form_mode', 'food') === 'nova_post'
+                                && method_exists(static::class, 'novaPostTrackingStatusLabels')) {
+                                $novaStatusLabel = static::novaPostTrackingStatusLabels()[$novaStatus] ?? $novaStatus;
+
+                                if (method_exists(static::class, 'novaPostTrackingStatusColors')) {
+                                    $novaStatusColors = static::novaPostTrackingStatusColors()[$novaStatus] ?? null;
+                                }
+                            }
+
                             return [
-                                'statusLabel' => $status?->getLabel() ?? (string) $record->status,
+                                'statusLabel' => $statusLabel,
                                 'statusColors' => $status?->getFrontendColors() ?? ['bg' => '#E5E7EB', 'text' => '#374151'],
+                                'novaStatusLabel' => $novaStatusLabel,
+                                'novaStatusColors' => $novaStatusColors,
                             ];
                         })
                     : TextColumn::make('status')->label(__('order.columns.status'))->badge(),
@@ -2982,11 +3008,26 @@ class OrderResource extends Resource
                     ->extraAttributes(static::class === \App\Filament\Resources\Callcenter\OrderResource::class ? ['class' => 'hidden'] : [])
                     ->modalHeading(fn (Order $r) => __('order.actions.statuses_modal_heading', ['number' => $r->number]))
                     ->modalWidth('lg')
-                    ->fillForm(fn (Order $record): array => [
-                        'current' => $record->status?->value,
-                        'status_ui' => $record->status?->value ?? OrderStatus::New->value,
-                    ])
-                    ->form(fn (Order $record) => static::statusModalForm())
+                    ->fillForm(function (Order $record): array {
+                        $status = $record->status?->value ?? OrderStatus::New->value;
+
+                        if (static::class === \App\Filament\Resources\Callcenter\OrderResource::class
+                            && (string) config('callcenter.order_form_mode', 'food') === 'nova_post'
+                            && method_exists(static::class, 'normalizeNovaPostOrderStatus')) {
+                            $status = static::normalizeNovaPostOrderStatus($status);
+                        }
+
+                        return [
+                            'current' => $status,
+                            'status' => $status,
+                            'status_ui' => $status,
+                        ];
+                    })
+                    ->form(fn (Order $record) => static::class === \App\Filament\Resources\Callcenter\OrderResource::class
+                        && (string) config('callcenter.order_form_mode', 'food') === 'nova_post'
+                        && method_exists(static::class, 'getNovaPostStatusesSchema')
+                            ? static::getNovaPostStatusesSchema('mountedTableActionsData.0')
+                            : static::statusModalForm())
                     ->action(function (array $data, Order $record) {
                         $user = auth('admin')->user();
                         if (!$user || !$user instanceof \App\Models\User) {
@@ -2995,7 +3036,15 @@ class OrderResource extends Resource
                         }
 
                         $from = $record->status;
-                        $to   = OrderStatus::from($data['status_ui']);
+                        $toValue = (string) ($data['status_ui'] ?? $data['status'] ?? OrderStatus::New->value);
+
+                        if (static::class === \App\Filament\Resources\Callcenter\OrderResource::class
+                            && (string) config('callcenter.order_form_mode', 'food') === 'nova_post'
+                            && method_exists(static::class, 'normalizeNovaPostOrderStatus')) {
+                            $toValue = static::normalizeNovaPostOrderStatus($toValue);
+                        }
+
+                        $to = OrderStatus::from($toValue);
 
                         if ($to->value === $from->value) {
                             Notification::make()->title(__('order.notifications.status_not_changed'))->info()->send();

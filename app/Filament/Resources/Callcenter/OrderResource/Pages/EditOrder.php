@@ -13,6 +13,7 @@ use App\Models\Shop\ClientAddress;
 use App\Models\Shop\OrderItem;
 use App\Services\Callcenter\ExternalSyncService;
 use App\Services\CashalotFiscalService;
+use App\Services\NovaPostApiClient;
 use App\Services\OrderPricing;
 use App\Services\OrderZoneSyncService;
 use App\Services\PrintNode\KitchenDuplicatePrintService;
@@ -54,6 +55,8 @@ class EditOrder extends EditRecord
             $sourceName = trim((string) (Setting::value('site_name') ?: 'Основний сайт'));
         }
 
+        $sourceName = $this->displaySourceName($sourceName);
+
         if ($number === '') {
             return parent::getHeading();
         }
@@ -76,11 +79,18 @@ class EditOrder extends EditRecord
             $sourceName = trim((string) (Setting::value('site_name') ?: 'Основний сайт'));
         }
 
+        $sourceName = $this->displaySourceName($sourceName);
+
         if ($number === '') {
             return parent::getTitle();
         }
 
         return __('callcenter.pages.edit.heading', ['number' => $number]) . ($sourceName !== '' ? (' · ' . $sourceName) : '');
+    }
+
+    protected function displaySourceName(string $sourceName): string
+    {
+        return $sourceName === 'DuxiAdminCore' ? 'SeviaAdmin' : $sourceName;
     }
 
     public function mount(int|string $record): void
@@ -211,6 +221,7 @@ class EditOrder extends EditRecord
                 }),
 
             Action::make('print_kitchen')
+                ->visible(fn (): bool => (string) config('callcenter.order_form_mode', 'food') !== 'nova_post')
                 ->label(function (): string {
                     $count = (int) ($this->record?->kitchen_print_count ?? 0);
                     $base = __('callcenter.actions.print_kitchen');
@@ -828,6 +839,22 @@ class EditOrder extends EditRecord
             $data['date_order'] = $data['dat'];
         }
 
+        if ((string) config('callcenter.order_form_mode', 'food') === 'nova_post') {
+            $shippingMethod = (string) ($data['shipping_method'] ?? 'nova_post');
+
+            if (in_array($shippingMethod, ['self_pickup', 'pickup'], true)) {
+                $data['shipping_method'] = 'self_pickup';
+                $data['self_pickup'] = true;
+                $data['shipping_price'] = 0;
+                $data['shipping_total'] = 0;
+            } else {
+                $data['shipping_method'] = 'nova_post';
+                $data['self_pickup'] = false;
+            }
+
+            return $this->syncAddressOnSave($data);
+        }
+
         if ((bool) ($data['self_pickup'] ?? false)) {
             $data['shipping_method'] = in_array((string) ($data['shipping_method'] ?? ''), ['pickup', 'bolt', 'glovo'], true)
                 ? (string) $data['shipping_method']
@@ -892,6 +919,16 @@ class EditOrder extends EditRecord
             $data['date_order'] = $data['dat'];
         }
 
+        if ((string) config('callcenter.order_form_mode', 'food') === 'nova_post') {
+            $data['shipping_method'] = ! empty($data['self_pickup'])
+                ? 'self_pickup'
+                : (in_array((string) ($data['shipping_method'] ?? ''), ['nova_post', 'self_pickup'], true)
+                    ? (string) $data['shipping_method']
+                    : 'nova_post');
+
+            return $data;
+        }
+
         $data['shipping_method'] = ! empty($data['self_pickup'])
             ? (in_array((string) ($data['shipping_method'] ?? ''), ['pickup', 'bolt', 'glovo'], true)
                 ? (string) $data['shipping_method']
@@ -899,6 +936,136 @@ class EditOrder extends EditRecord
             : 'delivery';
 
         return $data;
+    }
+
+    public function createNovaPostTtn(array $data = []): void
+    {
+        try {
+            if (! $this->record?->exists) {
+                throw new \RuntimeException('Замовлення не знайдено.');
+            }
+
+            if (filled($this->record->nova_ttn)) {
+                throw new \RuntimeException('ТТН для цього замовлення вже створена.');
+            }
+
+            $this->save();
+            $this->record->refresh();
+
+            $result = app(NovaPostApiClient::class)->createInternetDocument($this->record, $data);
+
+            $this->record->forceFill([
+                'nova_ttn' => $result['number'],
+                'nova_status' => 'created',
+                'nova_payer' => mb_strtolower((string) ($data['payer_type'] ?? $this->record->nova_payer ?: 'recipient')),
+                'nova_declared_value' => $data['cost'] ?? $this->record->nova_declared_value ?: $this->record->grand_total,
+                'nova_cod_amount' => $data['cod_amount'] ?? $this->record->nova_cod_amount ?: null,
+                'nova_ttn_created_at' => now(),
+                'nova_tariff_type' => match ((string) $this->record->nova_delivery_type) {
+                    'postomat' => 'Warehouse-Postomat',
+                    default => 'Warehouse-Warehouse',
+                },
+            ])->save();
+
+            data_set($this->data, 'nova_ttn', $this->record->nova_ttn);
+            data_set($this->data, 'nova_status', $this->record->nova_status);
+            data_set($this->data, 'nova_payer', $this->record->nova_payer);
+            data_set($this->data, 'nova_declared_value', $this->record->nova_declared_value);
+            data_set($this->data, 'nova_cod_amount', $this->record->nova_cod_amount);
+            data_set($this->data, 'nova_ttn_created_at', $this->record->nova_ttn_created_at);
+            data_set($this->data, 'nova_tariff_type', $this->record->nova_tariff_type);
+
+            Notification::make()
+                ->success()
+                ->title('ТТН створена')
+                ->body('Номер: ' . $result['number'])
+                ->send();
+        } catch (\Throwable $exception) {
+            Notification::make()
+                ->danger()
+                ->title('Не вдалося створити ТТН')
+                ->body($exception->getMessage())
+                ->send();
+        }
+    }
+
+    public function cancelNovaPostTtn(): void
+    {
+        try {
+            if (! $this->record?->exists) {
+                throw new \RuntimeException('Замовлення не знайдено.');
+            }
+
+            $ttn = trim((string) $this->record->nova_ttn);
+            if ($ttn === '') {
+                throw new \RuntimeException('ТТН для скасування не вказана.');
+            }
+
+            if ((string) $this->record->nova_status === 'cancelled') {
+                throw new \RuntimeException('ТТН вже скасована.');
+            }
+
+            app(NovaPostApiClient::class)->cancelInternetDocument($ttn);
+
+            $notes = trim((string) $this->record->notes);
+            $cancelNote = '[' . now()->format('d.m.Y H:i') . '] Скасована ТТН Нової пошти: ' . $ttn;
+
+            $this->record->forceFill([
+                'nova_ttn' => null,
+                'nova_status' => 'cancelled',
+                'nova_ttn_created_at' => null,
+                'nova_tariff_type' => null,
+                'notes' => $notes !== '' ? $notes . PHP_EOL . $cancelNote : $cancelNote,
+            ])->save();
+
+            data_set($this->data, 'nova_ttn', null);
+            data_set($this->data, 'nova_status', 'cancelled');
+            data_set($this->data, 'nova_ttn_created_at', null);
+            data_set($this->data, 'nova_tariff_type', null);
+            data_set($this->data, 'notes', $this->record->notes);
+
+            Notification::make()
+                ->success()
+                ->title('ТТН скасована')
+                ->body('Номер: ' . $ttn)
+                ->send();
+        } catch (\Throwable $exception) {
+            Notification::make()
+                ->danger()
+                ->title('Не вдалося скасувати ТТН')
+                ->body($exception->getMessage())
+                ->send();
+        }
+    }
+
+    public function refreshNovaPostStatus(): void
+    {
+        try {
+            if (! $this->record?->exists) {
+                throw new \RuntimeException('Замовлення не знайдено.');
+            }
+
+            if (blank($this->record->nova_ttn)) {
+                throw new \RuntimeException('ТТН не вказана.');
+            }
+
+            $result = app(NovaPostApiClient::class)->updateOrderTrackingStatus($this->record);
+            $this->record->refresh();
+
+            data_set($this->data, 'nova_status', $this->record->nova_status);
+
+            Notification::make()
+                ->success()
+                ->title('Статус НП оновлено')
+                ->body(trim((string) ($result['status_text'] ?? '')) ?: ('Статус: ' . $this->record->nova_status))
+                ->send();
+        } catch (\Throwable $exception) {
+            Notification::make()
+                ->danger()
+                ->title('Не вдалося оновити статус НП')
+                ->body($exception->getMessage())
+                ->send();
+        }
     }
     protected function afterSave(): void
     {

@@ -208,6 +208,126 @@ class OrderResource extends ShopOrderResource
         }
     }
 
+    public static function novaPostTtnActionForm(): array
+    {
+        return [
+            Grid::make(12)->schema([
+                TextInput::make('weight')
+                    ->label('Вага, кг')
+                    ->numeric()
+                    ->step(0.1)
+                    ->minValue(0.1)
+                    ->required()
+                    ->columnSpan(3),
+
+                TextInput::make('length_cm')
+                    ->label('Довжина, см')
+                    ->numeric()
+                    ->step(1)
+                    ->minValue(1)
+                    ->required()
+                    ->columnSpan(3),
+
+                TextInput::make('width_cm')
+                    ->label('Ширина, см')
+                    ->numeric()
+                    ->step(1)
+                    ->minValue(1)
+                    ->required()
+                    ->columnSpan(3),
+
+                TextInput::make('height_cm')
+                    ->label('Висота, см')
+                    ->numeric()
+                    ->step(1)
+                    ->minValue(1)
+                    ->required()
+                    ->columnSpan(3),
+
+                TextInput::make('seats_amount')
+                    ->label('Кількість місць')
+                    ->numeric()
+                    ->minValue(1)
+                    ->required()
+                    ->columnSpan(4),
+
+                Select::make('payer_type')
+                    ->label('Платник доставки')
+                    ->options([
+                        'Recipient' => 'Отримувач',
+                        'Sender' => 'Відправник',
+                    ])
+                    ->required()
+                    ->live()
+                    ->afterStateUpdated(function (mixed $state, Set $set): void {
+                        if ($state === 'Sender') {
+                            $set('payment_method', 'Cash');
+                        }
+                    })
+                    ->native(false)
+                    ->columnSpan(4),
+
+                Select::make('payment_method')
+                    ->label('Оплата доставки')
+                    ->options([
+                        'Cash' => 'Готівка',
+                        'NonCash' => 'Безготівково',
+                    ])
+                    ->required()
+                    ->native(false)
+                    ->columnSpan(4),
+
+                TextInput::make('cost')
+                    ->label('Оціночна вартість')
+                    ->numeric()
+                    ->step(1)
+                    ->minValue(1)
+                    ->required()
+                    ->suffix('грн')
+                    ->columnSpan(6),
+
+                TextInput::make('cod_amount')
+                    ->label('Післяплата')
+                    ->numeric()
+                    ->step(1)
+                    ->minValue(0)
+                    ->suffix('грн')
+                    ->columnSpan(6),
+
+                Textarea::make('description')
+                    ->label('Опис відправлення')
+                    ->maxLength(120)
+                    ->required()
+                    ->columnSpanFull(),
+            ]),
+        ];
+    }
+
+    public static function novaPostTtnActionDefaults(?Order $record = null): array
+    {
+        return [
+            'weight' => Setting::admin('nova_post.default_weight') ?: config('services.nova_post.price_weight', '0.5'),
+            'length_cm' => Setting::admin('nova_post.default_length_cm') ?: 20,
+            'width_cm' => Setting::admin('nova_post.default_width_cm') ?: 15,
+            'height_cm' => Setting::admin('nova_post.default_height_cm') ?: 10,
+            'seats_amount' => Setting::admin('nova_post.default_seats_amount') ?: 1,
+            'payer_type' => static::novaPostApiPayerType($record?->nova_payer, Setting::admin('nova_post.default_payer_type') ?: 'Recipient'),
+            'payment_method' => Setting::admin('nova_post.default_payment_method') ?: 'Cash',
+            'cost' => $record?->nova_declared_value ?: $record?->grand_total ?: Setting::admin('nova_post.default_cost') ?: config('services.nova_post.price_cost', '500'),
+            'cod_amount' => $record?->nova_cod_amount,
+            'description' => Setting::admin('nova_post.default_description') ?: 'Парфуми',
+        ];
+    }
+
+    protected static function novaPostApiPayerType(mixed $orderPayer, string $default): string
+    {
+        return match (mb_strtolower(trim((string) $orderPayer))) {
+            'sender' => 'Sender',
+            'recipient' => 'Recipient',
+            default => in_array($default, ['Sender', 'Recipient'], true) ? $default : 'Recipient',
+        };
+    }
+
     public static function applyAwaitingPaymentQuery($query)
     {
         return $query
@@ -964,19 +1084,71 @@ class OrderResource extends ShopOrderResource
                     ]),
 
                     Actions::make([
+                        FormAction::make('create_nova_ttn')
+                            ->label('Створити ТТН')
+                            ->icon('heroicon-m-truck')
+                            ->color('success')
+                            ->requiresConfirmation()
+                            ->modalHeading('Створити ТТН Нової пошти')
+                            ->modalDescription('Поточні дані замовлення будуть збережені, після цього буде створена реальна ТТН через API Нової пошти.')
+                            ->modalSubmitActionLabel('Створити ТТН')
+                            ->form(static::novaPostTtnActionForm())
+                            ->fillForm(fn (?Order $record): array => static::novaPostTtnActionDefaults($record))
+                            ->disabled(fn (Get $get): bool => filled($get('nova_ttn')))
+                            ->action(function (array $data, LivewireComponent $livewire): void {
+                                if (method_exists($livewire, 'createNovaPostTtn')) {
+                                    $livewire->createNovaPostTtn($data);
+                                }
+                            }),
                         FormAction::make('print_nova_ttn')
                             ->label('Друк ТТН')
                             ->icon('heroicon-m-printer')
+                            ->url(fn (?Order $record): ?string => $record?->nova_ttn
+                                ? route('admin.callcenter.orders.nova-post.print', ['order' => $record])
+                                : null)
+                            ->openUrlInNewTab()
                             ->disabled(fn (Get $get): bool => blank($get('nova_ttn'))),
+                        FormAction::make('print_nova_marking')
+                            ->label('Маркування')
+                            ->icon('heroicon-m-tag')
+                            ->color('primary')
+                            ->url(fn (?Order $record): ?string => $record?->nova_ttn
+                                ? route('admin.callcenter.orders.nova-post.marking', ['order' => $record])
+                                : null)
+                            ->openUrlInNewTab()
+                            ->disabled(fn (Get $get): bool => blank($get('nova_ttn')) || (string) $get('nova_status') === 'cancelled'),
                         FormAction::make('track_nova_ttn')
                             ->label('Відстежити')
                             ->icon('heroicon-m-arrow-top-right-on-square')
+                            ->url(fn (?Order $record): ?string => $record?->nova_ttn
+                                ? 'https://novaposhta.ua/tracking/' . rawurlencode((string) $record->nova_ttn)
+                                : null)
+                            ->openUrlInNewTab()
+                            ->disabled(fn (Get $get): bool => blank($get('nova_ttn'))),
+                        FormAction::make('refresh_nova_status')
+                            ->label('Оновити статус')
+                            ->icon('heroicon-m-arrow-path')
+                            ->color('gray')
+                            ->action(function (LivewireComponent $livewire): void {
+                                if (method_exists($livewire, 'refreshNovaPostStatus')) {
+                                    $livewire->refreshNovaPostStatus();
+                                }
+                            })
                             ->disabled(fn (Get $get): bool => blank($get('nova_ttn'))),
                         FormAction::make('cancel_nova_ttn')
                             ->label('Скасувати ТТН')
                             ->icon('heroicon-m-trash')
                             ->color('danger')
-                            ->disabled(fn (Get $get): bool => blank($get('nova_ttn'))),
+                            ->requiresConfirmation()
+                            ->modalHeading('Скасувати ТТН Нової пошти')
+                            ->modalDescription('ТТН буде скасована через API Нової пошти. Дію не можна виконати повторно для вже скасованої ТТН.')
+                            ->modalSubmitActionLabel('Скасувати ТТН')
+                            ->action(function (LivewireComponent $livewire): void {
+                                if (method_exists($livewire, 'cancelNovaPostTtn')) {
+                                    $livewire->cancelNovaPostTtn();
+                                }
+                            })
+                            ->disabled(fn (Get $get): bool => blank($get('nova_ttn')) || (string) $get('nova_status') === 'cancelled'),
                     ])->columnSpanFull(),
                 ])
                 ->visible(fn (Get $get): bool => static::normalizeNovaPostShippingMethod($get('shipping_method')) === 'nova_post'),
@@ -1189,7 +1361,9 @@ class OrderResource extends ShopOrderResource
 
                         return static::renderOrderItemProductCard(
                             (int) ($get('product_id') ?? 0),
-                            $defaultLocale
+                            $defaultLocale,
+                            (float) ($get('qty') ?? 0),
+                            (int) ($get('id') ?? 0),
                         );
                     }),
 
@@ -1255,11 +1429,13 @@ class OrderResource extends ShopOrderResource
                         if (! $product) {
                             $set('product_id', null);
                             $set('unit_price', 0);
+                            $set('product_snapshot', null);
 
                             return;
                         }
 
                         $set('unit_price', number_format((float) ($product->price ?? 0), 1, '.', ''));
+                        $set('product_snapshot', null);
                     }),
 
                 Placeholder::make('unit')
@@ -1275,7 +1451,12 @@ class OrderResource extends ShopOrderResource
                             return new HtmlString('<span class="callcenter-unit-with-tooltip"><span class="callcenter-unit-value">-</span><span class="callcenter-unit-tooltip" role="tooltip">Описание отсутствует</span></span>');
                         }
 
-                        $unit = static::getProductUnitLabel($productId);
+                        $unit = static::getOrderItemUnitLabel(
+                            $productId,
+                            (float) ($get('qty') ?? 0),
+                            (array) ($get('product_snapshot') ?? []),
+                            (int) ($get('id') ?? 0),
+                        );
                         $description = static::getProductDescriptionForTooltip($productId);
 
                         return new HtmlString(
@@ -2158,6 +2339,30 @@ class OrderResource extends ShopOrderResource
         ];
     }
 
+    public static function novaPostTrackingStatusLabels(): array
+    {
+        return [
+            'created' => 'Створено',
+            'at_branch' => 'У відділенні',
+            'in_transit' => 'В дорозі',
+            'arrived' => 'Прибув у відділення',
+            'received' => 'Отримано',
+            'cancelled' => 'Скасовано',
+        ];
+    }
+
+    public static function novaPostTrackingStatusColors(): array
+    {
+        return [
+            'created' => ['bg' => '#E0F2FE', 'text' => '#075985'],
+            'at_branch' => ['bg' => '#FEF3C7', 'text' => '#92400E'],
+            'in_transit' => ['bg' => '#DBEAFE', 'text' => '#1E40AF'],
+            'arrived' => ['bg' => '#DCFCE7', 'text' => '#166534'],
+            'received' => ['bg' => '#BBF7D0', 'text' => '#166534'],
+            'cancelled' => ['bg' => '#FEE2E2', 'text' => '#991B1B'],
+        ];
+    }
+
     protected static function normalizeNovaPostOrderStatus(mixed $status): string
     {
         $status = $status instanceof OrderStatus ? $status->value : (string) $status;
@@ -2200,7 +2405,7 @@ class OrderResource extends ShopOrderResource
         };
     }
 
-    protected static function getNovaPostStatusesSchema(): array
+    protected static function getNovaPostStatusesSchema(string $statePath = 'data'): array
     {
         return [
             Hidden::make('status')
@@ -2219,7 +2424,7 @@ class OrderResource extends ShopOrderResource
             View::make('filament.callcenter.order-status-timeline')
                 ->dehydrated(false)
                 ->live()
-                ->viewData(function (Get $get, ?Order $record): array {
+                ->viewData(function (Get $get, ?Order $record) use ($statePath): array {
                     $current = static::normalizeNovaPostOrderStatus($get('status') ?? $record?->status ?? OrderStatus::New);
                     $times = $record?->status_times ?? [];
                     $labels = static::novaPostOrderStatusLabels();
@@ -2242,6 +2447,7 @@ class OrderResource extends ShopOrderResource
                         'ranks' => collect(OrderStatus::cases())->mapWithKeys(fn (OrderStatus $status): array => [
                             $status->value => $status->rank(),
                         ])->all(),
+                        'statePath' => $statePath,
                     ];
                 }),
 
@@ -2371,7 +2577,7 @@ class OrderResource extends ShopOrderResource
         return in_array($view, ['compact', 'photo'], true) ? $view : 'compact';
     }
 
-    protected static function renderOrderItemProductCard(int $productId, string $locale): HtmlString
+    protected static function renderOrderItemProductCard(int $productId, string $locale, float $qty = 0, int $orderItemId = 0): HtmlString
     {
         if ($productId <= 0) {
             return new HtmlString(
@@ -2405,6 +2611,12 @@ class OrderResource extends ShopOrderResource
         $chars = static::resolveProductCardCharacteristics($product);
 
         $meta = [];
+        $unitLabel = static::getOrderItemUnitLabel($productId, $qty, [], $orderItemId);
+
+        if ($unitLabel !== '' && $unitLabel !== '-') {
+            $meta[] = '<span class="callcenter-product-card-char"><span>' . e($unitLabel) . '</span></span>';
+        }
+
         if ($article !== '') {
             $meta[] = '<span class="callcenter-product-card-article">Артикул: ' . e($article) . '</span>';
         }
@@ -2481,12 +2693,69 @@ class OrderResource extends ShopOrderResource
             ->all();
     }
 
-    protected static function getProductUnitLabel(int $productId): string
+    protected static function getOrderItemUnitLabel(int $productId, float $qty = 0, array $snapshot = [], int $orderItemId = 0): string
+    {
+        $metaLabel = static::resolveOrderItemMeasureLabelFromMeta((array) data_get($snapshot, 'meta', []));
+        if ($metaLabel !== '') {
+            return $metaLabel;
+        }
+
+        $snapshotLabel = trim((string) data_get($snapshot, 'menu_measure_label', ''));
+        if ($snapshotLabel !== '') {
+            return $snapshotLabel;
+        }
+
+        if ($orderItemId > 0) {
+            $storedItem = OrderItem::query()
+                ->whereKey($orderItemId)
+                ->first(['id', 'product_snapshot', 'meta']);
+
+            $storedMetaLabel = static::resolveOrderItemMeasureLabelFromMeta((array) ($storedItem?->meta ?? []));
+            if ($storedMetaLabel !== '') {
+                return $storedMetaLabel;
+            }
+
+            $storedSnapshot = $storedItem?->product_snapshot;
+
+            if (is_array($storedSnapshot) || (is_string($storedSnapshot) && $storedSnapshot !== '')) {
+                $decoded = is_array($storedSnapshot) ? $storedSnapshot : json_decode($storedSnapshot, true);
+                $storedLabel = is_array($decoded)
+                    ? trim((string) data_get($decoded, 'menu_measure_label', ''))
+                    : '';
+
+                if ($storedLabel !== '') {
+                    return $storedLabel;
+                }
+            }
+        }
+
+        return static::getProductUnitLabel($productId, $qty);
+    }
+
+    protected static function resolveOrderItemMeasureLabelFromMeta(array $meta): string
+    {
+        $volume = trim((string) ($meta['volume'] ?? ''));
+        if ($volume !== '') {
+            return $volume;
+        }
+
+        $cartLabel = trim((string) ($meta['cart_label'] ?? ''));
+        if ($cartLabel === '') {
+            return '';
+        }
+
+        preg_match('/\d+(?:[.,]\d+)?\s*(?:мл|ml)/iu', $cartLabel, $matches);
+
+        return trim((string) ($matches[0] ?? $cartLabel));
+    }
+
+    protected static function getProductUnitLabel(int $productId, float $qty = 0): string
     {
         static $cache = [];
+        $cacheKey = $productId . ':' . rtrim(rtrim(number_format($qty, 3, '.', ''), '0'), '.');
 
-        if (isset($cache[$productId])) {
-            return $cache[$productId];
+        if (isset($cache[$cacheKey])) {
+            return $cache[$cacheKey];
         }
 
         $product = \App\Models\Shop\Product::query()
@@ -2498,12 +2767,16 @@ class OrderResource extends ShopOrderResource
             $locale = app()->getLocale();
 
             $quantity = (float) ($product->price_unit_quantity ?? 1);
+            if ($product->unit->code === 'ml' && $qty > 1 && $quantity <= 1) {
+                $quantity = $qty;
+            }
+
             $quantityLabel = rtrim(rtrim(number_format($quantity, 3, '.', ''), '0'), '.');
             $unit = $product->unit->getTranslation('short_name', $locale, false)
                 ?: $product->unit->getTranslation('name', $locale, false)
                 ?: $product->unit->code;
 
-            return $cache[$productId] = ($quantityLabel ?: '1') . ' ' . $unit;
+            return $cache[$cacheKey] = ($quantityLabel ?: '1') . ' ' . $unit;
         }
 
         $productIds = array_values(array_unique(array_filter([
@@ -2511,7 +2784,7 @@ class OrderResource extends ShopOrderResource
             (int) ($product?->parent_id ?? 0),
         ])));
 
-        $priority = ['rozmir-pirogiv', 'rozmiri-insi', 'vaga-grami', 'vaga-setiv', 'vaga'];
+        $priority = ['volume', 'obiem', 'obyem', 'obem', 'rozmir-pirogiv', 'rozmiri-insi', 'vaga-grami', 'vaga-setiv', 'vaga'];
 
         $rows = ProductCharacteristicValue::query()
             ->with([
@@ -2540,7 +2813,7 @@ class OrderResource extends ShopOrderResource
                 $value = static::resolveUnitValueFromRow($match);
 
                 if ($value !== '') {
-                    return $cache[$productId] = $value;
+                    return $cache[$cacheKey] = $value;
                 }
             }
         }
@@ -2560,7 +2833,7 @@ class OrderResource extends ShopOrderResource
             })->values()->all(),
         ]);
 
-        return $cache[$productId] = '-';
+        return $cache[$cacheKey] = '-';
     }
 
     protected static function getProductDescriptionForTooltip(int $productId): string

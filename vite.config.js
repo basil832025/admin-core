@@ -18,6 +18,8 @@ const frontendSeviaInputs = [
 ];
 
 export default defineConfig(({ mode }) => {
+    process.env.TAILWIND_BUILD_MODE = mode;
+
     const isFrontendThreePirogaBuild = mode === 'frontend-3piroga' && existsSync('packages/frontend-3piroga');
     const isFrontendSeviaBuild = mode === 'frontend-sevia' && existsSync('packages/frontend-sevia');
     const input = isFrontendThreePirogaBuild
