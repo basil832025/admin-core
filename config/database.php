@@ -2,9 +2,11 @@
 
 use Illuminate\Support\Str;
 
-$project = (string) env('APP_PROJECT', '3piroga');
+$project = trim((string) env('APP_PROJECT', ''));
 $projectConfig = require __DIR__ . '/projects.local.php';
-$projectDatabase = env('DB_DATABASE', $projectConfig[$project]['database'] ?? 'laravel');
+$projectDatabase = $project !== ''
+    ? ($projectConfig[$project]['database'] ?? env('DB_DATABASE', 'laravel'))
+    : env('DB_DATABASE', 'laravel');
 
 return [
 
