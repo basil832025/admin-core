@@ -4,7 +4,7 @@ use Illuminate\Support\Str;
 
 $project = (string) env('APP_PROJECT', '3piroga');
 $projectConfig = require __DIR__ . '/projects.local.php';
-$projectDatabase = $projectConfig[$project]['database'] ?? env('DB_DATABASE', 'laravel');
+$projectDatabase = env('DB_DATABASE', $projectConfig[$project]['database'] ?? 'laravel');
 
 return [
 
