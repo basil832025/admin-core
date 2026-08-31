@@ -51,23 +51,28 @@ class CartService
     }
 
     /** Удалить товар */
-    public function remove(int $productId, array $meta = []): array
+    public function remove(int $productId, array $meta = [], bool $all = false): array
     {
         $user = $this->authUser();
 
         if ($user) {
             $order = $this->getOrCreateDraftOrder($user, false);
             $candidates = $this->visibleCartOrderItems($order)->filter(fn ($item) => (int) $item->product_id === $productId);
-            $items = $candidates->filter(fn ($item) => $this->sameCartVariant($item->meta ?? [], $meta));
+            $items = $all
+                ? $candidates
+                : $candidates->filter(fn ($item) => $this->sameCartVariant($item->meta ?? [], $meta));
             if ($items->isEmpty() && $candidates->count() === 1) {
                 $items = $candidates;
             }
             $items->each->delete();
+            $this->forgetOrderCaches($order);
             $this->recalc($order);
         } else {
             $current = collect($this->guestCartItems());
             $candidates = $current->filter(fn ($item) => (int) ($item['product_id'] ?? 0) === $productId);
-            $targets = $candidates->filter(fn ($item) => $this->sameCartVariant($item['meta'] ?? [], $meta));
+            $targets = $all
+                ? $candidates
+                : $candidates->filter(fn ($item) => $this->sameCartVariant($item['meta'] ?? [], $meta));
             if ($targets->isEmpty() && $candidates->count() === 1) {
                 $targets = $candidates;
             }
@@ -78,13 +83,18 @@ class CartService
 
         $this->resetCheckoutState();
 
-        [$cartTotalQty, $cartTotalSum] = $this->computeTotals();
-        $lineArray = $this->getLineArrayByProductId($productId, $meta);
+        $freshInfo = $this->info();
+        $freshTotal = (float) ($freshInfo['total_price'] ?? $freshInfo['total'] ?? 0);
 
-        return array_merge(
-            $this->buildSummaryPayload($cartTotalQty, $cartTotalSum),
-            $this->buildItemPayload($lineArray)
-        );
+        return [
+            'ok'          => true,
+            'qty'         => (int) ($freshInfo['qty'] ?? 0),
+            'total'       => $freshTotal,
+            'total_price' => $freshTotal,
+            'item'        => null,
+            'removed'     => true,
+            'id'          => $productId,
+        ];
     }
 
     /** Очистить корзину */
@@ -251,6 +261,24 @@ class CartService
 
     private function getLineArrayByProductId(int $productId, array $meta = []): ?array
     {
+        if ($user = $this->authUser()) {
+            $order = $this->getOrCreateDraftOrder($user, false);
+            $oi = $this->visibleCartOrderItems($order)
+                ->filter(fn ($item) => (int) $item->product_id === $productId)
+                ->first(fn ($item) => $this->sameCartVariant($item->meta ?? [], $meta));
+
+            if ($oi) {
+                return [
+                    'product_id' => (int)$oi->product_id,
+                    'qty'        => (int)$oi->qty,
+                    'price'      => (float)($oi->unit_price ?? $oi->price ?? 0),
+                    'meta'       => is_array($oi->meta ?? null) ? $oi->meta : [],
+                ];
+            }
+
+            return null;
+        }
+
         $items = $this->normalizeSessionCart();
 
         if (is_array($items) && $items) {
@@ -724,6 +752,7 @@ class CartService
         }
 
         $orderId = (int) $order->id;
+        $order->unsetRelation('items');
         unset($this->cartItemsCache[$orderId], $this->cartItemsByProductIdCache[$orderId]);
     }
 

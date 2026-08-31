@@ -1,6 +1,6 @@
 {
   "packages/frontend-3piroga/resources/css/app.css": {
-    "file": "assets/app-BL9dyzlD.css",
+    "file": "assets/app-qxM6KTkj.css",
     "src": "packages/frontend-3piroga/resources/css/app.css",
     "isEntry": true
   },
@@ -19,7 +19,7 @@
     "isDynamicEntry": true
   },
   "packages/frontend-3piroga/resources/js/app.js": {
-    "file": "assets/app-D7d8djNh.js",
+    "file": "assets/app-96LlHP-Y.js",
     "name": "app",
     "src": "packages/frontend-3piroga/resources/js/app.js",
     "isEntry": true,

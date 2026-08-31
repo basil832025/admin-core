@@ -2581,6 +2581,10 @@ class OrderResource extends Resource
 
                 TextColumn::make('operator_time')
                     ->label(new HtmlString(__('order.columns.operator_time')))
+                    ->visible(fn (): bool => ! (
+                        static::class === \App\Filament\Resources\Callcenter\OrderResource::class
+                        && (string) config('callcenter.order_form_mode', 'food') === 'nova_post'
+                    ))
                     ->html()
                     ->getStateUsing(fn (Order $record) => static::formatOperatorTime($record))
                     ->grow(false)
@@ -2589,6 +2593,10 @@ class OrderResource extends Resource
 
                 TextColumn::make('kitchen_time')
                     ->label(new HtmlString(__('order.columns.kitchen_time')))
+                    ->visible(fn (): bool => ! (
+                        static::class === \App\Filament\Resources\Callcenter\OrderResource::class
+                        && (string) config('callcenter.order_form_mode', 'food') === 'nova_post'
+                    ))
                     ->html()
                     ->getStateUsing(fn (Order $record) => static::formatKitchenTime($record))
                     ->grow(false)
@@ -2597,6 +2605,10 @@ class OrderResource extends Resource
 
                 TextColumn::make('delivery_time')
                     ->label(new HtmlString(__('order.columns.delivery_time')))
+                    ->visible(fn (): bool => ! (
+                        static::class === \App\Filament\Resources\Callcenter\OrderResource::class
+                        && (string) config('callcenter.order_form_mode', 'food') === 'nova_post'
+                    ))
                     ->html()
                     ->getStateUsing(fn (Order $record) => static::formatDeliveryTime($record))
                     ->grow(false)
@@ -2605,6 +2617,10 @@ class OrderResource extends Resource
 
                 TextColumn::make('total_time')
                     ->label(new HtmlString(__('order.columns.total_time')))
+                    ->visible(fn (): bool => ! (
+                        static::class === \App\Filament\Resources\Callcenter\OrderResource::class
+                        && (string) config('callcenter.order_form_mode', 'food') === 'nova_post'
+                    ))
                     ->html()
                     ->getStateUsing(fn (Order $record) => static::formatTotalTime($record))
                     ->grow(false)
