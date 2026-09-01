@@ -35,12 +35,11 @@ script.py
 /public/favicon.png
 /public/favicon-16x16.png
 /public/apple-touch-icon.png
-/public/build/frontend-sevia/
-/public/vendor/frontend-sevia/
+/public/build/frontend-*/
+/public/vendor/frontend-*/
 
 /packages/*
 !/packages/cashalotapi/
 !/packages/cashalotapi/**
 
-# Local symlink/junction to frontend package public assets.
-/public/vendor/frontend-3piroga
+# Local symlink/junctions to frontend package public assets are ignored above.

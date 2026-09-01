@@ -804,25 +804,28 @@ class CartService
         $user = $this->authUser();
 
         // вспомогалка: строки атрибутов из варианта (размер/вес и т.д.)
-        $variantAttrs = function ($product) {
+        $variantAttrs = function ($product, array $meta = []) {
             if (! $product) {
-                return '';
+                return $this->cartMetaMeasureLabel($meta);
             }
 
             $productId = (int) ($product->id ?? 0);
             if ($productId <= 0) {
-                return '';
+                return $this->cartMetaMeasureLabel($meta);
             }
 
             if (array_key_exists($productId, $this->variantAttributesCache)) {
-                return $this->variantAttributesCache[$productId];
+                $cached = $this->variantAttributesCache[$productId];
+                $metaLabel = $this->cartMetaMeasureLabel($meta);
+
+                return $cached !== '' ? $cached : $metaLabel;
             }
 
             $vals = $product->relationLoaded('productCharacteristicValues')
                 ? ($product->productCharacteristicValues ?? collect())
                 : collect();
 
-            $keep  = ['rozmir-pirogiv', 'vaga', 'obiem', 'obyem', 'volume', 'ml']; // размер, вес или объем
+            $keep  = ['rozmir-pirogiv', 'rozmiri-insi', 'vaga', 'vaga-grami', 'vaga-setiv', 'obiem', 'obyem', 'volume', 'ml'];
             $parts = [];
 
             foreach ($vals as $v) {
@@ -838,7 +841,10 @@ class CartService
                 }
             }
 
-            return $this->variantAttributesCache[$productId] = implode(' · ', array_filter($parts));
+            $text = implode(' · ', array_filter($parts));
+            $this->variantAttributesCache[$productId] = $text;
+
+            return $text !== '' ? $text : $this->cartMetaMeasureLabel($meta);
         };
 
         if ($user) {
@@ -855,7 +861,8 @@ class CartService
             $products = \App\Models\Shop\Product::query()
                 ->with([
                     'parent:id,old_price,title,short_name,main_image,sku,code2',
-                    'productCharacteristicValues.characteristic:id,slug',
+                    'productCharacteristicValues.characteristic:id,slug,svg_image_id',
+                    'productCharacteristicValues.characteristic.svgImage',
                     'productCharacteristicValues.characteristicValue',
                 ])
                 ->whereIn('id', $productIds)
@@ -873,6 +880,9 @@ class CartService
                 $productKey = trim((string) ($code2 ?: $sku ?: $it->product_id));
                 $article = ($sku !== null && trim((string)$sku) !== '') ? $sku : $code2;
                 $image = $parent?->main_image_url ?? ($parent?->image_url ?? null);
+                $meta = is_array($it->meta ?? null) ? $it->meta : [];
+                $variantChars = $this->cartVariantDisplayChars($p, $meta);
+                $variant = implode(' · ', array_filter(array_column($variantChars, 'value'))) ?: $variantAttrs($p, $meta);
 
                 return [
                     'product_id' => (int) $it->product_id,
@@ -881,14 +891,15 @@ class CartService
                     'code2'      => $code2,
                     'product_key'=> $productKey,
                     'image'      => $image,
-                    'variant'    => $variantAttrs($p), // “33 см · 1300 г”
+                    'variant'    => $variant,
+                    'variant_chars' => $variantChars,
                     'qty'        => (int) $it->qty,
                     'price'      => (float) $it->unit_price,
                     'currency'   => (string) ($it->currency ?? 'UAH'),
                     'subtotal'   => (float) $it->qty * (float) $it->unit_price,
                     'old_price'  => $oldPrice,
                     'old_subtotal' => $oldPrice ? (float) ($it->qty * $oldPrice) : null,
-                    'meta'       => $it->meta ?? [],
+                    'meta'       => $meta,
                     'article'    => $article,
                 ];
             })->values()->all();
@@ -906,7 +917,8 @@ class CartService
         $products = $prodModel->newQuery()
             ->with([
                 'parent:id,old_price,title,short_name,main_image,sku,code2',
-                'productCharacteristicValues.characteristic:id,slug',
+                'productCharacteristicValues.characteristic:id,slug,svg_image_id',
+                'productCharacteristicValues.characteristic.svgImage',
                 'productCharacteristicValues.characteristicValue',
             ])
             ->whereIn('id', $ids)
@@ -927,6 +939,9 @@ class CartService
             $qty   = (int)($i['qty'] ?? 1);
             $price = (float)($i['price'] ?? 0);
             $oldPrice = $this->resolveDisplayedOldPrice($p, $price);
+            $meta = is_array($i['meta'] ?? null) ? $i['meta'] : [];
+            $variantChars = $this->cartVariantDisplayChars($p, $meta);
+            $variant = implode(' · ', array_filter(array_column($variantChars, 'value'))) ?: $variantAttrs($p, $meta);
 
                 return [
                     'product_id' => (int)($i['product_id'] ?? 0),
@@ -935,17 +950,78 @@ class CartService
                     'code2'      => $code2,
                     'product_key'=> $productKey,
                     'image'      => $image,
-                    'variant'    => $variantAttrs($p),
+                    'variant'    => $variant,
+                    'variant_chars' => $variantChars,
                     'qty'        => $qty,
                     'price'      => $price,
                     'currency'   => 'UAH',
                     'subtotal'   => $qty * $price,
                     'old_price'  => $oldPrice,
                     'old_subtotal' => $oldPrice ? $qty * $oldPrice : null,
-                    'meta'       => $i['meta'] ?? [],
+                    'meta'       => $meta,
                     'article'    => $article,
                 ];
         })->values()->all();
+    }
+
+    private function cartVariantDisplayChars(?\App\Models\Shop\Product $product, array $meta = []): array
+    {
+        $keep = ['rozmir-pirogiv', 'rozmiri-insi', 'vaga', 'vaga-grami', 'vaga-setiv', 'obiem', 'obyem', 'volume', 'ml'];
+        $chars = [];
+        $vals = $product && $product->relationLoaded('productCharacteristicValues')
+            ? ($product->productCharacteristicValues ?? collect())
+            : collect();
+
+        foreach ($vals as $v) {
+            $char = $v->characteristic;
+            $slug = (string) ($char?->slug ?? '');
+
+            if ($slug === '' || ! in_array($slug, $keep, true)) {
+                continue;
+            }
+
+            $text = $this->cartCharacteristicText($v->value_text ?: ($v->characteristicValue?->value ?? null));
+            if ($text === '') {
+                continue;
+            }
+
+            $chars[] = [
+                'slug' => $slug,
+                'value' => $text,
+                'svg' => $char?->svgImage?->url ?? null,
+            ];
+        }
+
+        $metaLabel = $this->cartMetaMeasureLabel($meta);
+        if ($metaLabel !== '' && ! collect($chars)->contains(fn ($char) => trim((string) ($char['value'] ?? '')) === $metaLabel)) {
+            $chars[] = [
+                'slug' => 'volume',
+                'value' => $metaLabel,
+                'svg' => $this->cartMeasureFallbackSvgUrl(),
+            ];
+        }
+
+        return $chars;
+    }
+
+    private function cartMetaMeasureLabel(array $meta): string
+    {
+        return trim((string) ($meta['volume'] ?? $meta['cart_label'] ?? ''));
+    }
+
+    private function cartCharacteristicText(mixed $value): string
+    {
+        if (is_array($value)) {
+            $locale = app()->getLocale();
+            $value = $value[$locale] ?? $value['uk'] ?? $value['ru'] ?? $value['en'] ?? reset($value);
+        }
+
+        return trim((string) $value);
+    }
+
+    private function cartMeasureFallbackSvgUrl(): ?string
+    {
+        return asset('vendor/frontend-3piroga/images/svg/weight.svg');
     }
 
     private function guestCartItems(): array
