@@ -2342,7 +2342,7 @@ class OrderResource extends Resource
     {
         return $table
             ->modifyQueryUsing(fn (Builder $query) => $query
-                ->with(['clients.group', 'clientAddress', 'lastLiqpayLog', 'items.product', 'source']) // ← исправление N+1 проблемы
+                ->with(['clients.group', 'clientAddress', 'lastLiqpayLog', 'items.product.unit', 'source']) // ← исправление N+1 проблемы
                 ->when(
                     static::class === \App\Filament\Resources\Callcenter\OrderResource::class,
                     fn (Builder $q) => $q
@@ -2807,8 +2807,8 @@ class OrderResource extends Resource
                     ? ViewColumn::make('items_inline')
                         ->label(__('order.columns.items'))
                         ->grow(false)
-                        ->extraHeaderAttributes(['class' => 'min-w-[16rem]'])
-                        ->extraCellAttributes(['class' => 'min-w-[16rem]'])
+                        ->extraHeaderAttributes(['class' => 'min-w-[22rem]'])
+                        ->extraCellAttributes(['class' => 'min-w-[22rem]'])
                         ->view('filament.tables.columns.order-items-inline')
                     : null,
 

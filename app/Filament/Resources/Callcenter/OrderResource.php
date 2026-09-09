@@ -351,6 +351,13 @@ class OrderResource extends ShopOrderResource
                     ->schema([
                         Section::make(__('order.sections.order_items'))
                             ->schema([
+                                Placeholder::make('order_composition_preview')
+                                    ->label('')
+                                    ->hiddenLabel()
+                                    ->dehydrated(false)
+                                    ->visible(fn (?Order $record): bool => $record !== null && (static::isNovaPostOrderForm() || static::hasDiscoverySets($record)))
+                                    ->content(fn (?Order $record): HtmlString => static::renderOrderCompositionPreview($record)),
+                                static::getDiscoveryOrderActions(),
                                 static::getItemsRepeater(),
                             ]),
                         Section::make(__('order.sections.sum_only'))
@@ -1243,8 +1250,10 @@ class OrderResource extends ShopOrderResource
             ->relationship()
             ->label('')
             ->extraAttributes([
-                'class' => 'callcenter-items-table callcenter-items-table--' . $itemsView,
+                'class' => 'callcenter-items-table callcenter-items-table--' . $itemsView
+                    . (static::isNovaPostOrderForm() ? ' callcenter-items-table--nova-post' : ''),
             ])
+            ->visible(fn (?Order $record): bool => $record === null || (! static::isNovaPostOrderForm() && ! static::hasDiscoverySets($record)))
             ->afterStateUpdated(function (Set $set, Get $get): void {
                 static::recalculateShippingFromCurrentForm($get, $set, null);
             })
@@ -1332,12 +1341,16 @@ class OrderResource extends ShopOrderResource
                         $note = trim((string) ($get('kitchen_note') ?? ''));
                         $noteEscaped = e($note);
                         $orderItemId = (int) ($get('id') ?? 0);
+                        $marker = static::isDiscoverySetFormState($get)
+                            ? '<span class="callcenter-discovery-child-marker" aria-hidden="true"></span>'
+                            : '';
                         $buttonClass = $note !== ''
                             ? 'callcenter-kitchen-note-btn is-active'
                             : 'callcenter-kitchen-note-btn';
 
                         return new \Illuminate\Support\HtmlString(
-                            '<div x-data="{ open: false }" class="relative flex justify-center">'
+                            $marker
+                            . '<div x-data="{ open: false }" class="relative flex justify-center">'
                             . '<button type="button" class="' . $buttonClass . '" title="' . e(__('callcenter.order.kitchen_info')) . '" @click.prevent="open = !open">+</button>'
                             . '<div x-show="open" x-cloak @click.outside="open = false" class="callcenter-kitchen-note-popover">'
                             . '<textarea class="callcenter-kitchen-note-textarea" rows="4" placeholder="Например: без лука, хорошо пропечь, двойная начинка">' . $noteEscaped . '</textarea>'
@@ -1422,6 +1435,7 @@ class OrderResource extends ShopOrderResource
                         return $product ? static::productLabel($product, $defaultLocale) : null;
                     })
                     ->required()
+                    ->disabled(fn (Get $get): bool => static::isDiscoverySetFormState($get))
                     ->reactive()
                     ->afterStateUpdated(function ($state, Set $set) {
                         $product = \App\Models\Shop\Product::find($state);
@@ -1478,6 +1492,7 @@ class OrderResource extends ShopOrderResource
                     ->default(1)
                     ->minValue(1)
                     ->required()
+                    ->disabled(fn (Get $get): bool => static::isDiscoverySetFormState($get))
                     ->live(debounce: 250)
                     ->afterStateUpdated(function ($state, Set $set, Get $get, $livewire): void {
                         static::persistOrderItemInlineChanges($get, ['qty' => max(1, (int) $state)], $livewire);
@@ -1494,6 +1509,7 @@ class OrderResource extends ShopOrderResource
                     ->rule('numeric')
                     ->inputMode('decimal')
                     ->required()
+                    ->disabled(fn (Get $get): bool => static::isDiscoverySetFormState($get))
                     ->live(debounce: 300)
                     ->afterStateUpdated(function ($state, Set $set, Get $get, $livewire): void {
                         $normalized = (float) str_replace(',', '.', (string) $state);
@@ -1526,6 +1542,7 @@ class OrderResource extends ShopOrderResource
                     ])
                     ->rule('numeric')
                     ->inputMode('decimal')
+                    ->disabled(fn (Get $get): bool => static::isDiscoverySetFormState($get))
                     ->helperText(function (Get $get): ?HtmlString {
                         $virtual = static::resolveVirtualItemDiscountMeta($get);
 
@@ -1579,7 +1596,657 @@ class OrderResource extends ShopOrderResource
             ->required();
     }
 
-    protected static function resolveCurrentItemDiscountValue(int $orderItemId): ?string
+    protected static function getDiscoveryOrderActions(): Actions
+    {
+        $defaultLocale = config('app.locale', 'uk');
+
+        return Actions::make([
+            FormAction::make('add_regular_order_item')
+                ->label(__('order.actions.add_item'))
+                ->icon('heroicon-o-plus')
+                ->modalHeading(__('order.actions.add_item'))
+                ->form([
+                    Select::make('product_id')
+                        ->label(__('order.fields.product'))
+                        ->searchable()
+                        ->preload(false)
+                        ->optionsLimit(50)
+                        ->getSearchResultsUsing(fn (string $search): array => static::searchOrderProductOptions($search, $defaultLocale))
+                        ->getOptionLabelUsing(fn ($value): ?string => static::getOrderProductOptionLabel($value, $defaultLocale))
+                        ->required(),
+                    TextInput::make('qty')
+                        ->label(__('callcenter.order.qty_short'))
+                        ->numeric()
+                        ->default(1)
+                        ->minValue(1)
+                        ->required(),
+                    TextInput::make('unit_price')
+                        ->label(__('order.fields.price'))
+                        ->rule('numeric')
+                        ->inputMode('decimal')
+                        ->helperText('Если оставить пустым, цена возьмется из товара.'),
+                ])
+                ->action(function (array $data, $livewire): void {
+                    if (! isset($livewire->record) || ! $livewire->record?->exists) {
+                        return;
+                    }
+
+                    $product = Product::query()->find((int) ($data['product_id'] ?? 0));
+
+                    if (! $product) {
+                        return;
+                    }
+
+                    $price = trim((string) ($data['unit_price'] ?? ''));
+                    $unitPrice = $price !== ''
+                        ? (float) str_replace(',', '.', $price)
+                        : (float) ($product->price ?? 0);
+
+                    $livewire->record->items()->create([
+                        'product_id' => (int) $product->id,
+                        'qty' => max(1, (int) ($data['qty'] ?? 1)),
+                        'unit_price' => max(0, $unitPrice),
+                        'currency' => 'UAH',
+                    ]);
+
+                    static::refreshOrderAfterItemsChange($livewire);
+                }),
+        ])
+            ->alignment('left')
+            ->visible(fn (?Order $record): bool => $record !== null && (static::isNovaPostOrderForm() || static::hasDiscoverySets($record)));
+    }
+
+    protected static function hasDiscoverySets(?Order $order): bool
+    {
+        if (! $order?->exists) {
+            return false;
+        }
+
+        $order->loadMissing('items');
+
+        return $order->items->contains(fn (OrderItem $item): bool => static::isDiscoverySetOrderItem($item));
+    }
+
+    protected static function renderOrderCompositionPreview(?Order $order): HtmlString
+    {
+        if (! $order?->exists) {
+            return new HtmlString('');
+        }
+
+        $rows = static::orderCompositionRows($order);
+
+        if ($rows->isEmpty()) {
+            return new HtmlString('');
+        }
+
+        $html = '<div class="callcenter-order-hierarchy">';
+        $html .= '<div class="callcenter-order-hierarchy-head">';
+        $html .= '<div>Товар</div>';
+        $html .= '<div>Розмір</div>';
+        $html .= '<div>К-сть</div>';
+        $html .= '<div>Ціна</div>';
+        $html .= '<div>Сума</div>';
+        $html .= '<div>Знижка</div>';
+        $html .= '<div></div>';
+        $html .= '</div>';
+
+        foreach ($rows as $row) {
+            $html .= $row['type'] === 'discovery_set'
+                ? static::renderDiscoverySetCompositionRow($row)
+                : static::renderRegularCompositionRow($row);
+        }
+
+        $html .= '</div>';
+
+        return new HtmlString($html);
+    }
+
+    protected static function orderCompositionRows(Order $order): \Illuminate\Support\Collection
+    {
+        $order->loadMissing(['items.product.parent']);
+
+        $items = $order->items->sortBy('id')->values();
+        $sets = $items
+            ->filter(fn (OrderItem $item): bool => static::isDiscoverySetOrderItem($item))
+            ->groupBy(fn (OrderItem $item): string => (string) data_get($item->meta, 'discovery_set_id'))
+            ->map(function ($setItems, string $setId): array {
+                $setItems = $setItems->sortBy('id')->values();
+                $originalTotal = (float) $setItems->sum(fn (OrderItem $item): float => (float) data_get($item->meta, 'discovery_original_price', $item->unit_price) * (float) $item->qty);
+                $discountedTotal = (float) $setItems->sum(fn (OrderItem $item): float => (float) $item->unit_price * (float) $item->qty);
+
+                return [
+                    'type' => 'discovery_set',
+                    'id' => $setId,
+                    'items' => $setItems,
+                    'qty' => (int) max(1, $setItems->min('qty') ?? 1),
+                    'original_total' => $originalTotal,
+                    'discounted_total' => $discountedTotal,
+                    'discount' => max(0, $originalTotal - $discountedTotal),
+                ];
+            });
+
+        $seenSetIds = [];
+
+        return $items
+            ->map(function (OrderItem $item) use ($sets, &$seenSetIds): ?array {
+                $setId = trim((string) data_get($item->meta, 'discovery_set_id', ''));
+
+                if ($setId !== '' && $sets->has($setId)) {
+                    if (isset($seenSetIds[$setId])) {
+                        return null;
+                    }
+
+                    $seenSetIds[$setId] = true;
+
+                    return $sets->get($setId);
+                }
+
+                return [
+                    'type' => 'regular',
+                    'item' => $item,
+                    ...static::orderItemDisplayData($item),
+                ];
+            })
+            ->filter()
+            ->values();
+    }
+
+    protected static function isDiscoverySetOrderItem(OrderItem $item): bool
+    {
+        return (bool) data_get($item->meta, 'discovery_53')
+            && filled(data_get($item->meta, 'discovery_set_id'));
+    }
+
+    protected static function isDiscoverySetFormState(Get $get): bool
+    {
+        return (bool) data_get($get('meta'), 'discovery_53')
+            && filled(data_get($get('meta'), 'discovery_set_id'));
+    }
+
+    protected static function orderItemDisplayData(OrderItem $item): array
+    {
+        $meta = is_array($item->meta) ? $item->meta : [];
+        $product = $item->product;
+        $labelParts = collect(preg_split('/\s*·\s*/u', (string) data_get($meta, 'cart_label', '')))
+            ->filter()
+            ->values();
+
+        $brand = trim((string) data_get($meta, 'brand', $labelParts->count() >= 3 ? $labelParts->get(0) : ''));
+        $name = trim((string) data_get($meta, 'name', $labelParts->count() >= 3 ? $labelParts->get(1) : ''));
+        $volume = trim((string) data_get($meta, 'volume', $labelParts->count() >= 3 ? $labelParts->get(2) : ''));
+
+        if ($name === '') {
+            $name = $product ? static::productLabel($product, config('app.locale', 'uk')) : 'Товар #' . $item->product_id;
+        }
+
+        if ($volume === '') {
+            $volume = static::getOrderItemUnitLabel(
+                (int) $item->product_id,
+                (int) $item->qty,
+                is_array($item->product_snapshot) ? $item->product_snapshot : [],
+                (int) $item->id
+            ) ?? '';
+        }
+
+        return [
+            'brand' => $brand,
+            'name' => $name,
+            'volume' => $volume,
+            'notes' => trim((string) data_get($meta, 'notes', '')),
+            'image' => $product ? static::resolveProductImageUrl($product) : asset('images/no-image.svg'),
+            'unit_price' => (float) $item->unit_price,
+            'qty' => (int) $item->qty,
+            'line_total' => (float) $item->unit_price * (float) $item->qty,
+        ];
+    }
+
+    protected static function renderDiscoverySetCompositionRow(array $set): string
+    {
+        $items = $set['items'];
+        $setSize = (int) $items->count();
+        $qty = (int) $set['qty'];
+        $setId = (string) $set['id'];
+        $setArg = static::wireArgument($setId);
+        $slots = $items
+            ->map(fn (OrderItem $item): array => static::discoverySlotPayload($item))
+            ->values()
+            ->all();
+        $slotsJson = e(json_encode($slots, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+        $originalTotal = (float) $set['original_total'];
+        $discountedTotal = (float) $set['discounted_total'];
+        $perSetOriginal = $qty > 0 ? $originalTotal / $qty : $originalTotal;
+        $perSetDiscounted = $qty > 0 ? $discountedTotal / $qty : $discountedTotal;
+        $html = '<div class="callcenter-order-hierarchy-group is-discovery" x-data=\'' .
+            '{ setId: ' . $setArg . ', open: window.matchMedia("(max-width: 768px)").matches ? false : true, editing: false, activeSlot: null, slots: ' . $slotsJson .
+            ', originalSlots: ' . $slotsJson . ', beginEdit() { this.editing = true; this.open = true; }, cancelEdit() { this.slots = JSON.parse(JSON.stringify(this.originalSlots)); this.editing = false; }, openReplace(index) { this.activeSlot = Number(index); $wire.mountAction("menuCatalog", { mode: "set-replace", setId: this.setId, slotIndex: this.activeSlot, orderItemId: this.slots[this.activeSlot]?.itemId || 0, requiredVolume: "3 мл" }); }, applyReplacement(detail) { if (String(detail?.setId || "") !== String(this.setId)) return; const index = Number(detail?.slotIndex ?? -1); if (!this.slots[index]) return; if (Number(detail?.orderItemId || 0) !== Number(this.slots[index]?.itemId || 0)) return; const product = detail.product || {}; this.slots[index] = { ...this.slots[index], productId: Number(product.id || 0), name: product.name || product.title || "", brand: product.brand || "Sevia", article: product.article || "", priceLabel: product.priceLabel || "", image: product.image || "" }; this.editing = true; this.open = true; }, async saveComposition() { await $wire.saveDiscoverySetComposition(' . $setArg . ', this.slots); this.originalSlots = JSON.parse(JSON.stringify(this.slots)); this.editing = false; } }\' @discovery-menu-catalog-product-selected.window="applyReplacement($event.detail)">';
+
+        $html .= '<div class="callcenter-order-hierarchy-row is-parent">';
+        $html .= '<div class="callcenter-order-title">';
+        $html .= '<strong>DISCOVERY 53</strong>';
+        $html .= '<span>Сет із ' . e((string) $setSize) . ' ароматів</span>';
+        $html .= '<span class="callcenter-discovery-discount">15% · ' . e(static::formatOrderCompositionAmount((float) $set['discount'])) . '</span>';
+        $html .= '</div>';
+        $html .= '<div>3 мл</div>';
+        $html .= '<div class="callcenter-order-qty">';
+        $html .= '<button type="button" wire:click="changeDiscoverySetQuantity(' . $setArg . ', -1)">-</button>';
+        $html .= '<input type="number" min="1" value="' . e((string) $qty) . '" wire:change="setDiscoverySetQuantity(' . $setArg . ', $event.target.value)">';
+        $html .= '<button type="button" wire:click="changeDiscoverySetQuantity(' . $setArg . ', 1)">+</button>';
+        $html .= '</div>';
+        $html .= '<div class="callcenter-order-price">';
+        $html .= '<span class="is-old">' . e(static::formatOrderCompositionAmount($perSetOriginal)) . '</span>';
+        $html .= '<strong>' . e(static::formatOrderCompositionAmount($perSetDiscounted)) . '/сет</strong>';
+        $html .= '</div>';
+        $html .= '<div class="callcenter-order-total">' . e(static::formatOrderCompositionAmount($discountedTotal)) . '</div>';
+        $html .= '<div class="callcenter-order-discount is-set-discount">15%</div>';
+        $html .= '<div class="callcenter-order-actions">';
+        $html .= '<button type="button" title="Видалити сет" wire:confirm="Підтвердити видалення?" wire:click="removeDiscoverySet(' . $setArg . ')">×</button>';
+        $html .= '</div>';
+        $html .= '</div>';
+
+        $html .= '<div class="callcenter-mobile-order-card is-discovery">';
+        $html .= '<div class="callcenter-mobile-order-card-top">';
+        $html .= '<div class="callcenter-mobile-order-card-info">';
+        $html .= '<strong>DISCOVERY 53</strong>';
+        $html .= '<span>3 мл · ' . e((string) $setSize) . ' ароматів · 15%</span>';
+        $html .= '</div>';
+        $html .= '<button type="button" class="callcenter-mobile-order-delete" title="Видалити сет" wire:confirm="Підтвердити видалення?" wire:click="removeDiscoverySet(' . $setArg . ')">×</button>';
+        $html .= '</div>';
+        $html .= '<div class="callcenter-mobile-order-card-bottom is-discovery">';
+        $html .= '<span class="callcenter-mobile-order-price">';
+        if ($perSetOriginal > $perSetDiscounted) {
+            $html .= '<s>' . e(static::formatOrderCompositionAmount($perSetOriginal)) . '</s> ';
+        }
+        $html .= e(static::formatOrderCompositionAmount($perSetDiscounted)) . '/сет</span>';
+        $html .= '<div class="callcenter-mobile-order-qty">';
+        $html .= '<button type="button" wire:click="changeDiscoverySetQuantity(' . $setArg . ', -1)">-</button>';
+        $html .= '<input type="number" min="1" value="' . e((string) $qty) . '" wire:change="setDiscoverySetQuantity(' . $setArg . ', $event.target.value)">';
+        $html .= '<button type="button" wire:click="changeDiscoverySetQuantity(' . $setArg . ', 1)">+</button>';
+        $html .= '</div>';
+        $html .= '<span class="callcenter-mobile-order-total">' . e(static::formatOrderCompositionAmount($discountedTotal)) . '</span>';
+        $html .= '</div>';
+        $html .= '</div>';
+
+        $html .= '<div class="callcenter-discovery-details">';
+        $html .= '<div class="callcenter-discovery-summary">';
+        $html .= '<span class="callcenter-discovery-toggle-icon" :class="open ? \'is-open\' : \'\'" @click.prevent="open = ! open" aria-hidden="true"></span>';
+        $html .= '<button type="button" @click.prevent="open = ! open">Склад сету</button>';
+        $html .= '<button type="button" @click.prevent="editing ? cancelEdit() : beginEdit()" x-text="editing ? \'Відмінити\' : \'Змінити\'">Змінити</button>';
+        $html .= '</div>';
+        $html .= '<div class="callcenter-discovery-children" x-show="open && ! editing">';
+
+        foreach ($items as $index => $item) {
+            $data = static::orderItemDisplayData($item);
+
+            $html .= '<div class="callcenter-discovery-child">';
+            $html .= '<div class="callcenter-discovery-child-index">' . e((string) ($index + 1)) . '</div>';
+            $html .= '<div class="callcenter-discovery-child-name">';
+            $html .= '<div class="callcenter-order-product-line">' . static::renderOrderHoverImage($data['image']) . '<strong>' . e($data['name']) . '</strong></div>';
+            $html .= '<span>' . e($data['brand'] !== '' ? $data['brand'] : 'Sevia') . '</span>';
+            $html .= '</div>';
+            $html .= '<div class="callcenter-discovery-child-volume">3 мл</div>';
+            $html .= '<div class="callcenter-discovery-child-need">' . e((string) $qty) . ' шт.</div>';
+            $html .= '</div>';
+        }
+
+        $html .= '</div>';
+        $html .= '<div class="callcenter-discovery-edit" x-show="open && editing" x-cloak>';
+
+        foreach ($items as $index => $item) {
+            $html .= '<div class="callcenter-discovery-edit-row">';
+            $html .= '<div class="callcenter-discovery-child-index">' . e((string) ($index + 1)) . '</div>';
+            $html .= '<div class="callcenter-discovery-edit-current">';
+            $html .= '<div class="callcenter-order-product-line"><span class="callcenter-order-hover-image" x-show="slots[' . e((string) $index) . '].image"><img :src="slots[' . e((string) $index) . '].image" alt=""></span><strong x-text="slots[' . e((string) $index) . '].name"></strong></div>';
+            $html .= '<span><span x-text="slots[' . e((string) $index) . '].brand"></span> · 3 мл · <span x-text="slots[' . e((string) $index) . '].priceLabel"></span> · арт. <span x-text="slots[' . e((string) $index) . '].article"></span></span>';
+            $html .= '</div>';
+            $html .= '<button type="button" class="callcenter-discovery-replace-btn" @click.prevent="openReplace(' . e((string) $index) . ')">Замінити</button>';
+            $html .= '</div>';
+        }
+
+
+        $html .= '<div class="callcenter-discovery-edit-actions">';
+        $html .= '<button type="button" @click.prevent="cancelEdit()">Скасувати</button>';
+        $html .= '<button type="button" class="is-primary" @click.prevent="saveComposition()">Зберегти склад</button>';
+        $html .= '</div>';
+        $html .= '</div>';
+        $html .= '</div>';
+        $html .= '</div>';
+
+        return $html;
+    }
+
+    protected static function renderRegularCompositionRow(array $row): string
+    {
+        $item = $row['item'];
+        $itemId = (int) $item->id;
+        $discount = static::resolveCurrentItemDiscountValue($itemId) ?? '0';
+        $article = trim((string) ($item->product?->sku ?: $item->product?->code2 ?: $item->product_id));
+        $displayName = trim((string) $row['name']);
+
+        if ($article !== '') {
+            $displayName = trim((string) preg_replace('/(?:\s*' . preg_quote($article, '/') . ')+/u', '', $displayName));
+            $displayName .= ' ' . $article;
+        }
+        $discountAmount = (float) $discount;
+        $discountPercent = (float) $row['line_total'] > 0
+            ? (int) round(($discountAmount / (float) $row['line_total']) * 100)
+            : 0;
+        $discountLabel = $discountAmount > 0
+            ? $discountPercent . '% · ' . static::formatOrderCompositionAmount($discountAmount)
+            : '0';
+
+        $html = '<div class="callcenter-order-hierarchy-row is-regular">';
+        $html .= '<div class="callcenter-order-title">';
+        $html .= '<div class="callcenter-order-product-line">' . static::renderOrderHoverImage($row['image']) . '<strong>' . e($displayName) . '</strong></div>';
+        $html .= '<span>' . e($row['brand'] !== '' ? $row['brand'] : 'Sevia') . '</span>';
+
+        if ($row['notes'] !== '') {
+            $html .= '<span>' . e($row['notes']) . '</span>';
+        }
+
+        $html .= '</div>';
+        $html .= '<div>' . e($row['volume']) . '</div>';
+        $html .= '<div class="callcenter-order-qty">';
+        $html .= '<input type="number" min="1" value="' . e((string) $row['qty']) . '" wire:change="setRegularOrderItemQuantity(' . $itemId . ', $event.target.value)">';
+        $html .= '</div>';
+        $html .= '<div class="callcenter-order-price" x-data="{ editing: false }">';
+        $html .= '<span x-show="!editing" @dblclick="editing = true; $nextTick(() => $refs.price.focus())">' . e(static::formatOrderCompositionAmount((float) $row['unit_price'])) . '</span>';
+        $html .= '<input x-show="editing" x-cloak x-ref="price" type="number" min="0" step="0.01" value="' . e((string) $row['unit_price']) . '" @keydown.enter.prevent="$event.target.blur()" @blur="editing = false; $wire.setRegularOrderItemPrice(' . $itemId . ', $event.target.value)">';
+        $html .= '</div>';
+        $html .= '<div class="callcenter-order-total" x-data="{ editing: false }">';
+        $html .= '<span x-show="!editing" @dblclick="editing = true; $nextTick(() => $refs.total.focus())">' . e(static::formatOrderCompositionAmount((float) $row['line_total'])) . '</span>';
+        $html .= '<input x-show="editing" x-cloak x-ref="total" type="number" min="0" step="0.01" value="' . e((string) $row['line_total']) . '" @keydown.enter.prevent="$event.target.blur()" @blur="editing = false; $wire.setRegularOrderItemTotal(' . $itemId . ', $event.target.value)">';
+        $html .= '</div>';
+        $html .= '<div class="callcenter-order-discount' . ((float) $discount > 0 ? '' : ' is-empty') . '" x-data="{ editing: false }">';
+        $html .= '<span x-show="!editing" @dblclick="editing = true; $nextTick(() => $refs.discount.focus())">' . e($discountLabel) . '</span>';
+        $html .= '<input x-show="editing" x-cloak x-ref="discount" type="number" min="0" step="0.01" value="' . e((string) $discount) . '" @keydown.enter.prevent="$event.target.blur()" @blur="editing = false; $wire.setRegularOrderItemDiscount(' . $itemId . ', $event.target.value)">';
+        $html .= '</div>';
+        $html .= '<div class="callcenter-order-actions">';
+        $html .= '<button type="button" title="Видалити товар" wire:confirm="Підтвердити видалення?" wire:click="removeRegularOrderItem(' . $itemId . ')">×</button>';
+        $html .= '</div>';
+        $html .= '</div>';
+
+        return $html . static::renderMobileRegularCompositionCard($row, $displayName, $discount);
+    }
+
+    protected static function renderMobileRegularCompositionCard(array $row, string $displayName, string $discount): string
+    {
+        $item = $row['item'];
+        $itemId = (int) $item->id;
+        $discountAmount = (float) $discount;
+        $discountPercent = (float) $row['line_total'] > 0
+            ? (int) round(($discountAmount / (float) $row['line_total']) * 100)
+            : 0;
+        $discountLabel = $discountAmount > 0
+            ? 'Знижка ' . $discountPercent . '% · ' . static::formatOrderCompositionAmount($discountAmount)
+            : '';
+
+        $html = '<div class="callcenter-mobile-order-card is-regular">';
+        $html .= '<div class="callcenter-mobile-order-card-top">';
+        $html .= '<div class="callcenter-mobile-order-card-image">' . static::renderOrderHoverImage($row['image']) . '</div>';
+        $html .= '<div class="callcenter-mobile-order-card-info">';
+        $html .= '<strong>' . e($displayName) . '</strong>';
+        $html .= '<span>' . e($row['brand'] !== '' ? $row['brand'] : 'Sevia') . ' · ' . e($row['volume']) . '</span>';
+        $html .= '</div>';
+        $html .= '<button type="button" class="callcenter-mobile-order-delete" title="Видалити товар" wire:confirm="Підтвердити видалення?" wire:click="removeRegularOrderItem(' . $itemId . ')">×</button>';
+        $html .= '</div>';
+        $html .= '<div class="callcenter-mobile-order-card-bottom">';
+        $html .= '<span class="callcenter-mobile-order-price" x-data="{ editing: false }">';
+        $html .= '<span x-show="!editing" class="callcenter-mobile-order-editable" @click.stop="editing = true; $nextTick(() => $refs.price.focus())">' . e(static::formatOrderCompositionAmount((float) $row['unit_price'])) . '</span>';
+        $html .= '<input x-show="editing" x-cloak x-ref="price" type="number" min="0" step="0.01" value="' . e((string) $row['unit_price']) . '" @keydown.enter.prevent="$event.target.blur()" @blur="editing = false; $wire.setRegularOrderItemPrice(' . $itemId . ', $event.target.value)">';
+        $html .= '</span>';
+        $html .= '<div class="callcenter-mobile-order-qty">';
+        $html .= '<button type="button" wire:click="changeRegularOrderItemQuantity(' . $itemId . ', -1)">−</button>';
+        $html .= '<input type="number" min="1" value="' . e((string) $row['qty']) . '" wire:change="setRegularOrderItemQuantity(' . $itemId . ', $event.target.value)">';
+        $html .= '<button type="button" wire:click="changeRegularOrderItemQuantity(' . $itemId . ', 1)">+</button>';
+        $html .= '</div>';
+        $html .= '<span class="callcenter-mobile-order-total">' . e(static::formatOrderCompositionAmount((float) $row['line_total'])) . '</span>';
+        $html .= '</div>';
+        $html .= '<div class="callcenter-mobile-order-discount" x-data="{ editing: false }">';
+        $html .= '<span x-show="!editing" class="callcenter-mobile-order-editable" @click.stop="editing = true; $nextTick(() => $refs.discount.focus())">' . e($discountLabel !== '' ? $discountLabel : 'Знижка') . '</span>';
+        $html .= '<input x-show="editing" x-cloak x-ref="discount" type="number" min="0" step="0.01" value="' . e((string) $discount) . '" @keydown.enter.prevent="$event.target.blur()" @blur="editing = false; $wire.setRegularOrderItemDiscount(' . $itemId . ', $event.target.value)">';
+        $html .= '</div>';
+        $html .= '</div>';
+
+        return $html;
+    }
+
+    protected static function renderOrderHoverImage(?string $image): string
+    {
+        $image = trim((string) $image);
+
+        if ($image === '') {
+            return '';
+        }
+
+        return '<span class="callcenter-order-hover-image"><img src="' . e($image) . '" alt=""></span>';
+    }
+
+    protected static function discoverySlotPayload(OrderItem $item): array
+    {
+        $data = static::orderItemDisplayData($item);
+        $product = $item->product;
+        $article = trim((string) ($product?->sku ?: $product?->code2 ?: $product?->parent?->sku ?: $product?->parent?->code2 ?: $item->product_id));
+        $originalPrice = (float) data_get($item->meta, 'discovery_original_price', $data['unit_price']);
+
+        return [
+            'itemId' => (int) $item->id,
+            'productId' => (int) $item->product_id,
+            'name' => $data['name'],
+            'brand' => $data['brand'] !== '' ? $data['brand'] : 'Sevia',
+            'article' => $article,
+            'priceLabel' => static::formatOrderCompositionAmount($originalPrice),
+            'image' => $data['image'],
+        ];
+    }
+
+    public static function searchDiscoverySlotProductCards(string $search = ''): array
+    {
+        $locale = config('app.locale', 'uk');
+        $tokens = collect(preg_split('/\s+/u', trim($search)))
+            ->filter()
+            ->take(5)
+            ->values();
+
+        $query = Product::query()
+            ->active()
+            ->mainProduct()
+            ->where('price', '>', 0)
+            ->select(['id', 'title', 'short_name', 'parent_id', 'sku', 'code2', 'price', 'sort', 'main_image', 'main_image_small']);
+
+        foreach ($tokens as $token) {
+            $like = '%' . str_replace(['%', '_'], ['\%', '\_'], mb_strtolower((string) $token)) . '%';
+
+            $query->where(function ($searchQuery) use ($like, $locale): void {
+                foreach (array_values(array_unique([$locale, 'uk', 'ru', 'en'])) as $jsonLocale) {
+                    $searchQuery
+                        ->orWhereRaw("JSON_VALID(title) AND LOWER(JSON_UNQUOTE(JSON_EXTRACT(title, ?))) LIKE ?", ["$.{$jsonLocale}", $like])
+                        ->orWhereRaw("JSON_VALID(short_name) AND LOWER(JSON_UNQUOTE(JSON_EXTRACT(short_name, ?))) LIKE ?", ["$.{$jsonLocale}", $like]);
+                }
+
+                $searchQuery
+                    ->orWhereRaw('NOT JSON_VALID(title) AND LOWER(title) LIKE ?', [$like])
+                    ->orWhereRaw('NOT JSON_VALID(short_name) AND LOWER(short_name) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(sku) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(code2) LIKE ?', [$like])
+                    ->orWhereExists(function ($metaQuery) use ($like): void {
+                        $metaQuery
+                            ->selectRaw('1')
+                            ->from('bs_shop_order_items as discovery_meta_items')
+                            ->whereColumn('discovery_meta_items.product_id', 'bs_products.id')
+                            ->whereRaw('JSON_VALID(discovery_meta_items.meta)')
+                            ->where(function ($metaFields) use ($like): void {
+                                $metaFields
+                                    ->whereRaw("LOWER(JSON_UNQUOTE(JSON_EXTRACT(discovery_meta_items.meta, '$.brand'))) LIKE ?", [$like])
+                                    ->orWhereRaw("LOWER(JSON_UNQUOTE(JSON_EXTRACT(discovery_meta_items.meta, '$.name'))) LIKE ?", [$like])
+                                    ->orWhereRaw("LOWER(JSON_UNQUOTE(JSON_EXTRACT(discovery_meta_items.meta, '$.cart_label'))) LIKE ?", [$like]);
+                            });
+                    });
+            });
+        }
+
+        return $query
+            ->orderBy('sort')
+            ->orderBy('id')
+            ->limit(20)
+            ->get()
+            ->map(fn (Product $product): array => static::discoveryProductCardPayload($product, $locale))
+            ->values()
+            ->all();
+    }
+
+    public static function discoveryProductCardPayload(Product $product, string $locale): array
+    {
+        $name = static::productLabel($product, $locale);
+        $article = trim((string) ($product->sku ?: $product->code2 ?: $product->id));
+        $originalPrice = (float) $product->price * 3;
+
+        return [
+            'id' => (int) $product->id,
+            'name' => $name,
+            'brand' => static::discoveryProductBrand($product) ?: 'Sevia',
+            'article' => $article,
+            'volume' => '3 мл',
+            'price' => $originalPrice,
+            'priceLabel' => static::formatOrderCompositionAmount($originalPrice),
+            'image' => static::resolveProductImageUrl($product),
+        ];
+    }
+
+    public static function discoveryProductBrand(Product $product): string
+    {
+        $meta = OrderItem::query()
+            ->where('product_id', (int) $product->id)
+            ->whereRaw("JSON_VALID(meta) AND JSON_UNQUOTE(JSON_EXTRACT(meta, '$.brand')) IS NOT NULL")
+            ->latest('id')
+            ->value('meta');
+
+        $meta = is_array($meta) ? $meta : json_decode((string) $meta, true);
+
+        return trim((string) data_get(is_array($meta) ? $meta : [], 'brand', ''));
+    }
+
+    protected static function searchOrderProductOptions(string $search, string $locale): array
+    {
+        $search = trim($search);
+
+        $query = Product::query()
+            ->select(['id', 'title', 'short_name', 'parent_id', 'sort', 'sku', 'code2'])
+            ->where('in_stock', 1);
+
+        if ($search !== '') {
+            $like = "%{$search}%";
+
+            $query->where(function ($searchQuery) use ($like, $locale) {
+                $searchQuery
+                    ->where(function ($w) use ($like, $locale) {
+                        $w->whereRaw("JSON_VALID(title) AND JSON_UNQUOTE(JSON_EXTRACT(title, ?)) LIKE ?", ["$.{$locale}", $like])
+                            ->orWhereRaw("NOT JSON_VALID(title) AND title LIKE ?", [$like]);
+                    })
+                    ->orWhere(function ($w) use ($like, $locale) {
+                        $w->whereRaw("JSON_VALID(short_name) AND JSON_UNQUOTE(JSON_EXTRACT(short_name, ?)) LIKE ?", ["$.{$locale}", $like])
+                            ->orWhereRaw("NOT JSON_VALID(short_name) AND short_name LIKE ?", [$like]);
+                    })
+                    ->orWhere('sku', 'like', $like)
+                    ->orWhere('code2', 'like', $like);
+            });
+        }
+
+        return $query
+            ->orderByRaw('COALESCE(parent_id, id) ASC')
+            ->orderByRaw('CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END ASC')
+            ->orderBy('sort')
+            ->orderBy('id')
+            ->limit(50)
+            ->get()
+            ->mapWithKeys(fn (Product $product) => [
+                $product->id => static::productLabel($product, $locale),
+            ])
+            ->toArray();
+    }
+
+    protected static function getOrderProductOptionLabel($value, string $locale): ?string
+    {
+        if (! $value) {
+            return null;
+        }
+
+        $product = Product::query()
+            ->select(['id', 'title', 'short_name', 'parent_id', 'sku', 'code2'])
+            ->find($value);
+
+        return $product ? static::productLabel($product, $locale) : null;
+    }
+
+    public static function discoveryProductOptionData(int $productId, string $setId): ?array
+    {
+        $product = Product::query()
+            ->select(['id', 'title', 'short_name', 'parent_id', 'sku', 'code2', 'price'])
+            ->with('parent:id,title,short_name,sku,code2')
+            ->find($productId);
+
+        if (! $product || (float) $product->price <= 0) {
+            return null;
+        }
+
+        $locale = config('app.locale', 'uk');
+        $name = static::productLabel($product, $locale);
+        $originalPrice = (float) $product->price * 3;
+        $discountedPrice = round($originalPrice * 0.85, 2);
+
+        return [
+            'product_id' => (int) $product->id,
+            'unit_price' => $discountedPrice,
+            'meta' => [
+                'name' => $name,
+                'brand' => 'Sevia',
+                'notes' => null,
+                'volume' => '3 мл',
+                'cart_label' => $name . ' · 3 мл · ' . static::formatOrderCompositionMoney($originalPrice),
+                'discovery_53' => true,
+                'discovery_set_id' => $setId,
+                'discovery_original_price' => $originalPrice,
+            ],
+        ];
+    }
+
+    protected static function wireArgument(string $value): string
+    {
+        return e(json_encode($value, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+    }
+
+    public static function refreshOrderAfterItemsChange($livewire): void
+    {
+        if (! isset($livewire->record) || ! $livewire->record?->exists) {
+            return;
+        }
+
+        $record = $livewire->record->fresh(['items.product.parent', 'adjustments']);
+
+        if (! $record) {
+            return;
+        }
+
+        app(\App\Services\OrderPricing::class)->recalc($record);
+        $record->recalculateTotalPrice();
+
+        $livewire->record = $record->fresh(['items.product.parent', 'adjustments']);
+
+        if (isset($livewire->data) && is_array($livewire->data)) {
+            $livewire->data['delivery_price_auto'] = 'items_hierarchy_' . microtime(true);
+        }
+    }
+
+    protected static function formatOrderCompositionMoney(float $amount): string
+    {
+        return number_format($amount, 2, ',', ' ') . ' грн';
+    }
+
+    protected static function formatOrderCompositionAmount(float $amount): string
+    {
+        return number_format($amount, 2, ',', ' ');
+    }
+
+    public static function resolveCurrentItemDiscountValue(int $orderItemId): ?string
     {
         $item = OrderItem::query()
             ->with(['order.adjustments'])

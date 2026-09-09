@@ -12,10 +12,21 @@ use App\Services\Callcenter\TimeshopCatalogService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Filament\Actions\Action;
+use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 
 trait HasMenuCatalogActions
 {
+    public string $menuCatalogMode = 'add';
+
+    public ?string $menuCatalogReplaceSetId = null;
+
+    public ?int $menuCatalogReplaceSlotIndex = null;
+
+    public ?int $menuCatalogReplaceOrderItemId = null;
+
+    public string $menuCatalogRequiredVolume = '3 мл';
+
     public function openMenuCatalogAction(): Action
     {
         return Action::make('menuCatalog')
@@ -26,14 +37,37 @@ trait HasMenuCatalogActions
                 'data-hotkey' => 'cc-menu',
                 'data-hotkey-label' => 'Alt+M',
             ])
+            ->mountUsing(function (?Form $form, array $arguments): void {
+                $mode = (string) ($arguments['mode'] ?? 'add');
+
+                $this->menuCatalogMode = $mode === 'set-replace' ? 'set-replace' : 'add';
+                $this->menuCatalogReplaceSetId = $this->menuCatalogMode === 'set-replace'
+                    ? (string) ($arguments['setId'] ?? '')
+                    : null;
+                $this->menuCatalogReplaceSlotIndex = $this->menuCatalogMode === 'set-replace'
+                    ? max(0, (int) ($arguments['slotIndex'] ?? 0))
+                    : null;
+                $this->menuCatalogReplaceOrderItemId = $this->menuCatalogMode === 'set-replace'
+                    ? max(0, (int) ($arguments['orderItemId'] ?? 0))
+                    : null;
+                $this->menuCatalogRequiredVolume = (string) ($arguments['requiredVolume'] ?? '3 мл');
+            })
             ->slideOver()
             ->modalWidth('7xl')
+            ->modalHeading(fn (): string => $this->menuCatalogMode === 'set-replace'
+                ? 'Замінити аромат №' . ((int) $this->menuCatalogReplaceSlotIndex + 1)
+                : 'Товари')
             ->modalSubmitAction(false)
             ->modalCancelActionLabel(__('order.actions.cancel'))
             ->modalContent(fn () => view('filament.callcenter.menu-catalog-slide-over', [
                 'componentId' => method_exists($this, 'getId') ? $this->getId() : null,
                 'fetchUrl' => route('admin.callcenter.menu-catalog', absolute: false),
                 'defaultSourceId' => $this->resolveDefaultMenuSourceId(),
+                'mode' => $this->menuCatalogMode,
+                'replaceSetId' => $this->menuCatalogReplaceSetId,
+                'replaceSlotIndex' => $this->menuCatalogReplaceSlotIndex,
+                'replaceOrderItemId' => $this->menuCatalogReplaceOrderItemId,
+                'requiredVolume' => $this->menuCatalogRequiredVolume,
             ]));
     }
 
@@ -296,6 +330,64 @@ trait HasMenuCatalogActions
         ]);
 
         Notification::make()->success()->title('Товар додано')->send();
+    }
+
+    public function selectDiscoveryReplacementFromMenuCatalog(
+        string|int $productId,
+        string $setId,
+        int $slotIndex,
+        int $orderItemId
+    ): void {
+        $localProductId = static::normalizeMenuCatalogProductId($productId);
+
+        if ($localProductId <= 0 || $setId === '' || $slotIndex < 0 || $orderItemId <= 0) {
+            return;
+        }
+
+        if (! method_exists($this, 'discoverySetItems')) {
+            return;
+        }
+
+        $setItem = $this->discoverySetItems($setId)
+            ->firstWhere('id', $orderItemId);
+
+        if (! $setItem || ! OrderResource::discoveryProductOptionData($localProductId, $setId)) {
+            return;
+        }
+
+        $product = Product::query()
+            ->select(['id', 'title', 'short_name', 'parent_id', 'sku', 'code2', 'price', 'main_image', 'main_image_small'])
+            ->find($localProductId);
+
+        if (! $product) {
+            return;
+        }
+
+        $this->dispatch('discovery-menu-catalog-product-selected',
+            setId: $setId,
+            slotIndex: $slotIndex,
+            orderItemId: $orderItemId,
+            product: OrderResource::discoveryProductCardPayload($product, config('app.locale', 'uk')),
+        );
+
+        if (method_exists($this, 'unmountAction')) {
+            $this->unmountAction();
+        }
+    }
+
+    protected static function normalizeMenuCatalogProductId(string|int $productId): int
+    {
+        if (is_string($productId) && str_starts_with($productId, 'measure:')) {
+            $parts = explode(':', $productId);
+
+            return max(0, (int) ($parts[1] ?? 0));
+        }
+
+        if (is_string($productId) && str_starts_with($productId, TimeshopCatalogService::SOURCE_ID . ':')) {
+            return 0;
+        }
+
+        return max(0, (int) $productId);
     }
 
     protected function calculateShippingForMenuState(array $state): float

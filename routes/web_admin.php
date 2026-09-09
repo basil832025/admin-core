@@ -255,12 +255,15 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
     $categoryIdRaw = trim((string) $request->query('category_id', ''));
     $localCategoryId = (int) $categoryIdRaw;
     $sourceIdRaw = (string) $request->query('source_id', $request->query('order_source_id', '0'));
+    $catalogMode = (string) $request->query('mode', 'add');
+    $isSetReplaceMode = $catalogMode === 'set-replace';
+    $requiredVolume = trim((string) $request->query('required_volume', '3 мл')) ?: '3 мл';
     $menuSourceMode = (string) config('services.callcenter.order_menu_source', 'main');
     $menuSourceMode = in_array($menuSourceMode, ['main', \App\Services\Callcenter\TimeshopCatalogService::SOURCE_ID], true)
         ? $menuSourceMode
         : 'main';
     $timeshopEnabled = $menuSourceMode === \App\Services\Callcenter\TimeshopCatalogService::SOURCE_ID;
-    $isTimeshopSource = $timeshopEnabled;
+    $isTimeshopSource = $timeshopEnabled && ! $isSetReplaceMode;
     $selectedSourceId = (! $isTimeshopSource && is_numeric($sourceIdRaw)) ? (int) $sourceIdRaw : 0;
     $timeshopCatalog = app(\App\Services\Callcenter\TimeshopCatalogService::class);
     $locales = \App\Models\Setting::getActiveLocales();
@@ -783,6 +786,7 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
             ->select(['id', 'title', 'short_name', 'short_desc', 'description', 'price', 'old_price', 'main_image', 'parent_id', 'category_id', 'unit_id', 'price_unit_quantity', 'in_stock', 'is_home', 'is_promo', 'is_new', 'is_hit', 'is_vegan', 'is_product_of_day', 'is_spicy', 'sort', 'created_at'])
             ->whereNull('parent_id')
             ->where('in_stock', 1)
+            ->when($isSetReplaceMode, fn ($q) => $q->where('price', '>', 0))
             ->where(function ($w): void {
                 $w->whereNull('is_imported')
                     ->orWhere('is_imported', false);
@@ -908,7 +912,7 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
             $products = $products->take($perPage)->values();
         }
 
-        $productsPayload = $products->map(function (\App\Models\Shop\Product $product) use ($compactDescription, $resolveDiscountPercent) {
+        $productsPayload = $products->map(function (\App\Models\Shop\Product $product) use ($compactDescription, $resolveDiscountPercent, $isSetReplaceMode, $requiredVolume) {
             $locale = app()->getLocale();
             $variants = $product->children ?? collect();
             $hasVariants = $variants->isNotEmpty();
@@ -929,6 +933,50 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
                 : $productDescription;
 
             $variantsPayload = [];
+
+            if ($isSetReplaceMode) {
+                $price = (float) $product->price * 3;
+
+                if ($price <= 0) {
+                    return null;
+                }
+
+                $variantsPayload = [[
+                    'id' => (int) $product->id,
+                    'title' => $requiredVolume,
+                    'description' => $compactDescription($productDescription),
+                    'price' => $price,
+                    'old_price' => 0,
+                    'discount_percent' => null,
+                    'is_promo' => (bool) ($product->is_promo ?? false),
+                    'is_new' => (bool) ($product->is_new ?? false),
+                    'is_hit' => (bool) ($product->is_hit ?? false),
+                    'is_vegan' => (bool) ($product->is_vegan ?? false),
+                    'is_product_of_day' => (bool) ($product->is_product_of_day ?? false),
+                    'is_spicy' => (bool) ($product->is_spicy ?? false),
+                    'unit' => $requiredVolume,
+                ]];
+
+                return [
+                    'id' => (int) $product->id,
+                    'title' => (string) ($product->display_name ?? $product->title ?? ''),
+                    'brand' => \App\Filament\Resources\Callcenter\OrderResource::discoveryProductBrand($product) ?: 'Sevia',
+                    'description' => $compactDescription($productDescription),
+                    'image' => $product->main_image_url,
+                    'price' => $price,
+                    'old_price' => 0,
+                    'discount_percent' => null,
+                    'is_new' => (bool) ($product->is_new ?? false),
+                    'is_hit' => (bool) ($product->is_hit ?? false),
+                    'is_promo' => (bool) ($product->is_promo ?? false),
+                    'is_vegan' => (bool) ($product->is_vegan ?? false),
+                    'is_product_of_day' => (bool) ($product->is_product_of_day ?? false),
+                    'is_spicy' => (bool) ($product->is_spicy ?? false),
+                    'has_variants' => true,
+                    'unit' => $requiredVolume,
+                    'variants' => $variantsPayload,
+                ];
+            }
 
             if ($hasVariants) {
                 $variantsPayload = collect([
@@ -1017,7 +1065,7 @@ Route::get('/admin/callcenter/menu-catalog', function (\Illuminate\Http\Request 
                 'unit' => \App\Filament\Resources\Callcenter\OrderResource\Concerns\HasMenuCatalogActions::resolveMenuUnitLabel((int) $product->id),
                 'variants' => $variantsPayload,
             ];
-        })->values();
+        })->filter()->values();
     }
 
     return response()->json([

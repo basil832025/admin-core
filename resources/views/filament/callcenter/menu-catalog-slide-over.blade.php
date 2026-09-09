@@ -1,6 +1,11 @@
 <div
     x-data="{
         loading: false,
+        mode: @js((string) ($mode ?? 'add')),
+        replaceSetId: @js((string) ($replaceSetId ?? '')),
+        replaceSlotIndex: @js($replaceSlotIndex),
+        replaceOrderItemId: @js($replaceOrderItemId),
+        requiredVolume: @js((string) ($requiredVolume ?? '3 мл')),
         q: '',
         sort: 'popular',
         sortMenuOpen: false,
@@ -37,6 +42,16 @@
             this.load();
         },
 
+        get isReplaceMode() {
+            return String(this.mode) === 'set-replace';
+        },
+
+        get heading() {
+            return this.isReplaceMode
+                ? `Замінити аромат №${Number(this.replaceSlotIndex || 0) + 1}`
+                : 'Товари';
+        },
+
         get sortLabel() {
             return this.sortLabels[this.sort] || @js(st('catalog.sort.title', 'Сортувати'));
         },
@@ -69,6 +84,8 @@
                     category_id: this.category || '',
                     source_id: this.source || '0',
                     page: String(this.page || 1),
+                    mode: this.mode || 'add',
+                    required_volume: this.requiredVolume || '3 мл',
                 });
                 const response = await fetch(`${this.fetchUrl}?${params.toString()}`, {
                     headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
@@ -115,6 +132,18 @@
             if (!window.Livewire || !this.componentId) return;
             const cmp = window.Livewire.find(this.componentId);
             if (!cmp) return;
+
+            if (this.isReplaceMode) {
+                await cmp.call(
+                    'selectDiscoveryReplacementFromMenuCatalog',
+                    productId,
+                    this.replaceSetId || '',
+                    Number(this.replaceSlotIndex || 0),
+                    Number(this.replaceOrderItemId || 0),
+                );
+
+                return;
+            }
 
             await cmp.call('addMenuProductToOrder', productId, this.source || '0');
         },
@@ -210,6 +239,7 @@
     }"
     class="space-y-4"
 >
+    <div class="text-lg font-semibold text-slate-950" x-text="heading"></div>
     <div class="flex items-center gap-3 pb-1">
         <div class="shrink-0" style="width: 300px;">
             <x-filament::input.wrapper>
@@ -324,6 +354,7 @@
                     </button>
                     <div class="min-w-0 flex-1">
                         <div class="truncate text-xs font-semibold" x-text="product.title"></div>
+                        <div class="truncate text-[11px] text-slate-500" x-show="product.brand" x-text="product.brand"></div>
 
                         <template x-if="!product.has_variants">
                             <div class="mt-2 flex items-center justify-between gap-2 rounded bg-gray-50 px-2 py-1.5 text-xs text-gray-700">
@@ -344,9 +375,12 @@
                                 <button
                                     type="button"
                                     class="inline-flex items-center justify-center rounded text-xs font-bold"
-                                    style="width:20px;height:20px;background:#16a34a;color:#fff;line-height:1;border:none;"
+                                    :style="isReplaceMode
+                                        ? 'min-width:76px;height:26px;background:#111827;color:#fff;line-height:1;border:none;padding:0 10px;'
+                                        : 'width:20px;height:20px;background:#16a34a;color:#fff;line-height:1;border:none;'"
                                     @click="addProduct(product.id)"
-                                >+</button>
+                                    x-text="isReplaceMode ? 'Обрати' : '+'"
+                                ></button>
                             </div>
                         </template>
 
@@ -371,9 +405,12 @@
                                 <button
                                     type="button"
                                     class="inline-flex items-center justify-center rounded text-xs font-bold"
-                                    style="width:20px;height:20px;background:#16a34a;color:#fff;line-height:1;border:none;"
+                                    :style="isReplaceMode
+                                        ? 'min-width:76px;height:26px;background:#111827;color:#fff;line-height:1;border:none;padding:0 10px;'
+                                        : 'width:20px;height:20px;background:#16a34a;color:#fff;line-height:1;border:none;'"
                                     @click="addProduct(variant.id)"
-                                >+</button>
+                                    x-text="isReplaceMode ? 'Обрати' : '+'"
+                                ></button>
                             </div>
                         </template>
                             </div>

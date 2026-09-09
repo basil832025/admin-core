@@ -1375,6 +1375,16 @@ class ProductResource extends Resource
                         return $query->where(function (Builder $q) use ($search, $defaultLocale) {
                             $q->where('short_name', 'like', "%{$search}%")
                                 ->orWhere('sku', 'like', "%{$search}%")
+                                ->orWhere('code2', 'like', "%{$search}%")
+                                ->orWhereHas('variants', function (Builder $variantQuery) use ($search, $defaultLocale): void {
+                                    $variantQuery
+                                        ->where('sku', 'like', "%{$search}%")
+                                        ->orWhere('code2', 'like', "%{$search}%")
+                                        ->orWhereRaw(
+                                            "CONVERT(JSON_UNQUOTE(JSON_EXTRACT(`title`, '$.\"{$defaultLocale}\"')) USING utf8mb4) COLLATE utf8mb4_unicode_ci LIKE ?",
+                                            ["%{$search}%"]
+                                        );
+                                })
                                 ->orWhereRaw(
                                     "CONVERT(JSON_UNQUOTE(JSON_EXTRACT(`title`, '$.\"{$defaultLocale}\"')) USING utf8mb4) COLLATE utf8mb4_unicode_ci LIKE ?",
                                     ["%{$search}%"]

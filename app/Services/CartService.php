@@ -176,13 +176,19 @@ class CartService
     private function cartVariantKey(array $meta): string
     {
         $volume = trim((string) ($meta['volume'] ?? ''));
+        $discoverySetId = trim((string) ($meta['discovery_set_id'] ?? ''));
+        $discoveryFlag = filter_var($meta['discovery_53'] ?? false, FILTER_VALIDATE_BOOL) ? 'discovery53' : '';
 
         if ($volume === '' && ! empty($meta['cart_label'])) {
             preg_match('/\d+(?:[.,]\d+)?\s*(?:мл|ml)/iu', (string) $meta['cart_label'], $matches);
             $volume = trim((string) ($matches[0] ?? ''));
         }
 
-        return mb_strtolower(preg_replace('/\s+/u', ' ', $volume));
+        return mb_strtolower(preg_replace('/\s+/u', ' ', implode('|', array_filter([
+            $volume,
+            $discoveryFlag,
+            $discoverySetId,
+        ]))));
     }
 
     private function sameCartVariant(array $left, array $right): bool

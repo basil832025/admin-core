@@ -11,6 +11,7 @@ use App\Enums\PrintOperationCode;
 use App\Models\Kitchen\KitchenTicket;
 use App\Models\Shop\ClientAddress;
 use App\Models\Shop\OrderItem;
+use App\Models\Shop\OrderAdjustment;
 use App\Services\Callcenter\ExternalSyncService;
 use App\Services\CashalotFiscalService;
 use App\Services\NovaPostApiClient;
@@ -31,6 +32,7 @@ use Filament\Resources\Pages\EditRecord;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\HtmlString;
+use Illuminate\Support\Facades\DB;
 
 class EditOrder extends EditRecord
 {
@@ -585,6 +587,242 @@ class EditOrder extends EditRecord
     protected function getFormActions(): array
     {
         return [];
+    }
+
+    public function changeDiscoverySetQuantity(string $setId, int $delta): void
+    {
+        $items = $this->discoverySetItems($setId);
+
+        if ($items->isEmpty()) {
+            return;
+        }
+
+        $currentQty = max(1, (int) $items->min('qty'));
+        $this->setDiscoverySetQuantity($setId, $currentQty + $delta);
+    }
+
+    public function setDiscoverySetQuantity(string $setId, mixed $qty): void
+    {
+        $qty = max(1, (int) $qty);
+
+        DB::transaction(function () use ($setId, $qty): void {
+            $this->discoverySetItems($setId)
+                ->each(fn (OrderItem $item) => $item->update(['qty' => $qty]));
+        });
+
+        OrderResource::refreshOrderAfterItemsChange($this);
+    }
+
+    public function removeDiscoverySet(string $setId): void
+    {
+        DB::transaction(function () use ($setId): void {
+            $this->discoverySetItems($setId)
+                ->each(fn (OrderItem $item) => $item->delete());
+        });
+
+        OrderResource::refreshOrderAfterItemsChange($this);
+    }
+
+    public function replaceDiscoverySetSlot(string $setId, int $orderItemId, mixed $productId): void
+    {
+        $productId = (int) $productId;
+
+        if ($productId <= 0) {
+            return;
+        }
+
+        $item = $this->discoverySetItems($setId)
+            ->firstWhere('id', $orderItemId);
+
+        if (! $item) {
+            return;
+        }
+
+        $data = OrderResource::discoveryProductOptionData($productId, $setId);
+
+        if (! $data) {
+            return;
+        }
+
+        $item->update([
+            'product_id' => $data['product_id'],
+            'unit_price' => $data['unit_price'],
+            'meta' => $data['meta'],
+        ]);
+
+        OrderResource::refreshOrderAfterItemsChange($this);
+    }
+
+    public function saveDiscoverySetComposition(string $setId, array $slots): void
+    {
+        $items = $this->discoverySetItems($setId);
+
+        if ($items->count() !== 5 || count($slots) !== 5) {
+            return;
+        }
+
+        $itemsById = $items->keyBy('id');
+
+        DB::transaction(function () use ($setId, $slots, $itemsById): void {
+            foreach ($slots as $slot) {
+                $orderItemId = (int) ($slot['itemId'] ?? 0);
+                $productId = (int) ($slot['productId'] ?? 0);
+
+                if ($orderItemId <= 0 || $productId <= 0 || ! $itemsById->has($orderItemId)) {
+                    continue;
+                }
+
+                $data = OrderResource::discoveryProductOptionData($productId, $setId);
+
+                if (! $data) {
+                    continue;
+                }
+
+                $itemsById->get($orderItemId)->update([
+                    'product_id' => $data['product_id'],
+                    'unit_price' => $data['unit_price'],
+                    'meta' => $data['meta'],
+                ]);
+            }
+        });
+
+        OrderResource::refreshOrderAfterItemsChange($this);
+    }
+
+    public function changeRegularOrderItemQuantity(int $orderItemId, int $delta): void
+    {
+        $item = $this->regularOrderItem($orderItemId);
+
+        if (! $item) {
+            return;
+        }
+
+        $this->setRegularOrderItemQuantity($orderItemId, max(1, (int) $item->qty + $delta));
+    }
+
+    public function setRegularOrderItemQuantity(int $orderItemId, mixed $qty): void
+    {
+        $item = $this->regularOrderItem($orderItemId);
+
+        if (! $item) {
+            return;
+        }
+
+        $item->update(['qty' => max(1, (int) $qty)]);
+
+        OrderResource::refreshOrderAfterItemsChange($this);
+    }
+
+    public function setRegularOrderItemPrice(int $orderItemId, mixed $price): void
+    {
+        $item = $this->regularOrderItem($orderItemId);
+
+        if (! $item) {
+            return;
+        }
+
+        $item->update([
+            'unit_price' => max(0, (float) str_replace(',', '.', (string) $price)),
+        ]);
+
+        OrderResource::refreshOrderAfterItemsChange($this);
+    }
+
+    public function setRegularOrderItemTotal(int $orderItemId, mixed $total): void
+    {
+        $item = $this->regularOrderItem($orderItemId);
+
+        if (! $item || (float) $item->qty <= 0) {
+            return;
+        }
+
+        $lineTotal = max(0, (float) str_replace(',', '.', (string) $total));
+        $item->update([
+            'unit_price' => round($lineTotal / (float) $item->qty, 2),
+        ]);
+
+        OrderResource::refreshOrderAfterItemsChange($this);
+    }
+
+    public function setRegularOrderItemDiscount(int $orderItemId, mixed $discount): void
+    {
+        $item = $this->regularOrderItem($orderItemId);
+
+        if (! $item) {
+            return;
+        }
+
+        $adjustment = OrderAdjustment::query()->firstOrNew([
+            'shop_order_id' => $item->shop_order_id,
+            'shop_order_item_id' => $item->id,
+            'type' => 'manual_item_override',
+        ]);
+        $raw = trim((string) $discount);
+        $amount = min(
+            max(0, (float) str_replace(',', '.', $raw)),
+            max(0, round((float) $item->unit_price * (float) $item->qty, 2))
+        );
+
+        if ($raw === '' || $amount <= 0) {
+            if ($adjustment->exists) {
+                $adjustment->delete();
+            }
+        } else {
+            $adjustment->fill([
+                'label' => 'Ручна знижка на товар',
+                'amount' => -1 * $amount,
+                'meta' => [
+                    'amount' => $amount,
+                    'mode' => 'override',
+                    'source' => 'callcenter',
+                ],
+            ])->save();
+        }
+
+        OrderResource::refreshOrderAfterItemsChange($this);
+    }
+
+    public function removeRegularOrderItem(int $orderItemId): void
+    {
+        $item = $this->regularOrderItem($orderItemId);
+
+        if (! $item) {
+            return;
+        }
+
+        $item->delete();
+
+        OrderResource::refreshOrderAfterItemsChange($this);
+    }
+
+    protected function discoverySetItems(string $setId): \Illuminate\Support\Collection
+    {
+        if (! $this->record?->exists || $setId === '') {
+            return collect();
+        }
+
+        return $this->record->items()
+            ->get()
+            ->filter(fn (OrderItem $item): bool => (bool) data_get($item->meta, 'discovery_53')
+                && (string) data_get($item->meta, 'discovery_set_id') === $setId)
+            ->values();
+    }
+
+    protected function regularOrderItem(int $orderItemId): ?OrderItem
+    {
+        if (! $this->record?->exists || $orderItemId <= 0) {
+            return null;
+        }
+
+        $item = $this->record->items()
+            ->whereKey($orderItemId)
+            ->first();
+
+        if (! $item || ((bool) data_get($item->meta, 'discovery_53') && filled(data_get($item->meta, 'discovery_set_id')))) {
+            return null;
+        }
+
+        return $item;
     }
 
     protected function getFooterWidgets(): array

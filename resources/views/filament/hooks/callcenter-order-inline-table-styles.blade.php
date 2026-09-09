@@ -30,7 +30,478 @@
             font-size: 12px !important;
             line-height: 1.25rem !important;
         }
-    </style>
+
+            .callcenter-order-items-inline {
+                display: grid;
+                gap: 4px;
+                min-width: 0;
+                color: #334155;
+                font-size: 11px;
+                line-height: 1.2;
+            }
+
+            .callcenter-order-items-inline [x-cloak] {
+                display: none !important;
+            }
+
+            .callcenter-order-items-inline-block {
+                min-width: 0;
+                padding-bottom: 4px;
+                border-bottom: 1px solid #e2e8f0;
+            }
+
+            .callcenter-order-items-inline-block:last-of-type {
+                padding-bottom: 0;
+                border-bottom: 0;
+            }
+
+            .callcenter-order-items-inline-set-head,
+            .callcenter-order-items-inline-regular-head {
+                display: flex;
+                width: 100%;
+                min-width: 0;
+                align-items: center;
+                justify-content: space-between;
+                gap: 6px;
+                padding: 0;
+                border: 0;
+                background: transparent;
+                text-align: left;
+            }
+
+            .callcenter-order-items-inline-set-head {
+                cursor: pointer;
+            }
+
+            .callcenter-order-items-inline-main {
+                display: flex;
+                min-width: 0;
+                align-items: baseline;
+                gap: 4px;
+                flex-wrap: wrap;
+            }
+
+            .callcenter-order-items-inline-toggle {
+                display: inline-flex;
+                width: 13px;
+                height: 13px;
+                flex: 0 0 13px;
+                align-items: center;
+                justify-content: center;
+                border: 1px solid #cbd5e1;
+                border-radius: 3px;
+                color: #475569;
+                font-size: 10px;
+                font-weight: 700;
+                line-height: 1;
+            }
+
+            .callcenter-order-items-inline-title {
+                min-width: 0;
+                max-width: 100%;
+                overflow-wrap: anywhere;
+                color: #0f172a;
+                font-weight: 600;
+            }
+
+            .callcenter-order-items-inline-badge {
+                flex: 0 0 auto;
+                border-radius: 4px;
+                background: #ffe4e6;
+                color: #be123c;
+                padding: 1px 3px;
+                font-size: 9px;
+                font-weight: 700;
+                line-height: 1.15;
+            }
+
+            .callcenter-order-items-inline-volume {
+                flex: 0 0 auto;
+                color: #64748b;
+                font-size: 10px;
+                white-space: nowrap;
+            }
+
+            .callcenter-order-items-inline-qty {
+                flex: 0 0 auto;
+                color: #dc2626;
+                font-size: 11px;
+                font-weight: 700;
+                line-height: 1.2;
+                white-space: nowrap;
+            }
+
+            .callcenter-order-items-inline-preview {
+                display: flex;
+                min-width: 0;
+                gap: 4px;
+                margin-top: 1px;
+                padding-left: 17px;
+                color: #64748b;
+                font-size: 10px;
+                line-height: 1.15;
+            }
+
+            .callcenter-order-items-inline-preview > span:first-child {
+                min-width: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .callcenter-order-items-inline-children {
+                display: grid;
+                gap: 2px;
+                margin-top: 3px;
+                padding-left: 17px;
+                color: #64748b;
+                font-size: 10px;
+                line-height: 1.25;
+            }
+
+            .callcenter-order-items-inline-child {
+                min-width: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .callcenter-order-items-inline-child.is-expanded {
+                display: flex;
+                align-items: baseline;
+                justify-content: space-between;
+                gap: 8px;
+                white-space: normal;
+            }
+
+            .callcenter-order-items-inline-child.is-expanded span:first-child {
+                min-width: 0;
+                overflow-wrap: anywhere;
+            }
+
+            .callcenter-order-items-inline-child-qty {
+                flex: 0 0 auto;
+                color: #94a3b8;
+                font-size: 9px;
+                white-space: nowrap;
+            }
+
+            .callcenter-order-items-inline-more,
+            .callcenter-order-items-inline-show-more {
+                color: #475569;
+                font-size: 10px;
+                font-weight: 600;
+                white-space: nowrap;
+            }
+
+            .callcenter-order-items-inline-show-more {
+                width: fit-content;
+                padding: 1px 0;
+                border: 0;
+                background: transparent;
+                cursor: pointer;
+            }
+
+            @media (max-width: 768px) {
+                .callcenter-order-items-inline {
+                    gap: 4px;
+                    font-size: 10px;
+                }
+
+                .callcenter-order-items-inline-block {
+                    padding-bottom: 4px;
+                }
+
+                .callcenter-order-items-inline-set-head,
+                .callcenter-order-items-inline-regular-head {
+                    gap: 6px;
+                }
+
+                .callcenter-order-items-inline-title {
+                    display: -webkit-box;
+                    overflow: hidden;
+                    -webkit-box-orient: vertical;
+                    -webkit-line-clamp: 2;
+                }
+
+                .callcenter-order-items-inline-preview,
+                .callcenter-order-items-inline-children {
+                    padding-left: 17px;
+                }
+            }
+            .callcenter-mobile-order-card {
+                display: none;
+            }
+
+            @media (max-width: 768px) {
+                .callcenter-order-hierarchy-row {
+                    display: none !important;
+                }
+
+                .fi-fo-component-ct:has(.callcenter-order-hierarchy) .callcenter-items-table {
+                    display: none !important;
+                }
+
+                form:has(.callcenter-order-hierarchy) .callcenter-items-table {
+                    display: none !important;
+                }
+
+                .callcenter-mobile-order-card {
+                    display: block;
+                    padding: 8px 10px;
+                    border-top: 1px solid #fecdd3;
+                    background: #ffffff;
+                }
+
+                .callcenter-mobile-order-card.is-discovery {
+                    background: #fff7f8;
+                }
+
+                .callcenter-mobile-order-card-top {
+                    display: grid;
+                    grid-template-columns: 48px minmax(0, 1fr) 40px;
+                    align-items: start;
+                    gap: 8px;
+                    min-width: 0;
+                }
+
+                .callcenter-mobile-order-card.is-discovery .callcenter-mobile-order-card-top {
+                    grid-template-columns: minmax(0, 1fr) 40px;
+                }
+
+                .callcenter-mobile-order-card-image {
+                    width: 48px;
+                    height: 48px;
+                    overflow: hidden;
+                }
+
+                .callcenter-mobile-order-card-image .callcenter-order-hover-image,
+                .callcenter-mobile-order-card-image .callcenter-order-product-line:hover > .callcenter-order-hover-image {
+                    display: inline-flex !important;
+                    position: static;
+                    width: 48px;
+                    height: 48px;
+                    transform: none;
+                    pointer-events: none;
+                }
+
+                .callcenter-mobile-order-card-image img {
+                    width: 44px !important;
+                    height: 48px !important;
+                    max-width: 44px !important;
+                    max-height: 48px !important;
+                    object-fit: contain;
+                    border-radius: 5px;
+                }
+
+                .callcenter-mobile-order-card-info {
+                    display: grid;
+                    min-width: 0;
+                    align-content: start;
+                    gap: 2px;
+                    padding-top: 1px;
+                }
+
+                .callcenter-mobile-order-card-info strong {
+                    display: -webkit-box;
+                    overflow: hidden;
+                    -webkit-box-orient: vertical;
+                    -webkit-line-clamp: 2;
+                    font-size: 13px;
+                    line-height: 1.2;
+                }
+
+                .callcenter-mobile-order-card-info span {
+                    overflow: hidden;
+                    color: #64748b;
+                    font-size: 11px;
+                    line-height: 1.2;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+
+                .callcenter-mobile-order-delete {
+                    display: inline-flex;
+                    width: 40px;
+                    height: 40px;
+                    align-items: center;
+                    justify-content: center;
+                    border: 0;
+                    border-radius: 6px;
+                    color: #be123c;
+                    background: transparent;
+                    font-size: 22px;
+                    line-height: 1;
+                }
+
+                .callcenter-mobile-order-card-bottom {
+                    display: grid;
+                    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+                    align-items: center;
+                    gap: 6px;
+                    margin-top: 7px;
+                    min-width: 0;
+                }
+
+                .callcenter-mobile-order-price,
+                .callcenter-mobile-order-total {
+                    min-width: 0;
+                    overflow: hidden;
+                    font-size: 12px;
+                    line-height: 1.2;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+
+                .callcenter-mobile-order-price {
+                    color: #475569;
+                }
+
+                .callcenter-mobile-order-total {
+                    color: #0369a1;
+                    font-weight: 700;
+                    text-align: right;
+                }
+
+                .callcenter-mobile-order-price s {
+                    color: #94a3b8;
+                    margin-right: 2px;
+                }
+
+                .callcenter-mobile-order-qty {
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 2px;
+                    flex: 0 0 auto;
+                }
+
+                .callcenter-mobile-order-qty button,
+                .callcenter-mobile-order-qty input {
+                    height: 40px;
+                    min-height: 40px;
+                    padding: 0;
+                    border: 1px solid #cbd5e1;
+                    border-radius: 5px;
+                    text-align: center;
+                }
+
+                .callcenter-mobile-order-qty button {
+                    width: 40px;
+                    min-width: 40px;
+                    color: #0f172a;
+                    background: #f8fafc;
+                    font-size: 18px;
+                    line-height: 1;
+                }
+
+                .callcenter-mobile-order-qty input {
+                    width: 34px;
+                    min-width: 34px;
+                    appearance: textfield;
+                    -moz-appearance: textfield;
+                }
+
+                .callcenter-mobile-order-qty input::-webkit-outer-spin-button,
+                .callcenter-mobile-order-qty input::-webkit-inner-spin-button {
+                    margin: 0;
+                    appearance: none;
+                }
+
+                .callcenter-mobile-order-discount {
+                    margin-top: 3px;
+                    color: #be123c;
+                    font-size: 11px;
+                    line-height: 1.2;
+                }
+
+                .callcenter-mobile-order-card .callcenter-discovery-details {
+                    margin: 7px -10px -8px;
+                }
+
+                .callcenter-mobile-order-card + .callcenter-discovery-details {
+                    display: block;
+                }
+
+                .callcenter-discovery-details {
+                    border-top: 1px solid #fecdd3;
+                }
+
+                .callcenter-discovery-summary {
+                    min-height: 40px;
+                    padding: 4px 10px;
+                }
+
+                .callcenter-discovery-child {
+                    grid-template-columns: 24px minmax(0, 1fr) 42px 42px;
+                    gap: 6px;
+                    min-height: 56px;
+                    padding: 6px 10px;
+                }
+
+                .callcenter-discovery-child-name,
+                .callcenter-discovery-edit-current {
+                    min-width: 0;
+                }
+
+                .callcenter-discovery-child-name .callcenter-order-product-line,
+                .callcenter-discovery-edit-current .callcenter-order-product-line {
+                    min-width: 0;
+                    align-items: center;
+                }
+
+                .callcenter-discovery-child-name .callcenter-order-hover-image,
+                .callcenter-discovery-edit-current .callcenter-order-hover-image {
+                    display: inline-flex !important;
+                    position: static;
+                    width: 36px;
+                    height: 44px;
+                    flex: 0 0 36px;
+                    transform: none;
+                }
+
+                .callcenter-discovery-child-name .callcenter-order-hover-image img,
+                .callcenter-discovery-edit-current .callcenter-order-hover-image img {
+                    width: 34px !important;
+                    height: 44px !important;
+                    max-width: 34px !important;
+                    max-height: 44px !important;
+                }
+
+                .callcenter-discovery-child-name strong,
+                .callcenter-discovery-edit-current strong {
+                    display: -webkit-box;
+                    overflow: hidden;
+                    -webkit-box-orient: vertical;
+                    -webkit-line-clamp: 2;
+                    line-height: 1.2;
+                }
+
+                .callcenter-discovery-child-volume,
+                .callcenter-discovery-child-need {
+                    white-space: nowrap;
+                }
+
+                .callcenter-discovery-edit-row {
+                    grid-template-columns: 24px minmax(0, 1fr) 76px;
+                    gap: 6px;
+                    min-height: 56px;
+                    padding: 6px 10px;
+                }
+
+                .callcenter-discovery-replace-btn,
+                .callcenter-discovery-summary button,
+                .callcenter-discovery-edit-actions button {
+                    min-height: 40px;
+                }
+
+                .callcenter-discovery-edit-actions {
+                    flex-wrap: wrap;
+                    gap: 6px;
+                    padding: 8px 10px;
+                }
+            }
+        </style>
 @endif
 
 @if($isCallcenterOrderForm)
@@ -115,6 +586,50 @@
             border-spacing: 4px 0 !important;
             font-size: 12px !important;
             line-height: 1.25rem;
+        }
+
+        .callcenter-items-table--nova-post .table-repeater-container {
+            overflow: visible !important;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            background: #ffffff;
+        }
+
+        .callcenter-items-table--nova-post .table-repeater-container table {
+            border-spacing: 0 !important;
+        }
+
+        .callcenter-items-table--nova-post .table-repeater-container thead tr {
+            background: #e0f2fe;
+        }
+
+        .callcenter-items-table--nova-post .table-repeater-container tbody tr {
+            min-height: 58px;
+            background: #ffffff;
+            border-top: 1px solid #e5e7eb;
+            border-bottom: 0;
+            box-shadow: none;
+        }
+
+        .callcenter-items-table--nova-post .table-repeater-container th,
+        .callcenter-items-table--nova-post .table-repeater-container td {
+            padding: 9px 10px !important;
+            vertical-align: middle !important;
+        }
+
+        .callcenter-items-table--nova-post .table-repeater-container input,
+        .callcenter-items-table--nova-post .table-repeater-container .choices__inner,
+        .callcenter-items-table--nova-post .table-repeater-container .ts-control {
+            min-height: 30px;
+            border-color: #d1d5db;
+            border-radius: 6px;
+            background: #ffffff;
+        }
+
+        .callcenter-items-table--nova-post .callcenter-product-card-title,
+        .callcenter-items-table--nova-post .callcenter-inline-select-display {
+            color: #111827;
+            font-weight: 700;
         }
 
         .callcenter-items-table--compact .callcenter-product-card-cell,
@@ -289,6 +804,878 @@
 
         .callcenter-items-table .callcenter-inline-display.is-empty {
             color: #94a3b8;
+        }
+
+        .callcenter-order-hierarchy {
+            overflow: visible;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            background: #ffffff;
+        }
+
+        .callcenter-order-hierarchy-head,
+        .callcenter-order-hierarchy-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 7% 11% 13% 14% 12% 4%;
+            align-items: center;
+            gap: 6px;
+            width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
+        }
+
+        .callcenter-order-hierarchy-head > div,
+        .callcenter-order-hierarchy-row > div {
+            min-width: 0;
+            max-width: 100%;
+        }
+
+        .callcenter-order-hierarchy-head {
+            padding: 10px 12px;
+            background: #e0f2fe;
+            color: #334155;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .callcenter-order-hierarchy-head > div:nth-child(2),
+        .callcenter-order-hierarchy-head > div:nth-child(3) {
+            text-align: center;
+        }
+
+        .callcenter-order-hierarchy-head > div:nth-child(4),
+        .callcenter-order-hierarchy-head > div:nth-child(5),
+        .callcenter-order-hierarchy-head > div:nth-child(6) {
+            padding-right: 6px;
+            text-align: right;
+        }
+
+        .callcenter-order-hierarchy-row {
+            min-height: 58px;
+            padding: 9px 10px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .callcenter-order-hierarchy-row.is-parent {
+            background: #fff7f8;
+            border-top-color: #fecdd3;
+        }
+
+        .callcenter-order-hierarchy-row.is-regular {
+            background: #ffffff;
+        }
+
+        .callcenter-order-title {
+            display: grid;
+            gap: 2px;
+            min-width: 0;
+        }
+
+        .callcenter-order-product-line {
+            position: relative;
+            display: flex;
+            align-items: center;
+            min-width: 0;
+            gap: 4px;
+            cursor: zoom-in;
+        }
+
+        .callcenter-order-hover-image {
+            display: none;
+            position: absolute;
+            left: 28px;
+            top: calc(100% + 8px);
+            z-index: 30;
+            pointer-events: none;
+        }
+
+        .callcenter-order-product-line:hover > .callcenter-order-hover-image {
+            display: block !important;
+        }
+
+        .callcenter-order-hover-image > img {
+            display: block;
+            width: 180px;
+            height: 180px;
+            max-width: none !important;
+            max-height: none !important;
+            min-width: 180px;
+            min-height: 180px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            background: #f8fafc;
+            object-fit: contain;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.2);
+        }
+
+        .callcenter-order-title strong {
+            color: #111827;
+            font-size: 12px;
+            line-height: 1.25;
+            overflow-wrap: anywhere;
+        }
+
+        .callcenter-order-title span {
+            color: #64748b;
+            font-size: 11px;
+            line-height: 1.2;
+            overflow-wrap: anywhere;
+        }
+
+        .callcenter-discovery-discount {
+            color: #be123c !important;
+            font-weight: 700;
+        }
+
+        .callcenter-order-qty {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0;
+        }
+
+        .callcenter-order-qty button,
+        .callcenter-order-actions button {
+            width: 20px;
+            height: 26px;
+            box-sizing: border-box;
+            max-width: 100%;
+            border: 1px solid #d1d5db;
+            background: #ffffff;
+            color: #334155;
+            font-size: 13px;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .callcenter-order-actions button {
+            border-color: #fecdd3;
+            color: #be123c;
+        }
+
+        .callcenter-order-qty input,
+        .callcenter-order-price input {
+            width: 34px;
+            min-height: 26px;
+            border: 1px solid #d1d5db;
+            border-left: 0;
+            border-right: 0;
+            text-align: center;
+            font-size: 11px;
+            color: #111827;
+            background: #ffffff;
+            -moz-appearance: textfield;
+            appearance: textfield;
+        }
+
+        .callcenter-order-qty input::-webkit-outer-spin-button,
+        .callcenter-order-qty input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .callcenter-order-qty:not(:has(button)) input {
+            width: 42px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+        }
+
+        .callcenter-order-price {
+            display: grid;
+            justify-items: end;
+            gap: 2px;
+            color: #111827;
+            font-size: 11px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .callcenter-order-price input,
+        .callcenter-order-total input,
+        .callcenter-order-discount input {
+            width: 52px;
+            max-width: 100%;
+            border: 1px solid #d1d5db;
+            text-align: right;
+            padding-right: 6px;
+            -moz-appearance: textfield;
+            appearance: textfield;
+        }
+
+        .callcenter-order-price input::-webkit-inner-spin-button,
+        .callcenter-order-price input::-webkit-outer-spin-button,
+        .callcenter-order-total input::-webkit-inner-spin-button,
+        .callcenter-order-total input::-webkit-outer-spin-button,
+        .callcenter-order-discount input::-webkit-inner-spin-button,
+        .callcenter-order-discount input::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .callcenter-order-price .is-old {
+            color: #94a3b8;
+            text-decoration: line-through;
+        }
+
+        .callcenter-order-total {
+            text-align: right;
+            color: #0369a1;
+            font-size: 12px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .callcenter-order-discount {
+            display: grid;
+            justify-items: end;
+            color: #be123c;
+            font-size: 11px;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+
+        .callcenter-order-discount input {
+            width: 68px;
+            min-width: 0;
+            max-width: 100%;
+            border: 1px solid #d1d5db;
+            text-align: right;
+            padding-right: 6px;
+            color: #be123c;
+            background: #ffffff;
+        }
+
+        .callcenter-order-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 6px;
+        }
+
+        .callcenter-discovery-details {
+            border-top: 1px solid #fecdd3;
+            background: #fff7f8;
+        }
+
+        .callcenter-discovery-summary {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 8px 12px;
+        }
+
+        .callcenter-discovery-toggle-icon {
+            width: 8px;
+            height: 8px;
+            flex: 0 0 8px;
+            border-right: 2px solid #9f1239;
+            border-bottom: 2px solid #9f1239;
+            transform: rotate(-45deg);
+            cursor: pointer;
+            transition: transform 0.15s ease;
+        }
+
+        .callcenter-discovery-toggle-icon.is-open {
+            transform: rotate(45deg);
+        }
+
+        .callcenter-discovery-summary button {
+            border: 0;
+            background: transparent;
+            color: #9f1239;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .callcenter-discovery-children {
+            display: grid;
+            gap: 1px;
+            background: #fecdd3;
+        }
+
+        .callcenter-discovery-child {
+            display: grid;
+            grid-template-columns: 24px minmax(0, 1fr) 56px 120px;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 10px;
+            background: #ffffff;
+        }
+
+        .callcenter-discovery-child-index {
+            color: #9f1239;
+            font-size: 12px;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .callcenter-discovery-child-name {
+            display: grid;
+            min-width: 0;
+        }
+
+        .callcenter-discovery-child-name strong {
+            color: #374151;
+            font-size: 12px;
+            line-height: 1.25;
+            overflow-wrap: anywhere;
+        }
+
+        .callcenter-discovery-child-name span,
+        .callcenter-discovery-child-volume,
+        .callcenter-discovery-child-need {
+            color: #64748b;
+            font-size: 11px;
+            line-height: 1.2;
+        }
+
+        .callcenter-discovery-child-need {
+            text-align: right;
+        }
+
+        .callcenter-discovery-edit {
+            display: grid;
+            gap: 1px;
+            background: #fecdd3;
+        }
+
+        .callcenter-discovery-edit-row {
+            display: grid;
+            grid-template-columns: 24px minmax(0, 1fr) 88px;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            background: #ffffff;
+        }
+
+        .callcenter-discovery-edit-current {
+            display: grid;
+            gap: 2px;
+            min-width: 0;
+        }
+
+        .callcenter-discovery-edit-current strong {
+            color: #374151;
+            font-size: 12px;
+            line-height: 1.25;
+            overflow-wrap: anywhere;
+        }
+
+        .callcenter-discovery-edit-current span {
+            color: #64748b;
+            font-size: 11px;
+            line-height: 1.2;
+        }
+
+        .callcenter-discovery-replace-btn {
+            min-height: 30px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            background: #ffffff;
+            color: #111827;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 0 9px;
+            cursor: pointer;
+        }
+
+        .callcenter-discovery-edit-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            padding: 10px;
+            background: #fff7f8;
+        }
+
+        .callcenter-discovery-edit-actions button {
+            min-height: 30px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            background: #ffffff;
+            color: #334155;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 0 10px;
+            cursor: pointer;
+        }
+
+        .callcenter-discovery-edit-actions button.is-primary {
+            border-color: #9f1239;
+            background: #9f1239;
+            color: #ffffff;
+        }
+
+        @media (max-width: 1500px) {
+            .callcenter-order-hierarchy-head {
+                display: none;
+            }
+
+            .callcenter-order-hierarchy-row {
+                grid-template-columns: minmax(0, 1fr) 6% 11% 13% 12% 12% 4%;
+                align-items: center;
+                gap: 6px 8px;
+            }
+
+            .callcenter-order-hierarchy-row > div:nth-child(2) {
+                font-size: 11px;
+                color: #64748b;
+            }
+
+            .callcenter-order-hierarchy-row > div:nth-child(3) {
+                justify-content: flex-start;
+            }
+
+            .callcenter-order-total,
+            .callcenter-order-price,
+            .callcenter-order-discount {
+                justify-items: end;
+                text-align: right;
+            }
+
+            .callcenter-order-actions {
+                justify-content: flex-end;
+            }
+
+            .callcenter-discovery-child {
+                grid-template-columns: 24px minmax(0, 1fr) 92px;
+            }
+
+            .callcenter-discovery-child-volume {
+                grid-column: 2;
+            }
+
+            .callcenter-discovery-child-need {
+                text-align: right;
+            }
+
+            .callcenter-discovery-edit-row {
+                grid-template-columns: 24px minmax(0, 1fr);
+            }
+
+            .callcenter-discovery-replace-btn {
+                grid-column: 2 / -1;
+                width: fit-content;
+            }
+
+        }
+
+        @media (max-width: 640px) {
+            .callcenter-order-hierarchy-row {
+                grid-template-columns: minmax(0, 1fr) minmax(72px, auto);
+                grid-template-areas:
+                    "title title"
+                    "size qty"
+                    "price total"
+                    "discount actions";
+                gap: 6px 10px;
+                min-height: 0;
+                padding: 10px;
+            }
+
+            .callcenter-order-hierarchy-row > div:nth-child(1) {
+                grid-area: title;
+            }
+
+            .callcenter-order-hierarchy-row > div:nth-child(2) {
+                grid-area: size;
+                justify-self: start;
+            }
+
+            .callcenter-order-hierarchy-row > div:nth-child(3) {
+                grid-area: qty;
+                justify-self: end;
+            }
+
+            .callcenter-order-hierarchy-row > div:nth-child(4) {
+                grid-area: price;
+                justify-self: start;
+            }
+
+            .callcenter-order-hierarchy-row > div:nth-child(5) {
+                grid-area: total;
+                justify-self: end;
+            }
+
+            .callcenter-order-hierarchy-row > div:nth-child(6) {
+                grid-area: discount;
+                justify-self: start;
+            }
+
+            .callcenter-order-hierarchy-row > div:nth-child(7) {
+                grid-area: actions;
+                justify-self: end;
+            }
+
+            .callcenter-order-qty {
+                justify-content: flex-end;
+            }
+
+            .callcenter-order-price,
+            .callcenter-order-total,
+            .callcenter-order-discount {
+                text-align: left;
+                justify-items: start;
+            }
+
+            .callcenter-order-total,
+            .callcenter-order-discount {
+                justify-self: end;
+                text-align: right;
+                justify-items: end;
+            }
+
+            .callcenter-order-price input,
+            .callcenter-order-total input {
+                width: 64px;
+            }
+
+            .callcenter-order-discount input {
+                width: 46px;
+            }
+
+            .callcenter-order-title strong {
+                font-size: 13px;
+            }
+
+            .callcenter-items-table .table-repeater-container {
+                overflow: hidden !important;
+            }
+
+            .callcenter-items-table .table-repeater-container table {
+                table-layout: fixed;
+                width: 100% !important;
+                border-spacing: 0 !important;
+            }
+
+            .callcenter-items-table .table-repeater-container th,
+            .callcenter-items-table .table-repeater-container td {
+                min-width: 0 !important;
+                padding: 5px 3px !important;
+                overflow: hidden;
+            }
+
+            .callcenter-items-table--compact .table-repeater-container table th:nth-child(3),
+            .callcenter-items-table--compact .table-repeater-container table td:nth-child(3) {
+                width: 38% !important;
+            }
+
+            .callcenter-items-table--compact .table-repeater-container table th:nth-child(4),
+            .callcenter-items-table--compact .table-repeater-container table td:nth-child(4) {
+                width: 8% !important;
+            }
+
+            .callcenter-items-table--compact .table-repeater-container table th:nth-child(5),
+            .callcenter-items-table--compact .table-repeater-container table td:nth-child(5) {
+                width: 12% !important;
+            }
+
+            .callcenter-items-table--compact .table-repeater-container table th:nth-child(6),
+            .callcenter-items-table--compact .table-repeater-container table td:nth-child(6) {
+                width: 14% !important;
+            }
+
+            .callcenter-items-table--compact .table-repeater-container table th:nth-child(7),
+            .callcenter-items-table--compact .table-repeater-container table td:nth-child(7) {
+                width: 14% !important;
+            }
+
+            .callcenter-items-table--compact .table-repeater-container table th:nth-child(8),
+            .callcenter-items-table--compact .table-repeater-container table td:nth-child(8) {
+                width: 10% !important;
+            }
+
+            .callcenter-items-table--photo .table-repeater-container table th:nth-child(2),
+            .callcenter-items-table--photo .table-repeater-container table td:nth-child(2) {
+                width: 38% !important;
+            }
+
+            .callcenter-items-table--photo .table-repeater-container table th:nth-child(5),
+            .callcenter-items-table--photo .table-repeater-container table td:nth-child(5) {
+                width: 12% !important;
+            }
+
+            .callcenter-items-table--photo .table-repeater-container table th:nth-child(6),
+            .callcenter-items-table--photo .table-repeater-container table td:nth-child(6) {
+                width: 14% !important;
+            }
+
+            .callcenter-items-table--photo .table-repeater-container table th:nth-child(7),
+            .callcenter-items-table--photo .table-repeater-container table td:nth-child(7) {
+                width: 14% !important;
+            }
+
+            .callcenter-items-table--photo .table-repeater-container table th:nth-child(8),
+            .callcenter-items-table--photo .table-repeater-container table td:nth-child(8) {
+                width: 10% !important;
+            }
+
+            .callcenter-items-table .fi-input,
+            .callcenter-items-table input,
+            .callcenter-items-table .choices,
+            .callcenter-items-table .ts-wrapper {
+                max-width: 100% !important;
+            }
+
+            .callcenter-items-table--compact .table-repeater-container thead,
+            .callcenter-items-table--photo .table-repeater-container thead {
+                display: none !important;
+            }
+
+            .callcenter-items-table--compact .table-repeater-container table,
+            .callcenter-items-table--compact .table-repeater-container tbody,
+            .callcenter-items-table--photo .table-repeater-container table,
+            .callcenter-items-table--photo .table-repeater-container tbody {
+                display: block;
+            }
+
+            .callcenter-items-table--compact .table-repeater-container tbody tr,
+            .callcenter-items-table--photo .table-repeater-container tbody tr {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) 58px;
+                gap: 6px 10px;
+                min-height: 0;
+                margin: 6px;
+                padding: 10px;
+                border: 1px solid #e5e7eb;
+                border-radius: 8px;
+                background: #ffffff;
+            }
+
+            .callcenter-items-table--compact .table-repeater-container tbody td,
+            .callcenter-items-table--photo .table-repeater-container tbody td {
+                display: block !important;
+                width: auto !important;
+                padding: 0 !important;
+                border: 0 !important;
+                overflow: visible;
+            }
+
+            .callcenter-items-table--compact .table-repeater-container tbody td:nth-child(1),
+            .callcenter-items-table--compact .table-repeater-container tbody td:nth-child(2) {
+                display: none !important;
+            }
+
+            .callcenter-items-table--compact .table-repeater-container tbody td:nth-child(3) { grid-area: product; }
+            .callcenter-items-table--compact .table-repeater-container tbody td:nth-child(4) { grid-area: unit; }
+            .callcenter-items-table--compact .table-repeater-container tbody td:nth-child(5) { grid-area: qty; }
+            .callcenter-items-table--compact .table-repeater-container tbody td:nth-child(6) { grid-area: price; }
+            .callcenter-items-table--compact .table-repeater-container tbody td:nth-child(7) { grid-area: total; }
+            .callcenter-items-table--compact .table-repeater-container tbody td:nth-child(8) { grid-area: discount; }
+
+            .callcenter-items-table--photo .table-repeater-container tbody td:nth-child(1),
+            .callcenter-items-table--photo .table-repeater-container tbody td:nth-child(3),
+            .callcenter-items-table--photo .table-repeater-container tbody td:nth-child(4) {
+                display: none !important;
+            }
+
+            .callcenter-items-table--photo .table-repeater-container tbody td:nth-child(2) { grid-area: product; }
+            .callcenter-items-table--photo .table-repeater-container tbody td:nth-child(5) { grid-area: qty; }
+            .callcenter-items-table--photo .table-repeater-container tbody td:nth-child(6) { grid-area: price; }
+            .callcenter-items-table--photo .table-repeater-container tbody td:nth-child(7) { grid-area: total; }
+            .callcenter-items-table--photo .table-repeater-container tbody td:nth-child(8) { grid-area: discount; }
+
+            .callcenter-items-table--compact .table-repeater-container tbody td:last-child,
+            .callcenter-items-table--photo .table-repeater-container tbody td:last-child {
+                grid-area: actions;
+                align-self: start;
+                justify-self: end;
+            }
+
+            .callcenter-items-table--compact .table-repeater-container tbody tr,
+            .callcenter-items-table--photo .table-repeater-container tbody tr {
+                grid-template-areas:
+                    "product actions"
+                    "unit qty"
+                    "price total"
+                    "discount discount";
+            }
+
+            .callcenter-items-table--compact .table-repeater-container tbody td:nth-child(4),
+            .callcenter-items-table--photo .table-repeater-container tbody td:nth-child(5) {
+                justify-self: start;
+                color: #64748b;
+            }
+
+            .callcenter-items-table--compact .table-repeater-container tbody td:nth-child(7),
+            .callcenter-items-table--photo .table-repeater-container tbody td:nth-child(7) {
+                justify-self: end;
+                color: #0369a1;
+                font-weight: 700;
+            }
+
+            .callcenter-items-table--compact .table-repeater-container tbody td:nth-child(8),
+            .callcenter-items-table--photo .table-repeater-container tbody td:nth-child(8) {
+                justify-self: start;
+                color: #be123c;
+            }
+
+            .callcenter-items-table--compact .table-repeater-container tbody td:last-child button,
+            .callcenter-items-table--photo .table-repeater-container tbody td:last-child button {
+                min-width: 40px;
+                min-height: 40px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .callcenter-order-hierarchy {
+                overflow: visible;
+                border-radius: 10px;
+            }
+
+            .callcenter-order-hierarchy-row {
+                grid-template-columns: minmax(0, 1fr) 58px;
+                grid-template-areas:
+                    "title actions"
+                    "size qty"
+                    "price total"
+                    "discount discount";
+                gap: 6px 10px;
+                min-height: 0;
+                padding: 10px;
+                border-top-color: #fecdd3;
+            }
+
+            .callcenter-order-hierarchy-row > div:nth-child(1) { grid-area: title; }
+            .callcenter-order-hierarchy-row > div:nth-child(2) { grid-area: size; justify-self: start; }
+            .callcenter-order-hierarchy-row > div:nth-child(3) { grid-area: qty; justify-self: end; }
+            .callcenter-order-hierarchy-row > div:nth-child(4) { grid-area: price; justify-self: start; }
+            .callcenter-order-hierarchy-row > div:nth-child(5) { grid-area: total; justify-self: end; }
+            .callcenter-order-hierarchy-row > div:nth-child(6) { grid-area: discount; justify-self: start; }
+            .callcenter-order-hierarchy-row > div:nth-child(7) { grid-area: actions; justify-self: end; }
+
+            .callcenter-order-title,
+            .callcenter-order-product-line {
+                min-width: 0;
+            }
+
+            .callcenter-order-product-line {
+                align-items: flex-start;
+            }
+
+            .callcenter-order-product-line strong {
+                display: -webkit-box;
+                overflow: hidden;
+                -webkit-box-orient: vertical;
+                -webkit-line-clamp: 2;
+                line-height: 1.25;
+            }
+
+            .callcenter-order-hover-image,
+            .callcenter-order-product-line:hover > .callcenter-order-hover-image {
+                position: static;
+                display: inline-flex !important;
+                flex: 0 0 48px;
+                width: 48px;
+                height: 56px;
+                pointer-events: none;
+                transform: none;
+            }
+
+            .callcenter-order-hover-image > img {
+                width: 44px;
+                height: 56px;
+                min-width: 44px;
+                min-height: 56px;
+                max-width: 44px !important;
+                max-height: 56px !important;
+                border-radius: 5px;
+            }
+
+            .callcenter-order-price,
+            .callcenter-order-total,
+            .callcenter-order-discount {
+                min-width: 0;
+                font-size: 11px;
+            }
+
+            .callcenter-order-price::before { content: 'Ціна: '; color: #64748b; }
+            .callcenter-order-total::before { content: 'Разом: '; color: #64748b; }
+            .callcenter-order-price::after,
+            .callcenter-order-total::after,
+            .callcenter-order-discount:not(.is-empty):not(.is-set-discount)::after { content: ' грн'; color: #64748b; }
+
+            .callcenter-order-discount.is-empty {
+                display: none;
+            }
+
+            .callcenter-order-discount {
+                justify-self: start;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                text-align: left;
+            }
+
+            .callcenter-order-discount input,
+            .callcenter-order-price input,
+            .callcenter-order-total input {
+                width: 64px;
+                max-width: 64px;
+            }
+
+            .callcenter-order-qty button,
+            .callcenter-order-actions button,
+            .callcenter-discovery-replace-btn,
+            .callcenter-discovery-summary button {
+                min-width: 40px;
+                min-height: 40px;
+            }
+
+            .callcenter-order-qty input {
+                width: 36px;
+                min-height: 40px;
+            }
+
+            .callcenter-discovery-summary {
+                min-height: 44px;
+                gap: 8px;
+                padding: 6px 10px;
+            }
+
+            .callcenter-discovery-summary button {
+                min-height: 36px;
+                padding: 0 8px;
+            }
+
+            .callcenter-discovery-child {
+                grid-template-columns: 24px minmax(0, 1fr) 42px 42px;
+                gap: 6px;
+                padding: 8px 10px;
+            }
+
+            .callcenter-discovery-child-need {
+                white-space: nowrap;
+            }
+
+            .callcenter-discovery-edit-row {
+                grid-template-columns: 24px minmax(0, 1fr) 76px;
+                gap: 6px;
+                padding: 8px 10px;
+            }
+
+            .callcenter-discovery-replace-btn {
+                min-width: 76px;
+                padding: 0 8px;
+            }
+
+            .callcenter-discovery-edit-actions {
+                flex-wrap: wrap;
+            }
+
+            .callcenter-discovery-edit-actions button {
+                min-height: 40px;
+            }
+        }
+
+        .callcenter-discovery-child-marker {
+            display: none !important;
+        }
+
+        .callcenter-items-table .table-repeater-row:has(.callcenter-discovery-child-marker) {
+            display: none !important;
         }
 
         .callcenter-items-table .callcenter-inline-select-display,
@@ -634,6 +2021,272 @@
             color: #64748b;
         }
 
+        .callcenter-mobile-order-card {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .callcenter-order-hierarchy-row {
+                display: none !important;
+            }
+
+            form:has(.callcenter-order-hierarchy) .callcenter-items-table,
+            .fi-fo-component-ct:has(.callcenter-order-hierarchy) .callcenter-items-table {
+                display: none !important;
+            }
+
+            .callcenter-mobile-order-card {
+                display: block;
+                padding: 8px 10px;
+                border-top: 1px solid #fecdd3;
+                background: #fff;
+            }
+
+            .callcenter-mobile-order-card.is-discovery {
+                background: #fff7f8;
+            }
+
+            .callcenter-mobile-order-card-top {
+                display: grid;
+                grid-template-columns: 48px minmax(0, 1fr) 40px;
+                gap: 8px;
+                align-items: start;
+            }
+
+            .callcenter-mobile-order-card.is-discovery .callcenter-mobile-order-card-top {
+                grid-template-columns: minmax(0, 1fr) 40px;
+            }
+
+            .callcenter-mobile-order-card-image,
+            .callcenter-mobile-order-card-image .callcenter-order-hover-image {
+                width: 48px;
+                height: 48px;
+            }
+
+            .callcenter-mobile-order-card-image .callcenter-order-hover-image {
+                display: inline-flex !important;
+                position: static;
+                transform: none;
+                pointer-events: none;
+            }
+
+            .callcenter-mobile-order-card-image img {
+                width: 44px !important;
+                height: 48px !important;
+                max-width: 44px !important;
+                max-height: 48px !important;
+                object-fit: contain;
+            }
+
+            .callcenter-mobile-order-card-info {
+                display: grid;
+                min-width: 0;
+                gap: 2px;
+            }
+
+            .callcenter-mobile-order-card-info strong {
+                display: -webkit-box;
+                overflow: hidden;
+                -webkit-box-orient: vertical;
+                -webkit-line-clamp: 2;
+                font-size: 13px;
+                line-height: 1.2;
+            }
+
+            .callcenter-mobile-order-card-info span {
+                overflow: hidden;
+                color: #64748b;
+                font-size: 11px;
+                line-height: 1.2;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .callcenter-mobile-order-delete {
+                display: inline-flex;
+                width: 40px;
+                height: 40px;
+                align-items: center;
+                justify-content: center;
+                border: 0;
+                background: transparent;
+                color: #be123c;
+                font-size: 20px;
+            }
+
+            .callcenter-mobile-order-card-bottom {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+                gap: 5px;
+                align-items: center;
+                margin-top: 6px;
+            }
+
+            .callcenter-mobile-order-price,
+            .callcenter-mobile-order-total {
+                min-width: 0;
+                overflow: hidden;
+                font-size: 12px;
+                line-height: 1.2;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .callcenter-mobile-order-total {
+                color: #0369a1;
+                font-weight: 700;
+                text-align: right;
+            }
+
+            .callcenter-mobile-order-price s {
+                color: #94a3b8;
+            }
+
+            .callcenter-mobile-order-price input,
+            .callcenter-mobile-order-discount input {
+                box-sizing: border-box;
+                width: 72px;
+                max-width: 72px;
+                height: 28px;
+                padding: 2px 5px;
+                border: 1px solid #94a3b8;
+                border-radius: 4px;
+                font-size: 12px;
+                text-align: right;
+            }
+
+            .callcenter-mobile-order-editable {
+                display: inline-block;
+                min-height: 28px;
+                cursor: pointer;
+            }
+
+            .callcenter-mobile-order-discount {
+                cursor: text;
+            }
+
+            .callcenter-mobile-order-qty {
+                display: inline-flex;
+                gap: 2px;
+                align-items: center;
+            }
+
+            .callcenter-mobile-order-qty button,
+            .callcenter-mobile-order-qty input {
+                box-sizing: border-box;
+                height: 40px;
+                min-height: 40px;
+                padding: 0;
+                border: 1px solid #cbd5e1;
+                border-radius: 5px;
+                text-align: center;
+            }
+
+            .callcenter-mobile-order-qty button {
+                width: 40px;
+                min-width: 40px;
+                background: #f8fafc;
+                font-size: 17px;
+            }
+
+            .callcenter-mobile-order-qty input {
+                width: 34px;
+                min-width: 34px;
+                appearance: textfield;
+                -moz-appearance: textfield;
+            }
+
+            .callcenter-mobile-order-qty input::-webkit-outer-spin-button,
+            .callcenter-mobile-order-qty input::-webkit-inner-spin-button {
+                appearance: none;
+            }
+
+            .callcenter-mobile-order-discount {
+                margin-top: 3px;
+                color: #be123c;
+                font-size: 11px;
+                white-space: nowrap;
+            }
+
+            .callcenter-discovery-details {
+                border-top: 1px solid #fecdd3;
+            }
+
+            .callcenter-discovery-summary {
+                min-height: 40px;
+                padding: 4px 10px;
+            }
+
+            .callcenter-discovery-summary button:last-of-type {
+                margin-left: auto;
+            }
+
+            .callcenter-discovery-child {
+                grid-template-columns: 24px minmax(0, 1fr) 42px;
+                min-height: 64px;
+                padding: 6px 10px;
+            }
+
+            .callcenter-discovery-child-name {
+                display: grid;
+                grid-template-columns: 48px minmax(0, 1fr);
+                grid-template-rows: auto auto;
+                column-gap: 8px;
+                min-width: 0;
+                align-items: center;
+            }
+
+            .callcenter-discovery-child-name .callcenter-order-product-line {
+                display: contents;
+            }
+
+            .callcenter-discovery-child-name .callcenter-order-hover-image {
+                grid-column: 1;
+                grid-row: 1 / span 2;
+                width: 48px;
+                height: 58px;
+                flex-basis: 48px;
+            }
+
+            .callcenter-discovery-child-name .callcenter-order-hover-image img {
+                width: 46px !important;
+                height: 58px !important;
+                max-width: 46px !important;
+                max-height: 58px !important;
+            }
+
+            .callcenter-discovery-child-name strong {
+                grid-column: 2;
+                grid-row: 1;
+                min-width: 0;
+                align-self: end;
+            }
+
+            .callcenter-discovery-child-name > span {
+                grid-column: 2;
+                grid-row: 2;
+                align-self: start;
+                color: #64748b;
+                font-size: 11px;
+                line-height: 1.2;
+                text-align: center;
+                white-space: nowrap;
+            }
+
+            .callcenter-discovery-child-name > span::after {
+                content: ' · 3 мл';
+            }
+
+            .callcenter-discovery-child-volume {
+                display: none;
+            }
+
+            .callcenter-discovery-child-need {
+                grid-column: 3;
+                grid-row: 1 / span 2;
+                white-space: nowrap;
+            }
+        }
     </style>
 
     <script>
