@@ -3,7 +3,10 @@
 namespace App\Services;
 
 use App\Models\Location;
+use App\Models\Shop\HolidayPeriod;
 use Carbon\Carbon;
+use Carbon\CarbonPeriod;
+use Illuminate\Support\Facades\Schema;
 
 class ScheduleV2Service
 {
@@ -61,6 +64,7 @@ class ScheduleV2Service
         return [
             'asap_available' => $asapAvailable,
             'available_dates' => $dates,
+            'closed_dates' => $this->holidayDates($now->copy()->startOfDay(), $now->copy()->startOfDay()->addDays(max(0, $days - 1))),
             'next_available_date' => $dates[0] ?? null,
             'slots_by_date' => $slotsByDate,
         ];
@@ -191,6 +195,10 @@ class ScheduleV2Service
 
     private function isClosedDate(Location $location, string $method, string $date): bool
     {
+        if ($this->holidaysTableExists() && HolidayPeriod::query()->forDate($date)->exists()) {
+            return true;
+        }
+
         $v2 = (array) ($location->schedule_v2 ?? []);
         $methodData = (array) ($v2[$method] ?? []);
         $raw = (array) ($methodData['closed_dates'] ?? []);
@@ -210,6 +218,50 @@ class ScheduleV2Service
         }
 
         return in_array($date, $closedDates, true);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function holidayDates(Carbon $from, Carbon $to): array
+    {
+        if (! $this->holidaysTableExists()) {
+            return [];
+        }
+
+        $dates = [];
+
+        HolidayPeriod::query()
+            ->intersecting($from, $to)
+            ->get(['date_from', 'date_to'])
+            ->each(function (HolidayPeriod $period) use (&$dates, $from, $to): void {
+                $periodStart = $period->date_from?->copy()->startOfDay();
+                $periodEnd = $period->date_to?->copy()->startOfDay();
+
+                if (! $periodStart || ! $periodEnd) {
+                    return;
+                }
+
+                $start = $periodStart->greaterThan($from) ? $periodStart : $from->copy();
+                $end = $periodEnd->lessThan($to) ? $periodEnd : $to->copy();
+
+                if ($start->gt($end)) {
+                    return;
+                }
+
+                foreach (CarbonPeriod::create($start, $end) as $date) {
+                    $dates[] = $date->toDateString();
+                }
+            });
+
+        return array_values(array_unique($dates));
+    }
+
+    private function holidaysTableExists(): bool
+    {
+        static $exists = null;
+
+        return $exists ??= Schema::hasTable((new HolidayPeriod())->getTable());
     }
 
     private function toMinutes(string $time): int
