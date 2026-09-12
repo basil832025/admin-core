@@ -34,7 +34,11 @@
             .callcenter-order-items-inline {
                 display: grid;
                 gap: 4px;
+                width: 100%;
                 min-width: 0;
+                max-width: 100%;
+                box-sizing: border-box;
+                overflow: hidden;
                 color: #334155;
                 font-size: 11px;
                 line-height: 1.2;
@@ -60,6 +64,8 @@
                 display: flex;
                 width: 100%;
                 min-width: 0;
+                max-width: 100%;
+                overflow: hidden;
                 align-items: center;
                 justify-content: space-between;
                 gap: 6px;
@@ -75,7 +81,10 @@
 
             .callcenter-order-items-inline-main {
                 display: flex;
+                flex: 1 1 auto;
                 min-width: 0;
+                max-width: 100%;
+                overflow: hidden;
                 align-items: baseline;
                 gap: 4px;
                 flex-wrap: wrap;
@@ -99,6 +108,7 @@
             .callcenter-order-items-inline-title {
                 min-width: 0;
                 max-width: 100%;
+                overflow: hidden;
                 overflow-wrap: anywhere;
                 color: #0f172a;
                 font-weight: 600;

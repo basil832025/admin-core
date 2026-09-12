@@ -2807,8 +2807,8 @@ class OrderResource extends Resource
                     ? ViewColumn::make('items_inline')
                         ->label(__('order.columns.items'))
                         ->grow(false)
-                        ->extraHeaderAttributes(['class' => 'min-w-[22rem]'])
-                        ->extraCellAttributes(['class' => 'min-w-[22rem]'])
+                        ->extraHeaderAttributes(['class' => 'min-w-[22rem]', 'style' => 'min-width:22rem;width:22rem;'])
+                        ->extraCellAttributes(['class' => 'min-w-[22rem]', 'style' => 'min-width:22rem;width:22rem;'])
                         ->view('filament.tables.columns.order-items-inline')
                     : null,
 
