@@ -1,4 +1,5 @@
-import { existsSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
 import { defineConfig } from 'vite';
 import laravel from 'laravel-vite-plugin';
 
@@ -17,6 +18,37 @@ const frontendSeviaInputs = [
     'packages/frontend-sevia/resources/js/app.js',
 ];
 
+function syncFrontendPackageBuild(packageName, enabled) {
+    return {
+        name: `sync-${packageName}-package-build`,
+        buildStart() {
+            if (!enabled) {
+                return;
+            }
+
+            rmSync(join(process.cwd(), 'public', 'build', packageName), { recursive: true, force: true });
+        },
+        closeBundle() {
+            if (!enabled) {
+                return;
+            }
+
+            const source = join(process.cwd(), 'public', 'build', packageName);
+            const target = join(process.cwd(), 'packages', packageName, 'public', 'build', packageName);
+
+            if (!existsSync(source)) {
+                return;
+            }
+
+            rmSync(target, { recursive: true, force: true });
+            mkdirSync(join(process.cwd(), 'packages', packageName, 'public', 'build'), { recursive: true });
+            cpSync(source, target, { recursive: true });
+
+            console.log(`Synced ${source} -> ${target}`);
+        },
+    };
+}
+
 export default defineConfig(({ mode }) => {
     process.env.TAILWIND_BUILD_MODE = mode;
 
@@ -30,6 +62,7 @@ export default defineConfig(({ mode }) => {
     const buildDirectory = isFrontendThreePirogaBuild
         ? 'build/frontend-3piroga'
         : (isFrontendSeviaBuild ? 'build/frontend-sevia' : 'build');
+    const isPackageFrontendBuild = isFrontendThreePirogaBuild || isFrontendSeviaBuild;
 
     return {
         plugins: [
@@ -38,7 +71,12 @@ export default defineConfig(({ mode }) => {
                 refresh: true,
                 buildDirectory,
             }),
+            syncFrontendPackageBuild('frontend-3piroga', isFrontendThreePirogaBuild),
+            syncFrontendPackageBuild('frontend-sevia', isFrontendSeviaBuild),
         ],
+        build: {
+            emptyOutDir: !isPackageFrontendBuild,
+        },
         base: `/${buildDirectory}/`,
     };
 });

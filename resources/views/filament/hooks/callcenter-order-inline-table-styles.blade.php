@@ -816,6 +816,18 @@
             background: #ffffff;
         }
 
+        .callcenter-order-hierarchy--mobile-only {
+            display: none;
+        }
+
+        .callcenter-order-add-actions--mobile-only {
+            display: none;
+        }
+
+        .fi-fo-component-ct:has(.callcenter-order-hierarchy--mobile-only) {
+            display: none !important;
+        }
+
         .callcenter-order-hierarchy-head,
         .callcenter-order-hierarchy-row {
             display: grid;
@@ -1520,6 +1532,18 @@
         }
 
         @media (max-width: 768px) {
+            .callcenter-order-hierarchy--mobile-only {
+                display: block;
+            }
+
+            .callcenter-order-add-actions--mobile-only {
+                display: block;
+            }
+
+            .fi-fo-component-ct:has(.callcenter-order-hierarchy--mobile-only) {
+                display: block !important;
+            }
+
             .callcenter-order-hierarchy {
                 overflow: visible;
                 border-radius: 10px;

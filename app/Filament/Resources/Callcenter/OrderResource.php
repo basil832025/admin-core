@@ -355,7 +355,7 @@ class OrderResource extends ShopOrderResource
                                     ->label('')
                                     ->hiddenLabel()
                                     ->dehydrated(false)
-                                    ->visible(fn (?Order $record): bool => $record !== null && (static::isNovaPostOrderForm() || static::hasDiscoverySets($record)))
+                                    ->visible(fn (?Order $record): bool => $record !== null)
                                     ->content(fn (?Order $record): HtmlString => static::renderOrderCompositionPreview($record)),
                                 static::getDiscoveryOrderActions(),
                                 static::getItemsRepeater(),
@@ -1653,7 +1653,10 @@ class OrderResource extends ShopOrderResource
                 }),
         ])
             ->alignment('left')
-            ->visible(fn (?Order $record): bool => $record !== null && (static::isNovaPostOrderForm() || static::hasDiscoverySets($record)));
+            ->extraAttributes([
+                'class' => static::isNovaPostOrderForm() ? '' : 'callcenter-order-add-actions--mobile-only',
+            ])
+            ->visible(fn (?Order $record): bool => $record !== null);
     }
 
     protected static function hasDiscoverySets(?Order $order): bool
@@ -1679,7 +1682,7 @@ class OrderResource extends ShopOrderResource
             return new HtmlString('');
         }
 
-        $html = '<div class="callcenter-order-hierarchy">';
+        $html = '<div class="callcenter-order-hierarchy' . (static::isNovaPostOrderForm() ? '' : ' callcenter-order-hierarchy--mobile-only') . '">';
         $html .= '<div class="callcenter-order-hierarchy-head">';
         $html .= '<div>Товар</div>';
         $html .= '<div>Розмір</div>';
