@@ -334,6 +334,93 @@
                     line-height: 1;
                 }
 
+                .callcenter-mobile-delete-modal {
+                    position: fixed;
+                    inset: 0;
+                    z-index: 100;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 16px;
+                    background: rgba(15, 23, 42, 0.52);
+                }
+
+                .callcenter-mobile-delete-modal-dialog {
+                    position: relative;
+                    width: min(100%, 505px);
+                    padding: 28px 26px 26px;
+                    border-radius: 14px;
+                    background: #ffffff;
+                    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.25);
+                    text-align: center;
+                }
+
+                .callcenter-mobile-delete-modal-close {
+                    position: absolute;
+                    top: 12px;
+                    right: 14px;
+                    width: 32px;
+                    height: 32px;
+                    border: 0;
+                    background: transparent;
+                    color: #94a3b8;
+                    font-size: 27px;
+                    line-height: 1;
+                }
+
+                .callcenter-mobile-delete-modal-icon {
+                    display: grid;
+                    width: 54px;
+                    height: 54px;
+                    margin: 0 auto 18px;
+                    place-items: center;
+                    border-radius: 999px;
+                    background: #fee2e2;
+                    color: #ef4444;
+                    font-size: 26px;
+                    font-weight: 700;
+                }
+
+                .callcenter-mobile-delete-modal-dialog h2 {
+                    margin: 0;
+                    color: #111827;
+                    font-size: 18px;
+                    font-weight: 700;
+                    line-height: 1.3;
+                }
+
+                .callcenter-mobile-delete-modal-dialog p {
+                    margin: 8px 0 24px;
+                    color: #7c8799;
+                    font-size: 16px;
+                    line-height: 1.35;
+                }
+
+                .callcenter-mobile-delete-modal-actions {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 12px;
+                }
+
+                .callcenter-mobile-delete-modal-actions button {
+                    min-height: 42px;
+                    border-radius: 9px;
+                    font-size: 16px;
+                    font-weight: 700;
+                }
+
+                .callcenter-mobile-delete-modal-cancel {
+                    border: 1px solid #d1d5db;
+                    background: #ffffff;
+                    color: #111827;
+                }
+
+                .callcenter-mobile-delete-modal-confirm {
+                    border: 1px solid #dc2626;
+                    background: #dc2626;
+                    color: #ffffff;
+                }
+
                 .callcenter-mobile-order-card-bottom {
                     display: grid;
                     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
@@ -731,6 +818,11 @@
         }
 
         .callcenter-product-card-article {
+            color: #c2410c;
+            font-weight: 600;
+        }
+
+        .callcenter-mobile-order-card-info .callcenter-product-card-article {
             color: #c2410c;
             font-weight: 600;
         }
@@ -2136,6 +2228,93 @@
                 background: transparent;
                 color: #be123c;
                 font-size: 20px;
+            }
+
+            .callcenter-mobile-delete-modal {
+                position: fixed;
+                inset: 0;
+                z-index: 100;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 16px;
+                background: rgba(15, 23, 42, 0.52);
+            }
+
+            .callcenter-mobile-delete-modal-dialog {
+                position: relative;
+                width: min(100%, 505px);
+                padding: 28px 26px 26px;
+                border-radius: 14px;
+                background: #ffffff;
+                box-shadow: 0 18px 45px rgba(15, 23, 42, 0.25);
+                text-align: center;
+            }
+
+            .callcenter-mobile-delete-modal-close {
+                position: absolute;
+                top: 12px;
+                right: 14px;
+                width: 32px;
+                height: 32px;
+                border: 0;
+                background: transparent;
+                color: #94a3b8;
+                font-size: 27px;
+                line-height: 1;
+            }
+
+            .callcenter-mobile-delete-modal-icon {
+                display: grid;
+                width: 54px;
+                height: 54px;
+                margin: 0 auto 18px;
+                place-items: center;
+                border-radius: 999px;
+                background: #fee2e2;
+                color: #ef4444;
+                font-size: 26px;
+                font-weight: 700;
+            }
+
+            .callcenter-mobile-delete-modal-dialog h2 {
+                margin: 0;
+                color: #111827;
+                font-size: 18px;
+                font-weight: 700;
+                line-height: 1.3;
+            }
+
+            .callcenter-mobile-delete-modal-dialog p {
+                margin: 8px 0 24px;
+                color: #7c8799;
+                font-size: 16px;
+                line-height: 1.35;
+            }
+
+            .callcenter-mobile-delete-modal-actions {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+            }
+
+            .callcenter-mobile-delete-modal-actions button {
+                min-height: 42px;
+                border-radius: 9px;
+                font-size: 16px;
+                font-weight: 700;
+            }
+
+            .callcenter-mobile-delete-modal-cancel {
+                border: 1px solid #d1d5db;
+                background: #ffffff;
+                color: #111827;
+            }
+
+            .callcenter-mobile-delete-modal-confirm {
+                border: 1px solid #dc2626;
+                background: #dc2626;
+                color: #ffffff;
             }
 
             .callcenter-mobile-order-card-bottom {

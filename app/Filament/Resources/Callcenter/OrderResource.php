@@ -1682,7 +1682,7 @@ class OrderResource extends ShopOrderResource
             return new HtmlString('');
         }
 
-        $html = '<div class="callcenter-order-hierarchy' . (static::isNovaPostOrderForm() ? '' : ' callcenter-order-hierarchy--mobile-only') . '">';
+        $html = '<div class="callcenter-order-hierarchy' . (static::isNovaPostOrderForm() ? '' : ' callcenter-order-hierarchy--mobile-only') . '" x-data="{ deleteTarget: null, requestDelete(type, id) { this.deleteTarget = { type, id }; }, cancelDelete() { this.deleteTarget = null; }, confirmDelete() { const target = this.deleteTarget; this.deleteTarget = null; if (target?.type === \'regular\') { $wire.removeRegularOrderItem(target.id); } else if (target?.type === \'discovery\') { $wire.removeDiscoverySet(target.id); } } }" @callcenter-delete-request.window="requestDelete($event.detail.type, $event.detail.id)">';
         $html .= '<div class="callcenter-order-hierarchy-head">';
         $html .= '<div>Товар</div>';
         $html .= '<div>Розмір</div>';
@@ -1699,6 +1699,16 @@ class OrderResource extends ShopOrderResource
                 : static::renderRegularCompositionRow($row);
         }
 
+        $html .= '<div class="callcenter-mobile-delete-modal" x-show="deleteTarget" x-cloak @click.self="cancelDelete()">';
+        $html .= '<div class="callcenter-mobile-delete-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="callcenter-mobile-delete-title">';
+        $html .= '<button type="button" class="callcenter-mobile-delete-modal-close" aria-label="' . e(__('order.actions.cancel')) . '" @click="cancelDelete()">×</button>';
+        $html .= '<div class="callcenter-mobile-delete-modal-icon" aria-hidden="true">!</div>';
+        $html .= '<h2 id="callcenter-mobile-delete-title">' . e(__('order.modals.delete_item_heading')) . '</h2>';
+        $html .= '<p>' . e(__('order.modals.delete_item_description')) . '</p>';
+        $html .= '<div class="callcenter-mobile-delete-modal-actions">';
+        $html .= '<button type="button" class="callcenter-mobile-delete-modal-cancel" @click="cancelDelete()">' . e(__('order.actions.cancel')) . '</button>';
+        $html .= '<button type="button" class="callcenter-mobile-delete-modal-confirm" @click="confirmDelete()">' . e(__('order.actions.delete')) . '</button>';
+        $html .= '</div></div></div>';
         $html .= '</div>';
 
         return new HtmlString($html);
@@ -1821,7 +1831,7 @@ class OrderResource extends ShopOrderResource
         $perSetDiscounted = $qty > 0 ? $discountedTotal / $qty : $discountedTotal;
         $html = '<div class="callcenter-order-hierarchy-group is-discovery" x-data=\'' .
             '{ setId: ' . $setArg . ', open: window.matchMedia("(max-width: 768px)").matches ? false : true, editing: false, activeSlot: null, slots: ' . $slotsJson .
-            ', originalSlots: ' . $slotsJson . ', beginEdit() { this.editing = true; this.open = true; }, cancelEdit() { this.slots = JSON.parse(JSON.stringify(this.originalSlots)); this.editing = false; }, openReplace(index) { this.activeSlot = Number(index); $wire.mountAction("menuCatalog", { mode: "set-replace", setId: this.setId, slotIndex: this.activeSlot, orderItemId: this.slots[this.activeSlot]?.itemId || 0, requiredVolume: "3 мл" }); }, applyReplacement(detail) { if (String(detail?.setId || "") !== String(this.setId)) return; const index = Number(detail?.slotIndex ?? -1); if (!this.slots[index]) return; if (Number(detail?.orderItemId || 0) !== Number(this.slots[index]?.itemId || 0)) return; const product = detail.product || {}; this.slots[index] = { ...this.slots[index], productId: Number(product.id || 0), name: product.name || product.title || "", brand: product.brand || "Sevia", article: product.article || "", priceLabel: product.priceLabel || "", image: product.image || "" }; this.editing = true; this.open = true; }, async saveComposition() { await $wire.saveDiscoverySetComposition(' . $setArg . ', this.slots); this.originalSlots = JSON.parse(JSON.stringify(this.slots)); this.editing = false; } }\' @discovery-menu-catalog-product-selected.window="applyReplacement($event.detail)">';
+            ', originalSlots: ' . $slotsJson . ', beginEdit() { this.editing = true; this.open = true; }, cancelEdit() { this.slots = JSON.parse(JSON.stringify(this.originalSlots)); this.editing = false; }, openReplace(index) { this.activeSlot = Number(index); $wire.mountAction("menuCatalog", { mode: "set-replace", setId: this.setId, slotIndex: this.activeSlot, orderItemId: this.slots[this.activeSlot]?.itemId || 0, requiredVolume: "3 мл" }); }, applyReplacement(detail) { if (String(detail?.setId || "") !== String(this.setId)) return; const index = Number(detail?.slotIndex ?? -1); if (!this.slots[index]) return; if (Number(detail?.orderItemId || 0) !== Number(this.slots[index]?.itemId || 0)) return; const product = detail.product || {}; this.slots[index] = { ...this.slots[index], productId: Number(product.id || 0), name: product.name || product.title || "", brand: product.brand || "", article: product.article || "", priceLabel: product.priceLabel || "", image: product.image || "" }; this.editing = true; this.open = true; }, async saveComposition() { await $wire.saveDiscoverySetComposition(' . $setArg . ', this.slots); this.originalSlots = JSON.parse(JSON.stringify(this.slots)); this.editing = false; } }\' @discovery-menu-catalog-product-selected.window="applyReplacement($event.detail)">';
 
         $html .= '<div class="callcenter-order-hierarchy-row is-parent">';
         $html .= '<div class="callcenter-order-title">';
@@ -1852,7 +1862,7 @@ class OrderResource extends ShopOrderResource
         $html .= '<strong>DISCOVERY 53</strong>';
         $html .= '<span>3 мл · ' . e((string) $setSize) . ' ароматів · 15%</span>';
         $html .= '</div>';
-        $html .= '<button type="button" class="callcenter-mobile-order-delete" title="Видалити сет" wire:confirm="Підтвердити видалення?" wire:click="removeDiscoverySet(' . $setArg . ')">×</button>';
+        $html .= '<button type="button" class="callcenter-mobile-order-delete" title="Видалити сет" @click.prevent.stop="$dispatch(\'callcenter-delete-request\', { type: \'discovery\', id: ' . $setArg . ' })">×</button>';
         $html .= '</div>';
         $html .= '<div class="callcenter-mobile-order-card-bottom is-discovery">';
         $html .= '<span class="callcenter-mobile-order-price">';
@@ -1884,7 +1894,7 @@ class OrderResource extends ShopOrderResource
             $html .= '<div class="callcenter-discovery-child-index">' . e((string) ($index + 1)) . '</div>';
             $html .= '<div class="callcenter-discovery-child-name">';
             $html .= '<div class="callcenter-order-product-line">' . static::renderOrderHoverImage($data['image']) . '<strong>' . e($data['name']) . '</strong></div>';
-            $html .= '<span>' . e($data['brand'] !== '' ? $data['brand'] : 'Sevia') . '</span>';
+            $html .= '<span>' . e($data['brand']) . '</span>';
             $html .= '</div>';
             $html .= '<div class="callcenter-discovery-child-volume">3 мл</div>';
             $html .= '<div class="callcenter-discovery-child-need">' . e((string) $qty) . ' шт.</div>';
@@ -1940,7 +1950,7 @@ class OrderResource extends ShopOrderResource
         $html = '<div class="callcenter-order-hierarchy-row is-regular">';
         $html .= '<div class="callcenter-order-title">';
         $html .= '<div class="callcenter-order-product-line">' . static::renderOrderHoverImage($row['image']) . '<strong>' . e($displayName) . '</strong></div>';
-        $html .= '<span>' . e($row['brand'] !== '' ? $row['brand'] : 'Sevia') . '</span>';
+        $html .= '<span>' . e($row['brand']) . '</span>';
 
         if ($row['notes'] !== '') {
             $html .= '<span>' . e($row['notes']) . '</span>';
@@ -1968,10 +1978,10 @@ class OrderResource extends ShopOrderResource
         $html .= '</div>';
         $html .= '</div>';
 
-        return $html . static::renderMobileRegularCompositionCard($row, $displayName, $discount);
+        return $html . static::renderMobileRegularCompositionCard($row, $displayName, $discount, $article);
     }
 
-    protected static function renderMobileRegularCompositionCard(array $row, string $displayName, string $discount): string
+    protected static function renderMobileRegularCompositionCard(array $row, string $displayName, string $discount, string $article): string
     {
         $item = $row['item'];
         $itemId = (int) $item->id;
@@ -1988,9 +1998,18 @@ class OrderResource extends ShopOrderResource
         $html .= '<div class="callcenter-mobile-order-card-image">' . static::renderOrderHoverImage($row['image']) . '</div>';
         $html .= '<div class="callcenter-mobile-order-card-info">';
         $html .= '<strong>' . e($displayName) . '</strong>';
-        $html .= '<span>' . e($row['brand'] !== '' ? $row['brand'] : 'Sevia') . ' · ' . e($row['volume']) . '</span>';
+        $mobileMeta = collect([
+            trim((string) $row['brand']),
+            trim((string) $row['volume']),
+        ])->filter()->implode(' · ');
+        $html .= '<span>' . e($mobileMeta);
+        if ($article !== '') {
+            $html .= ($mobileMeta !== '' ? ' · ' : '')
+                . '<span class="callcenter-product-card-article">Артикул: ' . e($article) . '</span>';
+        }
+        $html .= '</span>';
         $html .= '</div>';
-        $html .= '<button type="button" class="callcenter-mobile-order-delete" title="Видалити товар" wire:confirm="Підтвердити видалення?" wire:click="removeRegularOrderItem(' . $itemId . ')">×</button>';
+        $html .= '<button type="button" class="callcenter-mobile-order-delete" title="Видалити товар" @click.prevent.stop="$dispatch(\'callcenter-delete-request\', { type: \'regular\', id: ' . $itemId . ' })">×</button>';
         $html .= '</div>';
         $html .= '<div class="callcenter-mobile-order-card-bottom">';
         $html .= '<span class="callcenter-mobile-order-price" x-data="{ editing: false }">';
@@ -2035,7 +2054,7 @@ class OrderResource extends ShopOrderResource
             'itemId' => (int) $item->id,
             'productId' => (int) $item->product_id,
             'name' => $data['name'],
-            'brand' => $data['brand'] !== '' ? $data['brand'] : 'Sevia',
+            'brand' => $data['brand'],
             'article' => $article,
             'priceLabel' => static::formatOrderCompositionAmount($originalPrice),
             'image' => $data['image'],
@@ -2106,7 +2125,7 @@ class OrderResource extends ShopOrderResource
         return [
             'id' => (int) $product->id,
             'name' => $name,
-            'brand' => static::discoveryProductBrand($product) ?: 'Sevia',
+            'brand' => static::discoveryProductBrand($product) ?: '',
             'article' => $article,
             'volume' => '3 мл',
             'price' => $originalPrice,
@@ -2201,7 +2220,7 @@ class OrderResource extends ShopOrderResource
             'unit_price' => $discountedPrice,
             'meta' => [
                 'name' => $name,
-                'brand' => 'Sevia',
+                'brand' => static::discoveryProductBrand($product) ?: '',
                 'notes' => null,
                 'volume' => '3 мл',
                 'cart_label' => $name . ' · 3 мл · ' . static::formatOrderCompositionMoney($originalPrice),
