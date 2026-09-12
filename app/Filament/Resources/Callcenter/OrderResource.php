@@ -1785,7 +1785,8 @@ class OrderResource extends ShopOrderResource
             ->values();
 
         $brand = trim((string) data_get($meta, 'brand', $labelParts->count() >= 3 ? $labelParts->get(0) : ''));
-        $name = trim((string) data_get($meta, 'name', $labelParts->count() >= 3 ? $labelParts->get(1) : ''));
+        $rawName = data_get($meta, 'name', $labelParts->count() >= 3 ? $labelParts->get(1) : '');
+        $name = trim((string) (is_string($rawName) ? (static::safeTranslate($rawName, config('app.locale', 'uk')) ?? '') : ''));
         $volume = trim((string) data_get($meta, 'volume', $labelParts->count() >= 3 ? $labelParts->get(2) : ''));
 
         if ($name === '') {
