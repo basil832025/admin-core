@@ -99,14 +99,14 @@ class ViewServiceProvider extends ServiceProvider
             $mainGroup = collect($items)->firstWhere('is_main_group', true);
             $mainGroupSlug = is_array($mainGroup) ? ($mainGroup['slug'] ?? null) : null;
             $currentSlug = match (true) {
-                request()->routeIs('home', 'localized.home') => $mainGroupSlug ?: 'pies',
+                request()->routeIs('home', 'localized.home') => $mainGroupSlug
+                    ?? (config('project.name') === '3piroga' ? null : 'pies'),
                 request()->routeIs('catalog.index', 'localized.catalog.index') => 'pies',
                 default => request()->route('slug') ?? request()->route('categorySlug'),
             };
 
             $activeIndex = null;
             foreach ($items as $i => $it) {
-                if ($currentSlug === null && $it['slug'] === null) { $activeIndex = $i; break; }
                 if ($currentSlug !== null && $it['slug'] === $currentSlug) { $activeIndex = $i; break; }
             }
 
