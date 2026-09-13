@@ -41,12 +41,27 @@ class ScheduleV2Service
 
     public function buildMethodPayload(Location $location, string $method, Carbon $now, int $days = 14): array
     {
+        return $this->buildMethodPayloadForRange(
+            $location,
+            $method,
+            $now->copy()->startOfDay(),
+            $now->copy()->startOfDay()->addDays($days - 1),
+            $now,
+        );
+    }
+
+    public function buildMethodPayloadForRange(Location $location, string $method, Carbon $from, Carbon $to, Carbon $now): array
+    {
         $dates = [];
         $slotsByDate = [];
         $asapAvailable = $this->isAsapAvailable($location, $method, $now);
+        $today = $now->copy()->startOfDay();
 
-        for ($i = 0; $i < $days; $i++) {
-            $date = $now->copy()->startOfDay()->addDays($i);
+        for ($date = $from->copy()->startOfDay(); $date->lte($to); $date->addDay()) {
+            if ($date->lt($today)) {
+                continue;
+            }
+
             if (! $this->isDateAvailable($location, $method, $date, $now)) {
                 continue;
             }
@@ -64,7 +79,7 @@ class ScheduleV2Service
         return [
             'asap_available' => $asapAvailable,
             'available_dates' => $dates,
-            'closed_dates' => $this->holidayDates($now->copy()->startOfDay(), $now->copy()->startOfDay()->addDays(max(0, $days - 1))),
+            'closed_dates' => $from->lte($to) ? $this->holidayDates($from, $to) : [],
             'next_available_date' => $dates[0] ?? null,
             'slots_by_date' => $slotsByDate,
         ];

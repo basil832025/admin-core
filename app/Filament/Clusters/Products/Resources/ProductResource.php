@@ -154,7 +154,9 @@ class ProductResource extends Resource
 
     public static function syncDiscountPercentField(Set $set, Get $get): void
     {
-        $set('manual_discount_percent', null);
+        $discountPercent = static::calculatedDiscountPercent($get('old_price'), $get('price'));
+
+        $set('manual_discount_percent', $discountPercent);
     }
 
     public static function applyDiscountPercentToPrices(Set $set, Get $get, mixed $state): void
@@ -197,11 +199,20 @@ class ProductResource extends Resource
             return $data;
         }
 
+        $rawDiscountPercent = $data['manual_discount_percent'];
         $discountPercent = static::normalizeDecimal($data['manual_discount_percent']);
+        $currentPrice = static::normalizeDecimal($data['price'] ?? null);
+        $existingOldPrice = static::normalizeDecimal($data['old_price'] ?? null);
+
+        // An empty discount means “calculate it from the two prices”. This is
+        // important when the old price is entered manually.
+        if (($rawDiscountPercent === null || $rawDiscountPercent === '') && $currentPrice > 0 && $existingOldPrice > $currentPrice) {
+            $data['manual_discount_percent'] = static::calculatedDiscountPercent($existingOldPrice, $currentPrice);
+
+            return $data;
+        }
 
         if ($discountPercent <= 0) {
-            $existingOldPrice = static::normalizeDecimal($data['old_price'] ?? null);
-
             if ($existingOldPrice > 0) {
                 $data['price'] = round($existingOldPrice);
             }
@@ -212,8 +223,6 @@ class ProductResource extends Resource
             return $data;
         }
 
-        $currentPrice = static::normalizeDecimal($data['price'] ?? null);
-        $existingOldPrice = static::normalizeDecimal($data['old_price'] ?? null);
         $hasExistingOldPrice = $existingOldPrice > 0 && $existingOldPrice > $currentPrice;
         $basePrice = $hasExistingOldPrice ? $existingOldPrice : $currentPrice;
 

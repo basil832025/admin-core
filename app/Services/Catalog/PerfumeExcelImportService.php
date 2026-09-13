@@ -167,24 +167,31 @@ class PerfumeExcelImportService
                 $isNew = ! $product;
                 $sort = $product?->sort ?? $this->nextProductSort($brandCategory->id);
 
-                $product = Product::query()->updateOrCreate(
-                    ['sku' => $row['sku']],
-                    [
-                        'title' => $this->translations($row['name']),
-                        'slug' => $product?->slug ?: $this->uniqueProductSlug($row['brand'] . ' ' . $row['name'], $row['sku']),
-                        'description' => $this->translations($row['description']),
-                        'price' => $row['price'],
-                        'unit_id' => $this->productUnitId('ml'),
-                        'price_unit_quantity' => 1,
-                        'old_price' => null,
-                        'category_id' => $brandCategory->id,
-                        'in_stock' => true,
-                        'quantity' => 1000,
+                $importAttributes = [
+                    'title' => $this->translations($row['name']),
+                    'slug' => $product?->slug ?: $this->uniqueProductSlug($row['brand'] . ' ' . $row['name'], $row['sku']),
+                    'description' => $this->translations($row['description']),
+                    'price' => $row['price'],
+                    'unit_id' => $this->productUnitId('ml'),
+                    'price_unit_quantity' => 1,
+                    'category_id' => $brandCategory->id,
+                    'in_stock' => true,
+                    'quantity' => 1000,
+                    'sort' => $sort,
+                ];
+
+                if ($isNew) {
+                    // Initial values are applied only once. On re-import all
+                    // manually managed product flags remain untouched.
+                    $product = Product::create($importAttributes + [
+                        'sku' => $row['sku'],
                         'is_hit' => $row['bestseller'],
                         'is_home' => true,
-                        'sort' => $sort,
-                    ]
-                );
+                    ]);
+                } else {
+                    $product->fill($importAttributes);
+                    $product->save();
+                }
 
                 $categoryPivotValues = Schema::hasColumn('bs_product_product_category', 'sort_order')
                     ? ['sort_order' => $sort]

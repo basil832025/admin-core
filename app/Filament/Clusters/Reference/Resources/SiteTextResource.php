@@ -202,12 +202,20 @@ class SiteTextResource extends Resource
                     }),
                 Tables\Columns\TextColumn::make('updated_at')->dateTime('Y-m-d H:i')->label(__('site_text.columns.updated_at'))->sortable(),
             ])
-            ->filters([  Tables\Filters\SelectFilter::make('group_id')
-                ->label(__('site_text.filters.group_id'))
-                ->options(fn() => \App\Models\SiteTextGroup::query()
-                    ->orderBy('position')
-                    ->pluck('slug','id')
-                    ->all()),])
+            ->filters([
+                Tables\Filters\SelectFilter::make('group_id')
+                    ->label(__('site_text.filters.group_id'))
+                    ->options(fn () => SiteTextGroupModel::query()
+                        ->orderBy('position')
+                        ->orderBy('slug')
+                        ->get()
+                        ->mapWithKeys(fn (SiteTextGroupModel $group): array => [
+                            $group->id => $group->title_current ?: $group->slug,
+                        ])
+                        ->all())
+                    ->searchable()
+                    ->preload(),
+            ])
             ->actions([
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
