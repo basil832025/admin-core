@@ -55,7 +55,8 @@ class ProductCategoryTree extends BasePage
         return [
             LocaleSwitcher::make(),
             CreateAction::make()
-                ->label(__('category.actions.create')), // «Додати категорію»
+                ->label(__('category.actions.create'))
+                ->url(fn (): string => ProductCategoryResource::getUrl('create', ['source' => 'categories'])), // «Додати категорію»
         ];
     }
 
@@ -172,7 +173,10 @@ class ProductCategoryTree extends BasePage
     {
         return [
             \SolutionForest\FilamentTree\Actions\EditAction::make()
-                ->url(fn ($record) => ProductCategoryResource::getUrl('edit', ['record' => $record]))
+                ->url(fn ($record) => ProductCategoryResource::getUrl('edit', [
+                    'record' => $record,
+                    'source' => 'categories',
+                ]))
                 ->openUrlInNewTab(false)
                 ->label(__('category.actions.edit')) // «Редагувати»
                 ->icon('heroicon-m-pencil-square'),

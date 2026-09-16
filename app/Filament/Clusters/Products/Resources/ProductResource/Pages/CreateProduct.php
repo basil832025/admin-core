@@ -10,11 +10,13 @@ use App\Models\Shop\Product;
 use  App\Models\Shop\ProductImage;
 use App\Filament\Clusters\Products\Resources\ProductResource\Concerns\HasCharacteristicMeta;
 use Illuminate\Support\Str;
+use App\Filament\Clusters\Products\Concerns\ReturnsToCatalogContext;
 
 // <— ВАЖНО: правильный namespace
 
 class CreateProduct extends CreateRecord
 {
+    use ReturnsToCatalogContext;
    // use HasCharacteristicMeta; // <— подмешиваем методы + свойства
     protected static string $resource = ProductResource::class;
 
@@ -36,6 +38,11 @@ class CreateProduct extends CreateRecord
 
         return ProductResource::applyDiscountPercentToData($data);
     }
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getCatalogContextReturnUrl('products');
+    }
     protected function beforeValidate(): void
     {
         // Сырое состояние без правил/кастов
@@ -46,6 +53,11 @@ class CreateProduct extends CreateRecord
 // В CreateProduct (страница ресурса)
     protected function mutateFormDataBeforeFill(array $data): array
     {
+        $categoryId = request()->integer('category');
+        if ($categoryId > 0) {
+            $data['category_id'] = $categoryId;
+        }
+
         /* $data['characteristics'] ??= []; // гарантируем существование */
         $data['legacy_consist_rows'] = [];
 

@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Pages\Dashboard;
+use App\Filament\Clusters\Products\Pages\CatalogManager;
 use App\Http\Middleware\SetLocaleFromSession;
 use App\Http\Middleware\UseAdminGuard;
 use App\Models\Language;
@@ -208,6 +209,7 @@ class AdminPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
                 Dashboard::class,
+                CatalogManager::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
@@ -266,6 +268,12 @@ class AdminPanelProvider extends PanelProvider
         }
         
         // Добавляем обработчик 419 ошибок для автоматической перезагрузки
+        $panel->renderHook(
+            \Filament\Tables\View\TablesRenderHook::TOOLBAR_START,
+            fn () => view('filament.clusters.products.pages.partials.catalog-view-switch'),
+            scopes: CatalogManager::class,
+        );
+
         $panel->renderHook(
             PanelsRenderHook::HEAD_END,
             fn () => view('filament.hooks.csrf-handler')

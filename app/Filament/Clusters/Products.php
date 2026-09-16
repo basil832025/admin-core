@@ -2,7 +2,7 @@
 
 namespace App\Filament\Clusters;
 
-use App\Filament\Clusters\Products\Resources\ProductResource;
+use App\Filament\Clusters\Products\Pages\CatalogManager;
 use Filament\Clusters\Cluster;
 
 class Products extends Cluster
@@ -12,9 +12,18 @@ class Products extends Cluster
     protected static ?string $navigationGroup = null;
     // НЕ хардкодим строкой — вернём перевод
     protected static ?string $navigationLabel = null;
+
+    public static function getClusteredComponents(): array
+    {
+        return array_values(array_unique([
+            CatalogManager::class,
+            ...parent::getClusteredComponents(),
+        ]));
+    }
+
     public function mount(): void
     {
-        $this->redirect(ProductResource::getUrl('index'), navigate: true);
+        $this->redirect(CatalogManager::getUrl(), navigate: true);
     }
 
     public static function getNavigationLabel(): string

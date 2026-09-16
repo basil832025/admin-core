@@ -8,8 +8,10 @@ use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use App\Models\Shop\Product;
 use  App\Models\Shop\ProductImage;
+use App\Filament\Clusters\Products\Concerns\ReturnsToCatalogContext;
 class EditProduct extends EditRecord
 {
+    use ReturnsToCatalogContext;
     protected static string $resource = ProductResource::class;
 
     protected function getHeaderActions(): array
@@ -78,6 +80,10 @@ class EditProduct extends EditRecord
 
     protected function getProductsIndexUrl(): string
     {
+        if ($this->hasExplicitReturnContext()) {
+            return $this->getCatalogContextReturnUrl('products');
+        }
+
         $indexUrl = $this->getResource()::getUrl('index');
         $indexPath = parse_url($indexUrl, PHP_URL_PATH);
         $previousPath = $this->previousUrl ? parse_url($this->previousUrl, PHP_URL_PATH) : null;

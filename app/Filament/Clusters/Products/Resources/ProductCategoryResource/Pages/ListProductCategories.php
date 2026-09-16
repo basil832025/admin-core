@@ -16,7 +16,8 @@ class ListProductCategories extends ListRecords
     {
         return [
         //    Actions\LocaleSwitcher::make(),
-            Actions\CreateAction::make(),
+            Actions\CreateAction::make()
+                ->url(fn (): string => ProductCategoryResource::getUrl('create', ['source' => 'categories'])),
         ];
     }
   /*  protected function getHeaderWidgets(): array

@@ -1617,7 +1617,11 @@ class ProductResource extends Resource
                     }),
             ])
             ->Actions([
-                EditAction::make(),
+                EditAction::make()
+                    ->url(fn (Product $record): string => static::getUrl('edit', [
+                        'record' => $record,
+                        'source' => 'products',
+                    ])),
             ])
             ->bulkActions([
                 Tables\Actions\BulkAction::make('bulk_change_prices')

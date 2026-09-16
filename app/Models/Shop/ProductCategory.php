@@ -38,6 +38,8 @@ class ProductCategory extends Model
         'seo_description',
         'seo_keywords',
         'is_main_group',
+        'icon',
+        'icon_color',
     ];
 
     protected $casts = [
@@ -94,6 +96,31 @@ class ProductCategory extends Model
         $locale = Setting::value('default_language_code') ?: app()->getLocale();
         return $this->getTranslation('title', $locale) ?? '';
 
+    }
+
+    public function getCatalogIconAttribute(): string
+    {
+        return \App\Support\ProductCategoryIcons::valid($this->icon);
+    }
+
+    public function setIconAttribute(?string $value): void
+    {
+        $this->attributes['icon'] = blank($value)
+            ? null
+            : \App\Support\ProductCategoryIcons::valid($value);
+    }
+
+    public function setIconColorAttribute(?string $value): void
+    {
+        $this->attributes['icon_color'] = is_string($value) && preg_match('/^#[0-9A-Fa-f]{6}$/', $value)
+            ? strtoupper($value)
+            : null;
+    }
+
+    public function getCatalogIconColorAttribute(): ?string
+    {
+        $value = $this->attributes['icon_color'] ?? null;
+        return is_string($value) && preg_match('/^#[0-9A-Fa-f]{6}$/', $value) ? $value : null;
     }
    /* public function getNameAttribute(): string
     {

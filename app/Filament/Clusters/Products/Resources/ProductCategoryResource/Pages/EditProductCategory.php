@@ -7,9 +7,12 @@ use App\Models\Shop\ProductCategory;
 use Filament\Actions;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use App\Filament\Clusters\Products\Concerns\ReturnsToCatalogContext;
 
 class EditProductCategory extends EditRecord
 {
+    use ReturnsToCatalogContext;
+
     protected static string $resource = ProductCategoryResource::class;
 
     protected function getHeaderActions(): array
@@ -34,6 +37,6 @@ class EditProductCategory extends EditRecord
     }
     protected function getRedirectUrl(): string
     {
-        return $this->getResource()::getUrl('index');
+        return $this->getCatalogContextReturnUrl('categories');
     }
 }

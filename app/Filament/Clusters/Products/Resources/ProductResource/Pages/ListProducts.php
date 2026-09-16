@@ -98,7 +98,8 @@ class ListProducts extends ListRecords
             Actions\ActionGroup::make($items)
                 ->label(strtoupper(app()->getLocale()))
                 ->icon('heroicon-m-language'),
-            Actions\CreateAction::make(),
+            Actions\CreateAction::make()
+                ->url(fn (): string => ProductResource::getUrl('create', ['source' => 'products'])),
         ];
     }
 }

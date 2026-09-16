@@ -72,6 +72,42 @@ class ProductRelationManager extends RelationManager
                     //->getStateUsing(fn ($record) => $record->getTranslation('title', $defaultLocale))
                     ->searchable(),
 
+                ...static::priceColumns(),
+
+                TextColumn::make('sku')
+                    ->label(__('product.columns.sku'))
+                    ->searchable(),
+
+                Tables\Columns\IconColumn::make('in_stock')
+                    ->label(__('product.columns.in_stock'))
+                    ->boolean(),
+
+                TextColumn::make('quantity')
+                    ->label(__('product.columns.quantity')),
+            ])
+            ->headerActions([
+                Tables\Actions\CreateAction::make()
+                    ->after(function ($record, $data) {
+                        $record->syncFromFormState($data);
+                    }),
+            ])
+            ->actions([
+                Tables\Actions\EditAction::make()
+                    ->after(function ($record, $data) {
+                        $record->syncFromFormState($data);
+                    }),
+                Tables\Actions\DeleteAction::make()
+                    ->visible(fn (Product $record): bool => $record->parent_id === null)
+                    ->disabled(fn (Product $record): bool => $record->hasDeleteDependencies())
+                    ->tooltip(fn (Product $record): ?string => $record->hasDeleteDependencies()
+                        ? $record->getDeleteDependencyMessage()
+                        : null),
+            ]);
+    }
+
+    public static function priceColumns(bool $inheritVariantDiscount = false): array
+    {
+        return [
                 TextInputColumn::make('price')
                     ->type('number')   // HTML5 number
                     ->step('0.01')
@@ -130,7 +166,7 @@ class ProductRelationManager extends RelationManager
 
                         return round((($oldPrice - $price) / $oldPrice) * 100);
                     })
-                    ->updateStateUsing(function (Product $record, $state, $livewire): ?float {
+                    ->updateStateUsing(function (Product $record, $state, $livewire) use ($inheritVariantDiscount): ?float {
                         $discountPercent = (float) ($state ?? 0);
 
                         if ($discountPercent <= 0) {
@@ -166,7 +202,15 @@ class ProductRelationManager extends RelationManager
 
                         $record->manual_discount_percent = round($discountPercent);
                         $record->price = round($basePrice * (1 - ($discountPercent / 100)));
-                        $record->save();
+                        if ($inheritVariantDiscount && $record->parent_id === null) {
+                            app(\App\Services\CatalogVariantDiscount::class)->saveWithVariants(
+                                $record,
+                                $discountPercent,
+                                fn (Product $variant): bool => ProductResource::canEdit($variant),
+                            );
+                        } else {
+                            $record->save();
+                        }
 
                         if (is_object($livewire) && method_exists($livewire, 'dispatch')) {
                             $livewire->dispatch('$refresh');
@@ -174,36 +218,7 @@ class ProductRelationManager extends RelationManager
 
                         return round((float) $record->manual_discount_percent);
                     }),
-
-                TextColumn::make('sku')
-                    ->label(__('product.columns.sku'))
-                    ->searchable(),
-
-                Tables\Columns\IconColumn::make('in_stock')
-                    ->label(__('product.columns.in_stock'))
-                    ->boolean(),
-
-                TextColumn::make('quantity')
-                    ->label(__('product.columns.quantity')),
-            ])
-            ->headerActions([
-                Tables\Actions\CreateAction::make()
-                    ->after(function ($record, $data) {
-                        $record->syncFromFormState($data);
-                    }),
-            ])
-            ->actions([
-                Tables\Actions\EditAction::make()
-                    ->after(function ($record, $data) {
-                        $record->syncFromFormState($data);
-                    }),
-                Tables\Actions\DeleteAction::make()
-                    ->visible(fn (Product $record): bool => $record->parent_id === null)
-                    ->disabled(fn (Product $record): bool => $record->hasDeleteDependencies())
-                    ->tooltip(fn (Product $record): ?string => $record->hasDeleteDependencies()
-                        ? $record->getDeleteDependencyMessage()
-                        : null),
-            ]);
+        ];
     }
 
     protected function afterSave(): void

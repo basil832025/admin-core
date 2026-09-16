@@ -14,6 +14,13 @@ use Filament\Forms\Components\MarkdownEditor;
 use Filament\Forms\Components\Tabs;
 use Filament\Forms\Components\Tabs\Tab;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\ViewField;
+use Filament\Forms\Components\ColorPicker;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\Placeholder;
+use Filament\Notifications\Notification;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -123,6 +130,121 @@ class ProductCategoryResource extends Resource
                             })
                             ->searchable()
                             ->placeholder(__('category.placeholders.parent_id')),
+
+                        Forms\Components\Grid::make(12)->schema([
+                            ViewField::make('icon')
+                                ->label('Іконка')
+                                ->default(\App\Support\ProductCategoryIcons::DEFAULT)
+                                ->rules([fn () => \Illuminate\Validation\Rule::in(array_keys(\App\Support\ProductCategoryIcons::options() + \App\Support\ProductCategoryIcons::customOptions()))])
+                                ->view('filament.forms.components.product-category-icon-picker')
+                                ->columnSpan(9),
+                            ColorPicker::make('icon_color')
+                                ->label('Колір іконки')
+                                ->helperText('HEX, наприклад #EF4444. Якщо не вказано — колір інтерфейсу.')
+                                ->regex('/^#[0-9A-Fa-f]{6}$/')
+                                ->live()
+                                ->columnSpan(3),
+                            FileUpload::make('category_icon_upload')
+                                ->label('Додати власну SVG-іконку до колекції')
+                                ->helperText('SVG до 256 КБ. Файл буде безпечно перевірено, додано в колекцію та вибрано для цієї категорії.')
+                                ->acceptedFileTypes(['image/svg+xml', 'image/svg'])
+                                ->maxSize(256)
+                                ->previewable(false)
+                                ->storeFiles(false)
+                                ->dehydrated(false)
+                                ->live()
+                                ->afterStateUpdated(function ($state, Forms\Set $set): void {
+                                    $upload = is_array($state) ? reset($state) : $state;
+                                    if (! $upload instanceof TemporaryUploadedFile) {
+                                        return;
+                                    }
+                                    try {
+                                        $icon = \App\Support\ProductCategoryIcons::installUploaded(
+                                            $upload->getRealPath(),
+                                            $upload->getClientOriginalName(),
+                                        );
+                                        $set('icon', $icon);
+                                        Notification::make()->success()->title('Іконку додано до колекції')->send();
+                                    } catch (\Illuminate\Validation\ValidationException $exception) {
+                                        Notification::make()->danger()->title('Не вдалося додати SVG')
+                                            ->body(collect($exception->errors())->flatten()->first() ?? 'Некоректний SVG-файл.')
+                                            ->send();
+                                    } catch (\Throwable $exception) {
+                                        report($exception);
+                                        Notification::make()->danger()->title('Не вдалося додати SVG')->body($exception->getMessage())->send();
+                                    } finally {
+                                        $set('category_icon_upload', null);
+                                    }
+                                })
+                                ->columnSpan(9),
+                            Forms\Components\Section::make('Додати SVG-кодом')
+                                ->description('Вставте повний код, починаючи з <svg ...>. Код буде перевірено та збережено як файл колекції.')
+                                ->schema([
+                                    TextInput::make('category_icon_name')
+                                        ->label('Назва іконки')
+                                        ->placeholder('Наприклад: хачапурі')
+                                        ->maxLength(80)
+                                        ->dehydrated(false),
+                                    Textarea::make('category_icon_svg')
+                                        ->label('SVG код')
+                                        ->rows(12)
+                                        ->autosize()
+                                        ->placeholder('<svg viewBox="0 0 24 24">...</svg>')
+                                        ->helperText('Колірні значення fill/stroke будуть перетворені на currentColor.')
+                                        ->live(debounce: 500)
+                                        ->dehydrated(false)
+                                        ->columnSpanFull(),
+                                    Placeholder::make('category_icon_svg_preview')
+                                        ->label('Попередній перегляд')
+                                        ->content(function (Forms\Get $get): \Illuminate\Support\HtmlString {
+                                            $code = trim((string) $get('category_icon_svg'));
+                                            if ($code === '') {
+                                                return new \Illuminate\Support\HtmlString('<span class="text-sm text-gray-500">Вставте SVG-код для перегляду.</span>');
+                                            }
+                                            $svg = \App\Support\ProductCategoryIcons::preview($code);
+                                            if ($svg === null) {
+                                                return new \Illuminate\Support\HtmlString('<span class="text-sm text-danger-600">SVG містить помилку або небезпечні елементи.</span>');
+                                            }
+                                            $color = (string) $get('icon_color');
+                                            $color = preg_match('/^#[0-9A-Fa-f]{6}$/', $color) ? $color : '#f4511e';
+                                            return new \Illuminate\Support\HtmlString('<div style="color:' . e($color) . ';width:64px;height:64px">' . $svg . '</div>');
+                                        })
+                                        ->columnSpanFull(),
+                                    Forms\Components\Actions::make([
+                                        Forms\Components\Actions\Action::make('add_category_icon_svg')
+                                            ->label('Додати SVG до колекції')
+                                            ->icon('heroicon-o-plus')
+                                            ->color('primary')
+                                            ->action(function (Forms\Get $get, Forms\Set $set): void {
+                                                try {
+                                                    $name = trim((string) $get('category_icon_name'));
+                                                    $code = trim((string) $get('category_icon_svg'));
+                                                    if ($name === '' || $code === '') {
+                                                        throw \Illuminate\Validation\ValidationException::withMessages([
+                                                            'category_icon_svg' => 'Вкажіть назву та вставте SVG-код.',
+                                                        ]);
+                                                    }
+                                                    $icon = \App\Support\ProductCategoryIcons::installCode($code, $name);
+                                                    $set('icon', $icon);
+                                                    $set('category_icon_name', null);
+                                                    $set('category_icon_svg', null);
+                                                    Notification::make()->success()->title('SVG додано до колекції')->send();
+                                                } catch (\Illuminate\Validation\ValidationException $exception) {
+                                                    Notification::make()->danger()->title('Не вдалося додати SVG')
+                                                        ->body(collect($exception->errors())->flatten()->first() ?? 'Некоректний SVG-код.')
+                                                        ->send();
+                                                } catch (\Throwable $exception) {
+                                                    report($exception);
+                                                    Notification::make()->danger()->title('Не вдалося додати SVG')->body($exception->getMessage())->send();
+                                                }
+                                            }),
+                                    ])->columnSpanFull(),
+                                ])
+                                ->columns(2)
+                                ->collapsible()
+                                ->collapsed()
+                                ->columnSpanFull(),
+                        ])->columnSpanFull(),
 
                         Forms\Components\Toggle::make('is_visible')
                             ->label(__('category.fields.is_visible'))
@@ -239,6 +361,9 @@ class ProductCategoryResource extends Resource
 
         return $table
             ->columns([
+                Tables\Columns\ViewColumn::make('icon')
+                    ->label('Іконка')
+                    ->view('filament.tables.columns.product-category-icon'),
                 Tables\Columns\TextColumn::make('title')
                     ->label(__('category.columns.title'))
                     ->searchable()
@@ -253,7 +378,7 @@ class ProductCategoryResource extends Resource
                     ->label(__('category.columns.parent'))
                     ->getStateUsing(function (ProductCategory $record) use ($defaultLocale) {
                         $locale = $defaultLocale;
-                        return $record->parent ? $record->parent->getTranslation('name', $locale) : '—';
+                        return $record->parent ? $record->parent->getTranslation('title', $locale) : '—';
                     })
                     ->searchable()
                     ->sortable(),
@@ -274,7 +399,11 @@ class ProductCategoryResource extends Resource
             ])
             ->filters([])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->url(fn (ProductCategory $record): string => static::getUrl('edit', [
+                        'record' => $record,
+                        'source' => 'categories',
+                    ])),
             ]);
     }
 
