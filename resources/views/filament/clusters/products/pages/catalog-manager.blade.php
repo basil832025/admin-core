@@ -1,11 +1,16 @@
 <x-filament-panels::page>
     <style>
-        .catalog-manager-grid{display:grid;grid-template-columns:minmax(260px,300px) minmax(0,1fr);gap:1rem}
+        .catalog-manager-grid{position:relative;display:grid;grid-template-columns:minmax(260px,300px) minmax(0,1fr);gap:1rem}
+        .catalog-manager-grid.is-sidebar-collapsed{grid-template-columns:minmax(0,1fr)}
         .catalog-manager-sidebar,.catalog-manager-products{background:#fff;border:1px solid rgb(226 232 240);border-radius:.75rem;min-width:0}
         .catalog-manager-sidebar{padding:1rem;height:fit-content}
         .catalog-manager-sidebar-heading,.catalog-manager-context-row{display:flex;align-items:center;justify-content:space-between;gap:.75rem}
+        .catalog-manager-sidebar-actions{display:flex;align-items:center;gap:.35rem}
         .catalog-manager-sidebar h2,.catalog-manager-context h2{font-size:1.05rem;font-weight:700;color:#17213b;margin:0}
-        .catalog-manager-icon-button,.catalog-manager-edit{border:1px solid rgb(226 232 240);border-radius:.5rem;padding:.35rem .65rem;color:#334155;text-decoration:none}.catalog-manager-edit{white-space:nowrap;flex-shrink:0;font-size:.875rem}
+        .catalog-manager-icon-button,.catalog-manager-sidebar-toggle,.catalog-manager-edit{display:inline-flex;align-items:center;justify-content:center;border:1px solid rgb(226 232 240);border-radius:.5rem;padding:.35rem .65rem;color:#334155;background:#fff;text-decoration:none}.catalog-manager-edit{white-space:nowrap;flex-shrink:0;font-size:.875rem}
+        .catalog-manager-sidebar-toggle{width:34px;height:34px;padding:0;cursor:pointer}.catalog-manager-sidebar-toggle:hover,.catalog-manager-icon-button:hover{color:#ea4f0b;background:#fff7f2;border-color:#fed7c3}.catalog-manager-sidebar-toggle svg{width:18px;height:18px}
+        .catalog-manager-sidebar-restore{position:absolute;left:1rem;top:1rem;z-index:5;box-shadow:0 4px 12px #0f172a14}
+        .catalog-manager-grid.is-sidebar-collapsed .catalog-manager-context{padding-left:4rem}
         .catalog-manager-search{width:100%;margin:1rem 0 .65rem;border:1px solid rgb(226 232 240);border-radius:.5rem;padding:.6rem .75rem}
         .catalog-manager-category{width:100%;display:flex;align-items:center;justify-content:space-between;text-align:left;border:0;background:transparent;border-radius:.5rem;padding:.55rem .6rem;color:#17213b;cursor:pointer}
         .catalog-manager-category:hover{background:#fff7f2}.catalog-manager-category.is-selected{background:#fff0e8;color:#ea4f0b;box-shadow:inset 3px 0 #f4511e}
@@ -104,13 +109,28 @@
         .catalog-compact-actions a{display:block;padding:.3rem .55rem;color:#334155;text-decoration:none}.catalog-compact-actions a:hover{color:#ea4f0b}
         @media(max-width:900px){.catalog-manager-grid{grid-template-columns:1fr}.catalog-manager-sidebar{max-height:none}.catalog-manager-products{overflow:hidden}.catalog-manager-table{overflow-x:auto}}
     </style>
-    <div class="catalog-manager-grid">
-        <aside class="catalog-manager-sidebar">
+    <div
+        class="catalog-manager-grid"
+        x-data="{
+            sidebarOpen: localStorage.getItem('catalog-manager-sidebar-open') !== 'false',
+            toggleSidebar() {
+                this.sidebarOpen = ! this.sidebarOpen
+                localStorage.setItem('catalog-manager-sidebar-open', this.sidebarOpen ? 'true' : 'false')
+            },
+        }"
+        x-bind:class="{ 'is-sidebar-collapsed': ! sidebarOpen }"
+    >
+        <aside class="catalog-manager-sidebar" x-show="sidebarOpen" x-cloak>
             <div class="catalog-manager-sidebar-heading">
                 <h2>Категорії</h2>
-                @can('create', \App\Models\Shop\ProductCategory::class)
-                    <a class="catalog-manager-icon-button" href="{{ \App\Filament\Clusters\Products\Resources\ProductCategoryResource::getUrl('create', array_filter(['source' => 'catalog', 'return_category' => $category])) }}" title="Додати категорію">+</a>
-                @endcan
+                <div class="catalog-manager-sidebar-actions">
+                    <button type="button" class="catalog-manager-sidebar-toggle" x-on:click="toggleSidebar()" title="Згорнути категорії" aria-label="Згорнути категорії" x-bind:aria-expanded="sidebarOpen">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/><path d="M20 5v14"/></svg>
+                    </button>
+                    @can('create', \App\Models\Shop\ProductCategory::class)
+                        <a class="catalog-manager-icon-button" href="{{ \App\Filament\Clusters\Products\Resources\ProductCategoryResource::getUrl('create', array_filter(['source' => 'catalog', 'return_category' => $category])) }}" title="Додати категорію">+</a>
+                    @endcan
+                </div>
             </div>
             <input class="catalog-manager-search" type="search" placeholder="Пошук категорії..." wire:model.live.debounce.300ms="categorySearch">
             <button type="button" class="catalog-manager-category {{ $category === null ? 'is-selected' : '' }}" wire:click="selectCategory(null)">
@@ -125,6 +145,9 @@
                 <a class="catalog-manager-add-category" href="{{ \App\Filament\Clusters\Products\Resources\ProductCategoryResource::getUrl('create', array_filter(['source' => 'catalog', 'return_category' => $category])) }}">＋ Додати категорію</a>
             @endcan
         </aside>
+        <button type="button" class="catalog-manager-sidebar-toggle catalog-manager-sidebar-restore" x-show="! sidebarOpen" x-cloak x-on:click="toggleSidebar()" title="Розгорнути категорії" aria-label="Розгорнути категорії" x-bind:aria-expanded="sidebarOpen">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/><path d="M4 5v14"/></svg>
+        </button>
         <section class="catalog-manager-products">
             @php($selected = $this->selectedCategoryRecord())
             <div class="catalog-manager-context">
