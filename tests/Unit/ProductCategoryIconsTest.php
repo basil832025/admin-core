@@ -6,6 +6,7 @@ use App\Models\Shop\ProductCategory;
 use App\Support\ProductCategoryIcons;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Validation\ValidationException;
+use Database\Seeders\ProductCategoryIconsSeeder;
 use Tests\TestCase;
 
 class ProductCategoryIconsTest extends TestCase
@@ -94,6 +95,16 @@ class ProductCategoryIconsTest extends TestCase
             $this->assertFileExists($stored);
         } finally {
             @unlink($stored);
+        }
+    }
+
+    public function test_category_icon_seeder_contains_only_valid_icons_and_excludes_test_folder(): void
+    {
+        $this->assertArrayNotHasKey('test', ProductCategoryIconsSeeder::ASSIGNMENTS);
+        foreach (ProductCategoryIconsSeeder::ASSIGNMENTS as $slug => $settings) {
+            $this->assertNotSame('test', $slug);
+            $this->assertSame($settings['icon'], ProductCategoryIcons::valid($settings['icon']));
+            $this->assertMatchesRegularExpression('/^#[0-9A-F]{6}$/', $settings['color']);
         }
     }
 }
