@@ -82,7 +82,7 @@ final class ProductCategoryIcons
         return static::installCode((string) file_get_contents($sourcePath), pathinfo($originalName, PATHINFO_FILENAME));
     }
 
-    public static function installCode(string $code, string $name): string
+    public static function installCode(string $code, string $name, bool $replace = false): string
     {
         if (strlen($code) > 256 * 1024) {
             throw ValidationException::withMessages(['category_icon_svg' => 'SVG-код перевищує 256 КБ.']);
@@ -96,10 +96,14 @@ final class ProductCategoryIcons
         File::ensureDirectoryExists($directory);
         $base = Str::slug($name) ?: 'category-icon';
         $name = $base;
-        for ($suffix = 2; is_file($directory . DIRECTORY_SEPARATOR . $name . '.svg'); $suffix++) {
-            $name = $base . '-' . $suffix;
+        if (! $replace) {
+            for ($suffix = 2; is_file($directory . DIRECTORY_SEPARATOR . $name . '.svg'); $suffix++) {
+                $name = $base . '-' . $suffix;
+            }
         }
-        File::put($directory . DIRECTORY_SEPARATOR . $name . '.svg', $svg);
+        if (File::put($directory . DIRECTORY_SEPARATOR . $name . '.svg', $svg) === false) {
+            throw ValidationException::withMessages(['category_icon_svg' => 'Не вдалося записати SVG у public/images/category-icons/.']);
+        }
         return 'custom:' . $name;
     }
 

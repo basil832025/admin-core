@@ -7,6 +7,7 @@ use App\Support\ProductCategoryIcons;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Validation\ValidationException;
 use Database\Seeders\ProductCategoryIconsSeeder;
+use Database\Seeders\ProductCategoryIconSvgLibrary;
 use Tests\TestCase;
 
 class ProductCategoryIconsTest extends TestCase
@@ -101,10 +102,19 @@ class ProductCategoryIconsTest extends TestCase
     public function test_category_icon_seeder_contains_only_valid_icons_and_excludes_test_folder(): void
     {
         $this->assertArrayNotHasKey('test', ProductCategoryIconsSeeder::ASSIGNMENTS);
+
+        foreach (ProductCategoryIconSvgLibrary::ICONS as $name => $svg) {
+            $this->assertNotNull(ProductCategoryIcons::preview($svg), "Bundled SVG {$name} must be safe and valid.");
+            $this->assertStringContainsString('currentColor', $svg);
+        }
+
         foreach (ProductCategoryIconsSeeder::ASSIGNMENTS as $slug => $settings) {
             $this->assertNotSame('test', $slug);
             $this->assertSame($settings['icon'], ProductCategoryIcons::valid($settings['icon']));
             $this->assertMatchesRegularExpression('/^#[0-9A-F]{6}$/', $settings['color']);
+            if (str_starts_with($settings['icon'], 'custom:')) {
+                $this->assertArrayHasKey(substr($settings['icon'], 7), ProductCategoryIconSvgLibrary::ICONS);
+            }
         }
     }
 }

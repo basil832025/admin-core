@@ -37,6 +37,15 @@ class ProductCategoryIconsSeeder extends Seeder
             throw new RuntimeException('Спочатку виконайте міграції полів icon та icon_color.');
         }
 
+        foreach (ProductCategoryIconSvgLibrary::ICONS as $name => $svg) {
+            if (ProductCategoryIcons::valid("custom:{$name}") !== "custom:{$name}") {
+                $installed = ProductCategoryIcons::installCode($svg, $name, replace: true);
+                if ($installed !== "custom:{$name}") {
+                    throw new RuntimeException("Не вдалося встановити SVG-іконку custom:{$name}.");
+                }
+            }
+        }
+
         foreach (self::ASSIGNMENTS as $slug => $settings) {
             if (ProductCategoryIcons::valid($settings['icon']) !== $settings['icon']) {
                 throw new RuntimeException("Іконка {$settings['icon']} для {$slug} відсутня або некоректна.");
