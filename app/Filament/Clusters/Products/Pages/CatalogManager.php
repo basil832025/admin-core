@@ -44,6 +44,7 @@ class CatalogManager extends ListProducts
     public string $categorySearch = '';
     public string $catalogView = 'table';
     public array $expandedProducts = [];
+    public array $catalogColumnOrder = [];
     protected ?Collection $catalogCategories = null;
 
     public function setCatalogView(string $view): void
@@ -62,6 +63,8 @@ class CatalogManager extends ListProducts
         $view = session()->get('catalog.view.' . Filament::auth()->id(), 'table');
         $this->catalogView = in_array($view, ['table', 'cards', 'compact'], true) ? $view : 'table';
         parent::mount();
+
+        $this->catalogColumnOrder = $this->getSavedCatalogColumnOrder();
 
         $this->category = $this->category > 0 ? $this->category : null;
         $this->syncCategoryFilter();
@@ -226,13 +229,103 @@ class CatalogManager extends ListProducts
             ->columnToggleFormWidth('xs')
             ->searchPlaceholder(fn (): string => $this->category ? 'Пошук товарів у цій категорії...' : 'Пошук товарів...');
 
-        return $table->columns([
+        $columns = [
             ViewColumn::make('main_image')
                 ->label('Фото')
                 ->toggleable()
                 ->view('filament.tables.columns.catalog-product-photo'),
             ...array_values($table->getColumns()),
-        ]);
+        ];
+
+        $order = $this->getSavedCatalogColumnOrder();
+        if ($order !== []) {
+            $positions = array_flip($order);
+            usort($columns, fn ($a, $b) => ($positions[$a->getName()] ?? PHP_INT_MAX) <=> ($positions[$b->getName()] ?? PHP_INT_MAX));
+        }
+
+        return $table->columns($columns);
+    }
+
+    public function reorderCatalogColumns(string $source, string $target): void
+    {
+        $names = array_map(fn ($column) => $column->getName(), $this->getTable()->getColumns());
+        if (! in_array($source, $names, true) || ! in_array($target, $names, true) || $source === $target) {
+            return;
+        }
+
+        $order = array_values(array_filter($this->getSavedCatalogColumnOrder(), fn ($name) => in_array($name, $names, true)));
+        $order = array_values(array_unique([...$order, ...$names]));
+        $from = array_search($source, $order, true);
+        $to = array_search($target, $order, true);
+        array_splice($order, $from, 1);
+        if ($from < $to) {
+            $to--;
+        }
+        array_splice($order, $to, 0, [$source]);
+
+        $this->catalogColumnOrder = $order;
+        session()->put($this->getCatalogColumnOrderSessionKey(), $order);
+        $this->applyCatalogColumnOrder($order);
+    }
+
+    public function restoreCatalogColumnOrder(?string $storedOrder): void
+    {
+        $decoded = json_decode($storedOrder ?? '', true);
+        if (! is_array($decoded)) {
+            return;
+        }
+
+        $available = array_map(fn ($column) => $column->getName(), $this->getTable()->getColumns());
+        $order = array_values(array_unique(array_filter($decoded, fn ($name) => is_string($name) && in_array($name, $available, true))));
+        $order = array_values(array_unique([...$order, ...$available]));
+        $this->catalogColumnOrder = $order;
+        session()->put($this->getCatalogColumnOrderSessionKey(), $order);
+        $this->applyCatalogColumnOrder($order);
+    }
+
+    protected function applyCatalogColumnOrder(array $order): void
+    {
+        $columns = array_values($this->getTable()->getColumns());
+        $positions = array_flip($order);
+        usort($columns, fn ($a, $b) => ($positions[$a->getName()] ?? PHP_INT_MAX) <=> ($positions[$b->getName()] ?? PHP_INT_MAX));
+        $this->getTable()->columns($columns);
+    }
+
+    public function restoreCatalogColumnVisibility(?string $storedState): void
+    {
+        $decoded = json_decode($storedState ?? '', true);
+        if (! is_array($decoded)) {
+            return;
+        }
+
+        $state = [];
+        foreach ($this->getTable()->getColumns() as $column) {
+            $name = $column->getName();
+            if ($column->isToggleable() && array_key_exists($name, $decoded)) {
+                $state[$name] = (bool) $decoded[$name];
+            }
+        }
+
+        $this->toggledTableColumns = array_replace($this->getDefaultTableColumnToggleState(), $state);
+        session()->put($this->getTableColumnToggleFormStateSessionKey(), $this->toggledTableColumns);
+        $this->getTableColumnToggleForm()->fill($this->toggledTableColumns);
+    }
+
+    public function updatedToggledTableColumns(): void
+    {
+        parent::updatedToggledTableColumns();
+        $this->dispatch('catalog-columns-visibility-saved', state: $this->toggledTableColumns);
+    }
+
+    protected function getSavedCatalogColumnOrder(): array
+    {
+        $saved = session()->get($this->getCatalogColumnOrderSessionKey(), []);
+        return is_array($saved) ? $saved : [];
+    }
+
+    protected function getCatalogColumnOrderSessionKey(): string
+    {
+        return 'catalog.columns.order.' . Filament::auth()->id();
     }
 
     protected function getTableColumnToggleFormSchema(): array
