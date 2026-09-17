@@ -33,4 +33,35 @@ class CatalogVariantDiscountTest extends TestCase
         $values = $service->calculate(500, null, null, 20);
         $this->assertNull($service->calculate($values['price'], $values['old_price'], $values['manual_discount_percent'], 20));
     }
+
+    public function test_following_variant_changes_discount_using_its_original_price(): void
+    {
+        $service = new CatalogVariantDiscount;
+
+        $this->assertSame(21.0, $service->discountPercent(498, 631, 21));
+        $this->assertSame([
+            'old_price' => 631.0,
+            'manual_discount_percent' => 15.0,
+            'price' => 536.0,
+        ], $service->valuesForFollowingVariant(498, 631, 15));
+    }
+
+    public function test_following_variant_removes_discount_and_restores_original_price(): void
+    {
+        $service = new CatalogVariantDiscount;
+
+        $this->assertSame([
+            'old_price' => null,
+            'manual_discount_percent' => null,
+            'price' => 631.0,
+        ], $service->valuesForFollowingVariant(498, 631, null));
+    }
+
+    public function test_calculated_discount_can_be_matched_when_manual_value_is_missing(): void
+    {
+        $service = new CatalogVariantDiscount;
+
+        $this->assertSame(21.0, $service->discountPercent(498, 631, null));
+        $this->assertNull($service->discountPercent(631, null, null));
+    }
 }

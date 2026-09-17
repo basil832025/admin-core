@@ -167,6 +167,12 @@ class ProductRelationManager extends RelationManager
                         return round((($oldPrice - $price) / $oldPrice) * 100);
                     })
                     ->updateStateUsing(function (Product $record, $state, $livewire) use ($inheritVariantDiscount): ?float {
+                        $variantDiscounts = app(\App\Services\CatalogVariantDiscount::class);
+                        $previousDiscountPercent = $variantDiscounts->discountPercent(
+                            (float) ($record->price ?? 0),
+                            $record->old_price === null ? null : (float) $record->old_price,
+                            $record->manual_discount_percent === null ? null : (float) $record->manual_discount_percent,
+                        );
                         $discountPercent = (float) ($state ?? 0);
 
                         if ($discountPercent <= 0) {
@@ -178,7 +184,16 @@ class ProductRelationManager extends RelationManager
 
                             $record->old_price = null;
                             $record->manual_discount_percent = null;
-                            $record->save();
+                            if ($inheritVariantDiscount && $record->parent_id === null) {
+                                $variantDiscounts->saveWithVariants(
+                                    $record,
+                                    $previousDiscountPercent,
+                                    null,
+                                    fn (Product $variant): bool => ProductResource::canEdit($variant),
+                                );
+                            } else {
+                                $record->save();
+                            }
 
                             if (is_object($livewire) && method_exists($livewire, 'dispatch')) {
                                 $livewire->dispatch('$refresh');
@@ -203,8 +218,9 @@ class ProductRelationManager extends RelationManager
                         $record->manual_discount_percent = round($discountPercent);
                         $record->price = round($basePrice * (1 - ($discountPercent / 100)));
                         if ($inheritVariantDiscount && $record->parent_id === null) {
-                            app(\App\Services\CatalogVariantDiscount::class)->saveWithVariants(
+                            $variantDiscounts->saveWithVariants(
                                 $record,
+                                $previousDiscountPercent,
                                 $discountPercent,
                                 fn (Product $variant): bool => ProductResource::canEdit($variant),
                             );
