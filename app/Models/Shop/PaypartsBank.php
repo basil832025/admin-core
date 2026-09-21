@@ -90,10 +90,13 @@ class PaypartsBank extends Model
     public function plansForAmount(float $amount): array
     {
         $amount = max(0, round($amount, 2));
+        // For 3piroga the banks no longer impose a minimum order amount. Keep the
+        // configured thresholds for the other projects that share this model.
+        $minimumAmountApplies = config('project.name') !== '3piroga';
 
         $rules = collect($this->rules ?? [])
             ->filter(fn ($rule): bool => (bool) ($rule['is_active'] ?? true))
-            ->filter(fn ($rule): bool => (float) ($rule['min_amount'] ?? 0) <= $amount)
+            ->filter(fn ($rule): bool => ! $minimumAmountApplies || (float) ($rule['min_amount'] ?? 0) <= $amount)
             ->sortByDesc(fn ($rule): float => (float) ($rule['min_amount'] ?? 0))
             ->values();
 
@@ -115,6 +118,7 @@ class PaypartsBank extends Model
 
             foreach ($merchantTypes as $merchantType) {
                 $maxPartsCount = (int) ($rule['parts_count'] ?? 0);
+                $ruleMinimumAmount = $minimumAmountApplies ? (float) ($rule['min_amount'] ?? 0) : 0;
                 $merchantTypeLabel = match ($merchantType) {
                     'II' => st('cart.payment.payparts_type_ii', 'Instant installments'),
                     'product_1' => st('cart.payment.payparts_type_mono', 'Monobank installments'),
@@ -136,10 +140,26 @@ class PaypartsBank extends Model
                         ? round($amount * 0.019 * $partsCount, 2)
                         : 0;
                     $totalAmount = round($amount + $interestAmount, 2);
+                    $planLabel = $ruleMinimumAmount > 0
+                        ? trim(sprintf(
+                            '%s %s %s — %s %s (%s)',
+                            st('cart.payment.from_amount', 'від'),
+                            number_format($ruleMinimumAmount, 0, ',', ' '),
+                            st('cart.summary.currency_short', 'грн'),
+                            $partsCount,
+                            st('cart.payment.payments_count', 'платежів'),
+                            $merchantTypeLabel
+                        ))
+                        : trim(sprintf(
+                            '%s %s (%s)',
+                            $partsCount,
+                            st('cart.payment.payments_count', 'платежів'),
+                            $merchantTypeLabel
+                        ));
 
                     $plans[] = [
                         'key' => $index . ':' . $merchantType . ':' . $partsCount,
-                        'min_amount' => (float) ($rule['min_amount'] ?? 0),
+                        'min_amount' => $ruleMinimumAmount,
                         'parts_count' => $partsCount,
                         'merchant_type' => $merchantType,
                         'merchant_type_label' => $merchantTypeLabel,
@@ -150,15 +170,7 @@ class PaypartsBank extends Model
                         'formatted_amount' => number_format($totalAmount, 2, ',', ' '),
                     'formatted_monthly_amount' => number_format($monthlyAmount, 2, ',', ' '),
                     'formatted_interest_amount' => number_format($interestAmount, 2, ',', ' '),
-                    'label' => trim(sprintf(
-                        '%s %s %s — %s %s (%s)',
-                        st('cart.payment.from_amount', 'від'),
-                        number_format((float) ($rule['min_amount'] ?? 0), 0, ',', ' '),
-                        st('cart.summary.currency_short', 'грн'),
-                        $partsCount,
-                        st('cart.payment.payments_count', 'платежів'),
-                        $merchantTypeLabel
-                    )),
+                    'label' => $planLabel,
                 ];
                 }
             }
