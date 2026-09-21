@@ -18,7 +18,46 @@ class SiteTextGroup extends Model
     // удобный аксессор для текущего языка
     public function getTitleCurrentAttribute(): string
     {
-        $loc = app()->getLocale();
-        return (string)($this->title[$loc] ?? $this->title['uk'] ?? $this->slug);
+        $title = $this->title;
+
+        if (is_string($title)) {
+            $decodedTitle = json_decode($title, true);
+            $title = json_last_error() === JSON_ERROR_NONE ? $decodedTitle : $title;
+        }
+
+        $toString = static function (mixed $value): ?string {
+            while (is_array($value)) {
+                $value = $value['title']
+                    ?? $value['value']
+                    ?? $value['name']
+                    ?? array_values($value)[0]
+                    ?? null;
+            }
+
+            if (! is_string($value) && ! is_numeric($value)) {
+                return null;
+            }
+
+            $value = trim((string) $value);
+
+            return $value !== '' ? $value : null;
+        };
+
+        if (is_array($title)) {
+            $locale = app()->getLocale();
+            $localizedTitle = $toString(
+                $title[$locale]
+                    ?? $title['uk']
+                    ?? $title['ru']
+                    ?? $title['en']
+                    ?? null,
+            );
+
+            if ($localizedTitle !== null) {
+                return $localizedTitle;
+            }
+        }
+
+        return $toString($title) ?? (string) $this->slug;
     }
 }
