@@ -1,12 +1,12 @@
 @php
     $visible = array_filter($this->getTable()->getVisibleColumns(), fn ($column, $name) => !in_array($name, ['title_search', 'main_image'], true), ARRAY_FILTER_USE_BOTH);
-    $order = ['title', 'sku', 'price', 'old_price', 'discount_percent', 'in_stock', 'is_new', 'is_hit', 'is_home', 'is_promo', 'exclude_from_promotions', 'is_vegan', 'is_product_of_day', 'is_spicy', 'sort', 'quantity'];
+    $order = ['title', 'sku', 'price', 'old_price', 'discount_percent', 'in_stock', 'is_new', 'is_hit', 'is_home', 'is_promo', 'is_dont_forget', 'is_recommended', 'exclude_from_promotions', 'is_vegan', 'is_product_of_day', 'is_spicy', 'sort', 'quantity'];
     $columns = [];
     foreach ($order as $name) if (isset($visible[$name])) $columns[$name] = $visible[$name];
     foreach ($visible as $name => $column) if (!isset($columns[$name])) $columns[$name] = $column;
     $variants = $this->visibleProductVariants($records);
     $hasVariants = collect($records->all())->contains(fn ($record) => $record->variants_count > 0);
-    $shortLabels = ['title'=>'Назва','old_price'=>'Стара','discount_percent'=>'Знижка %','in_stock'=>'Наявн.','is_new'=>'Нов.','is_hit'=>'Хіт','is_home'=>'На гол.','sort'=>'Сорт.','quantity'=>'Залишок'];
+    $shortLabels = ['title'=>'Назва','old_price'=>'Стара','discount_percent'=>'Знижка %','in_stock'=>'Наявн.','is_new'=>'Нов.','is_hit'=>'Хіт','is_home'=>'На гол.','is_dont_forget'=>'Не забути','is_recommended'=>'Реком.','sort'=>'Сорт.','quantity'=>'Залишок'];
 @endphp
 @if($hasVariants)
     <div class="catalog-compact-tree-actions">

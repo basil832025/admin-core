@@ -46,7 +46,7 @@ class Product extends Model implements HasMedia
         'title','sku', 'slug', 'description', 'price', 'unit_id', 'price_unit_quantity', 'old_price', 'manual_discount_percent',
         'quantity', 'in_stock','main_image','parent_id','short_name',
         'seo_title', 'seo_description', 'seo_keywords','category_id','dop_info',
-          'is_new',  'is_hit',  'is_home', 'is_promo', 'is_vegan', 'is_product_of_day', 'is_spicy',
+          'is_new',  'is_hit',  'is_home', 'is_promo', 'is_vegan', 'is_product_of_day', 'is_spicy', 'is_dont_forget', 'is_recommended',
         'exclude_from_promotions',
           'code2', 'is_imported', 'import_source_id', 'sort', 'variant_display_sort', 'short_desc', 'main_image_small',
     ];
@@ -64,6 +64,8 @@ class Product extends Model implements HasMedia
         'is_vegan' => 'boolean',
         'is_product_of_day' => 'boolean',
         'is_spicy' => 'boolean',
+        'is_dont_forget' => 'boolean',
+        'is_recommended' => 'boolean',
         'exclude_from_promotions' => 'boolean',
         'is_imported' => 'boolean',
         'import_source_id' => 'int',
@@ -475,6 +477,8 @@ class Product extends Model implements HasMedia
     public function scopeHit($q)      { return $q->where('bs_products.is_hit', 1); }
     public function scopeNew($q)      { return $q->where('bs_products.is_new', 1); }
     public function scopeHome($q)     { return $q->where('bs_products.is_home', 1); }
+    public function scopeDontForget($q) { return $q->where('bs_products.is_dont_forget', 1); }
+    public function scopeRecommended($q) { return $q->where('bs_products.is_recommended', 1); }
     public function scopePie($q)
     {
         return $q->whereHas('mainCategory.parent', function ($q) {

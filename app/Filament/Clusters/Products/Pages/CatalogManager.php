@@ -144,7 +144,7 @@ class CatalogManager extends ListProducts
             }
 
             $column->toggleable(isToggledHiddenByDefault: ! in_array($column->getName(), [
-                'sku', 'title', 'price', 'price_unit_label', 'old_price', 'discount_percent', 'in_stock', 'is_new', 'is_hit', 'is_home', 'sort',
+                'sku', 'title', 'price', 'price_unit_label', 'old_price', 'discount_percent', 'in_stock', 'is_new', 'is_hit', 'is_home', 'is_dont_forget', 'is_recommended', 'sort',
             ], true));
             if ($column instanceof \Filament\Tables\Columns\ToggleColumn) {
                 $column->disabled(fn (Product $record): bool => ! ProductResource::canEdit($record));
@@ -155,6 +155,7 @@ class CatalogManager extends ListProducts
         foreach (ProductResource::enabledProductFeatureFlags() as $flag) {
             $label = __(ProductResource::productFeatureDefinitions()[$flag]['filter_label']);
             $featureFilters[$flag] = Filter::make($flag)
+                ->visible(fn (): bool => ! $this->isTableColumnToggledHidden($flag))
                 ->form([
                     ToggleButtons::make('value')->label($label)->inlineLabel()->grouped()
                         ->extraFieldWrapperAttributes(['class' => 'catalog-filter-property'])
@@ -176,6 +177,7 @@ class CatalogManager extends ListProducts
                 ])->default('any'),
             ])->query(fn (Builder $query, array $data): Builder => in_array((string) ($data['value'] ?? 'any'), ['1', '0'], true)
                 ? $query->where('in_stock', (int) $data['value']) : $query)
+                ->visible(fn (): bool => ! $this->isTableColumnToggledHidden('in_stock'))
                 ->indicateUsing(fn (array $data): array => in_array((string) ($data['value'] ?? 'any'), ['1', '0'], true)
                     ? [Indicator::make((string) $data['value'] === '1' ? 'В наявності' : 'Немає в наявності')->removeField('value')] : []),
             Filter::make('price_range')->form([
@@ -190,7 +192,8 @@ class CatalogManager extends ListProducts
                     }
                 }
                 return $query;
-            })->indicateUsing(function (array $data): array {
+            })->visible(fn (): bool => ! $this->isTableColumnToggledHidden('price'))
+                ->indicateUsing(function (array $data): array {
                 $indicators = [];
                 foreach (['min' => 'Ціна від', 'max' => 'Ціна до'] as $field => $label) {
                     if (is_numeric($data[$field] ?? null) && (float) $data[$field] >= 0) {
@@ -209,13 +212,18 @@ class CatalogManager extends ListProducts
             ->filtersFormWidth('xl')
             ->filtersFormSchema(fn (array $filters): array => [
                 Grid::make(['default' => 1, 'sm' => 2])->schema([
-                    Group::make()->schema([
+                    Group::make()->visible(fn (): bool => ! $this->isTableColumnToggledHidden('in_stock') || ! $this->isTableColumnToggledHidden('price'))->schema([
                         $filters['availability'],
                         Section::make('Ціна')->compact()->schema([$filters['price_range']]),
                     ]),
                     Section::make('Властивості товару')->compact()->columnSpan(1)
+                        ->visible(fn (): bool => collect(array_keys($featureFilters))
+                            ->contains(fn (string $flag): bool => ! $this->isTableColumnToggledHidden($flag)))
                         ->extraAttributes(['class' => 'catalog-filter-properties'])
-                        ->schema(array_map(fn (string $flag) => $filters[$flag], array_keys($featureFilters))),
+                        ->schema(array_map(
+                            fn (string $flag) => $filters[$flag],
+                            array_values(array_filter(array_keys($featureFilters), fn (string $flag): bool => isset($filters[$flag])))
+                        )),
                 ]),
                 Section::make('Додатково')->compact()->schema([$filters['category']]),
             ])
@@ -355,7 +363,7 @@ class CatalogManager extends ListProducts
         $state = parent::getDefaultTableColumnToggleState();
         if ($this->catalogView === 'compact') {
             foreach ($state as $name => &$visible) {
-                $visible = in_array($name, ['title', 'sku', 'price', 'old_price', 'discount_percent', 'in_stock', 'is_new', 'is_hit', 'is_home', 'sort', 'quantity'], true);
+                $visible = in_array($name, ['title', 'sku', 'price', 'old_price', 'discount_percent', 'in_stock', 'is_new', 'is_hit', 'is_home', 'is_dont_forget', 'is_recommended', 'sort', 'quantity'], true);
             }
         }
         return $state;

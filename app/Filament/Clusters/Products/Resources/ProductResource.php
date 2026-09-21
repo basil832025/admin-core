@@ -1693,6 +1693,8 @@ class ProductResource extends Resource
             'is_vegan' => ['field_label' => 'product.fields.is_vegan', 'column_label' => 'product.columns.is_vegan', 'filter_label' => 'product.filters.is_vegan'],
             'is_product_of_day' => ['field_label' => 'product.fields.is_product_of_day', 'column_label' => 'product.columns.is_product_of_day', 'filter_label' => 'product.filters.is_product_of_day'],
             'is_spicy' => ['field_label' => 'product.fields.is_spicy', 'column_label' => 'product.columns.is_spicy', 'filter_label' => 'product.filters.is_spicy'],
+            'is_dont_forget' => ['field_label' => 'product.fields.is_dont_forget', 'column_label' => 'product.columns.is_dont_forget', 'filter_label' => 'product.filters.is_dont_forget'],
+            'is_recommended' => ['field_label' => 'product.fields.is_recommended', 'column_label' => 'product.columns.is_recommended', 'filter_label' => 'product.filters.is_recommended'],
             'exclude_from_promotions' => ['field_label' => 'product.fields.exclude_from_promotions', 'column_label' => 'product.columns.exclude_from_promotions', 'filter_label' => 'product.filters.exclude_from_promotions'],
         ];
     }
@@ -1701,9 +1703,16 @@ class ProductResource extends Resource
     {
         $allowed = array_keys(static::productFeatureDefinitions());
 
-        return collect(config('catalog_import.product_admin_feature_flags', $allowed))
+        // These two merchandising flags are always available in the catalog manager,
+        // even when an older PRODUCT_ADMIN_FEATURE_FLAGS value is configured.
+        return collect([
+            ...(array) config('catalog_import.product_admin_feature_flags', $allowed),
+            'is_dont_forget',
+            'is_recommended',
+        ])
             ->map(fn ($flag) => (string) $flag)
             ->filter(fn (string $flag): bool => in_array($flag, $allowed, true))
+            ->unique()
             ->values()
             ->all();
     }

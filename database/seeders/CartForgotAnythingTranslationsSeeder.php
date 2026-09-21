@@ -15,8 +15,8 @@ class CartForgotAnythingTranslationsSeeder extends Seeder
             [
                 'group' => 'cart',
                 'value' => [
-                    'uk' => 'Нічого не забули',
-                    'ru' => 'Ничего не забыли',
+                    'uk' => 'Нічого не забули?',
+                    'ru' => 'Ничего не забыли?',
                     'en' => 'Did not forget anything?',
                 ],
                 'description' => 'Cart recommendations block title',
