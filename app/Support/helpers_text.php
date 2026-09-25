@@ -31,8 +31,23 @@ if (! function_exists('clean_html')) {
      * @param  string|null  $allowedTags  Разрешённые HTML-теги для режима safe (например, '<p><b><i>')
      * @return string
      */
-    function clean_html(?string $value, string $mode = 'plain', ?int $limit = null, ?string $allowedTags = null): string
+    function clean_html(string|array|null $value, string $mode = 'plain', ?int $limit = null, ?string $allowedTags = null): string
     {
+        if (is_array($value)) {
+            $locale = app()->getLocale();
+            $fallbackLocale = (string) config('app.fallback_locale', 'uk');
+            $value = $value[$locale]
+                ?? $value[$fallbackLocale]
+                ?? $value['uk']
+                ?? $value['ru']
+                ?? $value['en']
+                ?? reset($value);
+        }
+
+        if (! is_string($value)) {
+            return '';
+        }
+
         if (! $value) return '';
 
         $text = $value;
