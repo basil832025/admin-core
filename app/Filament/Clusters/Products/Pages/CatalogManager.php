@@ -212,10 +212,10 @@ class CatalogManager extends ListProducts
             ->filtersFormWidth('xl')
             ->filtersFormSchema(fn (array $filters): array => [
                 Grid::make(['default' => 1, 'sm' => 2])->schema([
-                    Group::make()->visible(fn (): bool => ! $this->isTableColumnToggledHidden('in_stock') || ! $this->isTableColumnToggledHidden('price'))->schema([
-                        $filters['availability'],
+                    Group::make()->visible(fn (): bool => ! $this->isTableColumnToggledHidden('in_stock') || ! $this->isTableColumnToggledHidden('price'))->schema(array_values(array_filter([
+                        $filters['availability'] ?? null,
                         Section::make('Ціна')->compact()->schema([$filters['price_range']]),
-                    ]),
+                    ]))),
                     Section::make('Властивості товару')->compact()->columnSpan(1)
                         ->visible(fn (): bool => collect(array_keys($featureFilters))
                             ->contains(fn (string $flag): bool => ! $this->isTableColumnToggledHidden($flag)))
