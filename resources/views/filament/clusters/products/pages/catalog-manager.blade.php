@@ -1,3 +1,10 @@
+@php
+    $catalogCardImageMode = (string) config('project.catalog_card_image_mode', 'landscape');
+    $catalogCardImageMode = in_array($catalogCardImageMode, ['landscape', 'portrait'], true)
+        ? $catalogCardImageMode
+        : 'landscape';
+@endphp
+
 <x-filament-panels::page>
     <style>
         .catalog-manager-grid{position:relative;display:grid;grid-template-columns:minmax(260px,300px) minmax(0,1fr);gap:1rem}
@@ -54,6 +61,18 @@
         .catalog-card-top{display:flex;justify-content:space-between;position:absolute;z-index:1;top:.5rem;left:.5rem;right:.5rem;pointer-events:none}
         .catalog-card-top>*{pointer-events:auto;background:#fff;border-radius:.3rem;padding:.2rem}
         .catalog-card-photo>div{width:100%!important;height:100px!important;border-radius:0!important}
+        .catalog-manager-grid.catalog-card-images-portrait .catalog-product-cards{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+        .catalog-manager-grid.catalog-card-images-portrait .catalog-card-photo>div{height:170px!important;aspect-ratio:auto;background:#f8fafc!important}
+        .catalog-manager-grid.catalog-card-images-portrait .catalog-card-photo img{object-fit:contain!important;padding:.5rem;box-sizing:border-box}
+        .catalog-manager-grid.catalog-card-images-portrait .catalog-card-field{display:grid;grid-template-columns:minmax(74px,1fr) auto;justify-content:normal;gap:.3rem}
+        .catalog-manager-grid.catalog-card-images-portrait .catalog-card-field>span{line-height:1.15;white-space:nowrap}
+        .catalog-manager-grid.catalog-card-images-portrait .catalog-card-field>div{width:100%;min-width:0}
+        .catalog-manager-grid.catalog-card-images-portrait .catalog-card-field .fi-ta-text-input{width:100%!important;min-width:0!important;max-width:none!important}
+        .catalog-manager-grid.catalog-card-images-portrait .catalog-card-field .fi-ta-text-input input{height:28px;padding:2px 7px;font-size:.78rem}
+        .catalog-manager-grid.catalog-card-images-portrait .catalog-card-price>div,.catalog-manager-grid.catalog-card-images-portrait .catalog-card-old-price>div,.catalog-manager-grid.catalog-card-images-portrait .catalog-card-discount-percent>div,.catalog-manager-grid.catalog-card-images-portrait .catalog-card-sort>div{width:100px!important;justify-self:end}
+        .catalog-manager-grid.catalog-card-images-portrait .catalog-card-price .fi-ta-text-input,.catalog-manager-grid.catalog-card-images-portrait .catalog-card-old-price .fi-ta-text-input,.catalog-manager-grid.catalog-card-images-portrait .catalog-card-discount-percent .fi-ta-text-input,.catalog-manager-grid.catalog-card-images-portrait .catalog-card-sort .fi-ta-text-input{width:100px!important}
+        .catalog-manager-grid.catalog-card-images-portrait .catalog-card-toggle>div{width:auto!important;justify-self:end}
+        .catalog-manager-grid.catalog-card-images-portrait .catalog-card-toggle .fi-ta-toggle{margin-left:auto}
         .catalog-card-body{padding:.5rem}.catalog-card-title{font-weight:600;font-size:.8rem;min-height:2.25rem}.catalog-card-title div{width:100%!important;max-width:100%!important}
         .catalog-card-sku{font-size:.7rem;color:#64748b;margin:.15rem 0 .35rem}
         .catalog-card-field{display:flex;align-items:center;justify-content:space-between;gap:.35rem;font-size:.72rem;margin:.15rem 0;min-height:20px}
@@ -110,7 +129,7 @@
         @media(max-width:900px){.catalog-manager-grid{grid-template-columns:1fr}.catalog-manager-sidebar{max-height:none}.catalog-manager-products{overflow:hidden}.catalog-manager-table{overflow-x:auto}}
     </style>
     <div
-        class="catalog-manager-grid"
+        class="catalog-manager-grid catalog-card-images-{{ $catalogCardImageMode }}"
         x-data="{
             sidebarOpen: localStorage.getItem('catalog-manager-sidebar-open') !== 'false',
             toggleSidebar() {

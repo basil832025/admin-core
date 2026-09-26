@@ -16,7 +16,7 @@
                 @if(isset($columns['sku']))<div class="catalog-card-sku">SKU {{ $record->sku }}</div>@endif
                 @foreach($columns as $name => $column)
                     @continue(in_array($name, ['main_image', 'title', 'title_search', 'sku'], true))
-                    <div class="catalog-card-field {{ $name === 'price' ? 'catalog-card-price' : '' }} {{ $name === 'updated_at' ? 'catalog-card-updated' : '' }}">
+                    <div class="catalog-card-field {{ $name === 'price' ? 'catalog-card-price' : '' }} {{ $name === 'old_price' ? 'catalog-card-old-price' : '' }} {{ $name === 'discount_percent' ? 'catalog-card-discount-percent' : '' }} {{ $name === 'sort' ? 'catalog-card-sort' : '' }} {{ $column instanceof \Filament\Tables\Columns\ToggleColumn ? 'catalog-card-toggle' : '' }} {{ $name === 'updated_at' ? 'catalog-card-updated' : '' }}">
                         <span>{{ $column->getLabel() }}</span>
                         @if($column instanceof \Filament\Tables\Columns\ToggleColumn && ! \App\Filament\Clusters\Products\Resources\ProductResource::canEdit($record))
                             <span>{{ $record->{$name} ? 'Так' : 'Ні' }}</span>
