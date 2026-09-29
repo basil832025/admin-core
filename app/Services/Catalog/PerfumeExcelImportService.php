@@ -21,13 +21,14 @@ use Throwable;
 class PerfumeExcelImportService
 {
     private const MANAGED_CHARACTERISTICS = [
-        'sevia-gender' => ['label' => 'Gender', 'column' => 7, 'type' => 'single', 'sort' => 10],
-        'sevia-aroma-family' => ['label' => 'Aroma family', 'column' => 3, 'type' => 'single', 'sort' => 20],
-        'sevia-segment' => ['label' => 'Segment', 'column' => 4, 'type' => 'single', 'sort' => 30],
-        'sevia-concentration' => ['label' => 'Concentration', 'column' => 6, 'type' => 'single', 'sort' => 40],
-        'sevia-top-notes' => ['label' => 'Top notes', 'column' => 9, 'type' => 'multi', 'sort' => 50],
-        'sevia-middle-notes' => ['label' => 'Middle notes', 'column' => 10, 'type' => 'multi', 'sort' => 60],
-        'sevia-base-notes' => ['label' => 'Base notes', 'column' => 11, 'type' => 'multi', 'sort' => 70],
+        'sevia-gender' => ['label' => 'Gender', 'column' => 8, 'type' => 'single', 'sort' => 10],
+        'sevia-collections' => ['label' => 'Колекції', 'column' => 3, 'type' => 'multi', 'sort' => 20],
+        'sevia-aroma-family' => ['label' => 'Aroma family', 'column' => 4, 'type' => 'single', 'sort' => 30],
+        'sevia-segment' => ['label' => 'Segment', 'column' => 5, 'type' => 'single', 'sort' => 40],
+        'sevia-concentration' => ['label' => 'Concentration', 'column' => 7, 'type' => 'single', 'sort' => 50],
+        'sevia-top-notes' => ['label' => 'Top notes', 'column' => 10, 'type' => 'multi', 'sort' => 60],
+        'sevia-middle-notes' => ['label' => 'Middle notes', 'column' => 11, 'type' => 'multi', 'sort' => 70],
+        'sevia-base-notes' => ['label' => 'Base notes', 'column' => 12, 'type' => 'multi', 'sort' => 80],
     ];
 
     public function enabled(): bool
@@ -134,7 +135,7 @@ class PerfumeExcelImportService
         return new HtmlString($html . '</tbody></table></div>');
     }
 
-    public function apply(mixed $file, array $selectedRows, ?string $imageDirectory = null, bool $overwriteImages = false): array
+    public function apply(mixed $file, array $selectedRows, mixed $imageFiles = [], array $imageFileNames = [], bool $overwriteImages = false): array
     {
         $path = $this->resolvePath($file);
 
@@ -148,7 +149,7 @@ class PerfumeExcelImportService
             fn (array $row): bool => in_array((int) $row['row'], $selectedRows, true)
         );
 
-        $imageIndex = $this->imageIndex($imageDirectory);
+        $imageIndex = $this->imageIndex($imageFiles, $imageFileNames);
         $stats = ['created' => 0, 'updated' => 0, 'skipped' => 0, 'images_added' => 0, 'images_skipped' => 0, 'images_missing' => 0];
 
         DB::transaction(function () use ($rows, $imageIndex, $overwriteImages, &$stats): void {
@@ -214,32 +215,31 @@ class PerfumeExcelImportService
         return $stats;
     }
 
-    private function imageIndex(?string $directory): array
+    private function imageIndex(mixed $files, array $fileNames = []): array
     {
-        $directory = $this->clean((string) $directory);
-
-        if ($directory === '') {
+        if (! is_array($files) || $files === []) {
             return [];
-        }
-
-        $directory = trim($directory, " \t\n\r\0\x0B\"'");
-
-        if (! is_dir($directory)) {
-            throw new \RuntimeException("Image directory does not exist: {$directory}");
         }
 
         $index = [];
         $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
 
-        foreach (File::files($directory) as $file) {
-            $extension = mb_strtolower($file->getExtension());
+        foreach ($files as $key => $file) {
+            $path = $this->resolvePath($file);
+
+            if ($path === null) {
+                continue;
+            }
+
+            $fileName = $fileNames[$key] ?? basename($path);
+            $extension = mb_strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
 
             if (! in_array($extension, $allowedExtensions, true)) {
                 continue;
             }
 
-            foreach ($this->imageKeys($file->getFilenameWithoutExtension()) as $key) {
-                $index[$key] ??= $file->getRealPath();
+            foreach ($this->imageKeys(pathinfo($fileName, PATHINFO_FILENAME)) as $imageKey) {
+                $index[$imageKey] ??= $path;
             }
         }
 
@@ -333,16 +333,19 @@ class PerfumeExcelImportService
                 'sku' => $this->clean($cells[0] ?? ''),
                 'name' => $this->clean($cells[1] ?? ''),
                 'brand' => $this->clean($cells[2] ?? ''),
-                'aroma' => $this->clean($cells[3] ?? ''),
-                'segment' => $this->clean($cells[4] ?? ''),
-                'bestseller' => (bool) ((int) ($cells[5] ?? 0)),
-                'concentration' => $this->clean($cells[6] ?? ''),
-                'gender' => $this->clean($cells[7] ?? ''),
-                'price' => (float) str_replace(',', '.', (string) ($cells[8] ?? 0)),
-                'top_notes' => $this->splitValues($cells[9] ?? ''),
-                'middle_notes' => $this->splitValues($cells[10] ?? ''),
-                'base_notes' => $this->splitValues($cells[11] ?? ''),
-                'description' => $this->clean($cells[12] ?? ''),
+                // "Collections" was inserted after Brand. Its values may be
+                // separated by commas or slashes, and a product can be in several.
+                'collections' => $this->splitCollections($cells[3] ?? ''),
+                'aroma' => $this->clean($cells[4] ?? ''),
+                'segment' => $this->clean($cells[5] ?? ''),
+                'bestseller' => (bool) ((int) ($cells[6] ?? 0)),
+                'concentration' => $this->clean($cells[7] ?? ''),
+                'gender' => $this->clean($cells[8] ?? ''),
+                'price' => (float) str_replace(',', '.', (string) ($cells[9] ?? 0)),
+                'top_notes' => $this->splitValues($cells[10] ?? ''),
+                'middle_notes' => $this->splitValues($cells[11] ?? ''),
+                'base_notes' => $this->splitValues($cells[12] ?? ''),
+                'description' => $this->clean($cells[13] ?? ''),
             ];
         }
 
@@ -431,6 +434,7 @@ class PerfumeExcelImportService
 
         $valuesBySlug = [
             'sevia-gender' => [$row['gender']],
+            'sevia-collections' => $row['collections'],
             'sevia-aroma-family' => [$row['aroma']],
             'sevia-segment' => [$row['segment']],
             'sevia-concentration' => [$row['concentration']],
@@ -577,6 +581,22 @@ class PerfumeExcelImportService
         }
 
         return collect(preg_split('/[,;.]+/u', $value) ?: [])
+            ->map(fn (string $item): string => $this->clean($item))
+            ->filter()
+            ->unique(fn (string $item): string => $this->normalize($item))
+            ->values()
+            ->all();
+    }
+
+    private function splitCollections(mixed $value): array
+    {
+        $value = $this->clean($value);
+
+        if ($value === '') {
+            return [];
+        }
+
+        return collect(preg_split('/[,;.\/]+/u', $value) ?: [])
             ->map(fn (string $item): string => $this->clean($item))
             ->filter()
             ->unique(fn (string $item): string => $this->normalize($item))

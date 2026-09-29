@@ -17,7 +17,7 @@ return new class extends Migration
             $table->index('characteristic_id', 'stdc_char_idx');
             $table->timestamps();
             // уникальная пара
-            $table->unique(['time_discount_id', 'characteristic_id'], 'stdc_unique');
+            $table->unique(['time_discount_id', 'characteristic_id'], 'stdc_characteristics_unique');
         });
     }
 

@@ -153,8 +153,8 @@ return [
     ],
 
     'import' => [
-        'image_directory' => 'Photo folder',
-        'image_directory_helper' => 'Files are matched by SKU. SKU 1 matches both 1.png and 001.png.',
+        'image_files' => 'Photos from computer',
+        'image_files_helper' => 'Select a photo folder to upload its files to the server. Files are matched by SKU: SKU 1 matches both 1.png and 001.png.',
         'overwrite_images' => 'Overwrite existing photos',
         'preview' => 'Preview',
         'rows_to_import' => 'Rows to import',

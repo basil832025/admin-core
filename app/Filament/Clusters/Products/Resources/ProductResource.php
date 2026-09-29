@@ -1574,10 +1574,23 @@ class ProductResource extends Resource
                             ->afterStateUpdated(function (Set $set, $state): void {
                                 $set('selected_rows', app(PerfumeExcelImportService::class)->defaultSelectedRows($state));
                             }),
-                        TextInput::make('image_directory')
-                            ->label(__('product.import.image_directory'))
-                            ->default(fn (): ?string => is_dir(base_path('screenshot/Photo Parfums')) ? base_path('screenshot/Photo Parfums') : null)
-                            ->helperText(__('product.import.image_directory_helper'))
+                        FileUpload::make('image_files')
+                            ->label(__('product.import.image_files'))
+                            ->disk('local')
+                            ->directory('product-import-images')
+                            ->acceptedFileTypes([
+                                'image/jpeg',
+                                'image/png',
+                                'image/webp',
+                                'image/gif',
+                            ])
+                            ->multiple()
+                            ->storeFileNamesIn('image_file_names')
+                            ->extraInputAttributes([
+                                'webkitdirectory' => true,
+                                'directory' => true,
+                            ])
+                            ->helperText(__('product.import.image_files_helper'))
                             ->columnSpanFull(),
                         Toggle::make('overwrite_images')
                             ->label(__('product.import.overwrite_images'))
@@ -1598,7 +1611,8 @@ class ProductResource extends Resource
                             $stats = app(PerfumeExcelImportService::class)->apply(
                                 $data['import_file'] ?? null,
                                 $data['selected_rows'] ?? [],
-                                $data['image_directory'] ?? null,
+                                $data['image_files'] ?? [],
+                                $data['image_file_names'] ?? [],
                                 (bool) ($data['overwrite_images'] ?? false),
                             );
 

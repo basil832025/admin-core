@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Front;
 
 use App\Http\Controllers\Controller;
+use App\Models\Location;
 use App\Models\Shop\Order;
 use App\Models\Shop\LiqPayLog;
 use App\Services\LiqPayService;
 use App\Services\CashalotFiscalService;
+use App\Services\ScheduleV2Service;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethodEnum;
 use App\Mail\CashalotReceiptMail;
@@ -45,6 +47,7 @@ class LiqPayController extends Controller
                 'data' => $data,
                 'err'  => $e->getMessage(),
             ]);
+
             return 'error';
         }
 
@@ -94,10 +97,18 @@ class LiqPayController extends Controller
 
             if ($order) {
                 // Чтобы не слать письма повторно при дублях callback'а.
-                $wasAlreadyNew = ($order->status === OrderStatus::New);
+                $wasAlreadyFinalized = ($order->status !== OrderStatus::Cart);
 
-                $order->status  = OrderStatus::New;
+                // Оплата может быть подтверждена спустя несколько минут после выбора
+                // слота. Не создаём новый заказ с уже прошедшим временем доставки.
+                $deliveryTimeIsValid = $this->ensure3pirogaDeliveryTimeIsValid($order);
+
+                $order->status = $deliveryTimeIsValid ? OrderStatus::New : OrderStatus::OnHold;
                 $order->payment = PaymentMethodEnum::LIQPAY;
+
+                if (! $deliveryTimeIsValid) {
+                    $order->extra_reason = 'Оплату підтверджено після завершення обраного часу доставки. Потрібно узгодити новий час.';
+                }
 
                 if (empty($order->paid_at)) {
                     $order->paid_at = now();
@@ -107,7 +118,7 @@ class LiqPayController extends Controller
 
                 // Если заказ только что перешёл в статус "Новый" после успешной оплаты —
                 // отправляем админам уведомление, как при обычном оформлении.
-                if (! $wasAlreadyNew) {
+                if (! $wasAlreadyFinalized) {
                     try {
                         $order->load([
                             'items.product.parent.productCharacteristicValues.characteristic.svgImage',
@@ -192,5 +203,93 @@ class LiqPayController extends Controller
         }
 
         return 'ok';
+    }
+
+    /**
+     * Moves an expired scheduled delivery to the first available 3piroga slot.
+     *
+     * A false result means that no safe replacement slot was found, so the
+     * paid order must remain on hold for an operator instead of entering work
+     * with a delivery time in the past.
+     */
+    private function ensure3pirogaDeliveryTimeIsValid(Order $order): bool
+    {
+        if (config('project.name') !== '3piroga' || $order->self_pickup || $order->as_soon_possible) {
+            return true;
+        }
+
+        $date = trim((string) $order->getRawOriginal('date_order'));
+        $time = trim((string) $order->getRawOriginal('time_order'));
+
+        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)
+            || ! preg_match('/^(\d{1,2}):(\d{2})/', $time, $matches)) {
+            Log::warning('LiqPay callback: scheduled delivery has invalid date or time', [
+                'order_id' => $order->id,
+                'date_order' => $date,
+                'time_order' => $time,
+            ]);
+
+            return false;
+        }
+
+        try {
+            $deliveryAt = \Carbon\Carbon::createFromFormat('Y-m-d', $date, 'Europe/Kyiv')
+                ->setTime((int) $matches[1], (int) $matches[2]);
+        } catch (\Throwable) {
+            return false;
+        }
+
+        $now = now('Europe/Kyiv');
+        if ($deliveryAt->gt($now)) {
+            return true;
+        }
+
+        $location = Location::query()
+            ->where('is_active', 1)
+            ->orderByDesc('schedule_v2_enabled')
+            ->orderBy('sort')
+            ->first();
+        $schedule = app(ScheduleV2Service::class);
+
+        if (! $location || ! $schedule->isEnabled($location)) {
+            Log::warning('LiqPay callback: expired delivery slot has no schedule for rescheduling', [
+                'order_id' => $order->id,
+                'delivery_at' => $deliveryAt->toIso8601String(),
+            ]);
+
+            return false;
+        }
+
+        for ($offset = 0; $offset < 15; $offset++) {
+            $candidateDate = $now->copy()->startOfDay()->addDays($offset);
+
+            if (! $schedule->isDateAvailable($location, 'delivery', $candidateDate, $now)) {
+                continue;
+            }
+
+            $slots = $schedule->buildSlotsForDate($location, 'delivery', $candidateDate, $now);
+            if ($slots === []) {
+                continue;
+            }
+
+            $newTime = explode('-', $slots[0])[0];
+            $order->date_order = $candidateDate->toDateString();
+            $order->time_order = $newTime;
+
+            Log::warning('LiqPay callback: expired delivery slot was rescheduled', [
+                'order_id' => $order->id,
+                'old_delivery_at' => $deliveryAt->toIso8601String(),
+                'new_delivery_at' => $candidateDate->toDateString().' '.$newTime,
+            ]);
+
+            return true;
+        }
+
+        Log::warning('LiqPay callback: no replacement slot found for expired delivery', [
+            'order_id' => $order->id,
+            'delivery_at' => $deliveryAt->toIso8601String(),
+        ]);
+
+        return false;
     }
 }
