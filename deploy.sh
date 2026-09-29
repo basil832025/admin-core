@@ -13,7 +13,7 @@ echo "Deploy admin-core..."
 cd "$APP_DIR"
 
 git fetch origin
-git reset --hard origin/ma  in
+git reset --hard origin/main
 
 
 echo "Deploy frontend-sevia..."
