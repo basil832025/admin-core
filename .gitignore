@@ -43,3 +43,4 @@ script.py
 !/packages/cashalotapi/**
 
 # Local symlink/junctions to frontend package public assets are ignored above.
+deploy.sh

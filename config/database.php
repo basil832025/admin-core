@@ -4,9 +4,10 @@ use Illuminate\Support\Str;
 
 $project = trim((string) env('APP_PROJECT', ''));
 $projectConfig = require __DIR__ . '/projects.local.php';
-$projectDatabase = $project !== ''
-    ? ($projectConfig[$project]['database'] ?? env('DB_DATABASE', 'laravel'))
-    : env('DB_DATABASE', 'laravel');
+$projectDatabase = env('DB_DATABASE')
+    ?: ($project !== ''
+        ? ($projectConfig[$project]['database'] ?? 'laravel')
+        : 'laravel');
 
 return [
 
