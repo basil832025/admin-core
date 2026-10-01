@@ -1585,6 +1585,7 @@ class ProductResource extends Resource
                                 'image/gif',
                             ])
                             ->multiple()
+                            ->preserveFilenames()
                             ->storeFileNamesIn('image_file_names')
                             ->uploadingMessage('Завантаження фото: дочекайтеся завершення перед імпортом')
                             ->extraInputAttributes([
