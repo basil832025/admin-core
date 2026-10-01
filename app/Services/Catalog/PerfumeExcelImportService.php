@@ -217,7 +217,21 @@ class PerfumeExcelImportService
 
     private function imageIndex(mixed $files, array $fileNames = []): array
     {
-        if (! is_array($files) || $files === []) {
+        $files = is_array($files) ? $files : [];
+
+        // Uploaded files can be present on the local disk while Livewire has
+        // already dropped their form state by the time the import action runs.
+        // Add the staging directory as a fallback, while keeping files from
+        // the current form first in case the same SKU exists in an older batch.
+        if (Storage::disk('local')->exists('product-import-images')) {
+            foreach (Storage::disk('local')->allFiles('product-import-images') as $storedFile) {
+                if (! in_array($storedFile, $files, true)) {
+                    $files[] = $storedFile;
+                }
+            }
+        }
+
+        if ($files === []) {
             return [];
         }
 
@@ -254,7 +268,11 @@ class PerfumeExcelImportService
             return;
         }
 
-        if (! $overwriteImages && filled($product->main_image)) {
+        $hasExistingImage = filled($product->main_image)
+            && ! str_starts_with((string) $product->main_image, 'http')
+            && Storage::disk('public')->exists(ltrim((string) $product->main_image, '/'));
+
+        if (! $overwriteImages && $hasExistingImage) {
             $stats['images_skipped']++;
             return;
         }
