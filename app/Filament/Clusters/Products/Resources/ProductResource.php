@@ -1596,7 +1596,12 @@ class ProductResource extends Resource
                             ->columnSpanFull(),
                         Toggle::make('overwrite_images')
                             ->label(__('product.import.overwrite_images'))
-                            ->default(false),
+                            ->default(false)
+                            // Explicitly dehydrate the value for the table action.
+                            // Some Livewire/Filament combinations otherwise omit an
+                            // unchanged toggle from the modal action payload.
+                            ->dehydrated(true)
+                            ->live(),
                         Placeholder::make('preview')
                             ->label(__('product.import.preview'))
                             ->content(fn (Get $get) => app(PerfumeExcelImportService::class)->previewHtml($get('import_file')))
