@@ -1586,6 +1586,7 @@ class ProductResource extends Resource
                             ])
                             ->multiple()
                             ->storeFileNamesIn('image_file_names')
+                            ->uploadingMessage('Завантаження фото: дочекайтеся завершення перед імпортом')
                             ->extraInputAttributes([
                                 'webkitdirectory' => true,
                                 'directory' => true,

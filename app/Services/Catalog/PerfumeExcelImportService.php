@@ -231,7 +231,9 @@ class PerfumeExcelImportService
                 continue;
             }
 
-            $fileName = $fileNames[$key] ?? basename($path);
+            // FileUpload dehydrates the file list with numeric keys, while
+            // storeFileNamesIn() keeps original names keyed by stored path.
+            $fileName = $fileNames[$file] ?? $fileNames[$key] ?? basename($path);
             $extension = mb_strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
 
             if (! in_array($extension, $allowedExtensions, true)) {
