@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-APP_DIR="/home/xfizwzzz/test.sevia.com.ua/"
+APP_DIR="/var/www/test_sevia_c_usr/data/www/test.sevia.com.ua"
 FRONTEND_DIR="$APP_DIR/packages/frontend-sevia"
 
 PACKAGE_BUILD_DIR="$FRONTEND_DIR/public/build/frontend-sevia"
