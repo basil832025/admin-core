@@ -197,10 +197,13 @@ class SiteTextResource extends Resource
                     ->formatStateUsing(fn($record) => str($record->getTranslation('value', app()->getLocale()))->limit(80))
                     ->wrap()
                     ->searchable(query: function ($query, $search) {
-                        // `value` is a JSON column containing all locale variants. Searching
-                        // the column itself lets an editor find a row by Ukrainian, Russian,
-                        // or English text, regardless of the currently selected admin locale.
-                        return $query->where('value', 'like', "%{$search}%");
+                        // `value` is a JSON column containing all locale variants. MySQL's
+                        // implicit JSON-to-string comparison can skip escaped Unicode values,
+                        // so cast it explicitly before searching every locale.
+                        return $query->whereRaw(
+                            'CAST(value AS CHAR) LIKE ?',
+                            ["%{$search}%"],
+                        );
                     }),
                 Tables\Columns\TextColumn::make('updated_at')->dateTime('Y-m-d H:i')->label(__('site_text.columns.updated_at'))->sortable(),
             ])
