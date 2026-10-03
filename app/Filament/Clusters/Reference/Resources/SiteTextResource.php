@@ -197,8 +197,10 @@ class SiteTextResource extends Resource
                     ->formatStateUsing(fn($record) => str($record->getTranslation('value', app()->getLocale()))->limit(80))
                     ->wrap()
                     ->searchable(query: function ($query, $search) {
-                        $locale = app()->getLocale();
-                        return $query->where("value->$locale", 'like', "%{$search}%");
+                        // `value` is a JSON column containing all locale variants. Searching
+                        // the column itself lets an editor find a row by Ukrainian, Russian,
+                        // or English text, regardless of the currently selected admin locale.
+                        return $query->where('value', 'like', "%{$search}%");
                     }),
                 Tables\Columns\TextColumn::make('updated_at')->dateTime('Y-m-d H:i')->label(__('site_text.columns.updated_at'))->sortable(),
             ])
