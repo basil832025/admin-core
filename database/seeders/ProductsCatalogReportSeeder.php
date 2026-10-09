@@ -16,8 +16,8 @@ class ProductsCatalogReportSeeder extends Seeder
 
         if (config('project.name') !== '3piroga'
             || ! in_array($connection, ['mysql', 'mariadb'], true)
-            || ($configuration['database'] ?? null) !== 'myadmin') {
-            throw new \RuntimeException('ProductsCatalogReportSeeder requires project 3piroga and database myadmin.');
+            || ! in_array($configuration['database'] ?? null, ['myadmin', 'a3piroga_3piroga'], true)) {
+            throw new \RuntimeException('ProductsCatalogReportSeeder requires project 3piroga and database myadmin or a3piroga_3piroga.');
         }
 
         // Preserve an existing template and any edits made in the admin editor.
