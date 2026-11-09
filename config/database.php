@@ -8,6 +8,10 @@ $projectConfig = require __DIR__ . '/projects.local.php';
 $projectDatabase = $projectConfig[$project]['database']
     ?? (env('DB_DATABASE') ?: 'laravel');
 
+if ($project === 'duxi' && env('APP_ENV', 'production') !== 'local') {
+    $projectDatabase = env('DB_DATABASE') ?: $projectDatabase;
+}
+
 return [
 
     /*
