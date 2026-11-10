@@ -15,8 +15,8 @@ class DuxiAromaFamilySeeder extends Seeder
 
         if (config('project.name') !== 'duxi'
             || $connection->getDriverName() !== 'mysql'
-            || $connection->getDatabaseName() !== 'duxi') {
-            throw new RuntimeException('This seeder requires the DUXI project and the duxi MySQL database.');
+            || ! in_array($connection->getDatabaseName(), ['duxi', 'xfizwzzz_sevia'], true)) {
+            throw new RuntimeException('This seeder requires the DUXI project and an approved DUXI MySQL database.');
         }
 
         $import->normalizeAromaFamily();
