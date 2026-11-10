@@ -23,7 +23,7 @@ class PerfumeExcelImportService
     private const MANAGED_CHARACTERISTICS = [
         'sevia-gender' => ['label' => 'Gender', 'column' => 8, 'type' => 'single', 'sort' => 10],
         'sevia-collections' => ['label' => 'Колекції', 'column' => 3, 'type' => 'multi', 'sort' => 20],
-        'sevia-aroma-family' => ['label' => 'Aroma family', 'column' => 4, 'type' => 'single', 'sort' => 30],
+        'sevia-aroma-family' => ['label' => 'Aroma family', 'column' => 4, 'type' => 'multi', 'sort' => 30],
         'sevia-segment' => ['label' => 'Segment', 'column' => 5, 'type' => 'single', 'sort' => 40],
         'sevia-concentration' => ['label' => 'Concentration', 'column' => 7, 'type' => 'single', 'sort' => 50],
         'sevia-top-notes' => ['label' => 'Top notes', 'column' => 10, 'type' => 'multi', 'sort' => 60],
@@ -34,6 +34,67 @@ class PerfumeExcelImportService
     public function enabled(): bool
     {
         return config('catalog_import.product_excel_format') === 'sevia_perfumes';
+    }
+
+    public function normalizeAromaFamily(): void
+    {
+        DB::transaction(function (): void {
+            $characteristic = Characteristic::query()
+                ->where('slug', 'sevia-aroma-family')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $characteristic) {
+                return;
+            }
+
+            foreach ($characteristic->values as $legacy) {
+                $label = $this->translationValue($legacy->getTranslations('value'));
+                $parts = $this->splitValues($label);
+
+                if ($parts === [] || $parts === [$this->clean($label)]) {
+                    continue;
+                }
+
+                foreach ([
+                    'bs_variation_characteristic_value',
+                    'bs_shop_time_discount_characteristic_values',
+                    'bs_shop_promo_code_characteristic_values',
+                ] as $table) {
+                    if (Schema::hasTable($table) && DB::table($table)->where('characteristic_value_id', $legacy->id)->exists()) {
+                        throw new \RuntimeException("Aroma value {$legacy->id} is used by {$table}.");
+                    }
+                }
+
+                $links = DB::table('bs_product_characteristic_value')
+                    ->where('characteristic_value_id', $legacy->id);
+                $productIds = $links->pluck('product_id');
+
+                if ($productIds->isNotEmpty()) {
+                    foreach ($parts as $sort => $part) {
+                        $value = $this->ensureCharacteristicValue($characteristic, $part, $sort + 1);
+                        $now = now();
+
+                        DB::table('bs_product_characteristic_value')->upsert(
+                            $productIds->unique()->map(fn ($productId): array => [
+                                'product_id' => $productId,
+                                'characteristic_id' => $characteristic->id,
+                                'characteristic_value_id' => $value->id,
+                                'created_at' => $now,
+                                'updated_at' => $now,
+                            ])->values()->all(),
+                            ['product_id', 'characteristic_id', 'characteristic_value_id'],
+                            ['updated_at'],
+                        );
+                    }
+                }
+
+                $links->delete();
+                $legacy->delete();
+            }
+
+            $characteristic->update(['field_type' => 'multiselect', 'expand_values' => true]);
+        });
     }
 
     public function preview(mixed $file): array
@@ -356,7 +417,7 @@ class PerfumeExcelImportService
                 // "Collections" was inserted after Brand. Its values may be
                 // separated by commas or slashes, and a product can be in several.
                 'collections' => $this->splitCollections($cells[3] ?? ''),
-                'aroma' => $this->clean($cells[4] ?? ''),
+                'aroma' => $this->splitValues($cells[4] ?? ''),
                 'segment' => $this->clean($cells[5] ?? ''),
                 'bestseller' => (bool) ((int) ($cells[6] ?? 0)),
                 'concentration' => $this->clean($cells[7] ?? ''),
@@ -455,7 +516,7 @@ class PerfumeExcelImportService
         $valuesBySlug = [
             'sevia-gender' => [$row['gender']],
             'sevia-collections' => $row['collections'],
-            'sevia-aroma-family' => [$row['aroma']],
+            'sevia-aroma-family' => $row['aroma'],
             'sevia-segment' => [$row['segment']],
             'sevia-concentration' => [$row['concentration']],
             'sevia-top-notes' => $row['top_notes'],
