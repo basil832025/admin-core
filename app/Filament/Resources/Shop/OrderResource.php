@@ -2349,7 +2349,7 @@ class OrderResource extends Resource
                         // Important: addSelect() on a query with no explicit columns replaces "*".
                         // Force selecting all order columns so summarizers and actions keep working.
                         ->select('bs_shop_orders.*')
-                        ->where('bs_shop_orders.created_at', '>=', '2026-05-01 00:00:00')
+                        ->where('bs_shop_orders.created_at', '>=', \App\Filament\Resources\Callcenter\OrderResource::LIST_CREATED_FROM)
                         ->addSelect(DB::raw(
                         'GREATEST('
                         . 'bs_shop_orders.created_at, '

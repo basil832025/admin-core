@@ -14,6 +14,7 @@ use Filament\Actions\CreateAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Resources\Pages\ListRecords\Tab;
+use Filament\Tables\Table;
 
 class ListOrders extends ListRecords
 {
@@ -23,6 +24,73 @@ class ListOrders extends ListRecords
     ];
 
     protected static string $resource = OrderResource::class;
+
+    public function table(Table $table): Table
+    {
+        $table = parent::table($table);
+
+        return $this->hasOrderArrivalBadges() ? $table->poll('10s') : $table;
+    }
+
+    public function rendering(): void
+    {
+        if (! $this->hasOrderArrivalBadges()) {
+            return;
+        }
+
+        $now = now()->toDateTimeString();
+        $sessionKey = $this->orderArrivalSessionKey();
+        $seen = session()->get($sessionKey, ['started' => $now, 'tabs' => []]);
+        $seen['tabs'][$this->activeTab ?: 'all'] = $now;
+        session()->put($sessionKey, $seen);
+    }
+
+    private function hasOrderArrivalBadges(): bool
+    {
+        return config('project.name') === '3piroga'
+            && (string) config('callcenter.order_form_mode', 'food') !== 'nova_post';
+    }
+
+    private function orderArrivalSessionKey(): string
+    {
+        return 'callcenter_order_arrivals_3piroga_' . auth('admin')->id();
+    }
+
+    private function orderArrivalBadge(Tab $tab, string $key): ?int
+    {
+        if ($key === ($this->activeTab ?: 'all')) {
+            return null;
+        }
+
+        $seen = session()->get($this->orderArrivalSessionKey());
+        $query = $tab->modifyQuery(
+            OrderResource::getEloquentQuery()->where('created_at', '>=', OrderResource::LIST_CREATED_FROM)
+        );
+
+        $since = $seen['tabs'][$key] ?? null;
+        if ($since === null && in_array($key, ['new', 'cart', 'awaiting_payment'], true)) {
+            return $query->count() ?: null;
+        }
+
+        $since ??= $seen['started'] ?? now()->toDateTimeString();
+        $statuses = match ($key) {
+            'all' => [OrderStatus::Cart->value, CallcenterOrder::AWAITING_PAYMENT_TIME, OrderStatus::New->value],
+            'awaiting_payment' => [CallcenterOrder::AWAITING_PAYMENT_TIME, OrderStatus::Cart->value],
+            default => [$key],
+        };
+        $arrivalTimes = array_fill(0, count($statuses), "NULLIF(JSON_UNQUOTE(JSON_EXTRACT(status_times, ?)), 'null')");
+        $arrival = 'COALESCE(' . implode(', ', $arrivalTimes) . ', created_at)';
+        if ($key === 'all') {
+            $arrival = 'GREATEST(created_at, ' . implode(', ', array_map(
+                fn (string $time): string => "COALESCE({$time}, created_at)",
+                $arrivalTimes,
+            )) . ')';
+        }
+        $paths = array_map(fn (string $status): string => '$.' . $status, $statuses);
+        $count = $query->whereRaw("{$arrival} > ?", [...$paths, $since])->count();
+
+        return $count ?: null;
+    }
 
     private function isHeaderActionHidden(string $action): bool
     {
@@ -155,9 +223,10 @@ class ListOrders extends ListRecords
 
         $tabs = [
             null => Tab::make(__('order.tabs.all'))
-                ->query(fn ($query) =>
-                    $query->where('status', '!=', OrderStatus::Cart->value)
-                ),
+                ->query(fn ($query) => $query->when(
+                    ! $this->hasOrderArrivalBadges(),
+                    fn ($query) => $query->where('status', '!=', OrderStatus::Cart->value),
+                )),
         ];
 
         $visibleStatusValues = Setting::admin('callcenter.order_status_tabs', []);
@@ -194,6 +263,13 @@ class ListOrders extends ListRecords
 
                     return $query;
                 });
+        }
+
+        if ($this->hasOrderArrivalBadges()) {
+            foreach ($tabs as $tabKey => $tab) {
+                $key = $tabKey ?: 'all';
+                $tab->badge(fn (): ?int => $this->orderArrivalBadge($tab, $key));
+            }
         }
 
         return $tabs;

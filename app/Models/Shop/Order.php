@@ -27,6 +27,10 @@ class Order extends Model
     use HasFactory;
     use SoftDeletes;
     use LogsActivity;
+
+    public const AWAITING_PAYMENT_TIME = 'awaiting_payment';
+    public const AWAITING_PAYPARTS_STATUSES = ['pending_payment', 'payment_redirected'];
+
     /**
      * @var string
      */
@@ -391,7 +395,8 @@ class Order extends Model
             }
             // если статус ещё не выставлен — берём дефолт
             $status = $order->status ?? OrderStatus::New;        // enum-объект
-            $order->status_times = [$status->value => now()->toDateTimeString()];
+            $times = [$status->value => now()->toDateTimeString()];
+            $order->status_times = $order->withAwaitingPaymentTime($times);
             if (blank($order->dat)) {
                 $order->dat = now()->toDateString();
             }
@@ -440,7 +445,7 @@ class Order extends Model
                 $times[$status->value] = now()->toDateTimeString();
             }
 
-            $order->status_times = $times;
+            $order->status_times = $order->withAwaitingPaymentTime($times);
             $originalStatus = $order->getOriginal('status');
             $newStatus      = $order->status;
 
@@ -487,6 +492,26 @@ class Order extends Model
             $discPrc = round($base * $salePrc / 100, 2);
             $order->total_price_sale = max(0, round($base - $discPrc - $saleSum, 2));
         });
+    }
+
+    private function withAwaitingPaymentTime(array $times): array
+    {
+        if (config('project.name') !== '3piroga') {
+            return $times;
+        }
+
+        $awaitingPayment = static fn ($status, $payment, $paypartsStatus): bool =>
+            $status === OrderStatus::Cart
+            && ($payment === PaymentMethodEnum::LIQPAY
+                || ($payment === PaymentMethodEnum::PAYPARTS
+                    && in_array($paypartsStatus, self::AWAITING_PAYPARTS_STATUSES, true)));
+
+        if ($awaitingPayment($this->status, $this->payment, $this->payparts_status)
+            && ! $awaitingPayment($this->getOriginal('status'), $this->getOriginal('payment'), $this->getOriginal('payparts_status'))) {
+            $times[self::AWAITING_PAYMENT_TIME] = now()->toDateTimeString();
+        }
+
+        return $times;
     }
 
     /** Удобный геттер: когда впервые/в последний раз был установлен данный статус */

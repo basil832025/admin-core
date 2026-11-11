@@ -50,10 +50,7 @@ use Throwable;
 
 class OrderResource extends ShopOrderResource
 {
-    private const AWAITING_PAYPARTS_STATUSES = [
-        'pending_payment',
-        'payment_redirected',
-    ];
+    public const LIST_CREATED_FROM = '2026-05-01 00:00:00';
 
     protected static ?string $model = Order::class;
     protected static ?string $slug = 'callcenter/orders';
@@ -338,7 +335,7 @@ class OrderResource extends ShopOrderResource
                     ->orWhere(function ($query): void {
                         $query
                             ->where('payment', PaymentMethodEnum::PAYPARTS->value)
-                            ->whereIn('payparts_status', self::AWAITING_PAYPARTS_STATUSES);
+                            ->whereIn('payparts_status', Order::AWAITING_PAYPARTS_STATUSES);
                     });
             });
     }
