@@ -92,9 +92,12 @@ class PromoCode extends Model
 
         $productIds = $ids($this->products());
         $categoryIds = $ids($this->categories());
-        $valueIdsReq = $ids($this->characteristicValues());
+        $combineFilters = config('project.name') === '3piroga';
+        $valueCharacteristics = $combineFilters
+            ? $this->characteristicValues()->get()->pluck('characteristic_id', 'id')->all()
+            : [];
+        $valueIdsReq = $combineFilters ? array_keys($valueCharacteristics) : $ids($this->characteristicValues());
         $charIdsReq = $ids($this->characteristics());
-        $filtersOn = (bool) ($productIds || $categoryIds || $valueIdsReq || $charIdsReq);
 
         $order->loadMissing([
             'items.product.parent',
@@ -118,7 +121,7 @@ class PromoCode extends Model
                 continue;
             }
 
-            if (! $this->itemMatchesConfiguredScope($row, $productIds, $categoryIds, $valueIdsReq, $charIdsReq, $filtersOn)) {
+            if (! $this->itemMatchesConfiguredScope($row, $productIds, $categoryIds, $valueIdsReq, $charIdsReq, $combineFilters, $valueCharacteristics)) {
                 continue;
             }
 
@@ -168,46 +171,55 @@ class PromoCode extends Model
         return $id > 0 ? 'id:' . $id : 'idx:' . $index;
     }
 
-    protected function itemMatchesConfiguredScope($row, array $productIds, array $categoryIds, array $valueIdsReq, array $charIdsReq, bool $filtersOn): bool
+    protected function itemMatchesConfiguredScope($row, array $productIds, array $categoryIds, array $valueIdsReq, array $charIdsReq, bool $combineFilters, array $valueCharacteristics): bool
     {
         $product = $row->product;
-        $matches = ! $filtersOn;
+        $matches = ! ($productIds || $categoryIds || $valueIdsReq || $charIdsReq);
 
-        if (!$matches && $productIds && $this->productMatchesScope($product, $productIds)) {
-            $matches = true;
-        }
-
-        if (!$matches && $categoryIds) {
-            $prodCatIds = $this->resolveProductCategoryIds($product);
-            if (array_intersect($categoryIds, $prodCatIds)) {
-                $matches = true;
+        if ($productIds) {
+            $matches = $this->productMatchesScope($product, $productIds);
+            if ($combineFilters && ! $matches) {
+                return false;
             }
         }
 
-        if (!$matches && ($valueIdsReq || $charIdsReq)) {
+        if ($categoryIds && ($combineFilters || ! $matches)) {
+            $matches = (bool) array_intersect($categoryIds, $this->resolveProductCategoryIds($product));
+            if ($combineFilters && ! $matches) {
+                return false;
+            }
+        }
+
+        if (($combineFilters || ! $matches) && ($valueIdsReq || $charIdsReq)) {
             $prodValueIds = [];
             $prodCharIds = [];
 
             if (method_exists($product, 'attributeValues')) {
                 $vals = $product->attributeValues ?? collect();
                 $prodValueIds = $vals->pluck('id')->map(fn($v)=>(int)$v)->all();
-                $prodCharIds = $vals->pluck('pivot.attribute_id')->filter()->map(fn($v)=>(int)$v)->all();
+                $characteristicPath = $combineFilters ? 'characteristic_id' : 'pivot.attribute_id';
+                $prodCharIds = $vals->pluck($characteristicPath)->filter()->map(fn($v)=>(int)$v)->all();
                 if (!$prodCharIds && $vals->first()?->attribute_id) {
                     $prodCharIds = $vals->pluck('attribute_id')->map(fn($v)=>(int)$v)->all();
                 }
             }
 
-            [$metaValueIds, $metaCharIds] = $this->extractMetaIdsStrict($row, $valueIdsReq, $charIdsReq);
+            [$metaValueIds, $metaCharIds] = $this->extractMetaIdsStrict($row, $valueIdsReq, $charIdsReq, ! $combineFilters);
 
             $allValueIds = array_values(array_unique(array_merge($prodValueIds, $metaValueIds)));
             $allCharIds = array_values(array_unique(array_merge($prodCharIds, $metaCharIds)));
 
-            if ($valueIdsReq && array_intersect($valueIdsReq, $allValueIds)) {
-                $matches = true;
+            $matchedValueIds = array_intersect($valueIdsReq, $allValueIds);
+            if ($combineFilters) {
+                foreach ($matchedValueIds as $valueId) {
+                    $allCharIds[] = (int) $valueCharacteristics[$valueId];
+                }
+
+                return (! $valueIdsReq || $matchedValueIds)
+                    && (! $charIdsReq || array_intersect($charIdsReq, $allCharIds));
             }
-            if (!$matches && $charIdsReq && array_intersect($charIdsReq, $allCharIds)) {
-                $matches = true;
-            }
+
+            return (bool) ($matchedValueIds || array_intersect($charIdsReq, $allCharIds));
         }
 
         return $matches;
@@ -346,7 +358,7 @@ class PromoCode extends Model
     {
         if ($orderId) $this->usages()->where('order_id', $orderId)->delete();
     }
-    protected function extractMetaIdsStrict($row, array $allowedValueIds, array $allowedCharIds): array
+    protected function extractMetaIdsStrict($row, array $allowedValueIds, array $allowedCharIds, bool $allowGenericFallback = true): array
     {
         $meta = data_get($row, 'meta');
 
@@ -393,7 +405,7 @@ class PromoCode extends Model
         }
 
         // 4) generic-фоллбек: берём все числа из meta, но оставляем только те, что входят в allowed-наборы
-        foreach (Arr::flatten($meta) as $v) {
+        foreach ($allowGenericFallback ? Arr::flatten($meta) : [] as $v) {
             if (!is_numeric($v)) continue;
             $n = (int)$v;
             if ($n && in_array($n, $allowedValueIds, true)) $vals[] = $n;
