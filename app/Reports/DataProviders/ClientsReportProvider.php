@@ -165,31 +165,30 @@ LEFT JOIN (
         ) AS favorite_category
     FROM (
         SELECT
-            o.clients_id AS client_id,
-            COALESCE(
-                NULLIF(JSON_UNQUOTE(JSON_EXTRACT(pc.title, '$.uk')), ''),
-                NULLIF(JSON_UNQUOTE(JSON_EXTRACT(pc.title, '$.ua')), ''),
-                NULLIF(JSON_UNQUOTE(JSON_EXTRACT(pc.title, '$.ru')), ''),
-                pc.slug
-            ) AS category_name,
-            SUM(COALESCE(oi.qty, 0)) AS items_count
-        FROM bs_shop_orders o
-        INNER JOIN bs_shop_order_items oi ON oi.shop_order_id = o.id
-        LEFT JOIN bs_products p ON p.id = oi.product_id
-        LEFT JOIN bs_products pp ON pp.id = p.parent_id
-        LEFT JOIN bs_product_categories pc ON pc.id = COALESCE(p.category_id, pp.category_id)
-        WHERE o.deleted_at IS NULL
-          AND o.status NOT IN ('cart', 'cancelled')
-          AND o.clients_id IS NOT NULL
-          AND pc.id IS NOT NULL
-        GROUP BY
-            o.clients_id,
-            COALESCE(
-                NULLIF(JSON_UNQUOTE(JSON_EXTRACT(pc.title, '$.uk')), ''),
-                NULLIF(JSON_UNQUOTE(JSON_EXTRACT(pc.title, '$.ua')), ''),
-                NULLIF(JSON_UNQUOTE(JSON_EXTRACT(pc.title, '$.ru')), ''),
-                pc.slug
-            )
+            category_items.client_id,
+            category_items.category_name,
+            SUM(COALESCE(category_items.qty, 0)) AS items_count
+        FROM (
+            SELECT
+                o.clients_id AS client_id,
+                COALESCE(
+                    NULLIF(JSON_UNQUOTE(JSON_EXTRACT(pc.title, '$.uk')), ''),
+                    NULLIF(JSON_UNQUOTE(JSON_EXTRACT(pc.title, '$.ua')), ''),
+                    NULLIF(JSON_UNQUOTE(JSON_EXTRACT(pc.title, '$.ru')), ''),
+                    pc.slug
+                ) AS category_name,
+                oi.qty
+            FROM bs_shop_orders o
+            INNER JOIN bs_shop_order_items oi ON oi.shop_order_id = o.id
+            LEFT JOIN bs_products p ON p.id = oi.product_id
+            LEFT JOIN bs_products pp ON pp.id = p.parent_id
+            LEFT JOIN bs_product_categories pc ON pc.id = COALESCE(p.category_id, pp.category_id)
+            WHERE o.deleted_at IS NULL
+              AND o.status NOT IN ('cart', 'cancelled')
+              AND o.clients_id IS NOT NULL
+              AND pc.id IS NOT NULL
+        ) AS category_items
+        GROUP BY category_items.client_id, category_items.category_name
     ) AS ranked
     GROUP BY ranked.client_id
 ) AS favorite_category ON favorite_category.client_id = c.id
