@@ -696,6 +696,11 @@ class OrderResource extends ShopOrderResource
 
                         Select::make('clients_id')
                             ->label(__('order.fields.client'))
+                            ->createOptionForm(fn (Form $form) => \App\Filament\Resources\ClientResource::form($form))
+                            ->createOptionUsing(fn (array $data) => Client::create($data)->getKey())
+                            ->createOptionAction(fn (FormAction $action) => $action
+                                ->modalHeading('Створення клієнта')
+                                ->modalSubmitActionLabel('Створити'))
                             ->allowHtml()
                             ->searchable()
                             ->preload(false)
@@ -715,13 +720,21 @@ class OrderResource extends ShopOrderResource
                             ->getSearchResultsUsing(function (string $search): array {
                                 $digits = preg_replace('/\D+/', '', $search);
 
-                                if (strlen($digits) < 3) {
+                                $search = trim($search);
+                                if (mb_strlen($search) < 3) {
                                     return [];
                                 }
 
                                 return Client::query()
                                     ->select('id', 'name', 'surname', 'phone')
-                                    ->whereRaw("REGEXP_REPLACE(phone, '[^0-9]', '') LIKE ?", ["%{$digits}%"])
+                                    ->where(function ($query) use ($search, $digits): void {
+                                        $query->where('name', 'like', "%{$search}%")
+                                            ->orWhere('surname', 'like', "%{$search}%")
+                                            ->orWhere('email', 'like', "%{$search}%");
+                                        if ($digits !== '') {
+                                            $query->orWhereRaw("REGEXP_REPLACE(phone, '[^0-9]', '') LIKE ?", ["%{$digits}%"]);
+                                        }
+                                    })
                                     ->orderBy('name')
                                     ->limit(50)
                                     ->get()
