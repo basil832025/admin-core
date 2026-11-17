@@ -672,6 +672,7 @@ class OrderResource extends ShopOrderResource
                             ->extraInputAttributes([
                                 'class' => 'callcenter-phone-input',
                                 'autocomplete' => 'off',
+                                'wire:ignore' => true,
                             ])
                             ->dehydrated(false)
                             ->columnSpan(4)
@@ -706,9 +707,14 @@ class OrderResource extends ShopOrderResource
                             ->extraAttributes(['class' => 'callcenter-client-select'])
                             ->createOptionForm(fn (Form $form) => \App\Filament\Resources\ClientResource::form($form))
                             ->createOptionUsing(fn (array $data) => Client::create($data)->getKey())
-                            ->createOptionAction(fn (FormAction $action) => $action
+                            ->createOptionAction(fn (FormAction $action, Get $get) => $action
                                 ->modalHeading('Створення клієнта')
-                                ->modalSubmitActionLabel('Створити'))
+                                ->modalSubmitActionLabel('Створити')
+                                ->mountUsing(function (Form $form) use ($get): void {
+                                    $form->fill([
+                                        'phone' => $get('incoming_phone_ui') ?: $get('incoming_phone'),
+                                    ]);
+                                }))
                             ->allowHtml()
                             ->searchable()
                             ->preload(false)
