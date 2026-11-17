@@ -299,10 +299,18 @@
         </template>
     </div>
 
-    <div class="flex gap-2 overflow-x-auto pb-1">
+    <div
+        class="flex gap-2 overflow-x-auto pb-1"
+        @if (config('project.name') === 'duxi')
+            style="flex-wrap: wrap; align-content: flex-start; max-height: 117px; overflow-x: hidden; overflow-y: auto;"
+        @endif
+    >
         <button
             type="button"
             class="rounded-lg border px-3 py-1.5 text-xs"
+            @if (config('project.name') === 'duxi')
+                style="height: 32px; padding-block: 0; white-space: nowrap;"
+            @endif
             :style="category === ''
                 ? 'background:#111827;color:#ffffff;border-color:#111827;'
                 : 'background:#ffffff;color:#334155;border-color:#d1d5db;'"
@@ -315,6 +323,10 @@
             <button
                 type="button"
                 class="rounded-lg border px-3 py-1.5 text-xs"
+                @if (config('project.name') === 'duxi')
+                    style="height: 32px; max-width: 100%; padding-block: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+                @endif
+                :title="cat.name"
                 :style="String(category) === String(cat.id)
                     ? 'background:#111827;color:#ffffff;border-color:#111827;'
                     : 'background:#ffffff;color:#334155;border-color:#d1d5db;'"

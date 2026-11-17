@@ -1287,10 +1287,16 @@ class EditOrder extends EditRecord
                 throw new \RuntimeException('ТТН не вказана.');
             }
 
+            $previousStatus = $this->record->status;
             $result = app(NovaPostApiClient::class)->updateOrderTrackingStatus($this->record);
             $this->record->refresh();
 
             data_set($this->data, 'nova_status', $this->record->nova_status);
+            if (config('project.name') === 'duxi' && $this->record->status !== $previousStatus) {
+                data_set($this->data, 'status', $this->record->status->value);
+                data_set($this->data, 'status_ui', $this->record->status->value);
+                $this->prevStatus = $this->record->status->value;
+            }
 
             Notification::make()
                 ->success()

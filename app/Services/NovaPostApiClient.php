@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\OrderStatus;
 use App\Models\Setting;
 use App\Models\Shop\Order;
 use Illuminate\Support\Facades\Cache;
@@ -373,6 +374,10 @@ class NovaPostApiClient
     public function updateOrderTrackingStatus(Order $order): array
     {
         $ttn = trim((string) $order->nova_ttn);
+        if (config('project.name') === 'duxi') {
+            return $this->syncDuxiTracking($order, $ttn);
+        }
+
         $oldStatus = (string) $order->nova_status;
         $tracking = $this->trackingStatus($ttn, (string) $order->recipient_phone);
 
@@ -385,6 +390,48 @@ class NovaPostApiClient
             'old_status' => $oldStatus,
             'new_status' => $tracking['status'],
         ];
+    }
+
+    private function syncDuxiTracking(Order $order, string $ttn): array
+    {
+        $tracking = $this->trackingStatus($ttn, (string) $order->recipient_phone);
+
+        return $order->getConnection()->transaction(function () use ($order, $ttn, $tracking): array {
+            $current = $order->newQuery()->lockForUpdate()->findOrFail($order->getKey());
+            $oldStatus = (string) $current->nova_status;
+
+            $stage = match ($tracking['status_code']) {
+                '1' => 'created',
+                '2' => 'cancelled',
+                '4' => 'at_branch',
+                '5', '6' => 'in_transit',
+                '7', '8' => 'arrived',
+                '9', '10', '11' => 'received',
+                default => null,
+            };
+            $ranks = ['created' => 0, 'at_branch' => 1, 'in_transit' => 2, 'arrived' => 3, 'received' => 4];
+
+            if (trim((string) $current->nova_ttn) === $ttn
+                && $current->status !== OrderStatus::Cancelled
+                && $oldStatus !== 'cancelled'
+                && ($oldStatus !== 'received' || $stage === 'received')
+                && $stage !== null
+                && ($stage === 'cancelled' || $ranks[$stage] >= ($ranks[$oldStatus] ?? -1))) {
+                $current->nova_status = $stage;
+
+                if ($stage === 'received' && in_array($current->status, [OrderStatus::Assembled, OrderStatus::Shipped], true)) {
+                    $current->status = OrderStatus::Delivered;
+                } elseif (in_array($stage, ['at_branch', 'in_transit', 'arrived'], true) && $current->status === OrderStatus::Assembled) {
+                    $current->status = OrderStatus::Shipped;
+                }
+
+                if ($current->isDirty()) {
+                    $current->save();
+                }
+            }
+
+            return [...$tracking, 'old_status' => $oldStatus, 'new_status' => (string) $current->nova_status];
+        });
     }
 
     private function downloadPrintForm(string $url, string $ttn, string $type, string $kind): array

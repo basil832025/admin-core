@@ -1043,7 +1043,10 @@ class OrderResource extends ShopOrderResource
 
                         Select::make('nova_status')
                             ->label('Статус НП')
-                            ->options([
+                            ->options(fn (Get $get): array => config('project.name') === 'duxi' ? array_replace(static::novaPostTrackingStatusLabels(), [
+                                'at_branch' => 'Прийнято Новою поштою',
+                                'arrived' => $get('nova_delivery_type') === 'postomat' ? 'Очікує в поштоматі' : 'Очікує у відділенні',
+                            ]) : [
                                 'created' => 'Створено',
                                 'at_branch' => 'У відділенні',
                                 'in_transit' => 'В дорозі',
