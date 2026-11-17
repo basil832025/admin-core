@@ -283,6 +283,13 @@
         @endforeach
     </div>
 
+    @if (filled($trackingLabel ?? null))
+        <div class="np-status-timeline__content" style="padding: 8px 12px; margin-bottom: 8px;">
+            <span class="np-status-timeline__time">Статус Нової пошти за ТТН</span>
+            <span class="np-status-timeline__label">{{ $trackingLabel }}</span>
+        </div>
+    @endif
+
     <button
         type="button"
         class="np-status-timeline__cancel-button"

@@ -1043,17 +1043,7 @@ class OrderResource extends ShopOrderResource
 
                         Select::make('nova_status')
                             ->label('Статус НП')
-                            ->options(fn (Get $get): array => config('project.name') === 'duxi' ? array_replace(static::novaPostTrackingStatusLabels(), [
-                                'at_branch' => 'Прийнято Новою поштою',
-                                'arrived' => $get('nova_delivery_type') === 'postomat' ? 'Очікує в поштоматі' : 'Очікує у відділенні',
-                            ]) : [
-                                'created' => 'Створено',
-                                'at_branch' => 'У відділенні',
-                                'in_transit' => 'В дорозі',
-                                'arrived' => 'Прибув у відділення',
-                                'received' => 'Отримано',
-                                'cancelled' => 'Скасовано',
-                            ])
+                            ->options(fn (Get $get): array => static::novaPostTrackingStatusLabels((string) $get('nova_delivery_type')))
                             ->native(false)
                             ->columnSpan(4),
 
@@ -3029,9 +3019,9 @@ class OrderResource extends ShopOrderResource
         ];
     }
 
-    public static function novaPostTrackingStatusLabels(): array
+    public static function novaPostTrackingStatusLabels(?string $deliveryType = null): array
     {
-        return [
+        $labels = [
             'created' => 'Створено',
             'at_branch' => 'У відділенні',
             'in_transit' => 'В дорозі',
@@ -3039,6 +3029,18 @@ class OrderResource extends ShopOrderResource
             'received' => 'Отримано',
             'cancelled' => 'Скасовано',
         ];
+
+        if (config('project.name') === 'duxi') {
+            $labels['at_branch'] = 'Прийнято Новою поштою';
+            $labels['in_transit'] = 'У дорозі';
+            $labels['arrived'] = match ($deliveryType) {
+                'postomat' => 'Очікує в поштоматі',
+                null => 'Очікує у відділенні або поштоматі',
+                default => 'Очікує у відділенні',
+            };
+        }
+
+        return $labels;
     }
 
     public static function novaPostTrackingStatusColors(): array
@@ -3138,6 +3140,9 @@ class OrderResource extends ShopOrderResource
                             $status->value => $status->rank(),
                         ])->all(),
                         'statePath' => $statePath,
+                        'trackingLabel' => config('project.name') === 'duxi' && filled($get('nova_ttn') ?? $record?->nova_ttn)
+                            ? (static::novaPostTrackingStatusLabels((string) ($get('nova_delivery_type') ?? $record?->nova_delivery_type))[$get('nova_status') ?? $record?->nova_status ?? ''] ?? 'Очікуємо дані відстеження')
+                            : null,
                     ];
                 }),
 

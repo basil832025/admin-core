@@ -291,6 +291,17 @@ class ListOrders extends ListRecords
                 ->query(function ($query) use ($status) {
                     return $query->whereIn('status', OrderResource::novaPostOrderStatusFilterValues((string) $status));
                 });
+
+            if ($status === OrderStatus::Shipped->value && config('project.name') === 'duxi') {
+                $trackingLabels = OrderResource::novaPostTrackingStatusLabels();
+                foreach (['in_transit', 'arrived'] as $trackingStatus) {
+                    $tabs['nova_'.$trackingStatus] = Tab::make($trackingLabels[$trackingStatus])
+                        ->query(fn ($query) => $query
+                            ->whereNotNull('nova_ttn')
+                            ->where('nova_ttn', '!=', '')
+                            ->where('nova_status', $trackingStatus));
+                }
+            }
         }
 
         $tabs['awaiting_payment'] = Tab::make(__('order.tabs.awaiting_payment'))
