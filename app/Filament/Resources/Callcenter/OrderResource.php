@@ -669,9 +669,16 @@ class OrderResource extends ShopOrderResource
                             ->label(__('order.fields.phone'))
                             ->placeholder('+380')
                             ->tel()
+                            ->extraInputAttributes([
+                                'class' => 'callcenter-phone-input',
+                                'autocomplete' => 'off',
+                            ])
                             ->dehydrated(false)
                             ->columnSpan(4)
-                            ->afterStateHydrated(function (TextInput $component, Get $get): void {
+                            ->afterStateHydrated(function (TextInput $component, mixed $state, Get $get): void {
+                                if (filled($state)) {
+                                    return;
+                                }
                                 $id = $get('clients_id');
                                 $phone = $id
                                     ? Client::query()->whereKey($id)->value('phone')
@@ -679,7 +686,7 @@ class OrderResource extends ShopOrderResource
 
                                 $component->state($phone ?: '');
                             })
-                            ->live(debounce: 300)
+                            ->live(onBlur: true)
                             ->afterStateUpdated(function (?string $state, Set $set): void {
                                 $phone = static::extractPhoneFromSuggestion($state);
                                 $digits = static::normalizePhone($phone);
@@ -696,6 +703,7 @@ class OrderResource extends ShopOrderResource
 
                         Select::make('clients_id')
                             ->label(__('order.fields.client'))
+                            ->extraAttributes(['class' => 'callcenter-client-select'])
                             ->createOptionForm(fn (Form $form) => \App\Filament\Resources\ClientResource::form($form))
                             ->createOptionUsing(fn (array $data) => Client::create($data)->getKey())
                             ->createOptionAction(fn (FormAction $action) => $action

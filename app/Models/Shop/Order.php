@@ -453,6 +453,19 @@ class Order extends Model
             $oldCode = $originalStatus instanceof OrderStatus ? $originalStatus->value : $originalStatus;
             $newCode = $newStatus      instanceof OrderStatus ? $newStatus->value      : $newStatus;
 
+            if (config('project.name') === 'duxi'
+                && $oldCode === OrderStatus::Cart->value
+                && $newCode === OrderStatus::New->value) {
+                $placedAt = now();
+                $order->created_at = $placedAt;
+                $order->dat = $placedAt->toDateString();
+                $order->time_start = $placedAt->format('H:i');
+                $order->date_order = $placedAt->toDateString();
+                $order->time_order = $placedAt->format('H:i');
+                $times[OrderStatus::New->value] = $placedAt->toDateTimeString();
+                $order->status_times = $times;
+            }
+
             // интересует только первый переход В "delivered"
             if ($newCode !== OrderStatus::Delivered->value || $oldCode === OrderStatus::Delivered->value) {
                 return;
