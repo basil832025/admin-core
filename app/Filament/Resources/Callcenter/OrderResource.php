@@ -1934,8 +1934,14 @@ class OrderResource extends ShopOrderResource
         $displayName = trim((string) $row['name']);
 
         if ($article !== '') {
+            if (config('project.name') === 'duxi') {
+                $displayName = preg_replace('/\s*\[\s*' . preg_quote($article, '/') . '\s*\](?=\s|$)/u', '', $displayName);
+            }
             $displayName = trim((string) preg_replace('/(?:\s*' . preg_quote($article, '/') . ')+/u', '', $displayName));
             $displayName .= ' ' . $article;
+        }
+        if (config('project.name') === 'duxi') {
+            $displayName = trim((string) preg_replace('/\s*\[\s*\]/u', '', $displayName));
         }
         $discountAmount = (float) $discount;
         $discountPercent = (float) $row['line_total'] > 0
