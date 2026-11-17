@@ -1025,6 +1025,25 @@
             box-shadow: 0 8px 24px rgba(15, 23, 42, 0.2);
         }
 
+        .callcenter-order-hierarchy--photo .callcenter-order-product-line {
+            gap: 8px;
+            cursor: inherit;
+        }
+
+        .callcenter-order-hierarchy--photo .callcenter-order-product-line > .callcenter-order-hover-image {
+            display: block;
+            position: static;
+            flex: 0 0 44px;
+        }
+
+        .callcenter-order-hierarchy--photo .callcenter-order-product-line > .callcenter-order-hover-image > img {
+            width: 44px;
+            height: 56px;
+            min-width: 0;
+            min-height: 0;
+            box-shadow: none;
+        }
+
         .callcenter-order-title strong {
             color: #111827;
             font-size: 12px;

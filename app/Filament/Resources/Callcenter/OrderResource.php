@@ -1672,7 +1672,14 @@ class OrderResource extends ShopOrderResource
             return new HtmlString('');
         }
 
-        $html = '<div class="callcenter-order-hierarchy' . (static::isNovaPostOrderForm() ? '' : ' callcenter-order-hierarchy--mobile-only') . '" x-data="{ deleteTarget: null, requestDelete(type, id) { this.deleteTarget = { type, id }; }, cancelDelete() { this.deleteTarget = null; }, confirmDelete() { const target = this.deleteTarget; this.deleteTarget = null; if (target?.type === \'regular\') { $wire.removeRegularOrderItem(target.id); } else if (target?.type === \'discovery\') { $wire.removeDiscoverySet(target.id); } } }" @callcenter-delete-request.window="requestDelete($event.detail.type, $event.detail.id)">';
+        $classes = 'callcenter-order-hierarchy';
+        if (! static::isNovaPostOrderForm()) {
+            $classes .= ' callcenter-order-hierarchy--mobile-only';
+        } elseif (config('project.name') === 'duxi' && static::getOrderItemsView() === 'photo') {
+            $classes .= ' callcenter-order-hierarchy--photo';
+        }
+
+        $html = '<div class="' . $classes . '" x-data="{ deleteTarget: null, requestDelete(type, id) { this.deleteTarget = { type, id }; }, cancelDelete() { this.deleteTarget = null; }, confirmDelete() { const target = this.deleteTarget; this.deleteTarget = null; if (target?.type === \'regular\') { $wire.removeRegularOrderItem(target.id); } else if (target?.type === \'discovery\') { $wire.removeDiscoverySet(target.id); } } }" @callcenter-delete-request.window="requestDelete($event.detail.type, $event.detail.id)">';
         $html .= '<div class="callcenter-order-hierarchy-head">';
         $html .= '<div>Товар</div>';
         $html .= '<div>Розмір</div>';
