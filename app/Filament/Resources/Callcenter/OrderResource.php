@@ -3140,6 +3140,15 @@ class OrderResource extends ShopOrderResource
                             $status->value => $status->rank(),
                         ])->all(),
                         'statePath' => $statePath,
+                        'trackingStages' => config('project.name') === 'duxi'
+                            ? array_intersect_key(
+                                static::novaPostTrackingStatusLabels((string) ($get('nova_delivery_type') ?? $record?->nova_delivery_type)),
+                                array_flip(['in_transit', 'arrived']),
+                            )
+                            : [],
+                        'trackingStatus' => filled($get('nova_ttn') ?? $record?->nova_ttn)
+                            ? ($get('nova_status') ?? $record?->nova_status)
+                            : null,
                         'trackingLabel' => config('project.name') === 'duxi' && filled($get('nova_ttn') ?? $record?->nova_ttn)
                             ? (static::novaPostTrackingStatusLabels((string) ($get('nova_delivery_type') ?? $record?->nova_delivery_type))[$get('nova_status') ?? $record?->nova_status ?? ''] ?? 'Очікуємо дані відстеження')
                             : null,

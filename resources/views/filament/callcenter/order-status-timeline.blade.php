@@ -280,10 +280,37 @@
                     @endif
                 </span>
             </button>
+            @if ($status === OrderStatus::Shipped->value)
+                @foreach (($trackingStages ?? []) as $stage => $stageLabel)
+                    @php
+                        $trackingActive = ! $cancelled && $trackingStatus === $stage;
+                        $trackingDone = ! $cancelled && (
+                            $trackingStatus === 'received'
+                            || ($stage === 'in_transit' && $trackingStatus === 'arrived')
+                        );
+                    @endphp
+                    <div class="np-status-timeline__row {{ $trackingActive ? 'is-active' : ($trackingDone ? 'is-done' : 'is-future') }}">
+                        <span class="np-status-timeline__axis" aria-hidden="true">
+                            <span class="np-status-timeline__marker">
+                                @if ($trackingDone)
+                                    ✓
+                                @else
+                                    <span class="np-status-timeline__future-dot"></span>
+                                @endif
+                            </span>
+                            <span class="np-status-timeline__line {{ $trackingDone ? 'is-done' : '' }}"></span>
+                        </span>
+                        <span class="np-status-timeline__content">
+                            <span class="np-status-timeline__label">{{ $stageLabel }}</span>
+                            <span class="np-status-timeline__time">{{ $trackingActive ? 'Поточний статус НП' : 'За ТТН Нової пошти' }}</span>
+                        </span>
+                    </div>
+                @endforeach
+            @endif
         @endforeach
     </div>
 
-    @if (filled($trackingLabel ?? null))
+    @if (filled($trackingLabel ?? null) && ! array_key_exists($trackingStatus ?? '', $trackingStages ?? []))
         <div class="np-status-timeline__content" style="padding: 8px 12px; margin-bottom: 8px;">
             <span class="np-status-timeline__time">Статус Нової пошти за ТТН</span>
             <span class="np-status-timeline__label">{{ $trackingLabel }}</span>
