@@ -513,14 +513,19 @@ class OrderPricing
 
     /* ====================== ПЕРЕСЧЁТ ====================== */
 
-    public function calculateCouponAmountWithSelectedPromo(Order $order, PromoCode $promo, ?string $selection): float
+    public function calculateCouponAmountWithSelectedPromo(
+        Order $order,
+        PromoCode $promo,
+        ?string $selection,
+        ?Carbon $moment = null
+    ): float
     {
         $couponMap = $promo->calculateDiscountMapForOrder($order);
         if ($couponMap === []) {
             return 0.0;
         }
 
-        $programMap = $this->buildSelectedPromoDiscountMap($order, $selection);
+        $programMap = $this->buildSelectedPromoDiscountMap($order, $selection, $moment);
         $extra = 0.0;
 
         foreach ($couponMap as $key => $couponAmount) {
@@ -559,7 +564,7 @@ class OrderPricing
     /**
      * @return array<string,float>
      */
-    private function buildSelectedPromoDiscountMap(Order $order, ?string $selection): array
+    private function buildSelectedPromoDiscountMap(Order $order, ?string $selection, ?Carbon $moment): array
     {
         $selection = (string) ($selection ?? 'none');
         if ($selection === '' || $selection === 'none') {
@@ -581,7 +586,7 @@ class OrderPricing
                 return [];
             }
 
-            $moment = $this->resolveMomentFor($order, $time);
+            $moment ??= $this->resolveMomentFor($order, $time);
             $isActive = TimeDiscount::query()
                 ->whereKey($time->id)
                 ->activeForMoment($moment, 'Europe/Kyiv')
