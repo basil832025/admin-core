@@ -271,7 +271,7 @@ class TimeDiscount extends Model
             if (!$product) continue;
 
             // Skip products excluded from order-level promotions.
-            if ($product->excludedFromPromotions()) {
+            if ($row->isPromoGift() || $product->excludedFromPromotions()) {
                 continue;
             }
 

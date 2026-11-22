@@ -232,7 +232,6 @@ class PerfumeExcelImportService
                 $importAttributes = [
                     'title' => $this->translations($row['name']),
                     'slug' => $product?->slug ?: $this->uniqueProductSlug($row['brand'] . ' ' . $row['name'], $row['sku']),
-                    'description' => $this->translations($row['description']),
                     'price' => $row['price'],
                     'unit_id' => $this->productUnitId('ml'),
                     'price_unit_quantity' => 1,
@@ -241,6 +240,11 @@ class PerfumeExcelImportService
                     'quantity' => 1000,
                     'sort' => $sort,
                 ];
+
+                if ($row['description'] !== null) {
+                    $importAttributes['description'] = ['uk' => $row['description']]
+                        + ($product?->getTranslations('description') ?? []);
+                }
 
                 if ($isNew) {
                     // Initial values are applied only once. On re-import all
@@ -399,15 +403,25 @@ class PerfumeExcelImportService
         $spreadsheet = IOFactory::load($path);
         $sheet = $spreadsheet->getSheet(0);
         $rows = [];
+        $descriptionColumn = false;
 
         foreach ($sheet->toArray(null, true, true, false) as $index => $cells) {
             if ($index === 0) {
+                $headers = array_map(fn ($value): string => $this->normalize((string) $value), $cells);
+                $descriptionColumn = array_search('опис', $headers, true);
+
+                if ($descriptionColumn === false) {
+                    $descriptionColumn = array_search('description', $headers, true);
+                }
+
                 continue;
             }
 
             if (! collect($cells)->filter(fn ($value): bool => trim((string) $value) !== '')->count()) {
                 continue;
             }
+
+            $description = $descriptionColumn === false ? '' : trim((string) ($cells[$descriptionColumn] ?? ''));
 
             $rows[] = [
                 'row' => $index + 1,
@@ -426,7 +440,7 @@ class PerfumeExcelImportService
                 'top_notes' => $this->splitValues($cells[10] ?? ''),
                 'middle_notes' => $this->splitValues($cells[11] ?? ''),
                 'base_notes' => $this->splitValues($cells[12] ?? ''),
-                'description' => $this->clean($cells[13] ?? ''),
+                'description' => $this->clean($description) === '' ? null : $description,
             ];
         }
 
@@ -454,18 +468,22 @@ class PerfumeExcelImportService
     {
         $changes = [];
         $title = $this->translationValue($product->title);
-        $description = $this->translationValue($product->description);
         $brand = $product->mainCategory ? $this->translationValue($product->mainCategory->title) : '';
 
         foreach ([
             'name' => [$title, $row['name']],
             'brand' => [$brand, $row['brand']],
             'price' => [(string) (float) $product->price, (string) (float) $row['price']],
-            'description' => [$description, $row['description']],
         ] as $field => [$old, $new]) {
             if ($this->normalize($old) !== $this->normalize($new)) {
                 $changes[] = "{$field}: {$old} -> {$new}";
             }
+        }
+
+        $description = $product->getTranslations('description')['uk'] ?? '';
+
+        if ($row['description'] !== null && $description !== $row['description']) {
+            $changes[] = "description: {$description} -> {$row['description']}";
         }
 
         return $changes;

@@ -15,6 +15,7 @@ return [
     ],
 
     'fields' => [
+        'gift_product' => 'Товар у подарунок',
         'code'                      => 'Промокод',
         'discount_type'             => 'Тип знижки',
         'percent'                   => 'Знижка %',
@@ -70,6 +71,7 @@ return [
         'discount_type' => [
             'percent' => 'Відсоткова',
             'fixed' => 'Фіксована сума',
+            'gift' => 'Подарунок',
         ],
     ],
 ];

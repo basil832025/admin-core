@@ -42,6 +42,11 @@ class OrderItem extends Model
     // Связи
     public function order()   { return $this->belongsTo(Order::class, 'shop_order_id'); }
     public function product() { return $this->belongsTo(Product::class, 'product_id'); }
+    public function isPromoGift(): bool
+    {
+        return data_get($this->meta, 'line_type') === 'promo_gift';
+    }
+
     public function isStageDone(string $stage): bool
     {
         return (bool) data_get($this->stage_flags, $stage, false);

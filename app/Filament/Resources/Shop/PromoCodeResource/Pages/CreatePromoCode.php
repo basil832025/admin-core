@@ -18,6 +18,12 @@ class CreatePromoCode extends CreateRecord
             $data['amount'] = null;
         }
 
+        if (($data['discount_type'] ?? 'percent') === 'gift') {
+            $data['percent'] = 0;
+        } elseif (config('project.name') === '3piroga') {
+            $data['gift_product_id'] = null;
+        }
+
         return $data;
     }
 }

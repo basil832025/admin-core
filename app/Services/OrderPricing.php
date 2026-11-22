@@ -607,7 +607,7 @@ class OrderPricing
 
         foreach ($order->items as $index => $item) {
             $product = $item->product;
-            if (! $product || $product->excludedFromPromotions()) {
+            if (! $product || $item->isPromoGift() || $product->excludedFromPromotions()) {
                 continue;
             }
 
@@ -690,7 +690,7 @@ class OrderPricing
 
         foreach ($order->items as $index => $item) {
             $product = $item->product;
-            if (! $product || $product->excludedFromPromotions()) {
+            if (! $product || $item->isPromoGift() || $product->excludedFromPromotions()) {
                 continue;
             }
 
@@ -864,7 +864,7 @@ class OrderPricing
         $subtotalEligible = (float) $order->items
             ->filter(function ($item) {
                 $p = $item->product;
-                if (! $p) return false;
+                if (! $p || $item->isPromoGift()) return false;
                 return ! $p->excludedFromPromotions();
             })
             ->sum('subtotal');
@@ -901,7 +901,7 @@ class OrderPricing
         $itemsAdjEligible = (float) $order->items
             ->filter(function ($item) {
                 $p = $item->product;
-                if (! $p) return false;
+                if (! $p || $item->isPromoGift()) return false;
                 return ! $p->excludedFromPromotions();
             })
             ->sum('discount_total');
@@ -966,7 +966,7 @@ class OrderPricing
         foreach ($order->items as $item) {
             $product = $item->product;
 
-            if (! $product || $product->excludedFromPromotions()) {
+            if (! $product || $item->isPromoGift() || $product->excludedFromPromotions()) {
                 continue;
             }
 
@@ -1061,7 +1061,7 @@ class OrderPricing
     private function buildFixedDiscountRecipientsMap(Order $order, FixedDiscount $discount): array
     {
         $items = $order->items
-            ->filter(fn (OrderItem $item) => $item->product && ! $item->product->excludedFromPromotions() && (float) $item->unit_price > 0 && (int) $item->qty > 0)
+            ->filter(fn (OrderItem $item) => ! $item->isPromoGift() && $item->product && ! $item->product->excludedFromPromotions() && (float) $item->unit_price > 0 && (int) $item->qty > 0)
             ->values();
 
         if ($items->isEmpty()) {

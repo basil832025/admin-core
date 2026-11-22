@@ -113,7 +113,7 @@ $q->whereNull('ends_at')->orWhere('ends_at', '>=', $now);
         $sum = $order->items
             ->filter(function ($row) {
                 $p = $row->product;
-                if (! $p) return false;
+                if (! $p || $row->isPromoGift()) return false;
                 return ! $p->excludedFromPromotions();
             })
             ->sum(fn ($i) => $i->unit_price * $i->qty);

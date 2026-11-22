@@ -193,7 +193,8 @@ class CartService
 
     private function sameCartVariant(array $left, array $right): bool
     {
-        return $this->cartVariantKey($left) === $this->cartVariantKey($right);
+        return data_get($left, 'line_type') !== 'promo_gift'
+            && $this->cartVariantKey($left) === $this->cartVariantKey($right);
     }
 
     private function buildItemPayload(?array $row): array
@@ -727,7 +728,7 @@ class CartService
     private function visibleCartOrderItems(?Order $order): \Illuminate\Support\Collection
     {
         return $this->cartOrderItems($order)
-            ->reject(fn (OrderItem $item): bool => $this->isBottleServiceItem($item))
+            ->reject(fn (OrderItem $item): bool => $this->isBottleServiceItem($item) || $item->isPromoGift())
             ->values();
     }
 

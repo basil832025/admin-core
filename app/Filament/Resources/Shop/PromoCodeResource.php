@@ -70,11 +70,24 @@ class PromoCodeResource extends Resource
                         ->options([
                             'percent' => __('promo_code.options.discount_type.percent'),
                             'fixed' => __('promo_code.options.discount_type.fixed'),
+                            ...(config('project.name') === '3piroga' ? ['gift' => __('promo_code.options.discount_type.gift')] : []),
                         ])
                         ->default('percent')
                         ->required()
                         ->native(false)
                         ->live(),
+
+                    Forms\Components\Select::make('gift_product_id')
+                        ->label(__('promo_code.fields.gift_product'))
+                        ->searchable()
+                        ->options(fn (Get $get): array => config('project.name') === '3piroga' && $get('discount_type') === 'gift'
+                            ? static::giftProductOptions()
+                            : [])
+                        ->getSearchResultsUsing(fn (string $search): array => static::giftProductOptions($search))
+                        ->getOptionLabelUsing(fn ($value): ?string => Product::find($value)?->adminLabel())
+                        ->exists('bs_products', 'id')
+                        ->required(fn (Get $get): bool => $get('discount_type') === 'gift')
+                        ->visible(fn (Get $get): bool => config('project.name') === '3piroga' && $get('discount_type') === 'gift'),
 
                     Forms\Components\TextInput::make('percent')
                         ->label(__('promo_code.fields.percent'))
@@ -328,6 +341,30 @@ class PromoCodeResource extends Resource
                 ]),
         ]);
     }
+    private static function giftProductOptions(?string $search = null): array
+    {
+        $query = Product::query()->with('parent');
+        $search = trim($search ?? '');
+
+        if ($search !== '') {
+            $pattern = "%{$search}%";
+            $query->where(fn (Builder $query): Builder => $query
+                ->where('title', 'like', $pattern)
+                ->orWhere('short_name', 'like', $pattern)
+                ->orWhere('sku', 'like', $pattern)
+                ->orWhereHas('parent', fn (Builder $parent): Builder => $parent
+                    ->where('title', 'like', $pattern)
+                    ->orWhere('short_name', 'like', $pattern)));
+        }
+
+        return $query->orderByDesc('in_stock')
+            ->orderBy('id')
+            ->limit(50)
+            ->get()
+            ->mapWithKeys(fn (Product $product): array => [$product->id => $product->adminLabel()])
+            ->all();
+    }
+
     protected static function getTableQuery(): Builder
     {
         // вот здесь добавляем withCount
@@ -353,6 +390,10 @@ class PromoCodeResource extends Resource
                 Tables\Columns\TextColumn::make('discount_value')
                     ->label(__('promo_code.columns.discount'))
                     ->state(function (PromoCode $record): string {
+                        if ($record->isGift()) {
+                            return $record->giftProduct?->adminLabel() ?? '—';
+                        }
+
                         if ($record->discount_type === 'fixed') {
                             return number_format((float) $record->amount, 2, ',', ' ') . ' ' . __('promo_code.fields.currency_suffix');
                         }

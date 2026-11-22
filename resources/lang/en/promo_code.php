@@ -15,6 +15,7 @@ return [
     ],
 
     'fields' => [
+        'gift_product' => 'Gift product',
         'code'                      => 'Promo code',
         'discount_type'             => 'Discount type',
         'percent'                   => 'Discount %',
@@ -70,6 +71,7 @@ return [
         'discount_type' => [
             'percent' => 'Percentage',
             'fixed' => 'Fixed amount',
+            'gift' => 'Gift',
         ],
     ],
 ];

@@ -14,11 +14,14 @@ class PromoCode extends Model
 {
     use SoftDeletes;
 
+    public const GIFT_PRICE = 1.0;
+
     protected $table = 'bs_shop_promo_codes';
 
     protected $fillable = [
         'code',
         'discount_type',
+        'gift_product_id',
         'percent',
         'amount',
         'is_active',
@@ -41,6 +44,30 @@ class PromoCode extends Model
         'per_client_limit' => 'integer',
         'fulfillment_method' => 'string',
     ];
+
+    public function isGift(): bool
+    {
+        return $this->discount_type === 'gift';
+    }
+
+    public function giftProduct(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Product::class, 'gift_product_id');
+    }
+
+    public function availableGift(): ?Product
+    {
+        return $this->isGift() ? $this->giftProduct()->active()->first() : null;
+    }
+
+    public function checkoutGift(?int $clientId, Order|string $fulfillment): ?Product
+    {
+        if (! $this->isGift() || ! $this->canApplyForClient($clientId) || ! $this->matchesFulfillmentMethod($fulfillment)) {
+            return null;
+        }
+
+        return $this->availableGift();
+    }
 
     public function matchesFulfillmentMethod(Order|string|null $orderOrMethod): bool
     {
@@ -81,7 +108,7 @@ class PromoCode extends Model
      */
     public function calculateDiscountMapForOrder(Order $order): array
     {
-        if (! $this->matchesFulfillmentMethod($order)) {
+        if ($this->isGift() || ! $this->matchesFulfillmentMethod($order)) {
             return [];
         }
 
