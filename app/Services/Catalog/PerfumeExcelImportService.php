@@ -31,6 +31,11 @@ class PerfumeExcelImportService
         'sevia-base-notes' => ['label' => 'Base notes', 'column' => 12, 'type' => 'multi', 'sort' => 80],
     ];
 
+    private const DESCRIPTION_HEADERS = [
+        'description' => ['опис', 'description'],
+        'short_desc' => ['короткі описи для сайту', 'короткий опис для сайту', 'короткий опис'],
+    ];
+
     public function enabled(): bool
     {
         return config('catalog_import.product_excel_format') === 'sevia_perfumes';
@@ -246,6 +251,10 @@ class PerfumeExcelImportService
                         + ($product?->getTranslations('description') ?? []);
                 }
 
+                if ($row['short_desc'] !== null) {
+                    $importAttributes['short_desc'] = $row['short_desc'];
+                }
+
                 if ($isNew) {
                     // Initial values are applied only once. On re-import all
                     // manually managed product flags remain untouched.
@@ -403,15 +412,13 @@ class PerfumeExcelImportService
         $spreadsheet = IOFactory::load($path);
         $sheet = $spreadsheet->getSheet(0);
         $rows = [];
-        $descriptionColumn = false;
+        $descriptionColumns = [];
 
         foreach ($sheet->toArray(null, true, true, false) as $index => $cells) {
             if ($index === 0) {
                 $headers = array_map(fn ($value): string => $this->normalize((string) $value), $cells);
-                $descriptionColumn = array_search('опис', $headers, true);
-
-                if ($descriptionColumn === false) {
-                    $descriptionColumn = array_search('description', $headers, true);
+                foreach (self::DESCRIPTION_HEADERS as $field => $aliases) {
+                    $descriptionColumns[$field] = array_key_first(array_intersect($headers, $aliases));
                 }
 
                 continue;
@@ -421,7 +428,12 @@ class PerfumeExcelImportService
                 continue;
             }
 
-            $description = $descriptionColumn === false ? '' : trim((string) ($cells[$descriptionColumn] ?? ''));
+            $descriptions = [];
+
+            foreach ($descriptionColumns as $field => $column) {
+                $value = $column === null ? '' : trim((string) ($cells[$column] ?? ''));
+                $descriptions[$field] = $this->clean($value) === '' ? null : $value;
+            }
 
             $rows[] = [
                 'row' => $index + 1,
@@ -440,8 +452,7 @@ class PerfumeExcelImportService
                 'top_notes' => $this->splitValues($cells[10] ?? ''),
                 'middle_notes' => $this->splitValues($cells[11] ?? ''),
                 'base_notes' => $this->splitValues($cells[12] ?? ''),
-                'description' => $this->clean($description) === '' ? null : $description,
-            ];
+            ] + $descriptions;
         }
 
         return $rows;
@@ -480,10 +491,13 @@ class PerfumeExcelImportService
             }
         }
 
-        $description = $product->getTranslations('description')['uk'] ?? '';
-
-        if ($row['description'] !== null && $description !== $row['description']) {
-            $changes[] = "description: {$description} -> {$row['description']}";
+        foreach ([
+            'description' => $product->getTranslations('description')['uk'] ?? '',
+            'short_desc' => (string) $product->short_desc,
+        ] as $field => $old) {
+            if ($row[$field] !== null && $old !== $row[$field]) {
+                $changes[] = "{$field}: {$old} -> {$row[$field]}";
+            }
         }
 
         return $changes;
