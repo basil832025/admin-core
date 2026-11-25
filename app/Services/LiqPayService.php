@@ -41,9 +41,12 @@ class LiqPayService
             default => 'Оплата замовлення №' . $order->id,
         };
 
-        $resultRoute = in_array($lang, ['ru', 'en'], true) && Route::has('localized.checkout.success')
-            ? ['localized.checkout.success', ['locale' => $lang, 'order' => $order]]
-            : ['checkout.success', ['order' => $order]];
+        $resultRouteName = Route::has('checkout.pay.liqpay.result')
+            ? 'checkout.pay.liqpay.result'
+            : 'checkout.success';
+        $resultRoute = in_array($lang, ['ru', 'en'], true) && Route::has('localized.'.$resultRouteName)
+            ? ['localized.'.$resultRouteName, ['locale' => $lang, 'order' => $order]]
+            : [$resultRouteName, ['order' => $order]];
 
         $params = [
             'action' => 'pay',
