@@ -213,21 +213,22 @@ class ScheduleV2Service
     {
         $targetDay = $date->copy()->startOfDay();
         $bookingDay = $now->copy()->startOfDay();
-        $firstDay = $bookingDay->copy()->addDay();
-        $lastDay = $bookingDay->copy()->addDays(6);
-        if ($bookingDay->isWeekend() && $targetDay->isWeekend()) {
-            $nextMonday = $bookingDay->copy()->startOfWeek(Carbon::MONDAY)->addWeek();
-            $firstDay = $nextMonday->copy()->addDays(5);
-            $lastDay = $nextMonday->copy()->addDays(6);
+        if ($targetDay->lte($bookingDay)) {
+            return false;
         }
 
-        if ($targetDay->lt($firstDay) || $targetDay->gt($lastDay)) {
+        $endOfWeek = $bookingDay->copy()->endOfWeek(Carbon::SUNDAY);
+        if ($bookingDay->isWeekend() && $targetDay->isWeekend() && $targetDay->lte($endOfWeek)) {
             return false;
         }
 
         $booking = $this->resolveDayConfig($location, $method, $now);
         if (! in_array(strtolower($date->format('D')), $booking['preorder_days'] ?? [], true)) {
             return false;
+        }
+
+        if ($bookingDay->isFriday() && $targetDay->isWeekend() && $targetDay->gt($endOfWeek)) {
+            return true;
         }
 
         $cutoff = $booking['preorder_cutoff_time'];

@@ -68,7 +68,7 @@ class LocationResource extends Resource
                 ->columnSpan(2),
             Forms\Components\Select::make('preorder_days')
                 ->label('Дні, на які можна оформити передзамовлення')
-                ->helperText('Діє для днів із режимом «Лише за передзамовленням» у найближчі шість днів. У суботу й неділю можна замовити на вихідні наступного тижня.')
+                ->helperText('Діє для майбутніх днів із режимом «Лише за передзамовленням». У суботу й неділю доступні вихідні з наступного тижня.')
                 ->multiple()
                 ->native(false)
                 ->options($weekDays)
@@ -76,7 +76,7 @@ class LocationResource extends Resource
                 ->columnSpan(3),
             Forms\Components\TimePicker::make('preorder_cutoff_time')
                 ->label('Приймати передзамовлення до')
-                ->helperText('За київським часом. Залиште порожнім, щоб приймати весь день.')
+                ->helperText('За київським часом. У п’ятницю обмеження для суботи й неділі діє на найближчі вихідні. Порожнє поле дозволяє прийом увесь день.')
                 ->seconds(false)
                 ->columnSpan(2),
         ];
