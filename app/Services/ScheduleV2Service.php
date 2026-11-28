@@ -15,6 +15,50 @@ class ScheduleV2Service
         return (bool) ($location?->schedule_v2_enabled ?? false) && is_array($location?->schedule_v2);
     }
 
+    public function scheduleNotice(Location $location, Carbon $now, string $locale): ?array
+    {
+        $notice = $location->schedule_v2['notice'] ?? [];
+        if (config('project.name') !== '3piroga' || ! $this->isEnabled($location) || empty($notice['enabled'])) {
+            return null;
+        }
+
+        $message = trim((string) ($notice['message'][$locale] ?? ''));
+        $message = $message !== '' ? $message : trim((string) ($notice['message']['uk'] ?? ''));
+        if ($message === '') {
+            return null;
+        }
+
+        $weekDays = array_flip(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
+        $startDay = $weekDays[$notice['start_day'] ?? ''] ?? null;
+        $endDay = $weekDays[$notice['end_day'] ?? ''] ?? null;
+        $periodStart = $now->toDateString();
+        if ($startDay !== null && $endDay !== null && ! empty($notice['start_time']) && ! empty($notice['end_time'])) {
+            $start = $startDay * 1440 + $this->toMinutes($notice['start_time']);
+            $end = $endDay * 1440 + $this->toMinutes($notice['end_time']);
+            $current = ($now->dayOfWeekIso - 1) * 1440 + $now->hour * 60 + $now->minute;
+            $active = $start <= $end
+                ? $current >= $start && $current < $end
+                : $current >= $start || $current < $end;
+            $startDate = $now->copy()->startOfWeek(Carbon::MONDAY)->addDays($startDay);
+            if ($current < $start) {
+                $startDate->subWeek();
+            }
+            $periodStart = $startDate->toDateString();
+        } else {
+            $pickup = $this->resolveDayConfig($location, 'pickup', $now);
+            $delivery = $this->resolveDayConfig($location, 'delivery', $now);
+            $active = $pickup && $delivery
+                && (! $pickup['is_working'] || $pickup['preorder_only'])
+                && (! $delivery['is_working'] || $delivery['preorder_only']);
+        }
+
+        return $active ? [
+            'id' => "schedule-{$location->getKey()}-$periodStart",
+            'comment' => $message,
+            'plain_text' => true,
+        ] : null;
+    }
+
     public function buildPayload(?Location $location, ?Carbon $now = null, int $days = 14): array
     {
         $now ??= now('Europe/Kyiv');
@@ -88,7 +132,7 @@ class ScheduleV2Service
     public function isAsapAvailable(Location $location, string $method, Carbon $now): bool
     {
         $cfg = $this->resolveDayConfig($location, $method, $now);
-        if (! $cfg || ! $cfg['is_working']) {
+        if (! $cfg || ! $cfg['is_working'] || $cfg['preorder_only']) {
             return false;
         }
 
@@ -106,13 +150,17 @@ class ScheduleV2Service
     public function isDateAvailable(Location $location, string $method, Carbon $date, Carbon $now): bool
     {
         $cfg = $this->resolveDayConfig($location, $method, $date);
-        if (! $cfg || ! $cfg['is_working']) {
+        if (! $cfg || (! $cfg['is_working'] && ! $cfg['preorder_only'])) {
             return false;
         }
 
         $dateKey = $date->toDateString();
         if ($this->isClosedDate($location, $method, $dateKey)) {
             return false;
+        }
+
+        if ($cfg['preorder_only']) {
+            return $this->canPreorder($location, $method, $date, $now);
         }
 
         if ($date->isSameDay($now)) {
@@ -127,7 +175,11 @@ class ScheduleV2Service
     public function buildSlotsForDate(Location $location, string $method, Carbon $date, Carbon $now): array
     {
         $cfg = $this->resolveDayConfig($location, $method, $date);
-        if (! $cfg || ! $cfg['is_working']) {
+        if (! $cfg || (! $cfg['is_working'] && ! $cfg['preorder_only'])) {
+            return [];
+        }
+
+        if ($cfg['preorder_only'] && ! $this->canPreorder($location, $method, $date, $now)) {
             return [];
         }
 
@@ -157,6 +209,33 @@ class ScheduleV2Service
         return $slots;
     }
 
+    private function canPreorder(Location $location, string $method, Carbon $date, Carbon $now): bool
+    {
+        $targetDay = $date->copy()->startOfDay();
+        $bookingDay = $now->copy()->startOfDay();
+        $firstDay = $bookingDay->copy()->addDay();
+        $lastDay = $bookingDay->copy()->addDays(6);
+        if ($bookingDay->isWeekend() && $targetDay->isWeekend()) {
+            $nextMonday = $bookingDay->copy()->startOfWeek(Carbon::MONDAY)->addWeek();
+            $firstDay = $nextMonday->copy()->addDays(5);
+            $lastDay = $nextMonday->copy()->addDays(6);
+        }
+
+        if ($targetDay->lt($firstDay) || $targetDay->gt($lastDay)) {
+            return false;
+        }
+
+        $booking = $this->resolveDayConfig($location, $method, $now);
+        if (! in_array(strtolower($date->format('D')), $booking['preorder_days'] ?? [], true)) {
+            return false;
+        }
+
+        $cutoff = $booking['preorder_cutoff_time'];
+        $minutes = $now->hour * 60 + $now->minute;
+
+        return ! $cutoff || $minutes < $this->toMinutes($cutoff);
+    }
+
     private function resolveDayConfig(Location $location, string $method, Carbon $date): ?array
     {
         $v2 = (array) ($location->schedule_v2 ?? []);
@@ -172,6 +251,9 @@ class ScheduleV2Service
 
         return [
             'is_working' => (bool) ($cfg['is_working'] ?? false),
+            'preorder_only' => config('project.name') === '3piroga' && (bool) ($cfg['preorder_only'] ?? false),
+            'preorder_days' => (array) ($cfg['preorder_days'] ?? []),
+            'preorder_cutoff_time' => $cfg['preorder_cutoff_time'] ?? null,
             'open_time' => (string) ($cfg['open_time'] ?? '09:00'),
             'close_time' => (string) ($cfg['close_time'] ?? '21:00'),
             'today_cutoff_time' => (string) ($cfg['today_cutoff_time'] ?? '20:00'),

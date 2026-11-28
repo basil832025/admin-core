@@ -52,6 +52,84 @@ class LocationResource extends Resource
     {
         return __('location.nav.plural_model_label');
     }
+
+    private static function preorderFields(array $weekDays): array
+    {
+        if (config('project.name') !== '3piroga') {
+            return [];
+        }
+
+        return [
+            Forms\Components\Toggle::make('preorder_only')
+                ->label('Лише за передзамовленням')
+                ->helperText('Видача або доставка за графіком, замовити на цей день можна лише заздалегідь.')
+                ->inline(false)
+                ->default(false)
+                ->columnSpan(2),
+            Forms\Components\Select::make('preorder_days')
+                ->label('Дні, на які можна оформити передзамовлення')
+                ->helperText('Діє для днів із режимом «Лише за передзамовленням» у найближчі шість днів. У суботу й неділю можна замовити на вихідні наступного тижня.')
+                ->multiple()
+                ->native(false)
+                ->options($weekDays)
+                ->default([])
+                ->columnSpan(3),
+            Forms\Components\TimePicker::make('preorder_cutoff_time')
+                ->label('Приймати передзамовлення до')
+                ->helperText('За київським часом. Залиште порожнім, щоб приймати весь день.')
+                ->seconds(false)
+                ->columnSpan(2),
+        ];
+    }
+
+    private static function scheduleNoticeFields(array $weekDays): array
+    {
+        if (config('project.name') !== '3piroga') {
+            return [];
+        }
+
+        return [
+            Section::make('Повідомлення про графік')
+                ->description('Без заданого періоду вікно показується в дні, коли і самовивіз, і доставка вимкнені або працюють лише за передзамовленням.')
+                ->schema([
+                    Forms\Components\Toggle::make('schedule_v2.notice.enabled')
+                        ->label('Показувати повідомлення')
+                        ->default(false)
+                        ->columnSpanFull(),
+                    Forms\Components\Select::make('schedule_v2.notice.start_day')
+                        ->label('Початок показу: день')
+                        ->options($weekDays)
+                        ->requiredWith('schedule_v2.notice.start_time,schedule_v2.notice.end_day,schedule_v2.notice.end_time'),
+                    Forms\Components\TimePicker::make('schedule_v2.notice.start_time')
+                        ->label('Початок показу: час')
+                        ->seconds(false)
+                        ->requiredWith('schedule_v2.notice.start_day'),
+                    Forms\Components\Select::make('schedule_v2.notice.end_day')
+                        ->label('Кінець показу: день')
+                        ->options($weekDays)
+                        ->requiredWith('schedule_v2.notice.start_day'),
+                    Forms\Components\TimePicker::make('schedule_v2.notice.end_time')
+                        ->label('Кінець показу: час')
+                        ->seconds(false)
+                        ->requiredWith('schedule_v2.notice.start_day'),
+                    Forms\Components\Tabs::make('schedule_notice_languages')
+                        ->tabs(array_map(
+                            fn (string $locale, string $label) => Forms\Components\Tabs\Tab::make($label)
+                                ->schema([
+                                    Forms\Components\Textarea::make("schedule_v2.notice.message.$locale")
+                                        ->label('Текст повідомлення')
+                                        ->rows(7),
+                                ]),
+                            ['uk', 'en', 'ru'],
+                            ['Українська', 'English', 'Русский'],
+                        ))
+                        ->columnSpanFull(),
+                ])
+                ->columns(4)
+                ->collapsible(),
+        ];
+    }
+
     public static function form(Form $form): Form
     {
         $defaultLocale = Setting::value('default_language_code') ?: config('app.locale');
@@ -346,12 +424,12 @@ Section::make(__('location.sections.contacts'))
                                     Forms\Components\Repeater::make('schedule_v2.pickup.days')
                                         ->label('Дні тижня')
                                         ->afterStateHydrated(function (Repeater $component, $state) use ($weekDays) {
-                                            $rows = is_array($state) ? array_values($state) : [];
+                                            $rows = is_array($state) ? $state : [];
 
                                             if (count($rows) > 0) {
                                                 $byKey = [];
-                                                foreach ($rows as $row) {
-                                                    $k = (string) ($row['day_key'] ?? '');
+                                                foreach ($rows as $key => $row) {
+                                                    $k = array_key_exists($key, $weekDays) ? $key : (string) ($row['day_key'] ?? '');
                                                     if ($k !== '') {
                                                         $byKey[$k] = $row;
                                                     }
@@ -364,6 +442,9 @@ Section::make(__('location.sections.contacts'))
                                                         'day_key' => $key,
                                                         'day_label' => $label,
                                                         'is_working' => (bool) ($existing['is_working'] ?? !in_array($key, ['sat', 'sun'], true)),
+                                                        'preorder_only' => (bool) ($existing['preorder_only'] ?? false),
+                                                        'preorder_days' => (array) ($existing['preorder_days'] ?? []),
+                                                        'preorder_cutoff_time' => $existing['preorder_cutoff_time'] ?? null,
                                                         'open_time' => (string) ($existing['open_time'] ?? '08:30'),
                                                         'close_time' => (string) ($existing['close_time'] ?? '20:00'),
                                                         'today_cutoff_time' => (string) ($existing['today_cutoff_time'] ?? '19:59'),
@@ -413,6 +494,7 @@ Section::make(__('location.sections.contacts'))
                                                 ->options([5 => '5', 10 => '10', 15 => '15', 20 => '20', 30 => '30'])
                                                 ->default(15)
                                                 ->native(false),
+                                            ...self::preorderFields($weekDays),
                                         ])
                                         ->columns(7)
                                         ->itemLabel(fn (array $state) => (string) ($state['day_label'] ?? 'День')),
@@ -432,12 +514,12 @@ Section::make(__('location.sections.contacts'))
                                     Forms\Components\Repeater::make('schedule_v2.delivery.days')
                                         ->label('Дні тижня')
                                         ->afterStateHydrated(function (Repeater $component, $state) use ($weekDays) {
-                                            $rows = is_array($state) ? array_values($state) : [];
+                                            $rows = is_array($state) ? $state : [];
 
                                             if (count($rows) > 0) {
                                                 $byKey = [];
-                                                foreach ($rows as $row) {
-                                                    $k = (string) ($row['day_key'] ?? '');
+                                                foreach ($rows as $key => $row) {
+                                                    $k = array_key_exists($key, $weekDays) ? $key : (string) ($row['day_key'] ?? '');
                                                     if ($k !== '') {
                                                         $byKey[$k] = $row;
                                                     }
@@ -450,6 +532,9 @@ Section::make(__('location.sections.contacts'))
                                                         'day_key' => $key,
                                                         'day_label' => $label,
                                                         'is_working' => (bool) ($existing['is_working'] ?? !in_array($key, ['sat', 'sun'], true)),
+                                                        'preorder_only' => (bool) ($existing['preorder_only'] ?? false),
+                                                        'preorder_days' => (array) ($existing['preorder_days'] ?? []),
+                                                        'preorder_cutoff_time' => $existing['preorder_cutoff_time'] ?? null,
                                                         'open_time' => (string) ($existing['open_time'] ?? '09:00'),
                                                         'close_time' => (string) ($existing['close_time'] ?? '21:00'),
                                                         'today_cutoff_time' => (string) ($existing['today_cutoff_time'] ?? '20:00'),
@@ -499,6 +584,7 @@ Section::make(__('location.sections.contacts'))
                                                 ->options([5 => '5', 10 => '10', 15 => '15', 20 => '20', 30 => '30'])
                                                 ->default(15)
                                                 ->native(false),
+                                            ...self::preorderFields($weekDays),
                                         ])
                                         ->columns(7)
                                         ->itemLabel(fn (array $state) => (string) ($state['day_label'] ?? 'День')),
@@ -515,6 +601,8 @@ Section::make(__('location.sections.contacts'))
                         ]),
                 ])
                 ->collapsible(),
+
+            ...self::scheduleNoticeFields($weekDays),
 
             Forms\Components\Section::make(__('location.sections.publish'))->schema([
                 Forms\Components\Toggle::make('is_active')->label(__('location.fields.is_active'))->default(true),
